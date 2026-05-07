@@ -27,7 +27,20 @@ May depend on: L0, L1, L2, L3, L4.
 | `03_dns_vpn_management.md` | Resolver backend, WireGuard, mDNS/Avahi gating               | `SHELL` |
 | `04_firmware_trust.md`     | Firmware update classification; signed update paths          | `SHELL` |
 
+## Optional capability provider: ProxGuard
+
+When installed as an AIOS app, ProxGuard may provide network-facing capabilities through L8 policy gates:
+
+- `proxguard.dns.plan`
+- `proxguard.dns.apply`
+- `proxguard.gateway.route`
+- `proxguard.gateway.status`
+- `certificate.challenge.prepare`
+
+L8 remains authoritative for network exposure. ProxGuard may propose DNS, gateway, certificate, and route changes, but public exposure, firewall changes, provider credentials, and certificate challenge updates require AIOS policy approval and evidence.
+
 ## See also
 
 - [Rev.1 §18 — Hardware and Network](../../001.AI-OS.NET--SPECREV.1/02_SPECIFICATION.md)
+- [ProxGuard Reference Model](../XX_Cross_Cutting/02_proxguard_reference_model.md)
 - [Rev.2 Master Index](../00_MASTER_INDEX.md)

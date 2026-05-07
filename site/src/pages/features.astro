@@ -9,7 +9,7 @@ const layers = [
   { id: 'L3', title: 'AIOS-SGR / Capability Runtime', desc: 'Desired-state runtime and typed adapters for service, package, network, repo, secret, and filesystem actions.' },
   { id: 'L4', title: 'Policy / Identity / Vault', desc: 'Default-deny decisions, hard denies, request-bound approvals, secret use-without-reveal, subject identity.' },
   { id: 'L5', title: 'Cognitive Core', desc: 'Capability translator, latency tiering, intent engine, planner, memory, model governance, agents.' },
-  { id: 'L6', title: 'Apps / Packages / Compatibility', desc: 'Linux apps, Windows EXE/MSI through compatibility containers, Android APK through isolated runtime, VM fallback.' },
+  { id: 'L6', title: 'Apps / Packages / Compatibility', desc: 'Linux, Windows, Android, and optional infrastructure apps such as ProxGuard under /aios/apps.' },
   { id: 'L7', title: 'Renderers', desc: 'KDE Plasma, Web, CLI, voice, and mobile as render targets over the same cognitive state.' },
   { id: 'L8', title: 'Network / Hardware / Devices', desc: 'Device graph, network graph, service exposure, peripheral permissions, and edge/cloud bridges.' },
   { id: 'L9', title: 'Observability / Admin / Ops', desc: 'OpenTelemetry, Prometheus, Loki, eBPF signals, health checks, and incident evidence.' },
@@ -42,6 +42,7 @@ const contracts = [
   { title: 'S2.3 Policy Kernel', desc: 'Default deny, hard denies, exact request approvals, policy schema, simulation, decision evidence.' },
   { title: 'S3.1 Evidence Log', desc: 'Append-only WAL, sealed segments, hash chain, indexes, compaction boundaries, redaction.' },
   { title: 'S3.2 Sandbox Composition', desc: 'Most-restrictive composition across adapter, app manifest, request hint, policy, and runtime safety floor.' },
+  { title: 'R1 ProxGuard Reference App', desc: 'Optional AIOS app and capability provider for service deployment, DNS, gateway routing, and audit reading.' },
 ];
 
 const security = [
@@ -57,6 +58,13 @@ const compatibility = [
   { title: 'Linux native', desc: 'Preferred path: declarative packages, containers, Flatpak/AppImage policies, and verified service units.' },
   { title: 'Windows apps', desc: 'Smart installer classifies EXE/MSI, chooses Wine/Proton/Bottles-style runtime, applies per-app prefixes, and falls back to VM when needed.' },
   { title: 'Android apps', desc: 'APK support through isolated Android runtime such as Waydroid-style containerization with explicit device and filesystem permissions.' },
+  { title: 'Infrastructure apps', desc: 'ProxGuard can run as /aios/apps/proxguard and expose typed service, DNS, gateway, and audit capabilities through AIOS policy.' },
+];
+
+const proxguardModel = [
+  { title: 'App boundary', desc: '/aios/apps/proxguard with private state, manifest, sandbox profile, verification plan, and rollback pointer.' },
+  { title: 'Capability provider', desc: 'Exports proxguard.service.*, proxguard.dns.*, proxguard.gateway.*, and proxguard.audit.* actions.' },
+  { title: 'Authority stays in AIOS', desc: 'No raw host authority. Docker, DNS, firewall, vault, and gateway operations pass through policy and evidence.' },
 ];
 
 const renderers = [
@@ -166,12 +174,24 @@ const renderers = [
 
     <section id="compatibility" class="mt-20">
       <SectionDivider label="APP COMPATIBILITY" />
-      <div class="mt-8 grid grid-cols-1 gap-6 md:grid-cols-3">
+      <div class="mt-8 grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-4">
         {compatibility.map((item, i) => (
-          <div class={`card animate stagger-${i + 1}`}>
+          <div class={`card animate stagger-${(i % 6) + 1}`}>
             <div class="mb-3 h-2 w-2 rounded-full bg-[var(--accent)]"></div>
             <h2 class="font-heading text-[16px] font-semibold text-[var(--text)]">{item.title}</h2>
             <p class="mt-2 font-body text-[13px] leading-relaxed text-[var(--muted)]">{item.desc}</p>
+          </div>
+        ))}
+      </div>
+    </section>
+
+    <section class="mt-20">
+      <SectionDivider label="PROXGUARD AS AIOS APP" />
+      <div class="mt-8 grid grid-cols-1 gap-6 md:grid-cols-3">
+        {proxguardModel.map((item, i) => (
+          <div class={`card card-lg animate stagger-${i + 1}`}>
+            <h2 class="font-heading text-[18px] font-semibold text-[var(--text)]">{item.title}</h2>
+            <p class="mt-3 font-body text-[13px] leading-relaxed text-[var(--muted)]">{item.desc}</p>
           </div>
         ))}
       </div>

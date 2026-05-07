@@ -71,3 +71,16 @@ Decision log. Each entry follows ADR (Architecture Decision Record) discipline: 
 - **Consequences:** Rev.2 now reads as a coherent agent contract pack rather than isolated notes. The strongest architectural decisions are explicit: userspace-first AIOS-FS, catalog-bound translation, deterministic latency routing, default-deny policy, append-only evidence, typed verification, and most-restrictive sandbox composition.
 - **Status:** `CONTRACT` draft
 - **Phase tag:** Rev.2 completion pass
+
+---
+
+## DEC-006 — ProxGuard used as prototype donor and optional AIOS app
+
+- **Context:** Local ProxGuard materials contain a working control-plane architecture pattern: manifest-driven simulation, deterministic policy, runtime adapters, release packaging, inbox handoff, production apply, audit events, DNS provider abstraction, and golden path tests. These patterns overlap with AIOS L3 Capability Runtime, L4 Policy Kernel, L8 Network, and L9 Evidence requirements.
+- **Decision:** Treat ProxGuard as a reference donor for concepts and acceptance-test shape, and as a candidate optional AIOS infrastructure app. AIOS may adapt the patterns into AIOS-native contracts: `CapabilityManifest`, typed action target schemas, dry-run execution, sealed approved action packages, isolated executor inbox, evidence receipts, deterministic policy reason codes, DNS capability adapters, and golden path proof scripts. As an app, ProxGuard may live under `/aios/apps/proxguard` and expose typed capabilities such as `proxguard.service.simulate`, `proxguard.service.deploy`, `proxguard.dns.plan`, `proxguard.dns.apply`, `proxguard.gateway.route`, and `proxguard.audit.read`.
+- **Rejected:** Importing ProxGuard product UI, billing/Paddle flows, SaaS workspace assumptions, managed cloud provisioner scope, NGINX/OpenResty product scope, branding, or website content into AIOS Rev.2.
+- **Consequences:** AIOS gets a practical starting shape for the first real Capability Runtime proof and a realistic first system app candidate while keeping its own layer model, Rust-owned execution runtime, action envelope, evidence log, and policy semantics. ProxGuard Python code remains a prototype/reference artifact until tests prove donor behavior and AIOS-native ports or package wrappers are written.
+- **Status:** `CONTRACT` reference note; direct code reuse `DEFERRED`; donor runtime health `UNKNOWN`.
+- **Evidence:** E1 local artifact inspection only; ProxGuard runtime tests were not run during this spec pass.
+- **Phase tag:** R1 reference donor
+- **Document:** [`XX_Cross_Cutting/02_proxguard_reference_model.md`](XX_Cross_Cutting/02_proxguard_reference_model.md)

@@ -32,6 +32,10 @@ May depend on: L0, L1, L2.
 
 L3 consumes the [Action Envelope + Lifecycle contract](../XX_Cross_Cutting/01_action_envelope_lifecycle.md) (S0.1) — this is the wire format and lifecycle for everything that flows through `ExecuteAction`.
 
+L3 also consumes the [ProxGuard Reference Model notes](../XX_Cross_Cutting/02_proxguard_reference_model.md) as a prototype donor for manifest-driven simulation, runtime adapters, sealed package handoff, isolated executor inboxes, and golden path acceptance tests.
+
+If ProxGuard is installed as an AIOS app, L3 may treat it as an optional capability provider for service simulation, deployment, restart, status, DNS plan/apply, gateway routing, and audit read operations. ProxGuard remains outside the core runtime and must pass through AIOS action envelopes, policy, sandboxing, verification, and evidence.
+
 ## See also
 
 - [Rev.1 §10 — AIOS-SGR](../../001.AI-OS.NET--SPECREV.1/02_SPECIFICATION.md)

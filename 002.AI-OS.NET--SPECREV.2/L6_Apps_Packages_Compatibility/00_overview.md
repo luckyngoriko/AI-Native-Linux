@@ -29,7 +29,37 @@ May depend on: L0, L1, L2, L3, L4, L5.
 | `04_sandbox_composition.md`     | Sandbox profile language; SELinux/AppArmor/Landlock/seccomp/cgroups composition                                                                                | `CONTRACT` | S3.2  |
 | `05_compatibility_knowledge.md` | Per-app profile database; ProtonDB-equivalent governance                                                                                                       | `SHELL` | —     |
 
+## Reference system app: ProxGuard
+
+ProxGuard may be packaged as an optional AIOS infrastructure app, not as a core OS dependency.
+
+Target install boundary:
+
+```text
+/aios/apps/proxguard
+  manifest
+  private state
+  requested capabilities
+  sandbox profile
+  verification plan
+  rollback pointer
+```
+
+Candidate app capabilities:
+
+- `proxguard.service.simulate`
+- `proxguard.service.deploy`
+- `proxguard.service.restart`
+- `proxguard.service.status`
+- `proxguard.dns.plan`
+- `proxguard.dns.apply`
+- `proxguard.gateway.route`
+- `proxguard.audit.read`
+
+The app must run through AIOS policy, vault, sandbox, network policy, and evidence logging. It must not receive direct unrestricted root, Docker socket, firewall, DNS, or gateway authority.
+
 ## See also
 
 - [Rev.1 §17 — Application, Package, and Compatibility Model](../../001.AI-OS.NET--SPECREV.1/02_SPECIFICATION.md)
+- [ProxGuard Reference Model](../XX_Cross_Cutting/02_proxguard_reference_model.md)
 - [Rev.2 Master Index](../00_MASTER_INDEX.md)

@@ -57,7 +57,16 @@ const rev2Contracts = [
   { label: 'S1.2', title: 'Latency Tiering', desc: 'Direct path, local model path, powerful reasoning path, degradation.' },
   { label: 'S1.3', title: 'AIOS-FS Core', desc: 'Object model, conflict records, optimistic concurrency, staged merge.' },
   { label: 'S2.3', title: 'Policy Kernel', desc: 'Default deny, hard denies, exact-request approvals, simulation.' },
-  { label: 'S3.1', title: 'Evidence Log', desc: 'Append-only WAL, sealed segments, hash chain, indexes, redaction.' },
+  { label: 'R1', title: 'ProxGuard App', desc: 'Optional infrastructure app for service, DNS, gateway, and audit capabilities.' },
+];
+
+const proxguardCapabilities = [
+  'proxguard.service.simulate',
+  'proxguard.service.deploy',
+  'proxguard.dns.plan',
+  'proxguard.dns.apply',
+  'proxguard.gateway.route',
+  'proxguard.audit.read',
 ];
 ---
 
@@ -111,7 +120,7 @@ const rev2Contracts = [
         <StatCard number="Rev.2" label="Contract Pack" description="Agent-readable spec" />
       </div>
       <div class="animate stagger-2">
-        <StatCard number="27" label="Spec Files" description="Layered documents" />
+        <StatCard number="28" label="Spec Files" description="Layered documents" />
       </div>
       <div class="animate stagger-3">
         <StatCard number="Typed" label="System Actions" description="No free-form sudo bash" />
@@ -179,6 +188,32 @@ const rev2Contracts = [
           <p class="mt-2 font-body text-[13px] leading-relaxed text-[var(--muted)]">{contract.desc}</p>
         </div>
       ))}
+    </div>
+  </section>
+
+  <section class="bg-[var(--surface-1)] py-16">
+    <div class="mx-auto max-w-content px-8">
+      <SectionDivider label="FIRST SYSTEM APP" />
+      <div class="mt-8 grid grid-cols-1 gap-10 lg:grid-cols-[0.9fr_1.1fr]">
+        <div>
+          <div class="inline-block rounded-badge bg-[rgba(206,40,103,0.08)] px-3 py-1.5">
+            <span class="font-body text-[11px] font-medium text-[#ce2867]">/aios/apps/proxguard</span>
+          </div>
+          <h2 class="mt-6 font-heading text-[28px] font-bold text-[var(--text)]">
+            ProxGuard becomes<br />an AIOS infrastructure app.
+          </h2>
+          <p class="mt-4 font-body text-[15px] leading-[1.7] text-[var(--muted)]">
+            ProxGuard is not part of the OS core. It can run as a sandboxed system app that provides service deployment, DNS, gateway, and audit capabilities through AIOS policy, vault, verification, and evidence.
+          </p>
+        </div>
+        <div class="grid grid-cols-1 gap-3 md:grid-cols-2">
+          {proxguardCapabilities.map((capability, i) => (
+            <div class={`animate stagger-${(i % 6) + 1} rounded-[8px] border border-[var(--border)] bg-[var(--bg)] p-4`}>
+              <span class="font-mono text-[11px] text-[var(--accent)]">{capability}</span>
+            </div>
+          ))}
+        </div>
+      </div>
     </div>
   </section>
 

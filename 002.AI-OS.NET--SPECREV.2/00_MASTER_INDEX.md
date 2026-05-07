@@ -32,9 +32,10 @@ Dependency rule: a layer may depend on its own layer and lower-numbered layers. 
 
 Contracts shared by multiple layers live here.
 
-| Contract                    | Document                                                                                             | Consumed by    | Status                                       |
-| --------------------------- | ---------------------------------------------------------------------------------------------------- | -------------- | -------------------------------------------- |
-| Action Envelope + Lifecycle | [XX_Cross_Cutting/01_action_envelope_lifecycle.md](XX_Cross_Cutting/01_action_envelope_lifecycle.md) | L3, L4, L5, L9 | `CONTRACT` (S0.1 design approved 2026-05-07) |
+| Contract                    | Document                                                                                             | Consumed by        | Status                                       |
+| --------------------------- | ---------------------------------------------------------------------------------------------------- | ------------------ | -------------------------------------------- |
+| Action Envelope + Lifecycle | [XX_Cross_Cutting/01_action_envelope_lifecycle.md](XX_Cross_Cutting/01_action_envelope_lifecycle.md) | L3, L4, L5, L9     | `CONTRACT` (S0.1 design approved 2026-05-07) |
+| ProxGuard Reference Model   | [XX_Cross_Cutting/02_proxguard_reference_model.md](XX_Cross_Cutting/02_proxguard_reference_model.md) | L3, L4, L6, L8, L9 | `CONTRACT` reference note                    |
 
 ## Status legend (L0 taxonomy)
 
@@ -64,3 +65,7 @@ Phase 3 (operational):
 
 - **S3.1** — Evidence log architecture → `L9_Observability_Admin_Operations/01_evidence_log.md` (`CONTRACT` draft)
 - **S3.2** — Sandbox composition language → `L6_Apps_Packages_Compatibility/04_sandbox_composition.md` (`CONTRACT` draft)
+
+Reference donors:
+
+- **R1** — ProxGuard control-plane patterns and optional AIOS system app → `XX_Cross_Cutting/02_proxguard_reference_model.md` (`CONTRACT` reference note; E1 artifact inspection only)

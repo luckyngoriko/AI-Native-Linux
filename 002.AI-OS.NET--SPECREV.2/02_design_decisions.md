@@ -28,6 +28,26 @@ Decision log. Each entry follows ADR (Architecture Decision Record) discipline: 
 
 ---
 
-## DEC-003 — TBD
+## DEC-003 — Action Envelope + Lifecycle (S0.1) design choices
 
-(Future decisions land here.)
+- **Context:** Rev.1 §13 sketched an action envelope and lifecycle but left major gaps: idempotency, causality, formal error model, lifecycle FSM precision, schema versioning, OpenTelemetry handling, sandbox profile binding, and dry-run modes. S0.1 closes these per scope option **B — Pragmatic+** (agreed at brainstorming).
+- **Key decisions captured in [`XX_Cross_Cutting/01_action_envelope_lifecycle.md`](XX_Cross_Cutting/01_action_envelope_lifecycle.md):**
+  - **Envelope style:** custom AIOS-native, proto-first, with `request`/`execution` field-level separation borrowed from Kubernetes API machinery. CloudEvents (event-style, not command-style) and full K8s API machinery (overkill for AIOS) were rejected.
+  - **Top-level partition:** `schema_version`, `identity`, `request`, `execution`, `trace`. `identity` and `request` are caller-set and immutable after creation; `execution` is runtime-set and mutates over the lifecycle; `trace` is transport metadata.
+  - **IDs:** ULID (Crockford base32, 26 chars), prefix-namespaced (`act_`, `intent_`, `plan_`, `corr_`, `evr_`, `polreq_`, `poldec_`, `appr_`). Chosen over UUID for chronological sortability and compactness.
+  - **Idempotency:** Stripe-style separate `idempotency_key` field with 24h default TTL. Same key + same `hash(request)` deduplicates; same key + different hash returns `IdempotencyConflict`.
+  - **Causality:** single-parent `parent_action_id` with cycle detection. Multi-parent saga deferred.
+  - **Lifecycle:** five-phase FSM (`PENDING`, `RUNNING`, `SUCCEEDED`, `FAILED`, `ROLLED_BACK`) with K8s-style `conditions[]` for fine-grained facts. Six valid transitions; terminal phases are truly terminal (post-hoc rollback is a new envelope, not a transition).
+  - **Result and Error:** two independent optional fields (not `oneof`), enabling `ROLLED_BACK` to populate both (cause + rollback summary). Population rules enforced by Capability Runtime.
+  - **Error taxonomy:** ~30 canonical PascalCase codes grouped into validation/policy/auth/execution/verification/rollback/infrastructure. Recursive `cause` chain bounded at depth 8. `retryable` hint as a non-binding caller hint. English `message`; localization is a renderer concern.
+  - **Versioning:** proto API style (`v1alpha1` → `v1betaN` → `v1` → `v2`), not SemVer. Stable allows additive changes only; breaking changes require major version bump with 12-month dual-version support.
+  - **Canonical encoding:** proto3 deterministic serialization for the wire and idempotency hashes; JCS (RFC 8785) for JSON projection in evidence. **BLAKE3** (256-bit) for all canonical hashes.
+  - **Trace context:** standard W3C Trace Context, no AIOS-specific extensions; child actions inherit parent `trace_id`.
+  - **Sandbox profile:** resolved at execution start as `max_restriction(policy_required, caller_request, adapter_default)`. Fail-closed if all unset.
+  - **Dry-run modes:** `LIVE` (default), `VALIDATE` (schema/idempotency only), `SIMULATE` (full path with simulated execution; sandbox still applied; evidence marked `simulated=true`). Adapters that handle destructive operations must declare a `simulate` capability.
+  - **gRPC interface:** simplified from rev.1's nine RPCs to six. Single entry point `SubmitAction` (replaces `Validate`/`EvaluatePolicy`/`Execute`/`Verify`/`Rollback` orchestration). Streaming `WatchAction` replaces polling. New `GetCapabilityRuntimeInfo` for version negotiation.
+- **Out of scope (intentionally deferred):** subject canonical format (L4 identity), saga composition, approval delivery mechanics (L4), TTL/expiration, resource budgets.
+- **Consequences:** L3 (Capability Runtime), L4 (Policy Kernel client), L5 (Cognitive Core), L9 (Evidence) now have a stable contract to build against. Phase 1 sub-specs (Capability Translator S1.1, Latency Tiering S1.2, AIOS-FS object model S1.3) can proceed without re-litigating action contract questions.
+- **Status:** `CONTRACT` (design approved 2026-05-07; awaits implementation evidence to escalate to `REAL`).
+- **Phase tag:** S0.1
+- **Schema version:** `aios.action.v1alpha1`

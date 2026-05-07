@@ -32,9 +32,9 @@ Dependency rule: a layer may depend on its own layer and lower-numbered layers. 
 
 Contracts shared by multiple layers live here.
 
-| Contract                    | Document                                                                                             | Consumed by    | Status                                   |
-| --------------------------- | ---------------------------------------------------------------------------------------------------- | -------------- | ---------------------------------------- |
-| Action Envelope + Lifecycle | [XX_Cross_Cutting/01_action_envelope_lifecycle.md](XX_Cross_Cutting/01_action_envelope_lifecycle.md) | L3, L4, L5, L9 | `SHELL` (S0.1 brainstorming in progress) |
+| Contract                    | Document                                                                                             | Consumed by    | Status                                       |
+| --------------------------- | ---------------------------------------------------------------------------------------------------- | -------------- | -------------------------------------------- |
+| Action Envelope + Lifecycle | [XX_Cross_Cutting/01_action_envelope_lifecycle.md](XX_Cross_Cutting/01_action_envelope_lifecycle.md) | L3, L4, L5, L9 | `CONTRACT` (S0.1 design approved 2026-05-07) |
 
 ## Status legend (L0 taxonomy)
 

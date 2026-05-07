@@ -6,21 +6,54 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 **AIOS — AI-Native Linux / Unified Cognitive Shell.** A specification-stage project for an operating environment that sits _above_ the Linux kernel and turns human goals into typed, policy-checked, verified system actions.
 
-This is **not yet a code repository**. As of the current snapshot it contains only:
+The repository is currently in **specification-only phase** — no source code, no build system, no test suite. Active work is the rev.2 layered specification.
 
-- `README.md` — architecture vision, rev.1
-- `SPECIFICATION.md` — the canonical engineering contract, rev.1
-- `ai-os-logo-home.png` — logo asset
-- `firebase-debug.log` — stray log file from outside tooling, ignore
-- `.agents/`, `.codex/`, `.playwright-mcp/` — empty or tooling-only directories
+## Repository layout
 
-There is **no source code, no build system, no test suite, and no git history yet** (despite any shell context to the contrary — `git status` from inside the repo errors with "not a git repository"). Any future implementation work must therefore start with `git init` and an explicit scaffolding task, agreed with the user.
+```text
+055.AI-OS.NET--LINUX-AI/
+├── 001.AI-OS.NET--SPECREV.1/           # Frozen rev.1 (verbatim move of original two files)
+│   ├── 00_MASTER_INDEX.md
+│   ├── 01_README.md                    # Original architecture vision
+│   └── 02_SPECIFICATION.md             # Original canonical contract (24 sections)
+│
+├── 002.AI-OS.NET--SPECREV.2/           # Active rev.2 — layered rewrite
+│   ├── 00_MASTER_INDEX.md
+│   ├── 01_executive_summary.md
+│   ├── 02_design_decisions.md          # ADR-style decision log
+│   ├── 03_architecture_overview.md
+│   ├── L0_Governance_Evidence_Safety/  # one folder per layer L0–L10
+│   ├── L1_Kernel_Bootstrap_Recovery/
+│   ├── L2_AIOS_FS/
+│   ├── L3_AIOS_SGR_Service_Graph_Runtime/
+│   ├── L4_Policy_Identity_Vault/
+│   ├── L5_Cognitive_Core/
+│   ├── L6_Apps_Packages_Compatibility/
+│   ├── L7_Interaction_Renderers/
+│   ├── L8_Network_Hardware_Devices/
+│   ├── L9_Observability_Admin_Operations/
+│   ├── L10_Distribution_Ecosystem_Marketplace/
+│   └── XX_Cross_Cutting/               # contracts shared by multiple layers
+│
+├── README.md                            # top-level navigation
+├── CLAUDE.md                            # this file
+├── ai-os-logo-home.png
+└── .gitignore
+```
+
+Each layer folder starts with `00_overview.md` (responsibility, invariants, dependencies, planned sub-specs) and grows numbered sub-spec files (`01_<topic>.md`, `02_<topic>.md`, ...) as work progresses.
 
 ## Authoritative source of truth
 
-`SPECIFICATION.md` is the contract. Read it before proposing any implementation, architecture change, or naming. The README is a vision summary; the spec overrides it on any conflict.
+- **Rev.1** (`001.AI-OS.NET--SPECREV.1/02_SPECIFICATION.md`) is the **frozen** engineering contract. Do not modify; corrections go into rev.2.
+- **Rev.2** (`002.AI-OS.NET--SPECREV.2/`) is the **active** specification. Each sub-spec under a layer folder is contract-grade for that topic when its status reaches `REAL`.
+- **Rev.2 master index** (`002.AI-OS.NET--SPECREV.2/00_MASTER_INDEX.md`) is the navigation entry point and the sub-spec roadmap.
 
-When the user gives a high-level objective, map it to a section of SPECIFICATION.md and a layer in the L0–L10 model below before writing code or planning files.
+When the user gives a high-level objective, map it to:
+
+1. a layer in the L0–L10 model (per Rev.1 §6),
+2. a planned sub-spec listed in that layer's `00_overview.md`,
+3. or a cross-cutting contract under `XX_Cross_Cutting/`.
 
 ## Layer model (memorize this)
 

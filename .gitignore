@@ -1,0 +1,24 @@
+# Logs from external tooling
+firebase-debug.log
+*.log
+
+# Playwright MCP captures
+.playwright-mcp/
+
+# AI agent / IDE local config (kept empty in tree)
+.agents/
+.codex/
+
+# OS / editor noise
+.DS_Store
+Thumbs.db
+*.swp
+*~
+
+# Future build outputs (placeholders for when implementation begins)
+target/
+node_modules/
+dist/
+build/
+__pycache__/
+*.pyc

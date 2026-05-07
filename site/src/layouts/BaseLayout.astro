@@ -1,0 +1,143 @@
+---
+import Nav from '../components/Nav.astro';
+import Footer from '../components/Footer.astro';
+import '../styles/global.css';
+
+interface Props {
+  title: string;
+  description?: string;
+  ogImage?: string;
+}
+
+const {
+  title,
+  description = 'AI-OS.NET is an AI-native Linux cognitive shell: a semantic operating layer where goals become typed, policy-checked, verified system actions.',
+  ogImage = '/aios-logo.svg',
+} = Astro.props;
+
+const canonicalUrl = `https://ai-os.net${Astro.url.pathname}`;
+const ogImageUrl = `https://ai-os.net${ogImage}`;
+
+const schema = {
+  "@context": "https://schema.org",
+  "@graph": [
+    {
+      "@type": "Organization",
+      "@id": "https://ai-os.net/#organization",
+      "name": "AI-OS.NET",
+      "url": "https://ai-os.net",
+      "description": "AI-native Linux cognitive shell and semantic operating environment.",
+      "foundingDate": "2026",
+      "parentOrganization": {
+        "@type": "Organization",
+        "name": "iconys",
+        "url": "https://iconys.bg"
+      }
+    },
+    {
+      "@type": "WebSite",
+      "@id": "https://ai-os.net/#website",
+      "name": "AI-OS.NET",
+      "url": "https://ai-os.net",
+      "publisher": { "@id": "https://ai-os.net/#organization" }
+    },
+    {
+      "@type": "SoftwareApplication",
+      "name": "AI-OS.NET",
+      "applicationCategory": "OperatingSystem",
+      "operatingSystem": "Linux",
+      "url": "https://ai-os.net",
+      "description": "AI-native Linux cognitive shell with semantic runtime, policy kernel, typed actions, and unified KDE/Web renderers.",
+      "provider": { "@id": "https://ai-os.net/#organization" }
+    }
+  ]
+};
+---
+
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>{title}</title>
+    <meta name="description" content={description} />
+    <meta name="author" content="AI-OS.NET" />
+    <meta name="robots" content="index, follow" />
+
+    <link rel="icon" href="/aios-logo.svg" type="image/svg+xml" />
+    <link rel="alternate icon" href="/favicon.ico" sizes="32x32" />
+
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="AI-OS.NET" />
+    <meta property="og:title" content={title} />
+    <meta property="og:description" content={description} />
+    <meta property="og:url" content={canonicalUrl} />
+    <meta property="og:image" content={ogImageUrl} />
+    <meta property="og:image:width" content="512" />
+    <meta property="og:image:height" content="512" />
+    <meta property="og:image:alt" content="AI-OS.NET - AI-Native Linux / Unified Cognitive Shell" />
+
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content={title} />
+    <meta name="twitter:description" content={description} />
+    <meta name="twitter:image" content={ogImageUrl} />
+
+    <link rel="canonical" href={canonicalUrl} />
+
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400&family=Playfair+Display:wght@600;700&display=swap" rel="stylesheet" />
+
+    <script is:inline>
+      (function(){
+        var t = localStorage.getItem('theme');
+        if (t === 'dark') document.documentElement.setAttribute('data-theme', 'dark');
+        else if (t === 'light') document.documentElement.setAttribute('data-theme', 'light');
+      })();
+    </script>
+
+    <script type="application/ld+json" set:html={JSON.stringify(schema)} />
+  </head>
+  <body class="flex min-h-screen flex-col">
+    <div class="parallax-bg" aria-hidden="true"></div>
+    <Nav />
+    <main class="flex-1">
+      <slot />
+    </main>
+    <Footer />
+    <script is:inline>
+      (function() {
+        if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+
+        var observer = new IntersectionObserver(function(entries) {
+          entries.forEach(function(entry) {
+            if (entry.isIntersecting) {
+              entry.target.classList.add('animated');
+              observer.unobserve(entry.target);
+            }
+          });
+        }, { threshold: 0.1 });
+
+        document.querySelectorAll('.animate').forEach(function(el) {
+          observer.observe(el);
+        });
+
+        var ticking = false;
+        window.addEventListener('scroll', function() {
+          if (!ticking) {
+            requestAnimationFrame(function() {
+              document.documentElement.style.setProperty('--scroll-y', window.scrollY);
+              ticking = false;
+            });
+            ticking = true;
+          }
+        }, { passive: true });
+
+        var parallax = document.querySelector('.parallax-bg');
+        if (parallax && window.innerWidth < 768) {
+          parallax.style.display = 'none';
+        }
+      })();
+    </script>
+  </body>
+</html>

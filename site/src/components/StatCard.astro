@@ -1,0 +1,13 @@
+---
+interface Props {
+  number: string;
+  label: string;
+  description: string;
+}
+const { number, label, description } = Astro.props;
+---
+<div class="card">
+  <span class="block font-mono text-[32px] text-[var(--text)]">{number}</span>
+  <span class="mt-2 block font-body text-[13px] text-[var(--muted)]">{label}</span>
+  <span class="mt-1 block font-body text-[11px] text-[var(--muted)]">{description}</span>
+</div>

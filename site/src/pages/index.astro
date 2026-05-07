@@ -1,0 +1,251 @@
+---
+import BaseLayout from '../layouts/BaseLayout.astro';
+import SectionDivider from '../components/SectionDivider.astro';
+import StatCard from '../components/StatCard.astro';
+
+const pillars = [
+  {
+    title: 'Capability Translator',
+    desc: 'Maps intent to known typed capabilities through catalog-bound translation, not shell generation.',
+  },
+  {
+    title: 'Latency Tiering',
+    desc: 'Routes simple commands through deterministic paths and escalates only when cognition is needed.',
+  },
+  {
+    title: 'AIOS-FS Contracts',
+    desc: 'Defines immutable objects, versions, chunks, pointer promotion, semantic views, and conflicts.',
+  },
+  {
+    title: 'Policy Kernel',
+    desc: 'Default-deny decision engine with hard denies, request-bound approvals, and simulation.',
+  },
+];
+
+const surfaces = [
+  { title: 'KDE Desktop', desc: 'Native Plasma shell, KRunner workflows, widgets, panels, tray, Wayland.' },
+  { title: 'Web Interface', desc: 'Remote and tablet access to the same state, same workflows, same cognitive core.' },
+  { title: 'CLI + Voice', desc: 'Low-friction text and voice surfaces over the same semantic runtime.' },
+];
+
+const bootFlow = [
+  'Install a minimal Linux base with a generic kernel.',
+  'Map the exact hardware, firmware, buses, devices, drivers, and threat surface.',
+  'Fetch trusted kernel sources and prepare a host-specific configuration.',
+  'Build a hardened kernel in a sandbox with reproducible evidence.',
+  'Boot the new kernel atomically and keep a recovery path through the base system.',
+];
+
+const runtimeFlow = [
+  { step: 'Goal', value: 'prepare Rust dev environment' },
+  { step: 'Plan', value: 'toolchain, IDE, checks, sample project' },
+  { step: 'Typed Action', value: 'package.install, file.write, service.enable' },
+  { step: 'Policy', value: 'approval, deny rules, scoped permissions' },
+  { step: 'Verify', value: 'cargo works, editor launches, evidence saved' },
+];
+
+const fsCells = [
+  { label: '/root', value: 'Recovery island. Small, protected, boring, always bootable.' },
+  { label: '/aios', value: 'Semantic filesystem root for apps, memory, state, evidence, and user work.' },
+  { label: 'App cells', value: 'Every application gets an isolated read/write work area and declared capabilities.' },
+  { label: 'Read-only base', value: 'System image is immutable by default. Changes are layered, audited, and reversible.' },
+];
+
+const rev2Contracts = [
+  { label: 'S0.1', title: 'Action Envelope', desc: 'Typed request, lifecycle FSM, errors, idempotency, trace, dry-run.' },
+  { label: 'S1.1', title: 'Capability Translator', desc: 'Catalog-bound compiler from intent to action drafts.' },
+  { label: 'S1.2', title: 'Latency Tiering', desc: 'Direct path, local model path, powerful reasoning path, degradation.' },
+  { label: 'S1.3', title: 'AIOS-FS Core', desc: 'Object model, conflict records, optimistic concurrency, staged merge.' },
+  { label: 'S2.3', title: 'Policy Kernel', desc: 'Default deny, hard denies, exact-request approvals, simulation.' },
+  { label: 'S3.1', title: 'Evidence Log', desc: 'Append-only WAL, sealed segments, hash chain, indexes, redaction.' },
+];
+---
+
+<BaseLayout
+  title="AI-OS.NET - AI-Native Linux / Unified Cognitive Shell"
+  description="AI-OS.NET is an AI-native Linux cognitive shell: a semantic operating layer where goals become typed, policy-checked, verified system actions."
+>
+  <section class="relative overflow-hidden py-28 md:py-32">
+    <div class="hero-glow"></div>
+    <div class="mx-auto grid max-w-content items-center gap-12 px-8 lg:grid-cols-[1.05fr_0.95fr]">
+      <div>
+        <div class="animate inline-block rounded-badge bg-[rgba(206,40,103,0.08)] px-3 py-1.5">
+          <span class="font-body text-[11px] font-medium text-[#ce2867]">Specification Revision 2</span>
+        </div>
+        <h1 class="animate mt-6 font-heading text-[44px] font-bold leading-tight text-[var(--text)] md:text-[64px]" style="animation-delay:100ms">
+          AI-Native Linux.<br />Unified Cognitive Shell.
+        </h1>
+        <p class="animate mt-6 max-w-[680px] font-body text-[18px] leading-relaxed text-[var(--muted)]" style="animation-delay:200ms">
+          AI-OS.NET is not another Linux distribution. Revision 2 turns the vision into contract-grade specifications: typed actions, policy decisions, AIOS-FS objects, verification, evidence, and sandboxed execution.
+        </p>
+        <p class="animate mt-4 font-body text-[13px] text-[var(--muted)]" style="animation-delay:250ms">
+          An <a href="https://iconys.bg/products/ai-os" target="_blank" rel="noopener" class="text-[var(--text)] hover:text-[var(--accent)] transition-colors">iconys Engineering Intelligence</a> operating system project.
+        </p>
+        <div class="animate mt-10 flex flex-col gap-4 sm:flex-row" style="animation-delay:300ms">
+          <a href="/features" class="btn btn-hero btn-primary no-underline">Explore Architecture</a>
+          <a href="/roadmap" class="btn btn-hero no-underline border border-[var(--border)]">Read Revision 2 Contracts</a>
+        </div>
+      </div>
+
+      <div class="animate card card-lg relative overflow-hidden" style="animation-delay:200ms">
+        <div class="absolute right-6 top-6 h-2 w-2 rounded-full bg-[var(--accent)]"></div>
+        <img src="/aios-logo.svg" alt="AI-OS.NET animated logo" class="mx-auto h-[180px] w-[180px] md:h-[220px] md:w-[220px]" />
+        <div class="mt-8 rounded-[8px] border border-[var(--border)] bg-[var(--bg)] p-5">
+          <pre class="whitespace-pre-wrap font-mono text-[12px] leading-relaxed text-[var(--muted)]">Human Goal
+  -&gt; Cognitive Core
+  -&gt; Semantic Runtime
+  -&gt; Policy Kernel
+  -&gt; Capability Runtime
+  -&gt; Linux / Cloud / Devices</pre>
+        </div>
+        <p class="mt-5 font-body text-[13px] leading-relaxed text-[var(--muted)]">
+          One cognitive layer. Many render targets. One shared operational state.
+        </p>
+      </div>
+    </div>
+  </section>
+
+  <section class="bg-[var(--surface-1)] py-16">
+    <div class="mx-auto grid max-w-content grid-cols-2 gap-8 px-8 lg:grid-cols-4">
+      <div class="animate stagger-1">
+        <StatCard number="Rev.2" label="Contract Pack" description="Agent-readable spec" />
+      </div>
+      <div class="animate stagger-2">
+        <StatCard number="27" label="Spec Files" description="Layered documents" />
+      </div>
+      <div class="animate stagger-3">
+        <StatCard number="Typed" label="System Actions" description="No free-form sudo bash" />
+      </div>
+      <div class="animate stagger-4">
+        <StatCard number="KDE+Web" label="Unified UX" description="Same state, two renderers" />
+      </div>
+    </div>
+  </section>
+
+  <section id="architecture" class="mx-auto max-w-content px-8 py-16">
+    <SectionDivider label="CORE IDEA" />
+    <div class="mt-8 grid grid-cols-1 gap-10 lg:grid-cols-[0.9fr_1.1fr]">
+      <div>
+        <h2 class="font-heading text-[28px] font-bold text-[var(--text)]">
+          Rev.2 becomes<br />the system contract.
+        </h2>
+        <p class="mt-4 font-body text-[15px] leading-[1.7] text-[var(--muted)]">
+          Linux stays the execution substrate. AI-OS adds a typed contract stack above it: capability translation, latency routing, AIOS-FS object truth, policy decisions, verification, evidence, and sandbox composition.
+        </p>
+      </div>
+      <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
+        {pillars.map((p, i) => (
+          <div class={`card animate stagger-${i + 1}`}>
+            <div class="mb-3 h-2 w-2 rounded-full bg-[var(--accent)]"></div>
+            <h3 class="font-heading text-[16px] font-semibold text-[var(--text)]">{p.title}</h3>
+            <p class="mt-2 font-body text-[13px] leading-relaxed text-[var(--muted)]">{p.desc}</p>
+          </div>
+        ))}
+      </div>
+    </div>
+  </section>
+
+  <section id="runtime" class="bg-[var(--surface-1)] py-16">
+    <div class="mx-auto max-w-content px-8">
+      <SectionDivider label="EXECUTION MODEL" />
+      <div class="mt-8 grid grid-cols-1 gap-10 lg:grid-cols-[0.85fr_1.15fr]">
+        <div>
+          <h2 class="font-heading text-[28px] font-bold text-[var(--text)]">
+            Goals become verified<br />typed actions.
+          </h2>
+          <p class="mt-4 font-body text-[15px] leading-[1.7] text-[var(--muted)]">
+            AI never directly executes shell commands. It proposes semantic operations. The Policy Kernel checks them. The Capability Runtime performs them through typed adapters. Verification proves the result.
+          </p>
+        </div>
+        <div class="grid grid-cols-1 gap-3">
+          {runtimeFlow.map((item, i) => (
+            <div class={`animate stagger-${i + 1} grid grid-cols-[120px_1fr] gap-4 rounded-[8px] border border-[var(--border)] bg-[var(--bg)] p-4`}>
+              <span class="font-mono text-[11px] uppercase tracking-[0.08em] text-[var(--accent)]">{item.step}</span>
+              <span class="font-body text-[13px] text-[var(--muted)]">{item.value}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="mx-auto max-w-content px-8 py-16">
+    <SectionDivider label="REVISION 2 CONTRACTS" />
+    <div class="mt-8 grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
+      {rev2Contracts.map((contract, i) => (
+        <div class={`card animate stagger-${(i % 6) + 1}`}>
+          <span class="font-mono text-[12px] text-[var(--accent)]">{contract.label}</span>
+          <h3 class="mt-3 font-heading text-[17px] font-semibold text-[var(--text)]">{contract.title}</h3>
+          <p class="mt-2 font-body text-[13px] leading-relaxed text-[var(--muted)]">{contract.desc}</p>
+        </div>
+      ))}
+    </div>
+  </section>
+
+  <section class="mx-auto max-w-content px-8 py-16">
+    <SectionDivider label="FIRST BOOT" />
+    <div class="mt-8 grid grid-cols-1 gap-10 lg:grid-cols-[1fr_1fr]">
+      <div>
+        <h2 class="font-heading text-[28px] font-bold text-[var(--text)]">
+          Generic boot.<br />Dedicated host.
+        </h2>
+        <p class="mt-4 font-body text-[15px] leading-[1.7] text-[var(--muted)]">
+          The base system starts with a stable generic Linux kernel. After installation, AI-OS builds a machine-specific hardened kernel in a sandbox, validates it, and switches only after evidence passes.
+        </p>
+      </div>
+      <div class="flex flex-col gap-3">
+        {bootFlow.map((step, i) => (
+          <div class={`card card-compact animate stagger-${i + 1}`}>
+            <span class="font-mono text-[12px] text-[var(--accent)]">0{i + 1}</span>
+            <p class="mt-1 font-body text-[13px] leading-relaxed text-[var(--muted)]">{step}</p>
+          </div>
+        ))}
+      </div>
+    </div>
+  </section>
+
+  <section id="filesystem" class="bg-[var(--surface-1)] py-16">
+    <div class="mx-auto max-w-content px-8">
+      <SectionDivider label="AIOS-FS" />
+      <div class="mt-8 text-center">
+        <h2 class="font-heading text-[28px] font-bold text-[var(--text)]">
+          Recovery stays boring.<br />The new system lives in /aios.
+        </h2>
+        <p class="mx-auto mt-4 max-w-narrow font-body text-[15px] leading-[1.7] text-[var(--muted)]">
+          AIOS-FS is a semantic filesystem direction: read-only base, isolated app cells, persistent evidence, typed metadata, and human-readable recovery outside the cognitive layer.
+        </p>
+      </div>
+      <div class="mt-12 grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4">
+        {fsCells.map((cell, i) => (
+          <div class={`card animate stagger-${i + 1}`}>
+            <span class="font-mono text-[12px] text-[var(--accent)]">{cell.label}</span>
+            <p class="mt-3 font-body text-[13px] leading-relaxed text-[var(--muted)]">{cell.value}</p>
+          </div>
+        ))}
+      </div>
+    </div>
+  </section>
+
+  <section class="mx-auto max-w-content px-8 py-16">
+    <SectionDivider label="UNIFIED UX" />
+    <div class="mt-8 grid grid-cols-1 gap-6 md:grid-cols-3">
+      {surfaces.map((surface, i) => (
+        <div class={`card card-lg animate stagger-${i + 1}`}>
+          <h3 class="font-heading text-[18px] font-semibold text-[var(--text)]">{surface.title}</h3>
+          <p class="mt-3 font-body text-[13px] leading-relaxed text-[var(--muted)]">{surface.desc}</p>
+        </div>
+      ))}
+    </div>
+  </section>
+
+  <section class="bg-[var(--surface-1)] py-16 text-center">
+    <h2 class="animate font-heading text-[32px] font-bold text-[var(--text)]">Not commands.<br />Operational cognition.</h2>
+    <p class="animate mx-auto mt-4 max-w-narrow font-body text-[15px] leading-relaxed text-[var(--muted)]" style="animation-delay:200ms">
+          Revision 2 is the first coherent contract pack: action envelopes, capability translation, latency tiers, AIOS-FS, policy, verification, evidence, and sandbox composition.
+    </p>
+    <div class="animate mt-8 flex flex-col items-center justify-center gap-4 sm:flex-row" style="animation-delay:400ms">
+      <a href="/features" class="btn btn-hero btn-primary no-underline">Architecture Layers</a>
+      <a href="/roadmap" class="btn btn-hero no-underline border border-[var(--border)]">Revision 2</a>
+    </div>
+  </section>
+</BaseLayout>

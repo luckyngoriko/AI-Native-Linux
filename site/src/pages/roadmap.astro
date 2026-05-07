@@ -1,0 +1,155 @@
+---
+import BaseLayout from '../layouts/BaseLayout.astro';
+import SectionDivider from '../components/SectionDivider.astro';
+
+const phases = [
+  {
+    name: 'Revision 2 Contract Pack',
+    status: 'Current',
+    items: ['27 markdown files', '4088 specification lines', 'Layered L0-L10 structure', 'Agent-readable contract boundaries'],
+  },
+  {
+    name: 'Phase 0 Foundation',
+    status: 'Contract',
+    items: ['S0.1 Action Envelope + Lifecycle', 'S0.2 Adaptive Backend resolution', 'Request/execution separation', 'Evidence-first lifecycle'],
+  },
+  {
+    name: 'Phase 1 Core Killers',
+    status: 'Drafted',
+    items: ['S1.1 Capability Translator', 'S1.2 Latency Tiering', 'S1.3 AIOS-FS Object Model', 'S1.3 Conflict Resolution'],
+  },
+  {
+    name: 'Phase 2 + 3 Operating Contracts',
+    status: 'Drafted',
+    items: ['Query/View Language', 'Policy Kernel', 'Verification Grammar', 'Evidence Log', 'Sandbox Composition'],
+  },
+];
+
+const decisions = [
+  { title: 'Catalog-bound cognition', desc: 'The Capability Translator is a compiler over known capability manifests, not a prompt-to-shell system.' },
+  { title: 'Fast path is still safe', desc: 'Latency tiers can bypass large models, but they cannot bypass typed actions, policy, verification, or evidence.' },
+  { title: 'Userspace-first AIOS-FS', desc: 'AIOS-FS starts as an authoritative userspace object store with FUSE and portal projections; kernel work is deferred.' },
+  { title: 'Default-deny policy', desc: 'The Policy Kernel uses hard denies, exact request approvals, simulation, and evidence-linked decisions.' },
+  { title: 'Verification as grammar', desc: 'Success is typed and checked through primitives such as service.active, package.installed, http.ok, and evidence.exists.' },
+  { title: 'Most-restrictive sandbox', desc: 'Sandbox composition merges adapter defaults, app manifests, user hints, policy, and runtime floors toward stricter profiles.' },
+];
+
+const deferred = [
+  'A new kernel from scratch.',
+  'A full RTOS replacement for the desktop.',
+  'Unverified 100/100 security claims.',
+  'AI modifying low-level infrastructure without evidence and rollback.',
+  'A separate web admin panel that diverges from KDE state.',
+];
+
+const files = [
+  'XX_Cross_Cutting/01_action_envelope_lifecycle.md',
+  'L5_Cognitive_Core/02_capability_translator.md',
+  'L5_Cognitive_Core/03_latency_tiering.md',
+  'L2_AIOS_FS/01_object_model.md',
+  'L2_AIOS_FS/02_query_view_language.md',
+  'L2_AIOS_FS/03_conflict_resolution.md',
+  'L2_AIOS_FS/04_implementation_space.md',
+  'L4_Policy_Identity_Vault/01_policy_kernel.md',
+  'L9_Observability_Admin_Operations/01_evidence_log.md',
+  'L9_Observability_Admin_Operations/02_verification_grammar.md',
+  'L6_Apps_Packages_Compatibility/04_sandbox_composition.md',
+];
+---
+
+<BaseLayout
+  title="Roadmap - AI-OS.NET"
+  description="AI-OS.NET Revision 2 specification: contract-grade docs for typed actions, AIOS-FS, policy, verification, evidence, sandboxing, and cognitive translation."
+>
+  <div class="mx-auto max-w-content px-8 py-16">
+    <div class="text-center">
+      <div class="animate inline-block rounded-badge bg-[rgba(206,40,103,0.08)] px-3 py-1.5">
+        <span class="font-body text-[11px] font-medium text-[#ce2867]">Specification Revision 2</span>
+      </div>
+      <h1 class="animate mt-6 font-heading text-[40px] font-bold text-[var(--text)] md:text-[52px]" style="animation-delay:100ms">
+        Contract-grade OS logic<br />before implementation.
+      </h1>
+      <p class="animate mt-4 max-w-narrow mx-auto font-body text-[18px] leading-relaxed text-[var(--muted)]" style="animation-delay:200ms">
+        Revision 2 completes the started logic as an agent-readable contract pack. It defines how goals become typed action drafts, how policy decides, how execution is verified, how evidence is stored, and how /aios becomes semantic object truth.
+      </p>
+    </div>
+
+    <section class="mt-20">
+      <SectionDivider label="REVISION 2 STRUCTURE" />
+      <div class="mt-8 grid grid-cols-1 gap-6 md:grid-cols-2">
+        {phases.map((phase, i) => (
+          <div class={`card card-lg animate stagger-${i + 1}`}>
+            <div class="flex items-start justify-between gap-4">
+              <h2 class="font-heading text-[20px] font-semibold text-[var(--text)]">{phase.name}</h2>
+              <span class="rounded-badge bg-[rgba(206,40,103,0.08)] px-2 py-1 font-mono text-[11px] text-[var(--accent)]">{phase.status}</span>
+            </div>
+            <ul class="mt-6 flex flex-col gap-2.5">
+              {phase.items.map(item => (
+                <li class="flex items-start gap-2 font-body text-[13px] leading-relaxed text-[var(--muted)]">
+                  <span class="mt-2 h-1 w-1 shrink-0 rounded-full bg-[var(--accent)]"></span>
+                  {item}
+                </li>
+              ))}
+            </ul>
+          </div>
+        ))}
+      </div>
+    </section>
+
+    <section class="mt-20">
+      <SectionDivider label="DECISIONS LOCKED IN REVISION 2" />
+      <div class="mt-8 grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
+        {decisions.map((decision, i) => (
+          <div class={`card animate stagger-${(i % 6) + 1}`}>
+            <h2 class="font-heading text-[16px] font-semibold text-[var(--text)]">{decision.title}</h2>
+            <p class="mt-2 font-body text-[13px] leading-relaxed text-[var(--muted)]">{decision.desc}</p>
+          </div>
+        ))}
+      </div>
+    </section>
+
+    <section class="mt-20">
+      <SectionDivider label="CANONICAL CONTRACT FILES" />
+      <div class="mt-8 rounded-[8px] border border-[var(--border)] bg-[var(--surface-1)] p-6 md:p-8">
+        <ul class="grid grid-cols-1 gap-2 md:grid-cols-2">
+          {files.map(file => (
+            <li class="font-mono text-[11px] leading-relaxed text-[var(--muted)]">{file}</li>
+          ))}
+        </ul>
+      </div>
+    </section>
+
+    <section class="mt-20">
+      <SectionDivider label="REFERENCE EXECUTION CONTRACT" />
+      <div class="mt-8 rounded-[8px] border border-[var(--border)] bg-[var(--surface-1)] p-6 md:p-8">
+        <pre class="whitespace-pre-wrap font-mono text-[12px] leading-relaxed text-[var(--muted)]">User: "restart nginx and verify the site"
+
+Cognitive Core:
+  - routes through latency tier
+  - translates intent through capability catalog
+  - produces ActionEnvelope.request
+
+Policy Kernel:
+  - evaluates exact request hash
+  - allow / approval / deny
+
+Capability Runtime:
+  - restarts nginx through adapter
+  - applies sandbox profile
+  - verifies service.active
+  - appends evidence receipts</pre>
+      </div>
+    </section>
+
+    <section class="mt-20">
+      <SectionDivider label="DEFERRED BY DESIGN" />
+      <div class="mt-8 grid grid-cols-1 gap-3 md:grid-cols-2">
+        {deferred.map((item, i) => (
+          <div class={`animate stagger-${i + 1} rounded-[8px] border border-[var(--border)] bg-[var(--surface-1)] p-4`}>
+            <p class="font-body text-[13px] leading-relaxed text-[var(--muted)]">{item}</p>
+          </div>
+        ))}
+      </div>
+    </section>
+  </div>
+</BaseLayout>

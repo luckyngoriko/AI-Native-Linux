@@ -1,0 +1,103 @@
+---
+const navLinks = [
+  { label: 'Architecture', href: '/features' },
+  { label: 'Rev.2 Spec', href: '/roadmap' },
+  { label: 'Runtime', href: '/#runtime' },
+];
+---
+
+<nav class="glass sticky top-0 z-50 border-b border-[var(--border)]">
+  <div class="mx-auto flex max-w-content items-center justify-between px-8 py-3">
+    <a href="/" class="flex items-center gap-0 no-underline" aria-label="AI-OS.NET home">
+      <img src="/aios-logo.svg" alt="" class="mr-2 h-8 w-8 shrink-0" />
+      <span class="font-body text-[15px] font-semibold text-[var(--text)]">AI-OS</span>
+      <span class="font-body text-[15px] font-semibold text-[#ce2867]">.NET</span>
+    </a>
+
+    <div class="hidden items-center gap-6 md:flex">
+      {navLinks.map(link => (
+        <a href={link.href} class="font-body text-[13px] font-normal text-[var(--muted)] no-underline hover:text-[var(--text)] transition-colors">
+          {link.label}
+        </a>
+      ))}
+    </div>
+
+    <div class="flex items-center gap-3">
+      <button
+        id="theme-toggle"
+        aria-label="Toggle dark mode"
+        class="bg-transparent border-none cursor-pointer text-[var(--muted)] hover:text-[var(--text)] transition-colors p-1"
+      >
+        <svg id="icon-sun" style="display:none" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="12" cy="12" r="5" />
+          <path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42" />
+        </svg>
+        <svg id="icon-moon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" />
+        </svg>
+      </button>
+
+      <a href="/roadmap" class="btn btn-primary no-underline text-[13px]">
+        Rev.2
+      </a>
+
+      <button id="mobile-menu-btn" class="md:hidden bg-transparent border-none cursor-pointer text-[var(--text)] p-1" aria-label="Open menu">
+        <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5">
+          <path d="M3 5h14M3 10h14M3 15h14" />
+        </svg>
+      </button>
+    </div>
+  </div>
+
+  <div id="mobile-menu" class="hidden border-t border-[var(--border)] px-8 py-4 md:hidden">
+    {navLinks.map(link => (
+      <a href={link.href} class="block py-2 font-body text-[13px] text-[var(--muted)] no-underline hover:text-[var(--text)]">{link.label}</a>
+    ))}
+    <a href="/roadmap" class="mt-2 btn btn-primary no-underline block text-center text-[13px]">Rev.2</a>
+  </div>
+</nav>
+
+<script is:inline>
+  (function() {
+    var html = document.documentElement;
+
+    function isDark() {
+      var t = html.getAttribute('data-theme');
+      if (t === 'dark') return true;
+      if (t === 'light') return false;
+      return window.matchMedia('(prefers-color-scheme: dark)').matches;
+    }
+
+    function updateIcons() {
+      var dark = isDark();
+      var sun = document.getElementById('icon-sun');
+      var moon = document.getElementById('icon-moon');
+      if (sun) sun.style.display = dark ? 'block' : 'none';
+      if (moon) moon.style.display = dark ? 'none' : 'block';
+    }
+
+    updateIcons();
+
+    var toggle = document.getElementById('theme-toggle');
+    if (toggle) {
+      toggle.addEventListener('click', function() {
+        if (isDark()) {
+          html.setAttribute('data-theme', 'light');
+          localStorage.setItem('theme', 'light');
+        } else {
+          html.setAttribute('data-theme', 'dark');
+          localStorage.setItem('theme', 'dark');
+        }
+        updateIcons();
+      });
+    }
+
+    var menuBtn = document.getElementById('mobile-menu-btn');
+    var menu = document.getElementById('mobile-menu');
+    if (menuBtn && menu) {
+      menuBtn.addEventListener('click', function() {
+        menu.classList.toggle('hidden');
+      });
+    }
+  })();
+</script>

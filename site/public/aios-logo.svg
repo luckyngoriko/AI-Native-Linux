@@ -1,0 +1,206 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-labelledby="title desc">
+  <title id="title">AI-OS.NET animated operating system logo</title>
+  <desc id="desc">A stylized Linux penguin surrounded by AI butterfly symbols and neural orbit lines.</desc>
+  <style>
+    .glow {
+      animation: pulse 4.8s ease-in-out infinite;
+    }
+
+    .ring {
+      animation: spin 26s linear infinite;
+      transform-box: view-box;
+      transform-origin: 256px 256px;
+    }
+
+    .ring.reverse {
+      animation-duration: 38s;
+      animation-direction: reverse;
+    }
+
+    .orbit {
+      transform-box: view-box;
+      transform-origin: 256px 256px;
+    }
+
+    .orbit-a {
+      animation: spin 11s linear infinite;
+    }
+
+    .orbit-b {
+      animation: spin 14s linear infinite reverse;
+    }
+
+    .orbit-c {
+      animation: drift-c 12s ease-in-out infinite;
+    }
+
+    .orbit-d {
+      animation: drift-d 15s ease-in-out infinite;
+    }
+
+    .node {
+      animation: node-pulse 2.4s ease-in-out infinite;
+    }
+
+    .node:nth-child(2n) {
+      animation-delay: 800ms;
+    }
+
+    .wing-left,
+    .wing-right {
+      transform-box: fill-box;
+    }
+
+    .wing-left {
+      animation: wing-left 780ms ease-in-out infinite alternate;
+      transform-origin: 100% 55%;
+    }
+
+    .wing-right {
+      animation: wing-right 780ms ease-in-out infinite alternate;
+      transform-origin: 0% 55%;
+    }
+
+    .penguin {
+      animation: breathe 5.5s ease-in-out infinite;
+      transform-box: view-box;
+      transform-origin: 256px 284px;
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: .48; transform: scale(.98); }
+      50% { opacity: .92; transform: scale(1.02); }
+    }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+
+    @keyframes drift-c {
+      0%, 100% { transform: rotate(24deg); }
+      50% { transform: rotate(92deg) scale(1.04); }
+    }
+
+    @keyframes drift-d {
+      0%, 100% { transform: rotate(-44deg); }
+      50% { transform: rotate(-126deg) scale(.96); }
+    }
+
+    @keyframes node-pulse {
+      0%, 100% { opacity: .55; r: 4; }
+      50% { opacity: 1; r: 5.5; }
+    }
+
+    @keyframes wing-left {
+      from { transform: rotate(7deg) scaleX(1); }
+      to { transform: rotate(-13deg) scaleX(.9); }
+    }
+
+    @keyframes wing-right {
+      from { transform: rotate(-7deg) scaleX(1); }
+      to { transform: rotate(13deg) scaleX(.9); }
+    }
+
+    @keyframes breathe {
+      0%, 100% { transform: translateY(0) scale(1); }
+      50% { transform: translateY(-4px) scale(1.012); }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      * {
+        animation: none !important;
+      }
+    }
+  </style>
+
+  <defs>
+    <radialGradient id="coreGlow" cx="50%" cy="46%" r="56%">
+      <stop offset="0%" stop-color="#ce2867" stop-opacity=".46" />
+      <stop offset="52%" stop-color="#a855f7" stop-opacity=".18" />
+      <stop offset="100%" stop-color="#0a0a0a" stop-opacity="0" />
+    </radialGradient>
+    <linearGradient id="accentStroke" x1="88" y1="104" x2="424" y2="428">
+      <stop offset="0%" stop-color="#ce2867" />
+      <stop offset="100%" stop-color="#a855f7" />
+    </linearGradient>
+    <linearGradient id="belly" x1="216" y1="208" x2="296" y2="390">
+      <stop offset="0%" stop-color="#ffffff" />
+      <stop offset="100%" stop-color="#d7d7dd" />
+    </linearGradient>
+    <filter id="softGlow" x="-40%" y="-40%" width="180%" height="180%">
+      <feGaussianBlur stdDeviation="9" result="blur" />
+      <feColorMatrix in="blur" type="matrix" values="1 0 0 0 0.807 0 1 0 0 0.157 0 0 1 0 0.404 0 0 0 .58 0" result="glow" />
+      <feMerge>
+        <feMergeNode in="glow" />
+        <feMergeNode in="SourceGraphic" />
+      </feMerge>
+    </filter>
+
+    <symbol id="ai-butterfly" viewBox="-36 -28 72 56">
+      <path class="wing-left" d="M-3 -2C-20 -28 -42 -20 -30 2C-21 18 -8 13 -3 -2Z" fill="#ce2867" opacity=".86" />
+      <path class="wing-right" d="M3 -2C20 -28 42 -20 30 2C21 18 8 13 3 -2Z" fill="#a855f7" opacity=".78" />
+      <path d="M-3 -12C-1 -18 1 -18 3 -12V15C1 22 -1 22 -3 15Z" fill="#f5f5f5" opacity=".92" />
+      <path d="M-20 -1H-8M8 -1H20M-14 -12L-6 -4M14 -12L6 -4" stroke="#f5f5f5" stroke-width="2" stroke-linecap="round" opacity=".7" />
+      <circle cx="-22" cy="-2" r="3" fill="#f5f5f5" opacity=".95" />
+      <circle cx="22" cy="-2" r="3" fill="#f5f5f5" opacity=".95" />
+      <circle cx="-14" cy="-13" r="2.4" fill="#f5f5f5" opacity=".85" />
+      <circle cx="14" cy="-13" r="2.4" fill="#f5f5f5" opacity=".85" />
+    </symbol>
+  </defs>
+
+  <rect width="512" height="512" rx="112" fill="#09090b" />
+  <circle class="glow" cx="256" cy="244" r="210" fill="url(#coreGlow)" />
+  <circle cx="256" cy="256" r="190" fill="none" stroke="url(#accentStroke)" stroke-width="1.5" opacity=".42" />
+  <circle cx="256" cy="256" r="142" fill="none" stroke="#ffffff" stroke-width="1" stroke-dasharray="2 12" opacity=".16" />
+
+  <g class="ring" fill="none" stroke="url(#accentStroke)" stroke-linecap="round" filter="url(#softGlow)" opacity=".68">
+    <path d="M96 254C146 114 360 98 416 254" stroke-width="2.2" stroke-dasharray="24 18" />
+    <path d="M120 344C182 420 330 420 392 344" stroke-width="1.6" stroke-dasharray="10 16" />
+    <circle class="node" cx="116" cy="206" r="4" fill="#ce2867" stroke="none" />
+    <circle class="node" cx="396" cy="206" r="4" fill="#a855f7" stroke="none" />
+    <circle class="node" cx="164" cy="394" r="4" fill="#ce2867" stroke="none" />
+    <circle class="node" cx="348" cy="394" r="4" fill="#a855f7" stroke="none" />
+  </g>
+
+  <g class="ring reverse" fill="none" stroke="#ffffff" stroke-linecap="round" opacity=".2">
+    <path d="M80 292C150 380 362 382 432 292" stroke-width="1.4" stroke-dasharray="4 18" />
+    <path d="M118 154C188 74 326 74 394 154" stroke-width="1.2" stroke-dasharray="4 20" />
+  </g>
+
+  <g class="orbit orbit-a" filter="url(#softGlow)">
+    <use href="#ai-butterfly" x="382" y="92" width="58" height="45" />
+  </g>
+  <g class="orbit orbit-b" filter="url(#softGlow)">
+    <use href="#ai-butterfly" x="80" y="348" width="54" height="42" />
+  </g>
+  <g class="orbit orbit-c" filter="url(#softGlow)">
+    <use href="#ai-butterfly" x="74" y="110" width="48" height="38" />
+  </g>
+  <g class="orbit orbit-d" filter="url(#softGlow)">
+    <use href="#ai-butterfly" x="372" y="360" width="50" height="39" />
+  </g>
+
+  <g class="penguin">
+    <ellipse cx="256" cy="406" rx="92" ry="18" fill="#000000" opacity=".34" />
+    <path d="M164 333C160 218 190 122 256 116C322 122 352 218 348 333C346 395 309 430 256 430C203 430 166 395 164 333Z" fill="#07080a" />
+    <path d="M198 326C198 238 219 178 256 174C293 178 314 238 314 326C314 381 291 410 256 410C221 410 198 381 198 326Z" fill="url(#belly)" />
+    <path d="M177 253C143 278 129 321 147 354C164 337 181 302 196 259Z" fill="#111217" />
+    <path d="M335 253C369 278 383 321 365 354C348 337 331 302 316 259Z" fill="#111217" />
+    <path d="M205 154C220 124 238 110 256 110C274 110 292 124 307 154C292 142 277 136 256 136C235 136 220 142 205 154Z" fill="#0f1015" />
+    <ellipse cx="233" cy="165" rx="16" ry="19" fill="#f6f6f7" />
+    <ellipse cx="279" cy="165" rx="16" ry="19" fill="#f6f6f7" />
+    <circle cx="236" cy="168" r="6" fill="#09090b" />
+    <circle cx="276" cy="168" r="6" fill="#09090b" />
+    <circle cx="238" cy="166" r="2" fill="#ffffff" />
+    <circle cx="278" cy="166" r="2" fill="#ffffff" />
+    <path d="M240 191C249 185 263 185 272 191C265 205 247 205 240 191Z" fill="#f5a524" />
+    <path d="M223 423C235 408 250 408 260 423C250 433 232 435 213 431C216 428 219 425 223 423Z" fill="#f5a524" />
+    <path d="M289 423C277 408 262 408 252 423C262 433 280 435 299 431C296 428 293 425 289 423Z" fill="#f5a524" />
+    <path d="M236 282H276M256 282V337M228 337H284M236 310H218M276 310H294" fill="none" stroke="url(#accentStroke)" stroke-width="4" stroke-linecap="round" />
+    <circle cx="236" cy="282" r="5" fill="#ce2867" />
+    <circle cx="276" cy="282" r="5" fill="#a855f7" />
+    <circle cx="218" cy="310" r="4" fill="#ce2867" />
+    <circle cx="294" cy="310" r="4" fill="#a855f7" />
+    <circle cx="256" cy="337" r="5" fill="#f5f5f5" stroke="#ce2867" stroke-width="2" />
+  </g>
+</svg>

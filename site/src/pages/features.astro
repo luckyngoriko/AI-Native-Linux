@@ -1,0 +1,190 @@
+---
+import BaseLayout from '../layouts/BaseLayout.astro';
+import SectionDivider from '../components/SectionDivider.astro';
+
+const layers = [
+  { id: 'L0', title: 'Governance / Evidence / Safety', desc: 'Append-only evidence, policy gates, approvals, rollback rules, and operator trust boundaries.' },
+  { id: 'L1', title: 'Kernel and Host Bootstrap', desc: 'Generic Linux boot, hardware map, sandboxed host kernel build, atomic boot switch, recovery path.' },
+  { id: 'L2', title: 'AIOS-FS', desc: 'Authoritative semantic object store under /aios: objects, versions, chunks, pointers, views, conflicts.' },
+  { id: 'L3', title: 'AIOS-SGR / Capability Runtime', desc: 'Desired-state runtime and typed adapters for service, package, network, repo, secret, and filesystem actions.' },
+  { id: 'L4', title: 'Policy / Identity / Vault', desc: 'Default-deny decisions, hard denies, request-bound approvals, secret use-without-reveal, subject identity.' },
+  { id: 'L5', title: 'Cognitive Core', desc: 'Capability translator, latency tiering, intent engine, planner, memory, model governance, agents.' },
+  { id: 'L6', title: 'Apps / Packages / Compatibility', desc: 'Linux apps, Windows EXE/MSI through compatibility containers, Android APK through isolated runtime, VM fallback.' },
+  { id: 'L7', title: 'Renderers', desc: 'KDE Plasma, Web, CLI, voice, and mobile as render targets over the same cognitive state.' },
+  { id: 'L8', title: 'Network / Hardware / Devices', desc: 'Device graph, network graph, service exposure, peripheral permissions, and edge/cloud bridges.' },
+  { id: 'L9', title: 'Observability / Admin / Ops', desc: 'OpenTelemetry, Prometheus, Loki, eBPF signals, health checks, and incident evidence.' },
+  { id: 'L10', title: 'Distribution / Ecosystem', desc: 'Installer base, repositories, package policy, extension contracts, and developer SDK.' },
+];
+
+const runtimeBlocks = [
+  {
+    title: 'S1.1 Capability Translator',
+    desc: 'Compiles intent into known catalog capabilities. Model output is validated against manifests and schemas before any action draft exists.',
+    code: 'intent -> catalog retrieval -> target binding -> ActionEnvelope.request',
+  },
+  {
+    title: 'S1.2 Latency Tiering',
+    desc: 'Uses deterministic paths for exact commands and escalates to local or powerful models only when ambiguity requires it.',
+    code: 'restart nginx -> T1 direct path -> service.restart',
+  },
+  {
+    title: 'S2.4 Verification Grammar',
+    desc: 'Defines typed success checks: service.active, package.installed, http.ok, aiosfs.pointer, evidence.exists.',
+    code: 'verification.type = "service.active"',
+  },
+];
+
+const contracts = [
+  { title: 'S0.1 Action Envelope', desc: 'Proto-first request/execution separation, lifecycle FSM, idempotency, causality, error envelope, trace, sandbox, dry-run.' },
+  { title: 'S1.3 AIOS-FS Object Model', desc: 'Objects, immutable versions, content-addressed chunks, pointers, transactions, recovery-readable metadata.' },
+  { title: 'S2.1 Query/View Language', desc: 'Semantic views over object metadata with constrained DSL and rebuildable projections.' },
+  { title: 'S2.2 Implementation Space', desc: 'Userspace authoritative store with FUSE and portal projections first; custom kernel module deferred.' },
+  { title: 'S2.3 Policy Kernel', desc: 'Default deny, hard denies, exact request approvals, policy schema, simulation, decision evidence.' },
+  { title: 'S3.1 Evidence Log', desc: 'Append-only WAL, sealed segments, hash chain, indexes, compaction boundaries, redaction.' },
+  { title: 'S3.2 Sandbox Composition', desc: 'Most-restrictive composition across adapter, app manifest, request hint, policy, and runtime safety floor.' },
+];
+
+const security = [
+  'AI cannot access SSH keys without explicit capability grant.',
+  'AI cannot modify firewall policy without approval.',
+  'AI cannot delete recursively across user or system roots.',
+  'Every privileged change receives an evidence record.',
+  'System base is read-only; changes are layered and reversible.',
+  'Recovery remains outside the cognitive layer through /root.',
+];
+
+const compatibility = [
+  { title: 'Linux native', desc: 'Preferred path: declarative packages, containers, Flatpak/AppImage policies, and verified service units.' },
+  { title: 'Windows apps', desc: 'Smart installer classifies EXE/MSI, chooses Wine/Proton/Bottles-style runtime, applies per-app prefixes, and falls back to VM when needed.' },
+  { title: 'Android apps', desc: 'APK support through isolated Android runtime such as Waydroid-style containerization with explicit device and filesystem permissions.' },
+];
+
+const renderers = [
+  { title: 'KDE Renderer', desc: 'Qt/QML Plasma shell, panels, widgets, KRunner, system tray, Wayland control, and desktop-native workflows.' },
+  { title: 'Web Renderer', desc: 'Next.js/WebAssembly surface for remote operation, tablet access, workstation mirroring, and future collaboration.' },
+];
+---
+
+<BaseLayout
+  title="Architecture - AI-OS.NET"
+  description="AI-OS.NET architecture: semantic runtime, policy kernel, capability runtime, AIOS-FS, KDE/Web renderers, and AI-native system layers."
+>
+  <div class="mx-auto max-w-content px-8 py-16">
+    <div class="text-center">
+      <div class="animate inline-block rounded-badge bg-[rgba(206,40,103,0.08)] px-3 py-1.5">
+        <span class="font-body text-[11px] font-medium text-[#ce2867]">System Architecture</span>
+      </div>
+      <h1 class="animate mt-6 font-heading text-[40px] font-bold text-[var(--text)] md:text-[52px]" style="animation-delay:100ms">
+        One cognitive layer.<br />Many execution environments.
+      </h1>
+      <p class="animate mt-4 max-w-narrow mx-auto font-body text-[18px] leading-relaxed text-[var(--muted)]" style="animation-delay:200ms">
+        Revision 2 defines the contracts between cognition, policy, execution, storage, verification, evidence, sandboxing, and Linux.
+      </p>
+    </div>
+
+    <section class="mt-20">
+      <SectionDivider label="LAYER MODEL" />
+      <div class="mt-8 grid grid-cols-1 gap-4 md:grid-cols-2">
+        {layers.map((layer, i) => (
+          <div class={`card animate stagger-${(i % 6) + 1}`}>
+            <div class="flex items-start gap-4">
+              <span class="font-mono text-[13px] text-[var(--accent)]">{layer.id}</span>
+              <div>
+                <h2 class="font-heading text-[16px] font-semibold text-[var(--text)]">{layer.title}</h2>
+                <p class="mt-2 font-body text-[13px] leading-relaxed text-[var(--muted)]">{layer.desc}</p>
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
+    </section>
+
+    <section id="security" class="mt-20">
+      <SectionDivider label="POLICY KERNEL" />
+      <div class="mt-8 grid grid-cols-1 gap-10 lg:grid-cols-[0.8fr_1.2fr]">
+        <div>
+          <h2 class="font-heading text-[28px] font-bold text-[var(--text)]">
+            AI plans.<br />Policy decides.
+          </h2>
+          <p class="mt-4 font-body text-[15px] leading-[1.7] text-[var(--muted)]">
+            The Policy Kernel is the operating constitution. It defines what the AI can do, what needs approval, what is impossible, and what evidence must be saved.
+          </p>
+        </div>
+        <div class="grid grid-cols-1 gap-3 md:grid-cols-2">
+          {security.map((item, i) => (
+            <div class={`animate stagger-${(i % 6) + 1} rounded-[8px] border border-[var(--border)] bg-[var(--surface-1)] p-4`}>
+              <p class="font-body text-[13px] leading-relaxed text-[var(--muted)]">{item}</p>
+            </div>
+          ))}
+        </div>
+      </div>
+    </section>
+
+    <section class="mt-20">
+      <SectionDivider label="SEMANTIC RUNTIME" />
+      <div class="mt-8 grid grid-cols-1 gap-6 md:grid-cols-3">
+        {runtimeBlocks.map((block, i) => (
+          <div class={`card card-lg animate stagger-${i + 1}`}>
+            <h2 class="font-heading text-[18px] font-semibold text-[var(--text)]">{block.title}</h2>
+            <p class="mt-3 font-body text-[13px] leading-relaxed text-[var(--muted)]">{block.desc}</p>
+            <pre class="mt-5 whitespace-pre-wrap rounded-[8px] border border-[var(--border)] bg-[var(--bg)] p-4 font-mono text-[11px] leading-relaxed text-[var(--muted)]">{block.code}</pre>
+          </div>
+        ))}
+      </div>
+    </section>
+
+    <section class="mt-20">
+      <SectionDivider label="REVISION 2 CONTRACT MAP" />
+      <div class="mt-8 grid grid-cols-1 gap-4 md:grid-cols-2">
+        {contracts.map((contract, i) => (
+          <div class={`card animate stagger-${(i % 6) + 1}`}>
+            <h2 class="font-heading text-[16px] font-semibold text-[var(--text)]">{contract.title}</h2>
+            <p class="mt-2 font-body text-[13px] leading-relaxed text-[var(--muted)]">{contract.desc}</p>
+          </div>
+        ))}
+      </div>
+    </section>
+
+    <section id="renderers" class="mt-20">
+      <SectionDivider label="KDE + WEB" />
+      <div class="mt-8 grid grid-cols-1 gap-6 md:grid-cols-2">
+        {renderers.map((renderer, i) => (
+          <div class={`card card-lg animate stagger-${i + 1}`}>
+            <h2 class="font-heading text-[22px] font-semibold text-[var(--text)]">{renderer.title}</h2>
+            <p class="mt-3 font-body text-[14px] leading-relaxed text-[var(--muted)]">{renderer.desc}</p>
+          </div>
+        ))}
+      </div>
+      <div class="mt-6 rounded-[8px] border border-[var(--border)] bg-[var(--surface-1)] p-6">
+        <pre class="whitespace-pre-wrap font-mono text-[12px] leading-relaxed text-[var(--muted)]">Cognitive Core
+  |- KDE Renderer     -> Qt/QML Plasma
+  |- Web Renderer     -> Next.js / WebAssembly
+  |- CLI / Voice      -> Semantic commands
+  |- Mobile           -> Remote cognitive surface</pre>
+      </div>
+    </section>
+
+    <section id="compatibility" class="mt-20">
+      <SectionDivider label="APP COMPATIBILITY" />
+      <div class="mt-8 grid grid-cols-1 gap-6 md:grid-cols-3">
+        {compatibility.map((item, i) => (
+          <div class={`card animate stagger-${i + 1}`}>
+            <div class="mb-3 h-2 w-2 rounded-full bg-[var(--accent)]"></div>
+            <h2 class="font-heading text-[16px] font-semibold text-[var(--text)]">{item.title}</h2>
+            <p class="mt-2 font-body text-[13px] leading-relaxed text-[var(--muted)]">{item.desc}</p>
+          </div>
+        ))}
+      </div>
+    </section>
+
+    <section class="mt-20 -mx-8 bg-[var(--surface-1)] py-16 px-8 text-center">
+      <h2 class="animate font-heading text-[28px] font-bold text-[var(--text)]">Architecture is the product.</h2>
+      <p class="animate mt-4 mx-auto max-w-narrow font-body text-[15px] leading-relaxed text-[var(--muted)]" style="animation-delay:200ms">
+        Revision 2 is now the agent-readable contract pack: typed actions, capability translation, latency tiers, AIOS-FS, policy, verification, evidence, and sandbox composition.
+      </p>
+      <div class="animate mt-8" style="animation-delay:400ms">
+        <a href="/roadmap" class="btn btn-hero btn-primary no-underline">Revision 2 Spec</a>
+      </div>
+    </section>
+  </div>
+</BaseLayout>

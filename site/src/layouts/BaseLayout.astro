@@ -12,7 +12,7 @@ interface Props {
 const {
   title,
   description = 'AI-OS.NET is an AI-native Linux cognitive shell: a semantic operating layer where goals become typed, policy-checked, verified system actions.',
-  ogImage = '/aios-logo.svg',
+  ogImage = '/aios-logo-brand.png',
 } = Astro.props;
 
 const canonicalUrl = `https://ai-os.net${Astro.url.pathname}`;
@@ -64,8 +64,9 @@ const schema = {
     <meta name="author" content="AI-OS.NET" />
     <meta name="robots" content="index, follow" />
 
-    <link rel="icon" href="/aios-logo.svg" type="image/svg+xml" />
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
     <link rel="alternate icon" href="/favicon.ico" sizes="32x32" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
 
     <meta property="og:type" content="website" />
     <meta property="og:site_name" content="AI-OS.NET" />

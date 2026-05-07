@@ -1,0 +1,33 @@
+name: Specification Issue
+description: Report ambiguity, contradiction, or missing detail in the AI-Native Linux specification.
+title: "[Spec]: "
+labels: ["specification"]
+body:
+  - type: input
+    id: layer
+    attributes:
+      label: Affected layer or file
+      description: "Example: L4 Policy Kernel, L9 Evidence Log, 002.AI-OS.NET--SPECREV.2/..."
+    validations:
+      required: true
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem
+      description: What is ambiguous, contradictory, missing, or unsafe?
+    validations:
+      required: true
+  - type: textarea
+    id: proposed
+    attributes:
+      label: Proposed direction
+      description: If you have a concrete fix or contract shape, describe it here.
+    validations:
+      required: false
+  - type: textarea
+    id: safety
+    attributes:
+      label: Safety impact
+      description: Does this affect policy, sandboxing, vault, filesystem authority, network exposure, verification, evidence, or recovery?
+    validations:
+      required: false

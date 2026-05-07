@@ -1,0 +1,37 @@
+name: Implementation Proposal
+description: Propose a small implementation step mapped to a Rev.2 contract.
+title: "[Implementation]: "
+labels: ["implementation"]
+body:
+  - type: input
+    id: contract
+    attributes:
+      label: Rev.2 contract
+      description: Link or name the contract this implements.
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposal
+      description: Describe the implementation boundary and expected behavior.
+    validations:
+      required: true
+  - type: textarea
+    id: verification
+    attributes:
+      label: Verification
+      description: What tests, evidence, or checks would prove it works?
+    validations:
+      required: true
+  - type: checkboxes
+    id: safety
+    attributes:
+      label: Safety model
+      options:
+        - label: The proposal avoids direct AI-to-shell execution.
+          required: true
+        - label: Privileged actions pass through typed action, policy, runtime, verification, and evidence.
+          required: true
+        - label: Recovery does not depend on AI availability.
+          required: true

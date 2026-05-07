@@ -9,6 +9,10 @@ firebase-debug.log
 .agents/
 .codex/
 
+# Local brand/source media workspace.
+# Site-ready public assets live under site/public/.
+logo/
+
 # OS / editor noise
 .DS_Store
 Thumbs.db

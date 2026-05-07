@@ -98,7 +98,20 @@ const proxguardCapabilities = [
 
       <div class="animate card card-lg relative overflow-hidden" style="animation-delay:200ms">
         <div class="absolute right-6 top-6 h-2 w-2 rounded-full bg-[var(--accent)]"></div>
-        <img src="/aios-logo.svg" alt="AI-OS.NET animated logo" class="mx-auto h-[180px] w-[180px] md:h-[220px] md:w-[220px]" />
+        <div class="mx-auto aspect-video max-w-[420px] overflow-hidden rounded-[8px] border border-[var(--border)] bg-transparent shadow-[var(--shadow-glow)]">
+          <video
+            class="h-full w-full object-cover"
+            autoplay
+            muted
+            loop
+            playsinline
+            preload="metadata"
+            poster="/aios-logo-brand.png"
+            aria-label="AI-OS.NET animated logo"
+          >
+            <source src="/aios-logo-animated.webm" type="video/webm" />
+          </video>
+        </div>
         <div class="mt-8 rounded-[8px] border border-[var(--border)] bg-[var(--bg)] p-5">
           <pre class="whitespace-pre-wrap font-mono text-[12px] leading-relaxed text-[var(--muted)]">Human Goal
   -&gt; Cognitive Core

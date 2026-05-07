@@ -9,7 +9,7 @@ Program page: https://openai.com/form/codex-for-oss/
 GitHub repository URL:
 
 ```text
-https://github.com/luckyngoriko/AI-Native-Linux
+https://github.com/ai-os-dot-net/AI-Native-Linux
 ```
 
 Repository visibility:
@@ -24,6 +24,18 @@ Maintainer role:
 Primary maintainer
 ```
 
+Project site:
+
+```text
+https://ai-os.net
+```
+
+GitHub organization:
+
+```text
+https://github.com/ai-os-dot-net
+```
+
 ## Why This Repository Qualifies
 
 Limit: 500 characters.
@@ -32,12 +44,28 @@ Limit: 500 characters.
 AI-Native Linux defines an open safety architecture for AI-operated computers: typed actions, policy gates, sandboxing, verification, evidence logs, recovery, and Linux integration. It can become shared infrastructure for safer open-source AI agents, developer tooling, and system automation.
 ```
 
+## Why This Project Needs Codex Security
+
+Limit: 500 characters.
+
+```text
+AI-Native Linux defines security-sensitive OS behavior: policy gates, sandboxing, vault access, package/service control, filesystem authority, network exposure, and recovery. Codex Security would help review threat models and catch unsafe authority flows before runtime implementation.
+```
+
 ## How API Credits Will Be Used
 
 Limit: 500 characters.
 
 ```text
 We will use API credits for Codex-assisted specification maintenance, cross-layer consistency checks, threat-model review, Rust/Python reference implementation work, typed capability generation, test generation, documentation automation, and release workflow automation for the public AI-Native Linux repo.
+```
+
+## Anything Else We Should Know?
+
+Limit: use concise plain text.
+
+```text
+Project site: https://ai-os.net. This is an early public project addressing an ecosystem-level gap: safe AI operation of Linux systems. The repo is active, specification-first, and maintained publicly. Codex support would accelerate implementation, security review, release automation, and OSS collaboration.
 ```
 
 ## Required External Fields

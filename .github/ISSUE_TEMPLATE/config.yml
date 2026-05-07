@@ -1,0 +1,5 @@
+blank_issues_enabled: true
+contact_links:
+  - name: Security-sensitive design issue
+    url: https://github.com/ai-os-dot-net/AI-Native-Linux/security/advisories/new
+    about: Use a private security advisory for sensitive policy, sandbox, vault, or authority findings.

@@ -1,12 +1,18 @@
 # AI-Native Linux
 
+[![License: Apache-2.0](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](LICENSE)
+[![Specification: Rev.2](https://img.shields.io/badge/specification-Rev.2-ce2867.svg)](002.AI-OS.NET--SPECREV.2/00_MASTER_INDEX.md)
+[![Status: Specification First](https://img.shields.io/badge/status-specification--first-111111.svg)](002.AI-OS.NET--SPECREV.2/00_MASTER_INDEX.md)
+
 AI-Native Linux is an open specification for a unified cognitive operating environment on top of Linux.
 
 The goal is not to create another Linux distribution. The goal is to define an operating layer where humans express goals, the system translates those goals into typed actions, policy decides what is allowed, runtime adapters execute only approved operations, and verification produces evidence.
 
 Public site: https://ai-os.net
 
-Canonical repository: https://github.com/luckyngoriko/AI-Native-Linux
+Canonical repository: https://github.com/ai-os-dot-net/AI-Native-Linux
+
+GitHub organization: https://github.com/ai-os-dot-net
 
 ## Why This Matters
 
@@ -27,6 +33,8 @@ This matters for open source because the next generation of developer and operat
 This repository is currently specification-first.
 
 There is no production runtime yet. The active work is the Rev.2 contract pack, which defines the layers, boundaries, safety model, and first implementation targets for an AI-native Linux environment.
+
+The project is intentionally public early so security engineers, Linux operators, AI agent builders, and open-source maintainers can review the architecture before privileged runtime code exists.
 
 ## Core Architecture
 
@@ -67,7 +75,10 @@ AI -> sudo bash
 ├── site/                           # Public Astro site for ai-os.net
 ├── OPENAI_CODEX_OSS_APPLICATION.md # Prepared Codex for OSS application notes
 ├── CONTRIBUTING.md                 # Contribution guide
+├── GOVERNANCE.md                   # Decision process and project rules
+├── MAINTAINERS.md                  # Maintainer ownership
 ├── SECURITY.md                     # Security reporting and scope
+├── SUPPORT.md                      # Support and discussion channels
 ├── LICENSE                         # Apache-2.0
 └── README.md
 ```
@@ -117,11 +128,19 @@ This project is a strong fit for Codex-assisted open-source development because 
 
 See [OPENAI_CODEX_OSS_APPLICATION.md](OPENAI_CODEX_OSS_APPLICATION.md) for prepared application text.
 
+The application repository URL is:
+
+```text
+https://github.com/ai-os-dot-net/AI-Native-Linux
+```
+
 ## Contributing
 
 Contributions are welcome, but the project is still in specification phase. Start with [CONTRIBUTING.md](CONTRIBUTING.md) before opening an issue or pull request.
 
 Security-sensitive findings should follow [SECURITY.md](SECURITY.md).
+
+Project governance is described in [GOVERNANCE.md](GOVERNANCE.md). Maintainer ownership is listed in [MAINTAINERS.md](MAINTAINERS.md).
 
 ## License
 

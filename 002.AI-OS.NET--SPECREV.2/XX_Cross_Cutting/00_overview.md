@@ -1,6 +1,6 @@
 # XX — Cross-Cutting Contracts
 
-Status: `SHELL`
+Status: `PARTIAL`
 
 ## Purpose
 
@@ -18,7 +18,7 @@ If only one or two layers consume it, the contract belongs inside the owning lay
 
 | File                                                               | Contract                                              | Consumed by                                              | Status  | Phase |
 | ------------------------------------------------------------------ | ----------------------------------------------------- | -------------------------------------------------------- | ------- | ----- |
-| [01_action_envelope_lifecycle.md](01_action_envelope_lifecycle.md) | Action Envelope schema, Lifecycle FSM, gRPC interface | L3 (runtime), L4 (policy), L5 (cognition), L9 (evidence) | `SHELL` | S0.1  |
+| [01_action_envelope_lifecycle.md](01_action_envelope_lifecycle.md) | Action Envelope schema, Lifecycle FSM, gRPC interface | L3 (runtime), L4 (policy), L5 (cognition), L9 (evidence) | `CONTRACT` | S0.1  |
 
 ## Future cross-cutting contracts (not yet created)
 

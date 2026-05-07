@@ -1,6 +1,6 @@
 # L5 — Cognitive Core
 
-Status: `SHELL`
+Status: `PARTIAL`
 
 ## Responsibility
 
@@ -25,8 +25,8 @@ May depend on: L0, L1, L2, L3, L4.
 | File                          | Topic                                                                                | Status  | Phase |
 | ----------------------------- | ------------------------------------------------------------------------------------ | ------- | ----- |
 | `01_intent_engine.md`         | Goal → intent object; risk hint extraction; clarification loops                      | `SHELL` | —     |
-| `02_capability_translator.md` | LLM → typed action mapping at scale (1000s of actions); RAG-over-capabilities        | `SHELL` | S1.1  |
-| `03_latency_tiering.md`       | Direct (no-LLM) path vs cognitive path; routing rules; UX latency budget             | `SHELL` | S1.2  |
+| `02_capability_translator.md` | LLM -> typed action mapping at scale (1000s of actions); RAG-over-capabilities        | `CONTRACT` | S1.1  |
+| `03_latency_tiering.md`       | Direct (no-LLM) path vs cognitive path; routing rules; UX latency budget             | `CONTRACT` | S1.2  |
 | `04_planner.md`               | Plan object schema; multi-step reasoning; replanning; partial failure recovery       | `SHELL` | —     |
 | `05_model_router.md`          | Local default vs powerful local vs external; degradation rules; cost/latency budgets | `SHELL` | —     |
 | `06_persistent_memory.md`     | Project, architectural decision, fix, failure, workflow, preference memories         | `SHELL` | —     |
@@ -34,7 +34,7 @@ May depend on: L0, L1, L2, L3, L4.
 
 ## Cross-cutting contract dependency
 
-L5 _produces_ envelopes that conform to the [Action Envelope + Lifecycle contract](../XX_Cross_Cutting/01_action_envelope_lifecycle.md) (S0.1).
+L5 _produces_ envelopes that conform to the [Action Envelope + Lifecycle contract](../XX_Cross_Cutting/01_action_envelope_lifecycle.md) (S0.1). The first L5 contract is [Capability Translator](02_capability_translator.md) (S1.1).
 
 ## See also
 

@@ -18,14 +18,14 @@ Dependency rule: a layer may depend on its own layer and lower-numbered layers. 
 | ----- | --------------------------------------------------------------------------------- | ------------------------------------------------------------ | ------- |
 | L0    | [L0_Governance_Evidence_Safety](L0_Governance_Evidence_Safety/)                   | status taxonomy, evidence grades, gates, invariants          | `SHELL` |
 | L1    | [L1_Kernel_Bootstrap_Recovery](L1_Kernel_Bootstrap_Recovery/)                     | Linux substrate, recovery path, dedicated kernel candidate   | `SHELL` |
-| L2    | [L2_AIOS_FS](L2_AIOS_FS/)                                                         | semantic object filesystem, `/aios`, versions, views         | `SHELL` |
+| L2    | [L2_AIOS_FS](L2_AIOS_FS/)                                                         | semantic object filesystem, `/aios`, versions, views         | `PARTIAL` |
 | L3    | [L3_AIOS_SGR_Service_Graph_Runtime](L3_AIOS_SGR_Service_Graph_Runtime/)           | desired-state service graph, runtime transitions             | `SHELL` |
-| L4    | [L4_Policy_Identity_Vault](L4_Policy_Identity_Vault/)                             | subjects, capabilities, approvals, secrets, policy packages  | `SHELL` |
-| L5    | [L5_Cognitive_Core](L5_Cognitive_Core/)                                           | intent, planning, memory, model routing, agent coordination  | `SHELL` |
-| L6    | [L6_Apps_Packages_Compatibility](L6_Apps_Packages_Compatibility/)                 | AIOS packages, apps, Windows/Android/Linux compatibility     | `SHELL` |
+| L4    | [L4_Policy_Identity_Vault](L4_Policy_Identity_Vault/)                             | subjects, capabilities, approvals, secrets, policy packages  | `PARTIAL` |
+| L5    | [L5_Cognitive_Core](L5_Cognitive_Core/)                                           | intent, planning, memory, model routing, agent coordination  | `PARTIAL` |
+| L6    | [L6_Apps_Packages_Compatibility](L6_Apps_Packages_Compatibility/)                 | AIOS packages, apps, Windows/Android/Linux compatibility     | `PARTIAL` |
 | L7    | [L7_Interaction_Renderers](L7_Interaction_Renderers/)                             | KDE, Web, CLI, Voice, Mobile, shared UI schema               | `SHELL` |
 | L8    | [L8_Network_Hardware_Devices](L8_Network_Hardware_Devices/)                       | network policy, hardware graph, drivers, firmware            | `SHELL` |
-| L9    | [L9_Observability_Admin_Operations](L9_Observability_Admin_Operations/)           | health, logs, metrics, evidence viewer, recovery operations  | `SHELL` |
+| L9    | [L9_Observability_Admin_Operations](L9_Observability_Admin_Operations/)           | health, logs, metrics, evidence viewer, recovery operations  | `PARTIAL` |
 | L10   | [L10_Distribution_Ecosystem_Marketplace](L10_Distribution_Ecosystem_Marketplace/) | publishing, repositories, marketplace, external integrations | `SHELL` |
 
 ## Cross-cutting contracts
@@ -49,18 +49,18 @@ Phase 0 (foundation):
 
 Phase 1 (the three killers):
 
-- **S1.1** — Capability Translator → `L5_Cognitive_Core/02_capability_translator.md`
-- **S1.2** — Latency tiering → `L5_Cognitive_Core/03_latency_tiering.md`
-- **S1.3** — AIOS-FS object model + conflict resolution → `L2_AIOS_FS/01_object_model.md` + `L2_AIOS_FS/03_conflict_resolution.md`
+- **S1.1** — Capability Translator → `L5_Cognitive_Core/02_capability_translator.md` (`CONTRACT` draft)
+- **S1.2** — Latency tiering → `L5_Cognitive_Core/03_latency_tiering.md` (`CONTRACT` draft)
+- **S1.3** — AIOS-FS object model + conflict resolution → `L2_AIOS_FS/01_object_model.md` + `L2_AIOS_FS/03_conflict_resolution.md` (`CONTRACT` draft)
 
 Phase 2 (subsystems):
 
-- **S2.1** — AIOS-FS query/view language → `L2_AIOS_FS/02_query_view_language.md`
-- **S2.2** — AIOS-FS implementation space → `L2_AIOS_FS/04_implementation_space.md`
-- **S2.3** — Policy Kernel implementation → `L4_Policy_Identity_Vault/01_policy_kernel.md`
-- **S2.4** — Verification grammar → `L9_Observability_Admin_Operations/02_verification_grammar.md`
+- **S2.1** — AIOS-FS query/view language → `L2_AIOS_FS/02_query_view_language.md` (`CONTRACT` draft)
+- **S2.2** — AIOS-FS implementation space → `L2_AIOS_FS/04_implementation_space.md` (`CONTRACT` draft)
+- **S2.3** — Policy Kernel implementation → `L4_Policy_Identity_Vault/01_policy_kernel.md` (`CONTRACT` draft)
+- **S2.4** — Verification grammar → `L9_Observability_Admin_Operations/02_verification_grammar.md` (`CONTRACT` draft)
 
 Phase 3 (operational):
 
-- **S3.1** — Evidence log architecture → `L9_Observability_Admin_Operations/01_evidence_log.md`
-- **S3.2** — Sandbox composition language → `L6_Apps_Packages_Compatibility/04_sandbox_composition.md`
+- **S3.1** — Evidence log architecture → `L9_Observability_Admin_Operations/01_evidence_log.md` (`CONTRACT` draft)
+- **S3.2** — Sandbox composition language → `L6_Apps_Packages_Compatibility/04_sandbox_composition.md` (`CONTRACT` draft)

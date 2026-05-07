@@ -51,3 +51,23 @@ Decision log. Each entry follows ADR (Architecture Decision Record) discipline: 
 - **Status:** `CONTRACT` (design approved 2026-05-07; awaits implementation evidence to escalate to `REAL`).
 - **Phase tag:** S0.1
 - **Schema version:** `aios.action.v1alpha1`
+
+---
+
+## DEC-004 — Capability Translator as catalog-bound compiler, not command generator
+
+- **Context:** Rev.1 required that AI never directly execute shell commands and instead produce typed actions. S0.1 defined the action envelope, but L5 still needed a precise contract for translating natural-language intent and planner steps into those envelopes at large catalog scale.
+- **Decision:** Define the Capability Translator as a catalog-bound compiler. It may use LLMs for parsing, extraction, explanation, and candidate suggestion, but every READY result must validate against a known capability manifest, the selected target schema, and the S0.1 envelope schema. Vector retrieval is allowed for candidate discovery but cannot be final authority. Ambiguity returns clarification; missing schema fields block translation; unknown actions and free-form shell execution are rejected.
+- **Consequences:** AIOS gets a scalable path for thousands of typed capabilities without becoming a prompt-to-shell system. L3 adapter manifests become the source of truth for action availability. L4 remains the policy authority. L9 receives translation evidence for auditability. S1.2 can now specify latency routing between direct translation and cognitive translation without redefining translator semantics.
+- **Status:** `CONTRACT` draft (awaiting review before design approval)
+- **Phase tag:** S1.1
+
+---
+
+## DEC-005 — Complete Rev.2 roadmap as contract drafts before implementation planning
+
+- **Context:** The project is still in specification mode. After S0.1, the remaining roadmap entries needed enough precision to preserve the architecture without producing implementation plans against absent code.
+- **Decision:** Fill the active Rev.2 roadmap as contract drafts: Latency Tiering (S1.2), AIOS-FS Object Model and Conflict Resolution (S1.3), Query/View Language (S2.1), Implementation Space (S2.2), Policy Kernel (S2.3), Verification Grammar (S2.4), Evidence Log (S3.1), and Sandbox Composition (S3.2). These documents define boundaries, invariants, schemas, and acceptance criteria, but do not prescribe a build plan.
+- **Consequences:** Rev.2 now reads as a coherent agent contract pack rather than isolated notes. The strongest architectural decisions are explicit: userspace-first AIOS-FS, catalog-bound translation, deterministic latency routing, default-deny policy, append-only evidence, typed verification, and most-restrictive sandbox composition.
+- **Status:** `CONTRACT` draft
+- **Phase tag:** Rev.2 completion pass

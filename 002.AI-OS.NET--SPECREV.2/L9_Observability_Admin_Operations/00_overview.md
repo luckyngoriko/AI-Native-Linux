@@ -1,6 +1,6 @@
 # L9 — Observability, Admin, Operations
 
-Status: `SHELL`
+Status: `PARTIAL`
 
 ## Responsibility
 
@@ -23,8 +23,8 @@ May depend on: L0, L1, L2, L3, L4, L5, L6, L7, L8.
 
 | File                         | Topic                                                                         | Status  | Phase |
 | ---------------------------- | ----------------------------------------------------------------------------- | ------- | ----- |
-| `01_evidence_log.md`         | Append-only log architecture: WAL + segments + tiering + compaction + indexes | `SHELL` | S3.1  |
-| `02_verification_grammar.md` | Typed verification primitives, composition, property-based verification       | `SHELL` | S2.4  |
+| `01_evidence_log.md`         | Append-only log architecture: WAL + segments + tiering + compaction + indexes | `CONTRACT` | S3.1  |
+| `02_verification_grammar.md` | Typed verification primitives, composition, property-based verification       | `CONTRACT` | S2.4  |
 | `03_failure_handling.md`     | Failure → behavior table; degradation; runbook references                     | `SHELL` | —     |
 | `04_telemetry_pipeline.md`   | OpenTelemetry, Prometheus, Loki, eBPF integration; cardinality budgets        | `SHELL` | —     |
 

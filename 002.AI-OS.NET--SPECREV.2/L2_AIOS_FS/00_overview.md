@@ -1,6 +1,6 @@
 # L2 — AIOS-FS
 
-Status: `SHELL`
+Status: `PARTIAL`
 
 ## Responsibility
 
@@ -23,10 +23,10 @@ May depend on: L0, L1.
 
 | File                         | Topic                                                                           | Status  | Phase |
 | ---------------------------- | ------------------------------------------------------------------------------- | ------- | ----- |
-| `01_object_model.md`         | Object/version/chunk identity, metadata schema, write flow                      | `SHELL` | S1.3  |
-| `02_query_view_language.md`  | Semantic views — query language, evaluation, projections                        | `SHELL` | S2.1  |
-| `03_conflict_resolution.md`  | Concurrent writes — optimistic concurrency, CRDT scope, merge UX                | `SHELL` | S1.3  |
-| `04_implementation_space.md` | kernel-space vs FUSE vs userspace projection — chosen approach + migration path | `SHELL` | S2.2  |
+| `01_object_model.md`         | Object/version/chunk identity, metadata schema, write flow                      | `CONTRACT` | S1.3  |
+| `02_query_view_language.md`  | Semantic views — query language, evaluation, projections                        | `CONTRACT` | S2.1  |
+| `03_conflict_resolution.md`  | Concurrent writes — optimistic concurrency, CRDT scope, merge UX                | `CONTRACT` | S1.3  |
+| `04_implementation_space.md` | kernel-space vs FUSE vs userspace projection — chosen approach + migration path | `CONTRACT` | S2.2  |
 | `05_recovery_modes.md`       | normal / safe_readonly / repair / quarantine / reindex modes                    | `SHELL` | —     |
 | `06_pointer_promotion.md`    | Atomicity of pointer moves; crash consistency; evidence linkage on promotion    | `SHELL` | —     |
 

@@ -1,6 +1,6 @@
 # L6 — Apps, Packages, Compatibility
 
-Status: `SHELL`
+Status: `PARTIAL`
 
 ## Responsibility
 
@@ -26,7 +26,7 @@ May depend on: L0, L1, L2, L3, L4, L5.
 | `01_application_model.md`       | Manifest, identity, capabilities, sandbox spec, state directory, rollback pointer                                                                              | `SHELL` | —     |
 | `02_package_model.md`           | Signed bundle, install/verify/rollback plan, package types (app, service, model, policy, UI schema, kernel artifact, compatibility profile, workflow template) | `SHELL` | —     |
 | `03_compatibility_runtime.md`   | Compatibility compiler flow; Wine/Proton, Waydroid, VM fallback orchestration                                                                                  | `SHELL` | —     |
-| `04_sandbox_composition.md`     | Sandbox profile language; SELinux/AppArmor/Landlock/seccomp/cgroups composition                                                                                | `SHELL` | S3.2  |
+| `04_sandbox_composition.md`     | Sandbox profile language; SELinux/AppArmor/Landlock/seccomp/cgroups composition                                                                                | `CONTRACT` | S3.2  |
 | `05_compatibility_knowledge.md` | Per-app profile database; ProtonDB-equivalent governance                                                                                                       | `SHELL` | —     |
 
 ## See also

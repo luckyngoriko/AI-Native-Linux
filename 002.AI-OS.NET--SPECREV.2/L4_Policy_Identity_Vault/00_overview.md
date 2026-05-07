@@ -1,6 +1,6 @@
 # L4 — Policy, Identity, Vault
 
-Status: `SHELL`
+Status: `PARTIAL`
 
 ## Responsibility
 
@@ -23,7 +23,7 @@ May depend on: L0, L1, L2, L3.
 
 | File                       | Topic                                                                           | Status  | Phase |
 | -------------------------- | ------------------------------------------------------------------------------- | ------- | ----- |
-| `01_policy_kernel.md`      | Decision engine — own DSL vs OPA/Rego vs CEL; rule precedence; simulation       | `SHELL` | S2.3  |
+| `01_policy_kernel.md`      | Decision engine — own DSL vs OPA/Rego vs CEL; rule precedence; simulation       | `CONTRACT` | S2.3  |
 | `02_vault_broker.md`       | Secret classes, capability grants, use-without-reveal API, rotation, revocation | `SHELL` | —     |
 | `03_identity_model.md`     | Subject canonical format, capability binding, scope, TTL                        | `SHELL` | —     |
 | `04_approval_mechanics.md` | How approvals are requested, granted, bound, expired, recorded                  | `SHELL` | —     |

@@ -74,6 +74,23 @@ Decision log. Each entry follows ADR (Architecture Decision Record) discipline: 
 
 ---
 
+## DEC-007 — S1.1 Capability Translator refinement (deltas D1–D9)
+
+- **Context:** S1.1 landed as a draft in commit `dfa3be5` together with the rest of the rev.2 roadmap (DEC-005). The draft was structurally sound but missing several contract-grade pieces.
+- **Decision:** Apply nine deltas without scope expansion:
+  - **D1 — Hash encoding explicit:** `catalog_version` and `idempotency_key` use `hex_lower(BLAKE3(...))[:32]` (lowercase hex, first 32 chars = 128 bits). Aligns with S0.1 §8.5 and removes encoding ambiguity across language runtimes.
+  - **D2 — Adversarial robustness section:** explicit threat model (prompt injection, secret smuggling, ambiguity exploitation, action aliasing, embedded shell, social engineering of `reason`); structural defenses (catalog-only action names, schema-only target fields, no shell surface, deterministic identity, sanitized `reason`, secret-shaped redaction); behavioural defenses (ambiguity-loses, high-risk + underspecified ⇒ clarification, closed refusal vocabulary); defense delegation table.
+  - **D3 — Statelessness contract:** translator is stateless across `TranslateIntent` calls; reproducibility from `(request, catalog_version, code_version)`; allowed local optimizations are observably indistinguishable from re-computing; state outside the translator is enumerated.
+  - **D4 — Performance contract (skinny):** budget shape per path (direct < 50 ms, lexical < 200 ms, RAG < 800 ms, reasoning < 3 s); cold start and reload budgets; backpressure rules (direct path always available; reasoning shed first); resource limits.
+  - **D5 — Catalog distribution and trust:** signed bundles; AIOS root → publisher → bundle trust chain; hot-reload semantics with grace period; explicit operator-only rollback; out-of-scope items routed to L4, L10, and a future adapter-distribution sub-spec.
+  - **D6 — Testable golden fixtures:** §17 examples reformatted as `{ input, expected, status }` triples for an acceptance harness, including Bulgarian utterance, prompt-injection refusal, and secret-exfiltration refusal.
+  - **D7 — Appendix A: complete proto IDL:** single concatenated proto file consolidating sections 5 and 14.
+  - **D8 — Tightened cross-spec references:** field-level mapping to S0.1, S1.2, S1.3, S2.3, S2.4, S3.1.
+  - **D9 — Multi-language utterances:** UTF-8 accepted; Intent Engine owns language detection and normalization; manifest `aliases_localized` extension; full i18n deferred to renderer-side sub-spec.
+- **Consequences:** S1.1 grows from 877 to 1340 lines but covers the contract-grade gaps without re-litigating the architectural shape from DEC-004. New canonical refusal code `TranslationTimeout`. Acceptance criteria now reference golden fixtures (§21) and trust-chain rejection of unendorsed publishers.
+- **Status:** `REAL` (applied 2026-05-08).
+- **Phase tag:** S1.1 refinement.
+
 ## DEC-006 — ProxGuard used as prototype donor and optional AIOS app
 
 - **Context:** Local ProxGuard materials contain a working control-plane architecture pattern: manifest-driven simulation, deterministic policy, runtime adapters, release packaging, inbox handoff, production apply, audit events, DNS provider abstraction, and golden path tests. These patterns overlap with AIOS L3 Capability Runtime, L4 Policy Kernel, L8 Network, and L9 Evidence requirements.

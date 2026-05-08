@@ -74,6 +74,26 @@ Decision log. Each entry follows ADR (Architecture Decision Record) discipline: 
 
 ---
 
+## DEC-010 — S2.1 + S2.2 AIOS-FS query language and implementation space refinement (deltas D1–D12)
+
+- **Context:** S2.1 (107 lines) and S2.2 (75 lines) landed as thin drafts in commit `dfa3be5`. Both are L2 AIOS-FS concerns and tightly coupled (the query engine depends on what the storage layer can index efficiently); refining them in one cycle keeps consistency.
+- **Decision:** Apply twelve combined deltas across the two files without scope expansion:
+  - **D1 — Formal EBNF grammar (S2.1):** closed operator vocabulary with `from` / `where` / `group by` / `order by` / `limit` / `offset` / `as of` / `project`; sources are `objects`/`versions`/`pointers`/`transactions`/`conflicts`/`evidence`; `and` only (no `or`); aggregations bounded to `count/max/min/first/last`. No arbitrary expressions.
+  - **D2 — Proto IDL + `AIOSFSQuery` gRPC service (S2.1):** `aios.fs.query.v1alpha1` package; `ExecuteQuery`/`ExplainQuery`/`CreateView`/`RebuildView`/`ListViews`/`DeleteView`/`GetQueryEngineInfo` RPCs. Appendix A holds full IDL.
+  - **D3 — Materialization model (S2.1):** virtual vs materialized; refresh strategies `ON_DEMAND`/`ON_WRITE`/`SCHEDULED`/`MANUAL`; invalidation triggers; cost guidance for choosing materialized.
+  - **D4 — Privacy class filter (S2.1):** results above the caller's ceiling are silently excluded; counts and aggregations exclude them; an evidence record reports the excluded count without leaking object IDs.
+  - **D5 — Time-travel queries (S2.1):** `AS OF <version_id>` and `AS OF <timestamp>` evaluate against historical snapshots; bounded by 90-day default transaction-log retention; materialization forbidden for `as of` queries.
+  - **D6 — Pagination, budget, timeout (S2.1):** OFFSET_LIMIT and CURSOR pagination; per-query wall-clock, memory, result-size, and scan-row budgets; cursor TTL 30 min; budget exhaustion fails closed (no partial results).
+  - **D7 — NL→query bridge (S2.1):** explicit contract that the engine never accepts NL; S1.1 translator owns NL→DSL; canonical DSL is the only query input; evidence linkage required for queries touching `SECRET_BEARING`/`CLASSIFIED` sources.
+  - **D8 — Golden fixtures + telemetry (S2.1):** nine fixtures (simple filter, time-travel, privacy filter, forbidden field, cursor pagination, materialized refresh, aggregation, `in` clause, budget exhausted); bounded-cardinality metrics; subject is never a metric label.
+  - **D9 — Backing storage choice (S2.2):** RocksDB primary for chunks/objects/versions/pointers/transactions/WAL; SQLite WAL mode for metadata catalog; Tantivy for lexical/full-text; embedding store deferred to L5 vector sub-spec. Rationale per option recorded.
+  - **D10 — Crash consistency, snapshot/backup, encryption (S2.2):** WAL fsync per `CommitTransaction` followed by atomic write batch on primary CFs; recovery replays from last checkpoint; ZFS/Btrfs snapshots preferred, LVM fallback, logical-export tarball for portability; encryption at rest delegated to LUKS/dm-crypt/ZFS native; per-object encryption deferred to L4 vault sub-spec.
+  - **D11 — Performance targets and resource budgets (S2.2):** p95 budgets per operation on reference hardware (8-core 16 GB NVMe); memory budgets per subsystem (RocksDB block cache 1 GB, Tantivy 512 MB, SQLite cache 64 MB) with backpressure on exhaustion.
+  - **D12 — Acceptance fixtures and migration (S2.2):** seven fixtures (WAL replay, atomic CAS, snapshot round-trip, POSIX import idempotency, no in-band encryption, FUSE rebuild, backpressure); `posix-to-aiosfs` import + lossy export; AIOS-FS-to-AIOS-FS migration via logical export.
+- **Consequences:** S2.1 grows from 107 to 731 lines; S2.2 from 75 to 421 lines (combined 182 → 1152). The query engine and storage backend now have implementer-grade contracts. Storage choice is settled; future kernel/distributed work is deferred to follow-on sub-specs without blocking rev.2 implementation.
+- **Status:** `REAL` (applied 2026-05-08).
+- **Phase tag:** S2.1 + S2.2 refinement.
+
 ## DEC-009 — S1.3 AIOS-FS Object Model + Conflict Resolution refinement (deltas D1–D12)
 
 - **Context:** S1.3 landed as two thin drafts in commit `dfa3be5`: object model (170 lines) and conflict resolution (94 lines). Architecturally correct (immutable versions, content-addressed chunks, optimistic concurrency, sibling versions, AI proposes-not-promotes) but missing typed surfaces, hash encoding precision, GC contracts, CRDT vocabulary, and operational mechanics.

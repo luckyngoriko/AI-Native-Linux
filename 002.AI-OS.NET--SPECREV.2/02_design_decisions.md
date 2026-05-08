@@ -74,6 +74,26 @@ Decision log. Each entry follows ADR (Architecture Decision Record) discipline: 
 
 ---
 
+## DEC-008 — S1.2 Latency Tiering refinement (deltas D1–D12)
+
+- **Context:** S1.2 landed as a 157-line draft in commit `dfa3be5`. Architectural shape was correct (5 tiers, T0/T1 must work without external AI, no tier bypasses safety) but the contract was tilt-heavy on bullet lists and missing typed surfaces, numbers, and adversarial defense.
+- **Decision:** Apply twelve deltas without scope expansion:
+  - **D1 — Proto IDL + `LatencyRouter` service:** typed `RoutingRequest`, `RoutingDecision`, `RoutingResponse`, `RoutingEvidence`, `RouterInfo`. Stable identifier `rt_<ULID>`. `Route()` and `GetRouterInfo()` RPCs. Full IDL in Appendix A.
+  - **D2 — Quantitative per-tier budgets:** T0 p95 < 10 ms, T1 < 50 ms, T2 < 200 ms, T3 < 800 ms, T4 < 3 s; hard timeouts; cold start budgets. Aligned with S1.1 §19; this section is now authoritative.
+  - **D3 — Deterministic routing algorithm:** priority-ordered guards (recovery mode → privacy class → policy egress → budget → rate limit) followed by tier selection (T0 cache → exact match → lexical → ambiguity → multi-step → default). Lowest tier wins on tie.
+  - **D4 — `PrivacyClass` enum:** closed set `PUBLIC`, `INTERNAL`, `SENSITIVE`, `SECRET_BEARING`, `CLASSIFIED` with per-class tier ceiling table. Default `SENSITIVE`; secret detection raises to `SECRET_BEARING`; class can be raised but never lowered.
+  - **D5 — Tier dynamics:** auto-upgrade rules (T1→T2 on miss, T2→T3 on low confidence + bind fail, T3→T4 on multi-step) capped at one upgrade per request; auto-downgrade on tier unavailable; hard timeout returns `TIMEOUT` outcome (never silent fallback).
+  - **D6 — Evidence chain:** `routing_id → translation_id → action_id → evidence_receipt_ids`. `RoutingEvidence.translation_ids[]` filled when downstream translations produced. `correlation_id` flows through all four levels.
+  - **D7 — Adversarial protection + cost model:** per-subject rate limits (60 routing/min, 20 T3/min, 10 T4/hour, 200 external/day defaults); external model budget guards with 80%/95%/100% threshold actions; defense delegation table.
+  - **D8 — T0 caching semantics:** explicit cacheable / never-cacheable rules; cache key formula `rtc_<hex_lower(BLAKE3(JCS(...)))[:32]>`; TTL defaults (60 s status, 5 m views); invalidation triggers (catalog flip, evidence-event, session expiry, operator flush).
+  - **D9 — Telemetry contract:** Prometheus-compatible metrics with bounded label cardinality (subject is never a label); histogram buckets for latency; required counters and gauges enumerated.
+  - **D10 — Golden routing fixtures:** ten `{ input, expected, status }` triples covering exact, fuzzy, ambiguous, multi-step, recovery, secret-bearing, budget-exhausted, Bulgarian, adversarial-rate-limit, and classified-context cases.
+  - **D11 — Statelessness contract:** router stateless across `Route()` calls (mirrors S1.1 §18 discipline); reproducibility input set documented.
+  - **D12 — User preferences:** `RoutingPreference` with `prefer_local`, `prefer_speed`, `prefer_quality` as hints; policy and guards always override preferences; preferences are per-call, not persisted by router.
+- **Consequences:** S1.2 grows from 157 to 933 lines. Becomes authoritative for latency budgets (S1.1 §19 was already deferring). New canonical refusal paths via `RoutingOutcome.REFUSED` and `RoutingOutcome.TIMEOUT`.
+- **Status:** `REAL` (applied 2026-05-08).
+- **Phase tag:** S1.2 refinement.
+
 ## DEC-007 — S1.1 Capability Translator refinement (deltas D1–D9)
 
 - **Context:** S1.1 landed as a draft in commit `dfa3be5` together with the rest of the rev.2 roadmap (DEC-005). The draft was structurally sound but missing several contract-grade pieces.

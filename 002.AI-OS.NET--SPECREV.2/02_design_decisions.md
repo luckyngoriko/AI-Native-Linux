@@ -74,6 +74,26 @@ Decision log. Each entry follows ADR (Architecture Decision Record) discipline: 
 
 ---
 
+## DEC-009 — S1.3 AIOS-FS Object Model + Conflict Resolution refinement (deltas D1–D12)
+
+- **Context:** S1.3 landed as two thin drafts in commit `dfa3be5`: object model (170 lines) and conflict resolution (94 lines). Architecturally correct (immutable versions, content-addressed chunks, optimistic concurrency, sibling versions, AI proposes-not-promotes) but missing typed surfaces, hash encoding precision, GC contracts, CRDT vocabulary, and operational mechanics.
+- **Decision:** Apply twelve combined deltas without scope expansion:
+  - **D1 — Hash encoding explicit:** chunk IDs use **full** BLAKE3-256 lowercase hex (64 hex chars, no truncation) — chunks need full collision resistance for persistent storage handles. Metadata digests follow S0.1 §8.5 truncation rule. Distinction recorded explicitly.
+  - **D2 — Proto IDL + gRPC service:** `aios.fs.v1alpha1` package; `AIOSFSObjects` service with `BeginTransaction`/`WriteVersion`/`PromotePointer`/`CommitTransaction`/`AbortTransaction`/`ReadObject`/`ReadVersion`/`ReadChunk`/`EnumerateObjects`/`ListConflicts`/`ResolveConflict`/`RebuildIndexes`/`QuarantineVersion`/`ExitQuarantine`/`RetireObject`/`PurgeObject`. Appendix A in object_model holds full IDL; Appendix B in conflict_resolution adds conflict-specific records.
+  - **D3 — Transaction model with multi-pointer atomicity:** transactions can write multiple versions and promote multiple pointers; all CAS succeed or all fail (two-phase commit fence within one AIOS-FS instance).
+  - **D4 — Chunking strategy + GC contract:** FastCDC defaults (min=64KB, avg=256KB, max=1MB); fixed-size permitted as fallback for streaming workloads; orphan staging TTL 24h; reference counting via active version refs; GC passes are evidence-logged, never silent.
+  - **D5 — Privacy class and object lifecycle:** `PrivacyClass` field on objects mirrors the S1.2 §5 enum (`PUBLIC`/`INTERNAL`/`SENSITIVE`/`SECRET_BEARING`/`CLASSIFIED`); class can be raised but not lowered. Object lifecycle adds `ACTIVE`/`RETIRED`/`PURGED` with default 90-day retention; shortening retention requires policy approval.
+  - **D6 — Pointer move CAS protocol:** atomic compare-and-swap on `(pointer_id, expected_current_version_id)`; standardized `ConflictDetected` error gateway to the conflict resolution sub-spec; multi-pointer transactions emit one conflict per failed pointer.
+  - **D7 — Read consistency model:** `SNAPSHOT` (default; consistent across pointers as of read time), `LINEARIZABLE` (latest committed; for synchronization), `EVENTUAL` (for views; may lag).
+  - **D8 — Quarantine semantics:** triggers (validation/integrity/policy/external attestation/operator), effects (pointer rollback, restricted reads), exits (manual review, automated re-validation), 30-day quarantine TTL leading to `RETIRED_VERSION`, evidence trail.
+  - **D9 — CRDT vocabulary:** closed set `G_COUNTER`/`PN_COUNTER`/`OR_SET`/`LWW_REGISTER`/`OR_MAP`/`RGA_TEXT`; per-object-kind merge policy declares which CRDT applies; new types require additive enum bump.
+  - **D10 — Conflict timeout, notification, authority:** 30-day default TTL → `ABANDONED` status with evidence; push notifications via L9 evidence stream with debouncing (5s coalescing window); pull via `ListConflicts`; resolution authority is owner / collaborator / operator-with-override, evaluated by L4 Policy Kernel.
+  - **D11 — AI merge proposal validation:** structural rejection rules in code (proposal must include base/current/candidate/resolution/explanation/verification/evidence; rejected on empty verification, missing evidence, secret-shaped explanation per S1.1 §17.2.6, or AI involvement at privacy class beyond merge policy allowance); auto-promote requires `PUBLIC`/`INTERNAL` class plus explicit policy opt-in.
+  - **D12 — Golden fixtures and telemetry contracts:** seven fixtures for object_model (write-promote, CAS conflict, multi-pointer atomicity, quarantine, GC, privacy monotonicity, recovery enumerate, snapshot read); seven fixtures for conflict_resolution (default reject, CRDT auto-merge, AI redaction, multi-pointer conflicts, TTL abandon, unauthorized resolve, resolution race). Telemetry metrics with bounded label cardinality; subject never a metric label.
+- **Consequences:** S1.3 grows from 264 to 1428 lines combined (object_model 913, conflict_resolution 515). Object model becomes the authoritative source for the L2 gRPC surface; conflict resolution operates on the object model's CAS protocol. Multi-pointer transactions are now contract-grade. AI auto-promote conditions are explicit and verifiable.
+- **Status:** `REAL` (applied 2026-05-08).
+- **Phase tag:** S1.3 refinement.
+
 ## DEC-008 — S1.2 Latency Tiering refinement (deltas D1–D12)
 
 - **Context:** S1.2 landed as a 157-line draft in commit `dfa3be5`. Architectural shape was correct (5 tiers, T0/T1 must work without external AI, no tier bypasses safety) but the contract was tilt-heavy on bullet lists and missing typed surfaces, numbers, and adversarial defense.

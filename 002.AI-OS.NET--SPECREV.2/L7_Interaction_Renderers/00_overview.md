@@ -1,6 +1,6 @@
 # L7 — Interaction Renderers
 
-Status: `SHELL`
+Status: `PARTIAL` (foundation `01_surface_composition.md` is `CONTRACT`; downstream renderers + visual language remain `SHELL` / `DEFERRED`)
 
 ## Responsibility
 
@@ -19,13 +19,15 @@ May depend on: L0, L1, L2, L3, L4, L5, L6.
 
 ## Planned sub-specs
 
-| File                        | Topic                                                                                      | Status     |
-| --------------------------- | ------------------------------------------------------------------------------------------ | ---------- |
-| `01_shared_ui_schema.md`    | Abstract UI component schema; render-target binding                                        | `SHELL`    |
-| `02_kde_renderer.md`        | KRunner plugin, Plasma widget, tray, notifications, approval prompt, evidence viewer       | `SHELL`    |
-| `03_web_renderer.md`        | Goal input, plan viewer, approval prompts, action stream, evidence viewer, AIOS-FS browser | `SHELL`    |
-| `04_cli_renderer.md`        | CLI command set; piping; scripting integration; recovery-safe subset                       | `SHELL`    |
-| `05_voice_mobile_future.md` | Out-of-scope sketch for future renderers                                                   | `DEFERRED` |
+| File                        | Topic                                                                                                                                                                        | Status            |
+| --------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------- |
+| `01_surface_composition.md` | Surface + Composition Model — closed `SurfaceKind`/`CompositionZone` enums, lifecycle FSM, capability brokering hook to L8, cross-group surface isolation, AIOS chrome rules | `CONTRACT` (S7.1) |
+| `02_shared_ui_schema.md`    | Abstract UI component schema; render-target binding; Surface as a node kind                                                                                                  | `SHELL`           |
+| `03_visual_language.md`     | Token-level visual language — semantic colors, typography, spacing, distinctive AIOS components, motion principles (stage 2 of three-stage visual plan)                      | `SHELL`           |
+| `04_kde_renderer.md`        | KWin compositor + Qt/QML widgets + wgpu for Surface nodes; KRunner plugin, Plasma widget, tray, approval prompt, evidence viewer                                             | `SHELL`           |
+| `05_web_renderer.md`        | DOM + WebGPU canvas hybrid; goal input, plan viewer, approval prompts, action stream, evidence viewer, AIOS-FS browser                                                       | `SHELL`           |
+| `06_cli_renderer.md`        | CLI command set; piping; scripting integration; recovery-safe subset                                                                                                         | `SHELL`           |
+| `07_voice_mobile_future.md` | Out-of-scope sketch for future renderers                                                                                                                                     | `DEFERRED`        |
 
 ## See also
 

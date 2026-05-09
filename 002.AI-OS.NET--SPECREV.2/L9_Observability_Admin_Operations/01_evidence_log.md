@@ -1415,7 +1415,7 @@ Source: [S11.2 §12](../L10_Distribution_Ecosystem_Marketplace/02_marketplace.md
 | `CAPABILITY_REVIEW_DECEPTIVE_REJECTED`       | `FOREVER`      | S11.2 §12   | Per-capability `REJECTED_DECEPTIVE` outcome; feeds publisher's `capability_lie_history_count`.                      |
 | `LISTING_PUBLISHED`                          | `STANDARD_24M` | S11.2 §12   | `Listing.visibility` transitions from unset to any visible state; canonical hash recorded.                          |
 | `LISTING_VISIBILITY_DOWNGRADED`              | `EXTENDED_60M` | S11.2 §12   | Visibility transitions toward `DEPRECATED_VIEWABLE` or `RETIRED_HIDDEN`; reason recorded.                           |
-| `LISTING_LISTING_VS_MANIFEST_MISMATCH`       | `FOREVER`      | S11.2 §12   | Listing-vs-manifest cross-check failed at publication or at install; constitutional bait-and-switch event.          |
+| `LISTING_VS_MANIFEST_MISMATCH`               | `FOREVER`      | S11.2 §12   | Listing-vs-manifest cross-check failed at publication or at install; constitutional bait-and-switch event.          |
 | `MARKETPLACE_REVIEW_BYPASS_ATTEMPTED`        | `FOREVER`      | S11.2 §12   | Install pipeline detected a manifest that should have been caught at review; constitutional review-bypass forensic. |
 
 Subsection retention split: `STANDARD_24M` × 3, `EXTENDED_60M` × 3, `FOREVER` × 6 (twelve rows total).

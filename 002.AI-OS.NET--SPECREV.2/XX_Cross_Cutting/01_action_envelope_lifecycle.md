@@ -90,17 +90,37 @@ message Identity {
 
 ### 3.2. ID format
 
-All system-generated IDs use **ULID** (Crockford base32, 26 characters), prefix-namespaced:
+All system-generated IDs use **ULID** (Crockford base32, 26 characters), prefix-namespaced. The separator between the prefix and the ULID body is **underscore** (`_`); colon-separated forms (`act:01H...`) are forbidden. The full prefix-namespace registry below is the authoritative cross-spec list — every sub-spec that introduces a new id-prefixed type MUST register it here.
 
-| Prefix               | Semantics                            | Example                            |
-| -------------------- | ------------------------------------ | ---------------------------------- |
-| `act_`               | Action envelope                      | `act_01HXY8K2JPQ7N3M4R5S6T7V8W9`   |
-| `intent_`            | User intent object                   | `intent_01HXY8K3...`               |
-| `plan_`              | Multi-step plan                      | `plan_01HXY8K4...`                 |
-| `corr_`              | Workflow correlation                 | `corr_01HXY8K5...`                 |
-| `evr_`               | Evidence receipt (Sec. 5.5; L9 S3.1) | `evr_01HXZ9...`                    |
-| `polreq_`, `poldec_` | Policy request / decision            | `polreq_01HX...`, `poldec_01HX...` |
-| `appr_`              | Approval receipt                     | `appr_01HX...`                     |
+#### 3.2.1 Prefix-namespace registry
+
+| Prefix    | Semantics                             | Owner | Example                          |
+| --------- | ------------------------------------- | ----- | -------------------------------- |
+| `act_`    | Action envelope (canonical)           | S0.1  | `act_01HXY8K2JPQ7N3M4R5S6T7V8W9` |
+| `intent_` | User intent object                    | S0.1  | `intent_01HXY8K3...`             |
+| `plan_`   | Multi-step plan                       | S0.1  | `plan_01HXY8K4...`               |
+| `corr_`   | Workflow correlation                  | S0.1  | `corr_01HXY8K5...`               |
+| `evr_`    | Evidence receipt (§5.5; L9 S3.1)      | S0.1  | `evr_01HXZ9...`                  |
+| `polreq_` | Policy request                        | S0.1  | `polreq_01HX...`                 |
+| `poldec_` | Policy decision                       | S0.1  | `poldec_01HX...`                 |
+| `appr_`   | Approval receipt (legacy)             | S0.1  | `appr_01HX...`                   |
+| `apprq_`  | Approval request                      | S5.3  | `apprq_01HX...`                  |
+| `appb_`   | Approval binding                      | S5.3  | `appb_01HX...`                   |
+| `ovrq_`   | Override request                      | S5.4  | `ovrq_01HX...`                   |
+| `ovr_`    | Override binding                      | S5.4  | `ovr_01HX...`                    |
+| `actrq_`  | Action runtime request (queue handle) | S10.1 | `actrq_01HX...`                  |
+| `tplan_`  | Transition plan (content-addressed)   | S15.2 | `tplan_<32-hex>`                 |
+
+Notes on the registry:
+
+- `act_` and `actrq_` are deliberately distinct namespaces: `act_` is the canonical action-envelope identity carried in evidence; `actrq_` is the L3 Capability Runtime's per-attempt queue handle. Two `actrq_` ids may exist for the same `act_` envelope across retries.
+- `appr_` is retained for legacy compatibility with earlier rev.2 drafts that referred to "approval receipts" generically; concrete approval workflows now use `apprq_` (request) and `appb_` (binding) per S5.3. The legacy `appr_` namespace remains reserved.
+- All ULID prefixes use the underscore (`_`) separator. Colon-separated forms (`app:01H...`, `ovr:01H...`, `act:01H...`) are forbidden and reserved as a sentinel for legacy/illegal input — runtime parsers MUST reject any id whose separator is not `_`.
+- Adding a new prefix is a versioned spec change; entries are append-only. Removing a prefix is a recovery-mode invariant-bundle update.
+
+#### 3.2.2 Truncation convention
+
+Hash-derived id bodies (e.g. `tplan_`) follow the project-wide convention `hex_lower(BLAKE3(JCS(canonical_form)))[:32]`. The 32-hex-character (128-bit) truncation matches S0.1 §8.5, S2.3 `request_hash`, S3.1 evidence-receipt hashing, and S5.3/S5.4 binding hashes. There are **no documented exceptions** to the `[:32]` truncation as of Wave 11 normalisation; the previous `[:48]` form in S15.2 has been reconciled to `[:32]`.
 
 ULID over UUID rationale:
 

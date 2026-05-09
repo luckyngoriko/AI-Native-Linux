@@ -235,7 +235,7 @@ A `NO_OP`-bearing plan is **not** the same as `CONVERGED`. If the desired graph 
 The plan id is content-addressed:
 
 ```text
-transition_plan_id = "tplan_" || hex_lower(BLAKE3(jcs(canonicalized_plan)))[:48]
+transition_plan_id = "tplan_" || hex_lower(BLAKE3(jcs(canonicalized_plan)))[:32]
 ```
 
 Where `canonicalized_plan` includes:

@@ -1,13 +1,13 @@
 # AIOS-FS Conflict Resolution (Rev.2)
 
-| Field     | Value                                                                |
-| --------- | -------------------------------------------------------------------- |
-| Status    | `CONTRACT` (refined 2026-05-08; awaiting implementation evidence)    |
-| Phase tag | S1.3                                                                 |
-| Layer     | L2 AIOS-FS                                                           |
-| Consumes  | L2 object model, L0 evidence/status, S0.1 verification intents       |
-| Produces  | conflict records, merge proposals, merge policies, resolution events |
-| Approved  | 2026-05-08 (deltas D1–D12 applied; replaces draft from `dfa3be5`)    |
+| Field     | Value                                                                                                                                                                                                                                                                                                                                                                                                                     |
+| --------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Status    | `CONTRACT` (refined 2026-05-08; awaiting implementation evidence)                                                                                                                                                                                                                                                                                                                                                         |
+| Phase tag | S1.3                                                                                                                                                                                                                                                                                                                                                                                                                      |
+| Layer     | L2 AIOS-FS                                                                                                                                                                                                                                                                                                                                                                                                                |
+| Consumes  | **Imports vocabulary from**: L0 evidence/status (closed enums), S0.1 verification intents (type-level). **Peer (intra-L2)**: L2 object model (companion `01_object_model.md`). **Body-text references** (informational, not Consumes-level dependencies): L4 subject canonical-id (vocabulary import), L9 evidence-projection (L9 reads from L2 — inverse direction is fine), L6 sandbox composition (vocabulary import). |
+| Produces  | conflict records, merge proposals, merge policies, resolution events                                                                                                                                                                                                                                                                                                                                                      |
+| Approved  | 2026-05-08 (deltas D1–D12 applied; replaces draft from `dfa3be5`)                                                                                                                                                                                                                                                                                                                                                         |
 
 ## 1. Purpose
 

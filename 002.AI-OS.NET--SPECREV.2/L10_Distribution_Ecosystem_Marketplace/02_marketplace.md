@@ -18,7 +18,7 @@ This sub-spec closes that loop. It is the **admission contract** of AIOS: a publ
 Five constitutional risks define the threat model, each addressed by a named mechanism in this contract:
 
 1. **Fake publisher applications** — an attacker submits an application impersonating a legitimate organisation. Addressed by the identity verification stage, the legal-entity binding for `VERIFIED_PUBLISHER`, and the two-reviewer requirement for the `IDENTITY_VERIFICATION_PENDING → TECHNICAL_REVIEW` transition.
-2. **Capability bait-and-switch** — a publisher declares a narrow capability set in the listing UX, but the actual `PackageManifest.declared_capabilities` (S11.1 §5) is broader. Addressed by the listing-vs-manifest cross-check at install time, with a FOREVER `LISTING_LISTING_VS_MANIFEST_MISMATCH` evidence record and immediate listing downgrade.
+2. **Capability bait-and-switch** — a publisher declares a narrow capability set in the listing UX, but the actual `PackageManifest.declared_capabilities` (S11.1 §5) is broader. Addressed by the listing-vs-manifest cross-check at install time, with a FOREVER `LISTING_VS_MANIFEST_MISMATCH` evidence record and immediate listing downgrade.
 3. **Review bypass via social engineering** — a single AIOS-root reviewer is compromised, coerced, or careless. Addressed by the multi-reviewer requirement for the `VERIFIED_PUBLISHER` tier (`ApprovalStrength = DUAL` per S5.3 §3.3) and by the mandatory technical + security review separation.
 4. **Coordinated rating manipulation** — a publisher pumps ratings for their own listings or smears a competitor. Addressed by referencing S12.4's outlier detection abstractly and by reputation being multi-dimensional (a five-star rating cannot mask a `capability_lie_history > 0`).
 5. **Deceptive listing UX** — a listing claims `VERIFIED_PUBLISHER` to the operator while the publisher is actually `COMMUNITY_PUBLISHER`. Addressed by **strict UI binding**: the listing renderer reads the publisher's trust tier directly from the AIOS-root-signed publisher catalog (`pubcat_<hex>`), not from any field the publisher controls.
@@ -372,8 +372,8 @@ message CapabilityListingEntry {
 Every `Listing` is bound to exactly one published `PackageManifest`. The binding is enforced at three points:
 
 1. **Listing publication.** The marketplace state engine refuses to publish a `Listing` whose `(package_id, version, publisher_root_id)` does not match an existing manifest signed by the same `publisher_root_id`.
-2. **Capability list cross-check at publication.** The set of `capability_id` values in `capability_listing` must equal exactly the set of capabilities in `PackageManifest.declared_capabilities` (after applying any `APPROVED_WITH_NARROWED_SCOPE` narrowing). Mismatch → publication refused; FOREVER `LISTING_LISTING_VS_MANIFEST_MISMATCH` evidence.
-3. **Capability list cross-check at install time.** The seventeen-step install pipeline (S11.1 §6) consumes the listing's capability set as the operator-visible expectation. If the manifest pulled at install time declares a capability not present in the listing, this is the **bait-and-switch** detection point: the install transitions to `INSTALL_FAILED` (or `QUARANTINED` if discovered after install via runtime audit) and emits FOREVER `LISTING_LISTING_VS_MANIFEST_MISMATCH` + `MARKETPLACE_REVIEW_BYPASS_ATTEMPTED` evidence; the listing is downgraded to `DEPRECATED_VIEWABLE`; the publisher's `capability_lie_history` is incremented.
+2. **Capability list cross-check at publication.** The set of `capability_id` values in `capability_listing` must equal exactly the set of capabilities in `PackageManifest.declared_capabilities` (after applying any `APPROVED_WITH_NARROWED_SCOPE` narrowing). Mismatch → publication refused; FOREVER `LISTING_VS_MANIFEST_MISMATCH` evidence.
+3. **Capability list cross-check at install time.** The seventeen-step install pipeline (S11.1 §6) consumes the listing's capability set as the operator-visible expectation. If the manifest pulled at install time declares a capability not present in the listing, this is the **bait-and-switch** detection point: the install transitions to `INSTALL_FAILED` (or `QUARANTINED` if discovered after install via runtime audit) and emits FOREVER `LISTING_VS_MANIFEST_MISMATCH` + `MARKETPLACE_REVIEW_BYPASS_ATTEMPTED` evidence; the listing is downgraded to `DEPRECATED_VIEWABLE`; the publisher's `capability_lie_history` is incremented.
 
 The binding is **not** symmetric: a manifest may declare fewer capabilities than the listing claims (the publisher narrowed at publication; the listing-displayed scope is the upper bound). It is **not** allowed in the other direction (manifest cannot claim more than the listing).
 
@@ -402,7 +402,7 @@ Listing canonicalisation mirrors S11.1 §5.2 manifest canonicalisation:
 
 `ed25519_signature` is signed over the ASCII bytes of the lowercase-hex `listing_canonical_hash` by the same `package_signing_key` that signed the bound `PackageManifest`. Listings are not signed by a separate key class — the publisher attests the listing under the same trust chain.
 
-A listing whose computed canonical hash does not match the recorded value, or whose signature does not verify, is rejected at publication with FOREVER `LISTING_LISTING_VS_MANIFEST_MISMATCH` evidence (rationale: any tamper on a listing is equivalent to a manifest tamper for trust purposes).
+A listing whose computed canonical hash does not match the recorded value, or whose signature does not verify, is rejected at publication with FOREVER `LISTING_VS_MANIFEST_MISMATCH` evidence (rationale: any tamper on a listing is equivalent to a manifest tamper for trust purposes).
 
 ## §8 Capability review discipline (deep contract)
 
@@ -521,7 +521,7 @@ This section enumerates the threat model and the mechanism that defends each axi
 **Defence.**
 
 - Listing-vs-manifest cross-check at publication (§7.2 rule 2): the marketplace state engine refuses to publish a listing whose capability set differs from the bound manifest's `declared_capabilities`.
-- Listing-vs-manifest cross-check at install (§7.2 rule 3): the install pipeline compares again at install time; mismatch transitions to `INSTALL_FAILED` and emits FOREVER `LISTING_LISTING_VS_MANIFEST_MISMATCH`.
+- Listing-vs-manifest cross-check at install (§7.2 rule 3): the install pipeline compares again at install time; mismatch transitions to `INSTALL_FAILED` and emits FOREVER `LISTING_VS_MANIFEST_MISMATCH`.
 - First-run capability lie audit (S11.1 §6.17, §3.7): even if a publisher passes both static checks, a runtime drift between declared and observed capabilities triggers `CAPABILITY_LIE` with FOREVER evidence.
 - Repeated bait-and-switch incidents feed S11.1 deplatform discipline (`TakedownReason = CAPABILITY_LIE_DETECTED`).
 - Cite INV-008: every capability is default-deny; a manifest that declares more than the listing showed cannot grant itself anything at install time — capabilities are bound by the install pipeline, not by the listing.
@@ -636,7 +636,7 @@ Twelve record types are queued for S3.1 ingestion. Retention classes follow S3.1
 | `CAPABILITY_REVIEW_DECEPTIVE_REJECTED`       | Per-capability `REJECTED_DECEPTIVE` outcome (§6.3, §8.4); also feeds `capability_lie_history_count`.                       | FOREVER      |
 | `LISTING_PUBLISHED`                          | `Listing.visibility` transitions from unset to any visible state (§7); listing canonical hash recorded.                    | STANDARD_24M |
 | `LISTING_VISIBILITY_DOWNGRADED`              | Visibility transitions toward `DEPRECATED_VIEWABLE` or `RETIRED_HIDDEN` (§3.4); reason recorded.                           | EXTENDED_60M |
-| `LISTING_LISTING_VS_MANIFEST_MISMATCH`       | Listing-vs-manifest cross-check fails at publication (§7.2 rule 2) or at install (§7.2 rule 3).                            | FOREVER      |
+| `LISTING_VS_MANIFEST_MISMATCH`               | Listing-vs-manifest cross-check fails at publication (§7.2 rule 2) or at install (§7.2 rule 3).                            | FOREVER      |
 | `MARKETPLACE_REVIEW_BYPASS_ATTEMPTED`        | Install pipeline detects a manifest that should have been caught at review (§10.3) — divergence between listing & catalog. | FOREVER      |
 
 These twelve are additive to S11.1's nineteen and S12.1's fourteen. S3.1 ingestion is the single sink for all evidence record types across L10 and L6.
@@ -692,10 +692,10 @@ A `COMMUNITY_PUBLISHER` ("HobbyDevSolo", `applicant_handle = "hobbydev"`, peer s
 A `COMMUNITY_PUBLISHER` ("ShadyTools", `applicant_handle = "shadytools"`) was approved at onboarding for a calculator app declaring zero network capabilities. Six months later, ShadyTools publishes a listing for "ShadyCalc 2.0" claiming the same capability set as the original 1.0 listing — but the published `PackageManifest` for 2.0 declares an additional `network.outbound.*` capability with no listing entry.
 
 1. The publisher's CI publishes the new `Listing` and `PackageManifest` to `AIOS_COMMUNITY_REPO`.
-2. At publication time, the marketplace state engine runs the listing-vs-manifest cross-check (§7.2 rule 2). The capability sets differ. Publication is **refused**. `LISTING_LISTING_VS_MANIFEST_MISMATCH` FOREVER evidence emitted. The publisher's `capability_lie_history_count` increments from 0 to 1.
+2. At publication time, the marketplace state engine runs the listing-vs-manifest cross-check (§7.2 rule 2). The capability sets differ. Publication is **refused**. `LISTING_VS_MANIFEST_MISMATCH` FOREVER evidence emitted. The publisher's `capability_lie_history_count` increments from 0 to 1.
 3. ShadyTools, attempting to bypass the publication check, instead pushes only the `PackageManifest` to the repository while leaving the old 1.0 listing pointing at the 2.0 version (a corrupt cross-binding). When an operator on a host discovers the new version via the repository (not via the listing UX), the install pipeline runs:
    - Steps 1-9 of S11.1 §6 pass on the manifest level.
-   - Step 10 (policy decision) consults the listing for the operator-visible expectation. The capability set in the listing differs from the manifest's `declared_capabilities`. The install pipeline transitions to `INSTALL_FAILED` with reason `LISTING_LISTING_VS_MANIFEST_MISMATCH`. FOREVER evidence emitted.
+   - Step 10 (policy decision) consults the listing for the operator-visible expectation. The capability set in the listing differs from the manifest's `declared_capabilities`. The install pipeline transitions to `INSTALL_FAILED` with reason `LISTING_VS_MANIFEST_MISMATCH`. FOREVER evidence emitted.
 4. `MARKETPLACE_REVIEW_BYPASS_ATTEMPTED` FOREVER evidence is also emitted because the divergence indicates an attempt to slip a capability past the publication-time review. The operator sees a clear failure message: "This package declares network access but the marketplace listing did not. Install refused. The publisher's reputation has been recorded as having attempted a capability bait-and-switch." (Exact phrasing is L7's domain; the **fact** of disclosure is constitutional.)
 5. The marketplace state engine downgrades the 1.0 listing to `DEPRECATED_VIEWABLE` because the binding is corrupt. `LISTING_VISIBILITY_DOWNGRADED` EXTENDED_60M evidence emitted.
 6. ShadyTools' `capability_lie_history_count` is now ≥ 2 (one from publication-time refusal, one from install-time mismatch). On the AIOS-root reviewer team's threshold (default 3 within 90 days, per §9), the publisher becomes a candidate for `PUBLISHER_DEPLATFORMED` per S11.1 deplatform discipline with `TakedownReason = CAPABILITY_LIE_DETECTED`. Cite INV-008: default-deny held throughout — no operator was ever exposed to the bait-and-switch.

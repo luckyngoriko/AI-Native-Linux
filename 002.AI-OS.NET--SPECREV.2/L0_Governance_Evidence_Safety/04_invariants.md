@@ -141,7 +141,7 @@ These three roots are constitutional. AIOS-FS objects, agents, and apps live und
 
 **Enforced by:** every spec's "Consumes" header table (must list only same-or-lower layers).
 
-**Verified by:** an architectural audit step that scans every spec's "Consumes" list. If a spec lists a higher layer, it is in violation.
+**Verified by:** an architectural audit step that scans every spec's "Consumes" list. If a spec lists a higher layer, it is in violation. [Wave 11] queued for S2.4: PropertyType `LAYER_DOWNWARD_DEPENDENCY_HOLDS` whose probe scans every sub-spec's Consumes header and refuses any "requires-for-correctness" reference to a higher-numbered layer (per the discipline refined in 03_architecture_overview.md Wave 11). Once promoted, this converts INV-007 verification from a manual audit step to a closed-vocabulary mechanical check.
 
 **Cannot be loosened by:** anything. A higher-layer dependency is an architectural defect to be fixed.
 
@@ -235,7 +235,7 @@ These three roots are constitutional. AIOS-FS objects, agents, and apps live und
 
 **Why:** evidence is queried by audit subjects, replicated across instances, and sometimes shared. Embedding secrets in evidence makes the log a high-value target.
 
-**Enforced by:** L4 vault broker (when refined); S3.1 record schema validation.
+**Enforced by:** L4 vault broker (when refined); S3.1 record schema validation. Runtime enforcement is `PARTIAL` until S5.2 (vault broker) is refined to add a runtime probe against a secret-pattern catalog. Schema validation in S3.1 catches structurally-typed secret fields; runtime detection of embedded-secret-in-text-payload patterns is queued for a future S2.4 PropertyType `EVIDENCE_NO_SECRET_LEAK` (already queued narratively in S2.4 §20.1; promotion to closed PropertyType deferred).
 
 **Verified by:** new property `EVIDENCE_NO_SECRET_LEAK` is added to the closed `PropertyType` enum (sixteenth property); audits records for known secret patterns (PEM blocks, password regex, API key patterns) and emits `TAMPER_DETECTED` on hits.
 
@@ -279,11 +279,11 @@ These three roots are constitutional. AIOS-FS objects, agents, and apps live und
 
 ### INV-019 — Visual identity preserved across renderers
 
-**Statement:** AIOS visual language is constitutional. The KDE Plasma renderer (L7.2), Web renderer (L7.3), CLI renderer (L7.4), Voice renderer, and Mobile renderer cannot invent their own chrome or trust UX. Cross-renderer visual identity must be recognizable as AIOS — an operator using KDE and an operator using Web must instantly know they are using the same OS.
+**Statement:** AIOS visual language is constitutional. The KDE Plasma renderer (S7.4), Web renderer (S7.5), CLI renderer (S7.6), Voice renderer, and Mobile renderer cannot invent their own chrome or trust UX. Cross-renderer visual identity must be recognizable as AIOS — an operator using KDE and an operator using Web must instantly know they are using the same OS.
 
 **Why:** without this invariant, each renderer drifts toward its host platform's defaults; AIOS looks like a generic app on each surface; the trust model degrades visually because security indicators look like generic notifications instead of constitutional chrome.
 
-**Enforced by:** L7 renderer specs binding to a shared visual language contract (L7.X — to be written); L7.1 Surface + Composition Model (to be written) defining composition zones and chrome rules; renderer build gate rejects chrome divergence.
+**Enforced by:** L7 renderer specs binding to the shared visual language contract (S7.3 Visual Language); S7.1 Surface + Composition Model defining composition zones and chrome rules; S7.2 Shared UI Schema constraining per-renderer surface schemas to the same vocabulary; renderer build gate rejects chrome divergence.
 
 **Verified by:** S2.4 property `RENDERER_VISUAL_IDENTITY_PRESERVED` (added to the closed `PropertyType` enum). The property is a scheduled audit that checks each renderer's chrome rendering against the visual language contract; scheduled audit will be wired in S2.4 at consolidation.
 
@@ -291,11 +291,11 @@ These three roots are constitutional. AIOS-FS objects, agents, and apps live und
 
 ### INV-020 — Trust indicators cannot be hidden by app surfaces
 
-**Statement:** The security indicator showing subject `is_ai` (per L4 identity §10), `action_id` (per S0.1), and the evidence link (per S3.1) is always visible. App surfaces (per L7.1's future `SurfaceKind = APP_SURFACE`) cannot overdraw, obscure, or fake the AIOS chrome zone. The CHROME zone is always on top in L7.1's composition model.
+**Statement:** The security indicator showing subject `is_ai` (per L4 identity §10), `action_id` (per S0.1), and the evidence link (per S3.1) is always visible. App surfaces (per S7.1's `SurfaceKind = APP_SURFACE`) cannot overdraw, obscure, or fake the AIOS chrome zone. The CHROME zone is always on top in S7.1's composition model.
 
 **Why:** trust indicators are how the operator knows who acted (AI or human), what they did (action id), and where to verify (evidence link). An app surface that can hide them becomes a phishing vector inside the OS itself.
 
-**Enforced by:** L7.1 composition zones — the CHROME zone is always on top; renderer rejects app-surface attempts to write into the CHROME zone; KWin layer-shell protocol enforces the top layer on KDE; DOM `z-index` plus shadow root on Web; CLI reserves a status row no app stream can overwrite.
+**Enforced by:** S7.1 composition zones — the CHROME zone is always on top; renderer rejects app-surface attempts to write into the CHROME zone; KWin layer-shell protocol enforces the top layer on KDE (S7.4); DOM `z-index` plus shadow root on Web (S7.5); CLI (S7.6) reserves a status row no app stream can overwrite.
 
 **Verified by:** S2.4 property `TRUST_INDICATORS_ALWAYS_VISIBLE` (added to the closed `PropertyType` enum). The audit confirms that the chrome zone is rendered above all app surfaces in every renderer; scheduled audit will be wired in S2.4 at consolidation.
 
@@ -307,7 +307,7 @@ These three roots are constitutional. AIOS-FS objects, agents, and apps live und
 
 **Why:** the AIOS trust model rests on the operator knowing at a glance whether they are looking at AI output or a human action. Visual ambiguity erases the bounded-AI-agency property that the rest of the constitution depends on.
 
-**Enforced by:** L7.X visual language spec (to be written) defining `color.action.ai` and `color.action.human` as separate semantic tokens, with iconography and possibly typography distinctions; renderer implementations must bind to those tokens; renderer conformance tests reject token reuse across the AI/human axis.
+**Enforced by:** S7.3 Visual Language spec defining `color.action.ai` and `color.action.human` as separate semantic tokens, with iconography and possibly typography distinctions; S7.2 Shared UI Schema binds those tokens to subject-axis renderer hints; renderer implementations (S7.4 KDE, S7.5 Web, S7.6 CLI) must bind to those tokens; renderer conformance tests reject token reuse across the AI/human axis.
 
 **Verified by:** S2.4 property `AI_HUMAN_VISUAL_DISTINCTION` (added to the closed `PropertyType` enum). The audit confirms there is no overlap between AI and human visual treatments in rendered output; scheduled audit will be wired in S2.4 at consolidation.
 
@@ -315,11 +315,11 @@ These three roots are constitutional. AIOS-FS objects, agents, and apps live und
 
 ### INV-022 — Recovery mode aesthetically distinct from normal mode
 
-**Statement:** The recovery shell — entered via the L1 recovery boot path, identity per L4 §7 `_system` scope subjects — is visually unmistakable from normal AIOS. Recovery uses different chrome treatment, a different accent palette, and stricter composition rules (no app surfaces in recovery mode per a future L7.1 invariant). The operator must instantly recognize that they are in recovery.
+**Statement:** The recovery shell — entered via the L1 recovery boot path, identity per L4 §7 `_system` scope subjects — is visually unmistakable from normal AIOS. Recovery uses different chrome treatment, a different accent palette, and stricter composition rules (no app surfaces in recovery mode per S7.1's recovery-mode composition rules). The operator must instantly recognize that they are in recovery.
 
 **Why:** a recovery operator typing destructive commands into what they think is normal mode is a catastrophe. Visual distinction is the last line of defense before that mistake. Combined with INV-012 (recovery required for system mutation), this prevents the "I thought I was rehearsing" failure mode.
 
-**Enforced by:** L7.1 separate surface stack for recovery (no `APP_SURFACE` allowed); L7.X visual language defining a recovery-only theme that cannot be matched by any normal-mode theme; recovery accent tokens are gated to `is_recovery_mode = true` rendering paths.
+**Enforced by:** S7.1 separate surface stack for recovery (no `APP_SURFACE` allowed); S7.3 Visual Language defining a recovery-only theme that cannot be matched by any normal-mode theme; recovery accent tokens are gated to `is_recovery_mode = true` rendering paths in S7.4 (KDE), S7.5 (Web), and S7.6 (CLI).
 
 **Verified by:** S2.4 property `RECOVERY_AESTHETIC_DISTINCT` (added to the closed `PropertyType` enum). The audit confirms that recovery rendering uses recovery-only tokens not present in any normal-mode theme; scheduled audit will be wired in S2.4 at consolidation.
 
@@ -327,11 +327,11 @@ These three roots are constitutional. AIOS-FS objects, agents, and apps live und
 
 ### INV-023 — CHROME composition zone is reserved for trust surfaces
 
-**Statement:** The `CHROME` composition zone (per L7.1 closed `CompositionZone` enum) is reserved exclusively for renderer-owned trust surfaces authored by the AIOS system identity. AI subjects (`is_ai = true` per L4 §10) cannot author CHROME-zone content under any circumstance. `APP_SURFACE`-kind and `STREAM_SURFACE`-kind surfaces cannot be promoted into the CHROME zone, regardless of subject. Any authorship or promotion attempt fails closed.
+**Statement:** The `CHROME` composition zone (per S7.1 closed `CompositionZone` enum) is reserved exclusively for renderer-owned trust surfaces authored by the AIOS system identity. AI subjects (`is_ai = true` per L4 §10) cannot author CHROME-zone content under any circumstance. `APP_SURFACE`-kind and `STREAM_SURFACE`-kind surfaces cannot be promoted into the CHROME zone, regardless of subject. Any authorship or promotion attempt fails closed.
 
 **Why:** the CHROME zone hosts the operator's last-mile trust indicators — approval prompts, evidence links, security badges, identity chips, recovery-mode markers (per INV-020). If any other zone or any AI subject could compose into CHROME, the trust path collapses: an AI agent could synthesise a "Granted" badge over a denied action, an app surface could overlay the recovery-mode banner, or a marketplace skin could repaint the action-origin chip. The integrity of CHROME is the integrity of operator consent.
 
-**Enforced by:** L7.1 Surface + Composition runtime (rejects any non-system surface targeting `zone = CHROME` and rejects subject-id mismatch on CHROME nodes); L4.1 Policy Kernel constitutional hard-deny `CompositionZoneForbidden` (§27.2.1) which fires before bundle rules; renderer conformance tests (KDE — L7.4, Web — L7.5) reject CHROME-zone authorship by any subject other than the renderer's `aios_chrome` system identity.
+**Enforced by:** S7.1 Surface + Composition runtime (rejects any non-system surface targeting `zone = CHROME` and rejects subject-id mismatch on CHROME nodes); L4.1 Policy Kernel constitutional hard-deny `CompositionZoneForbidden` (§27.2.1) which fires before bundle rules; renderer conformance tests (S7.4 KDE, S7.5 Web, S7.6 CLI) reject CHROME-zone authorship by any subject other than the renderer's `aios_chrome` system identity.
 
 **Verified by:** S2.4 property `CHROME_ZONE_RESERVED` (added to the closed `PropertyType` enum). The audit walks every live surface, confirms `surface_kind ∈ {AIOS_SURFACE}` for all entries with `zone = CHROME`, and confirms no AI subject appears as author for any CHROME node. Scheduled audit will be wired in S2.4 at consolidation.
 
@@ -410,7 +410,7 @@ A retired invariant cannot be re-activated; activating again requires a new Inva
 | S3.1 | producer   | new record types `INVARIANT_BUNDLE_LOADED` FOREVER, `INVARIANT_RETIRED` FOREVER, `WEB_EXPOSURE_GRANTED` FOREVER                                                                                                                                                                                                                                                                                                        |
 | S6.1 | constraint | gate G6 (acceptance passing) checks invariant compliance for the capability                                                                                                                                                                                                                                                                                                                                            |
 | S6.2 | constraint | grade `E4` for any capability impacting `INV_001..INV_024` requires invariant verification                                                                                                                                                                                                                                                                                                                             |
-| L7   | constraint | renderer specs (L7.1 Surface + Composition Model, L7.2 KDE Plasma, L7.3 Web, L7.4 CLI, L7.X Visual Language) must bind to invariants `INV_019..INV_023` and surface conformance evidence for each renderer                                                                                                                                                                                                             |
+| L7   | constraint | renderer specs (S7.1 Surface + Composition Model, S7.2 Shared UI Schema, S7.3 Visual Language, S7.4 KDE Plasma, S7.5 Web, S7.6 CLI) must bind to invariants `INV_019..INV_023` and surface conformance evidence for each renderer                                                                                                                                                                                      |
 | L8   | constraint | L8.2 GPU resource model is the enforcer of `INV_024_GPU_COMPUTE_GATED`; capability negotiation must reject compute submission without an active `gpu.compute_heavy` grant                                                                                                                                                                                                                                              |
 
 ## 7. Golden fixtures

@@ -178,24 +178,25 @@ Forbidden: `ACTIVE → ACTIVE` (renewal is a fresh request, fresh approval, fres
 
 ### 4.8 `NetworkPolicyErrorCode` — closed error vocabulary
 
-| Code                                    | Meaning                                                                                 |
-| --------------------------------------- | --------------------------------------------------------------------------------------- |
-| `NETWORK_POLICY_ERROR_CODE_UNSPECIFIED` | Reserved zero                                                                           |
-| `EXPOSURE_DENIED_BY_POLICY`             | S2.3 returned DENY for a `RequestExposure` call                                         |
-| `EXPOSURE_REQUIRES_RECOVERY_MODE`       | PUBLIC requested without recovery_mode = true                                           |
-| `EXPOSURE_REQUIRES_CO_SIGNER`           | PUBLIC requested without co-signer present                                              |
-| `EXPOSURE_FORBIDDEN_TRANSITION`         | LAN → PUBLIC direct transition attempted; must downgrade to LOOPBACK first              |
-| `EXPOSURE_TTL_INVALID`                  | Requested TTL exceeds class cap (PUBLIC ≤ 4h)                                           |
-| `OUTBOUND_DENIED_BY_POLICY`             | S2.3 returned DENY for a `GrantOutbound` call                                           |
-| `OUTBOUND_DIRECTIVE_AI_FORBIDDEN`       | Attempt to grant `ALLOW_INTERNET` / `ALLOW_LIST_ONLY` to an AI subject                  |
-| `OUTBOUND_OUTSIDE_MANIFEST`             | A connection attempted by a subject is outside its declared `network_outbound_manifest` |
-| `ALLOWLIST_FQDN_FANOUT_EXCEEDED`        | A `HOST_FQDN` resolved to > 16 IPs at evaluation time                                   |
-| `LAN_SUBNET_DRIFT`                      | Subnet of an active LAN grant changed mid-grant; re-approval required                   |
-| `LAN_PEER_DRIFT_DETECTED`               | MAC/IP of a pinned LAN peer drifted; possible ARP spoofing                              |
-| `BACKEND_UNAVAILABLE_NFTABLES`          | nftables required but unavailable on this host                                          |
-| `BACKEND_DEGRADED_TO_IPTABLES`          | nftables unavailable; iptables fallback chosen                                          |
-| `RAW_SOCKET_BYPASS_ATTEMPTED`           | Subject tried to open a raw / packet socket outside policy                              |
-| `SUBJECT_ID_CORRELATOR_FAILURE`         | Kernel correlator could not derive `subject_id` from PID; connection denied             |
+| Code                                    | Meaning                                                                                                                                            |
+| --------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `NETWORK_POLICY_ERROR_CODE_UNSPECIFIED` | Reserved zero                                                                                                                                      |
+| `EXPOSURE_DENIED_BY_POLICY`             | S2.3 returned DENY for a `RequestExposure` call                                                                                                    |
+| `EXPOSURE_REQUIRES_RECOVERY_MODE`       | PUBLIC requested without recovery_mode = true                                                                                                      |
+| `EXPOSURE_REQUIRES_CO_SIGNER`           | PUBLIC requested without co-signer present                                                                                                         |
+| `EXPOSURE_FORBIDDEN_TRANSITION`         | LAN → PUBLIC direct transition attempted; must downgrade to LOOPBACK first                                                                         |
+| `EXPOSURE_TTL_INVALID`                  | Requested TTL exceeds class cap (PUBLIC ≤ 4h)                                                                                                      |
+| `OUTBOUND_DENIED_BY_POLICY`             | S2.3 returned DENY for a `GrantOutbound` call                                                                                                      |
+| `OUTBOUND_DIRECTIVE_AI_FORBIDDEN`       | Attempt to grant `ALLOW_INTERNET` / `ALLOW_LIST_ONLY` to an AI subject                                                                             |
+| `AI_DIRECT_INTERNET_DENIED`             | AI subject attempted a direct external connection without vault broker mediation; FOREVER record `AI_DIRECT_INTERNET_DENIED` is emitted (cite §10) |
+| `OUTBOUND_OUTSIDE_MANIFEST`             | A connection attempted by a subject is outside its declared `network_outbound_manifest`                                                            |
+| `ALLOWLIST_FQDN_FANOUT_EXCEEDED`        | A `HOST_FQDN` resolved to > 16 IPs at evaluation time                                                                                              |
+| `LAN_SUBNET_DRIFT`                      | Subnet of an active LAN grant changed mid-grant; re-approval required                                                                              |
+| `LAN_PEER_DRIFT_DETECTED`               | MAC/IP of a pinned LAN peer drifted; possible ARP spoofing                                                                                         |
+| `BACKEND_UNAVAILABLE_NFTABLES`          | nftables required but unavailable on this host                                                                                                     |
+| `BACKEND_DEGRADED_TO_IPTABLES`          | nftables unavailable; iptables fallback chosen                                                                                                     |
+| `RAW_SOCKET_BYPASS_ATTEMPTED`           | Subject tried to open a raw / packet socket outside policy                                                                                         |
+| `SUBJECT_ID_CORRELATOR_FAILURE`         | Kernel correlator could not derive `subject_id` from PID; connection denied                                                                        |
 
 ### 4.9 `AICrossOriginPosture` — AI subject network discipline
 
@@ -809,7 +810,7 @@ TTL expiry:
 - [ ] `InboundExposureClass = LOOPBACK` is the constitutional default; `LAN` requires policy approval; `PUBLIC` requires recovery-mode + co-signer + STRONG approval + FOREVER evidence + ≤ 4h TTL + 5-minute heartbeat.
 - [ ] Forbidden direct `LAN → PUBLIC` transition is rejected with `EXPOSURE_FORBIDDEN_TRANSITION`.
 - [ ] `ExposureApprovalState` FSM is closed with the exact transitions in §4.7; backward and self-loop transitions are rejected.
-- [ ] `NetworkPolicyErrorCode` is closed with 16 entries.
+- [ ] `NetworkPolicyErrorCode` is closed with 17 entries.
 - [ ] `AICrossOriginPosture` is closed with 3 values; AI subjects never granted `ALLOW_INTERNET` or arbitrary `ALLOW_LIST_ONLY`.
 - [ ] `NetworkPolicyService` gRPC surface implemented with the RPCs in §6.
 - [ ] Allowlist composition rules (append-only, FQDN fan-out ≤ 16, LAN_SUBNET drift detection, DoT resolver list constitutional) implemented per §5.4.

@@ -164,7 +164,7 @@ import "google/protobuf/timestamp.proto";
 
 message ApprovalRequest {
   // Identity --------------------------------------------------------------
-  string approval_request_id = 1;        // "app:" + 26-char ULID base32
+  string approval_request_id = 1;        // "apprq_" + 26-char ULID base32 (S0.1 §3.2)
   string action_id = 2;                  // S0.1 ActionEnvelope.identity.action_id
   string action_request_id = 3;          // L3 Capability Runtime ActionRequestId
   string policy_decision_id = 4;         // L4.1 PolicyDecision.policy_decision_id
@@ -201,7 +201,7 @@ message ApprovalRequest {
 
 Identity rules:
 
-- `approval_request_id` is `"app:" + ULID + 26-char base32`; the ULID's time component MUST be the millisecond `created_at` clock the kernel observed when emitting the `request_approval` outcome. This binds the request id to a monotonic time anchor used by the FSM and TTL audit.
+- `approval_request_id` is `"apprq_" + ULID + 26-char base32` (per S0.1 §3.2 prefix-namespace registry); the ULID's time component MUST be the millisecond `created_at` clock the kernel observed when emitting the `request_approval` outcome. This binds the request id to a monotonic time anchor used by the FSM and TTL audit. The `apprq_` prefix is distinct from the `appb_` binding prefix (§5) and from the legacy `appr_` approval-receipt prefix in S0.1; the three namespaces never collide.
 - `request_hash` is reproduced verbatim from S0.1 §8.5 (`hex_lower(BLAKE3(JCS(action)))[:32]`). The hash is the binding spine for the §11 anti-replay and the §13 action-revision invariant.
 - `bundle_version` is the policy bundle that produced the underlying decision (L4.1 §12). A bundle flip after request creation does not change the bundle the request was authorised against; the request finishes on the version it started with, consistent with L4.1 §12.4.
 
@@ -218,7 +218,7 @@ The `ApprovalBinding` is what `GRANTED` produces and what the Capability Runtime
 ```proto
 message ApprovalBinding {
   // Identity --------------------------------------------------------------
-  string binding_id = 1;                       // "app:" + 26-char ULID base32
+  string binding_id = 1;                       // "appb_" + 26-char ULID base32 (S0.1 §3.2)
   string approval_request_id = 2;              // backlink to ApprovalRequest
 
   // Bound action ----------------------------------------------------------
@@ -251,7 +251,7 @@ message ApprovalBinding {
 
 Hash and identity conventions:
 
-- `binding_id` follows the same `"app:" + ULID + 26-char base32` convention as `approval_request_id`. The ULID's time component MUST equal the millisecond `granted_at` clock observed by the Approval Mechanics service.
+- `binding_id` follows the parallel `"appb_" + ULID + 26-char base32` convention (per S0.1 §3.2). The `appb_` prefix is deliberately distinct from the `apprq_` request-id prefix and from the legacy `appr_` approval-receipt prefix in S0.1; an `appb_` id can only appear after the FSM has issued a binding (`AWAITING_OPERATOR → GRANTED`), never before. The ULID's time component MUST equal the millisecond `granted_at` clock observed by the Approval Mechanics service.
 - `bound_action_canonical_hash` is computed at grant time from the canonical (JCS) form of the bound action exactly as it existed when the operator saw the prompt. This is the **frozen** representation. The Capability Runtime will recompute the hash at `ExecuteAction` and compare; any divergence triggers §13 ACTION_REVISED.
 - `evidence_chain_root` is the hash of the prior evidence record at grant time. It anchors the binding into the append-only chain (per [L9.1 §5](../L9_Observability_Admin_Operations/01_evidence_log.md)). A binding that does not carry a valid `evidence_chain_root` is rejected at consume time.
 
@@ -437,19 +437,21 @@ When `host.recovery_mode = true`, the prompt is rendered with the recovery aesth
 
 Approval Mechanics emits exactly the closed list of evidence record types below. Every record is appended through the [L9.1 Evidence Log](../L9_Observability_Admin_Operations/01_evidence_log.md) `Append` RPC. Every record is in the standard hash chain (per S3.1 §5). Every record carries `subject`, `action_id`, `policy_decision_id`, and one of the approval-specific identifiers (`approval_request_id` or `binding_id`).
 
+> **Closed-vocabulary discipline note.** The retention column below uses the closed `RetentionClass` enum (S3.1 §3): `STANDARD_24M` / `EXTENDED_60M` / `FOREVER`. Earlier drafts used `LONG (1 year)` informally; per S3.1 Wave 6 §25.2's translation, the LONG floor is mapped to `STANDARD_24M` (which exceeds the 1-year floor). All nine `APPROVAL_*` records carry `STANDARD_24M` here.
+
 ### §10.1 Closed record types emitted by this sub-spec
 
-| Record type                | Emitted on                                                              | Default retention class |
-| -------------------------- | ----------------------------------------------------------------------- | ----------------------- |
-| `APPROVAL_REQUESTED`       | `created → DRAFT`                                                       | LONG (1 year)           |
-| `APPROVAL_DELIVERED`       | `DRAFT → AWAITING_OPERATOR`                                             | LONG                    |
-| `APPROVAL_GRANTED`         | `AWAITING_OPERATOR → GRANTED`                                           | LONG                    |
-| `APPROVAL_DENIED`          | `AWAITING_OPERATOR → DENIED` (any non-TTL reason)                       | LONG                    |
-| `APPROVAL_EXPIRED`         | `AWAITING_OPERATOR → EXPIRED`                                           | LONG                    |
-| `APPROVAL_CONSUMED`        | `GRANTED → CONSUMED`                                                    | LONG                    |
-| `APPROVAL_REVOKED`         | `GRANTED → REVOKED`                                                     | LONG                    |
-| `APPROVAL_DELIVERY_FAILED` | `DRAFT → FAILED_DELIVERY`                                               | LONG                    |
-| `APPROVAL_BINDING_VOIDED`  | `GRANTED → DENIED(reason = ACTION_REVISED \| SCOPE_DRIFT \| signature)` | LONG                    |
+| Record type                | Emitted on                                                              | Default retention class         |
+| -------------------------- | ----------------------------------------------------------------------- | ------------------------------- |
+| `APPROVAL_REQUESTED`       | `created → DRAFT`                                                       | `STANDARD_24M` (≥ 1-year floor) |
+| `APPROVAL_DELIVERED`       | `DRAFT → AWAITING_OPERATOR`                                             | `STANDARD_24M`                  |
+| `APPROVAL_GRANTED`         | `AWAITING_OPERATOR → GRANTED`                                           | `STANDARD_24M`                  |
+| `APPROVAL_DENIED`          | `AWAITING_OPERATOR → DENIED` (any non-TTL reason)                       | `STANDARD_24M`                  |
+| `APPROVAL_EXPIRED`         | `AWAITING_OPERATOR → EXPIRED`                                           | `STANDARD_24M`                  |
+| `APPROVAL_CONSUMED`        | `GRANTED → CONSUMED`                                                    | `STANDARD_24M`                  |
+| `APPROVAL_REVOKED`         | `GRANTED → REVOKED`                                                     | `STANDARD_24M`                  |
+| `APPROVAL_DELIVERY_FAILED` | `DRAFT → FAILED_DELIVERY`                                               | `STANDARD_24M`                  |
+| `APPROVAL_BINDING_VOIDED`  | `GRANTED → DENIED(reason = ACTION_REVISED \| SCOPE_DRIFT \| signature)` | `STANDARD_24M`                  |
 
 These nine record types are reserved values in the L9.1 `RecordType` enum. They extend the existing `APPROVAL_REQUESTED`, `APPROVAL_GRANTED`, `APPROVAL_DENIED` values (S3.1 §4) with six additional entries that this sub-spec contributes; bundle integration is queued for the next L9.1 RecordType bundle revision.
 
@@ -517,7 +519,7 @@ message ApprovalBindingVoidedPayload {
 
 ### §10.3 Retention
 
-Default retention class is `LONG` (1 year) for all approval-related records. A policy bundle may upgrade specific records to `FOREVER` retention through a constraint in the policy rule (e.g. for destructive actions on financial-tier groups). It cannot downgrade below `LONG`; this sub-spec sets the floor.
+Default retention class is `STANDARD_24M` (24 months — meets the 1-year floor) for all approval-related records, drawn from the closed `RetentionClass` enum (S3.1 §3). A policy bundle may upgrade specific records to `EXTENDED_60M` or `FOREVER` retention through a constraint in the policy rule (e.g. for destructive actions on financial-tier groups). It cannot downgrade below `STANDARD_24M`; this sub-spec sets the floor. Per S3.1 Wave 6 §25.2, the historical `LONG (1 year)` floor is deliberately translated to `STANDARD_24M` to keep the closed enum exhaustive and to give every approval record at least 24 months of audit retention.
 
 ### §10.4 No secret leakage
 
@@ -655,7 +657,7 @@ L4.1 §17 prevents AI subjects from approving their own actions. This sub-spec i
 | [L7.1 Surface Composition](../L7_Interaction_Renderers/01_surface_composition.md)       | consumer   | `APPROVAL_PROMPT` is rendered in `CompositionZone.CHROME`.                                                                                                                                                                            |
 | [L7.2 Shared UI Schema](../L7_Interaction_Renderers/02_shared_ui_schema.md)             | consumer   | `NodeKind = APPROVAL_PROMPT`, signed by `_system:service:aios-chrome`, `is_ai_origin = false`.                                                                                                                                        |
 | [L7.3 Visual Language](../L7_Interaction_Renderers/03_visual_language.md)               | consumer   | Visual treatment of the prompt; `recovery_only` flag drives the recovery aesthetic.                                                                                                                                                   |
-| [L9.1 Evidence Log](../L9_Observability_Admin_Operations/01_evidence_log.md)            | producer   | All nine `APPROVAL_*` record types appended through the L9.1 `Append` RPC; LONG retention floor.                                                                                                                                      |
+| [L9.1 Evidence Log](../L9_Observability_Admin_Operations/01_evidence_log.md)            | producer   | All nine `APPROVAL_*` record types appended through the L9.1 `Append` RPC; `STANDARD_24M` retention floor (per the closed `RetentionClass` enum; see S3.1 Wave 6 §25.2 for the LONG → STANDARD_24M translation).                      |
 | [L0.4 Constitutional Invariants](../L0_Governance_Evidence_Safety/04_invariants.md)     | enforcer   | Binds INV-002 (AI proposes never executes), INV-008 (default deny), INV-009 (approval bound and expiring), INV-010 (AI cannot self-approve), INV-015 (no secrets in evidence), INV-020/021 (chrome / AI vs human visual distinction). |
 
 ## §16 Worked examples
@@ -668,13 +670,13 @@ Setup. Group `family`. Human user `family:alice` is logged in at the local KDE c
 
 Step 1 — Policy decision. The Policy Kernel evaluates and returns `REQUIRE_APPROVAL` with `ApprovalRequirement{ required = true, approver_classes = ["human"], ttl_seconds = 300 }`. The decision id is `poldec_01HX...A1`. Reason code `AISelfApprovalPrevented` (L4.1 §17).
 
-Step 2 — Request creation. The Capability Runtime hands the action plus the decision to the Approval Mechanics service. The service constructs `ApprovalRequest{ approval_request_id = app:01HX...B7, request_hash = <hash from S0.1>, scope = EXACT_ACTION, strength = STRONG, ttl_class = TTL_SHORT, ttl_seconds = 300, state = DRAFT }`. Evidence: `APPROVAL_REQUESTED` is appended to L9.1.
+Step 2 — Request creation. The Capability Runtime hands the action plus the decision to the Approval Mechanics service. The service constructs `ApprovalRequest{ approval_request_id = apprq_01HX...B7, request_hash = <hash from S0.1>, scope = EXACT_ACTION, strength = STRONG, ttl_class = TTL_SHORT, ttl_seconds = 300, state = DRAFT }`. Evidence: `APPROVAL_REQUESTED` is appended to L9.1.
 
 Step 3 — Channel selection. The selector runs §7.2: recovery-mode is false, alice has an active KDE session at `INTERACTIVE`. Rule 2 fires: `selected_channel = KDE_NATIVE_PROMPT`. The service constructs the UI tree with root `NodeKind = APPROVAL_PROMPT`, `is_trust_bearing = true`, `is_ai_origin = false`, signed by `_system:service:aios-chrome`. The KDE renderer accepts the tree, validates the composition zone is `CHROME`, and presents the prompt.
 
 Step 4 — Delivery. The renderer sends a `delivered` ack. The service transitions `DRAFT → AWAITING_OPERATOR`, sets `delivered_at = T+250ms`, sets `expires_at = delivered_at + 300s`. Evidence: `APPROVAL_DELIVERED`.
 
-Step 5 — Grant. Alice reads the prompt and presses Approve. The renderer collects the operator subject id (from her session signature) and submits to the Approval Mechanics service. The service verifies the session is still active, the subject is in the approver filter (`HUMAN_USER` ∈ `["human"]`), the `STRONG` strength is satisfied (her session class is `INTERACTIVE` — wait: `STRONG` strength requires `STRONG` session class. The service rejects with `SessionClassInsufficient`; alice is prompted for step-up reauthentication.) Alice authenticates with WebAuthn; her session is reissued with `session_class = STRONG`. Alice presses Approve again. The service verifies session class is now `STRONG`, computes `bound_action_canonical_hash` from the action she saw, constructs `ApprovalBinding{ binding_id = app:01HX...C3, granting_subject_id = family:alice, signer_signature = <Ed25519> }`. The identity service signs the binding. The service transitions `AWAITING_OPERATOR → GRANTED`. Evidence: `APPROVAL_GRANTED`.
+Step 5 — Grant. Alice reads the prompt and presses Approve. The renderer collects the operator subject id (from her session signature) and submits to the Approval Mechanics service. The service verifies the session is still active, the subject is in the approver filter (`HUMAN_USER` ∈ `["human"]`), the `STRONG` strength is satisfied (her session class is `INTERACTIVE` — wait: `STRONG` strength requires `STRONG` session class. The service rejects with `SessionClassInsufficient`; alice is prompted for step-up reauthentication.) Alice authenticates with WebAuthn; her session is reissued with `session_class = STRONG`. Alice presses Approve again. The service verifies session class is now `STRONG`, computes `bound_action_canonical_hash` from the action she saw, constructs `ApprovalBinding{ binding_id = appb_01HX...C3, granting_subject_id = family:alice, signer_signature = <Ed25519> }`. The identity service signs the binding. The service transitions `AWAITING_OPERATOR → GRANTED`. Evidence: `APPROVAL_GRANTED`.
 
 Step 6 — Consume. The Capability Runtime invokes `ExecuteAction` with the action and presents the binding. The service recomputes the canonical hash from the runtime's action; the hash matches the binding's `bound_action_canonical_hash`. The service transitions `GRANTED → CONSUMED`. Evidence: `APPROVAL_CONSUMED`.
 

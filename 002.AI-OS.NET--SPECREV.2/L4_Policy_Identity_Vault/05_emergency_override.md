@@ -155,7 +155,7 @@ package aios.override.v1alpha1;
 import "google/protobuf/timestamp.proto";
 
 message OverrideRequest {
-  string override_request_id = 1;             // "ovrq:<ULID>" + 26-char base32 ULID body
+  string override_request_id = 1;             // "ovrq_" + 26-char base32 ULID body (S0.1 §3.2)
   string requesting_subject_id = 2;           // canonical subject id, kind = HUMAN_USER
   string target_action_request_id = 3;        // the ActionRequest being overridden
   string target_action_canonical_hash = 4;    // hex_lower(BLAKE3(JCS(action)))[:32]
@@ -182,7 +182,7 @@ Field discipline:
 - `evidence_chain_root_at_request` ties the request to the evidence head at request time. The grant record (§5) carries `evidence_chain_root_at_grant`; a successful grant proves the head moved forward.
 - `requesting_subject_signature` is verified by the Override Manager before the FSM advances. A forged signature is a `SUBJECT_SIGNATURE_FAILURE` per S5.1 §14.1.
 
-The request id format is `ovrq:` prefix + ULID + 26-char base32 body. The grant record (§5) uses the parallel `ovr:` prefix.
+The request id format is `ovrq_` prefix + 26-char base32 ULID body (per S0.1 §3.2 prefix-namespace registry). The grant record (§5) uses the parallel `ovr_` prefix; both prefixes use underscore as the separator, matching the project-wide convention.
 
 ## §5 OverrideBinding record
 
@@ -190,7 +190,7 @@ An OverrideBinding is what the Override Manager issues once quorum and channel s
 
 ```proto
 message OverrideBinding {
-  string override_id = 1;                      // "ovr:<ULID>" + 26-char base32 ULID body
+  string override_id = 1;                      // "ovr_" + 26-char base32 ULID body (S0.1 §3.2)
   string source_request_id = 2;                // the OverrideRequest that produced this
   string target_action_request_id = 3;
   string target_action_canonical_hash = 4;     // hex_lower(BLAKE3(JCS(action)))[:32]
@@ -223,11 +223,11 @@ Field discipline:
 - `expires_at` is computed at grant time as `granted_at + ttl_class_max`. Override Manager rejects requests where the implied `expires_at` would exceed the ttl_class ceiling.
 - `issuer_signature` is the Override Manager's Ed25519 signature over the canonical JCS of fields 1 through 19. The Capability Runtime verifies this signature before honouring the binding; signature failure is `SUBJECT_SIGNATURE_FAILURE` (treated as forgery, FOREVER evidence).
 
-The binding id format is `ovr:` prefix + ULID + 26-char base32 body — distinct from the request id prefix `ovrq:` so the two cannot be confused in logs.
+The binding id format is `ovr_` prefix + 26-char base32 ULID body — distinct from the request id prefix `ovrq_` so the two cannot be confused in logs. Both prefixes are registered in S0.1 §3.2.
 
 Canonical hashing convention. Every hash field in this spec uses the project-wide convention `hex_lower(BLAKE3(JCS(<value>)))[:32]`: BLAKE3 over the JCS canonicalisation of the value, lowercase hex, truncated to the first 32 hex characters. This matches S0.1 §8.5 and the convention used by S2.3 for `request_hash` and by S3.1 for evidence-receipt hashing. Truncation to 128 bits is sufficient for collision resistance at the population sizes AIOS handles; full BLAKE3 output is reserved for chunk identities (S1.3) where storage handles persist for the lifetime of the system.
 
-Why two distinct id prefixes. A common implementation mistake in audit systems is to emit the same id for "the operator asked for X" and "the operator was granted X". When the audit trail is later reviewed, the ambiguity makes it impossible to tell whether a signed grant was always present or was synthesised after the fact. The `ovrq:` / `ovr:` split forecloses that ambiguity at the schema level: an `ovr:` id can only appear after the FSM has issued a binding, never before.
+Why two distinct id prefixes. A common implementation mistake in audit systems is to emit the same id for "the operator asked for X" and "the operator was granted X". When the audit trail is later reviewed, the ambiguity makes it impossible to tell whether a signed grant was always present or was synthesised after the fact. The `ovrq_` / `ovr_` split forecloses that ambiguity at the schema level: an `ovr_` id can only appear after the FSM has issued a binding, never before.
 
 ## §6 FSM
 

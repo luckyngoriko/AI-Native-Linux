@@ -110,7 +110,7 @@ Any precondition unmet → reject with `BootstrapKeySignNotPermitted`; do not pa
 VAULT_BOOTSTRAP_KEY_USED  (FOREVER, queued for S3.1 Wave 10 consolidation)
   fields:
     first_boot_session_id     -- ULID of the first-boot session that issued the call
-    signed_payload_digest     -- SHA-256 of the firstboot marker payload that was signed
+    signed_payload_digest     -- truncated BLAKE3 (BLAKE3(payload)[:32]) of the firstboot marker payload that was signed
     marker_path               -- "/aios/system/firstboot/marker.signed"
     timestamp
     operator_subject_id       -- "_system:local:operator-1" (the human at the console)
@@ -379,7 +379,7 @@ An attacker compromises a process and tries to read the master key from broker m
 
 A compromised agent emits an evidence record claiming to be a `VAULT_OPERATION` and embeds raw secret bytes in a payload field.
 
-- Evidence schema for `VAULT_OPERATION` (queued for S3.1 §14) restricts the payload to closed fields: `class`, `material_kind`, `result`, `error_code`, `subject_canonical_id`, `capability_id_hash` (truncated SHA-256), `nonce_hash` (truncated SHA-256), `byte_count_in`, `byte_count_out`, `latency_us`, `timestamp`. **No free-form payload.**
+- Evidence schema for `VAULT_OPERATION` (queued for S3.1 §14) restricts the payload to closed fields: `class`, `material_kind`, `result`, `error_code`, `subject_canonical_id`, `capability_id_hash` (truncated BLAKE3, `BLAKE3(JCS(capability))[:32]`), `nonce_hash` (truncated BLAKE3, `BLAKE3(nonce)[:32]`), `byte_count_in`, `byte_count_out`, `latency_us`, `timestamp`. **No free-form payload.**
 - An evidence record with extra fields fails schema validation at the evidence broker (S3.1) and is rejected.
 - An evidence record claiming `kind = VAULT_RAW_REVEAL` from any producer **other** than the vault broker itself is rejected with `EvidenceProducerNotAuthorized` (S3.1 §X — to be added).
 
@@ -479,7 +479,7 @@ SignBlob(cap_signdoc, blob, nonce):
     class = KEY_SIGN,
     material_kind = ED25519_PRIVATE_KEY,
     result = success,
-    capability_id_hash = <truncated SHA-256>,
+    capability_id_hash = <truncated BLAKE3, BLAKE3(JCS(capability))[:32]>,
     byte_count_in = len(blob),
     byte_count_out = 64,
     latency_us = ...
@@ -613,7 +613,7 @@ Broker first-boot path invokes BOOTSTRAP_KEY_SIGN over payload:
   Sign performed against vault root key.
   Marker file written; per-host counter incremented to "exhausted".
   Emits: VAULT_BOOTSTRAP_KEY_USED (FOREVER, queued for S3.1 W10) with
-    first_boot_session_id, signed_payload_digest=SHA-256(payload),
+    first_boot_session_id, signed_payload_digest=BLAKE3(payload)[:32],
     marker_path, operator_subject_id, coordinator_subject_id.
   No signature bytes in evidence; no key bytes in evidence.
 
@@ -862,7 +862,7 @@ message VaultCapability {
   string identity_bundle_version = 4;                // idbundle_<hex>
   VaultCapabilityClass class = 5;
   VaultMaterialKind material_kind = 6;
-  string material_fingerprint = 7;                   // truncated SHA-256 over material public projection
+  string material_fingerprint = 7;                   // truncated BLAKE3 (BLAKE3(JCS(public_projection))[:32]) over material public projection
   CapabilityState state = 8;
   google.protobuf.Timestamp granted_at = 9;
   google.protobuf.Timestamp expires_at = 10;

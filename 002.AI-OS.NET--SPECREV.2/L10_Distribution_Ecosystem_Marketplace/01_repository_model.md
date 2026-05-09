@@ -175,7 +175,7 @@ ACTIVE ─┬─▶ QUARANTINED                                (lie / breach / t
         └─▶ stays ACTIVE
 ```
 
-Terminal states: `ACTIVE` (until uninstalled), `QUARANTINED` (until operator review), `REMOVED`, `INSTALL_FAILED`.
+Terminal states (no outgoing transitions): `REMOVED`, `INSTALL_FAILED`. Per the FSM convention used elsewhere in the bundle (S0.1, S5.3, S5.4), terminal means no outgoing transitions. `ACTIVE` is **not** terminal — it transitions forward to `QUARANTINED` or `UNINSTALLING` (both shown in the diagram above). `QUARANTINED` is a hold state pending operator review — when the operator chooses to remove the quarantined package the FSM transitions `QUARANTINED → UNINSTALLING → REMOVED`; a re-validation path may also exist when a policy or capability lie is later contested. Neither `ACTIVE` nor `QUARANTINED` is terminal.
 
 ### §3.7 `PackageVerificationResult`
 
@@ -559,7 +559,7 @@ Mechanically:
 5. The install action is bound to the operator's `EXACT_ACTION` binding, not the AI's. The AI never holds an install binding.
 6. Evidence records both subjects: `proposing_subject` = the AI, `executing_subject` = the operator.
 
-Direct attempts by an AI subject to bypass the request flow (e.g. emitting `package.install` directly) are hard-denied at S2.3 with `AISystemAdminBlocked`; FOREVER `PACKAGE_VERIFICATION_FAILED` (reason = `AI_DIRECT_INSTALL_DENIED`) evidence; the AI subject cannot retry within a back-off window.
+Direct attempts by an AI subject to bypass the request flow (e.g. emitting `package.install` directly) are hard-denied at S2.3 with `AISystemAdminBlocked`; FOREVER `APP_AI_DIRECT_INSTALL_ATTEMPTED_BLOCKED` evidence (per the AIInstallInitiationBlocked hard-deny added in S2.3 Wave 9; cite S0.4 §4.2 enforcement map); the AI subject cannot retry within a back-off window.
 
 This applies uniformly to all `PackageKind` values. There is no AI-permitted shortcut even for `THEME` packages (which carry no executable code) — the constitutional rule is uniform.
 
@@ -947,7 +947,7 @@ Per L0 §3 I1 (closed list), invariant catalog mutation is a versioned spec chan
    - `proposing_subject = ai:home:tutoring-agent-7`,
    - `executing_subject = alice@home`.
 
-**Adversarial variant.** If `tutoring-agent-7` had emitted `package.install` directly (skipping the request action), S2.3 hard-deny `AISystemAdminBlocked` would fire; FOREVER `PACKAGE_VERIFICATION_FAILED` (reason = `AI_DIRECT_INSTALL_DENIED`); the AI would face a back-off window before re-attempt.
+**Adversarial variant.** If `tutoring-agent-7` had emitted `package.install` directly (skipping the request action), S2.3 hard-deny `AISystemAdminBlocked` would fire; FOREVER `APP_AI_DIRECT_INSTALL_ATTEMPTED_BLOCKED` (per the AIInstallInitiationBlocked hard-deny added in S2.3 Wave 9; cite S0.4 §4.2 enforcement map); the AI would face a back-off window before re-attempt.
 
 ### §20.3 Example 3 — Publisher key compromise → deplatform → quarantine
 

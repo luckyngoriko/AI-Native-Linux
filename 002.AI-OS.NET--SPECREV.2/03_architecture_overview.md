@@ -43,6 +43,31 @@ This protects boot, recovery, filesystem truth, and policy from UI or cognitive 
 - **L0 invariants do not depend on L5/L7 surfaces.** The 24-entry INV catalog is signed material loaded at boot.
 - **L4 policy decisions do not depend on L5 cognition.** Approval (S5.3) and emergency override (S5.4) are operator-driven.
 
+## Layer dependency discipline (refined)
+
+The "lower depends on, never on, higher" rule is unconditional for **runtime correctness**. Any layer must boot, recover, and fail-safe without higher-numbered layers operational. But the rule does NOT forbid **vocabulary sharing** between layers — closed enums, schema shapes, canonical id formats, and protocol-buffer message types can flow upward in the layer model as type imports without constituting a runtime dependency.
+
+Two distinct relationship classes:
+
+1. **`Requires-for-correctness`**: layer N's contract reads "without layer M operational, layer N cannot fulfil its contract." This is forbidden when M > N. Examples: L1 recovery cannot require L5 cognition operational; L0 governance cannot require L9 evidence log running. (Rule violations.)
+
+2. **`Imports-vocabulary-from`**: layer N's contract reads "layer N's payloads/IDs/enums are co-defined with layer M." This is permitted regardless of layer ordering, because vocabulary is type-level, not runtime-level. Examples: L0 evidence receipt schema imports the `RecordType` closed enum (owned by L9); L2 namespace layout imports subject identity format (owned by L4); L1 first-boot evidence uses the same evidence-receipt schema. The vocabulary import does not make L0/L2/L1 require L9/L4 operational.
+
+Each sub-spec's `Consumes` header MUST distinguish these two:
+
+- `Imports vocabulary from S<X.Y>: <closed enum / schema shape>` — type-level
+- `Requires for correctness S<X.Y>: <runtime dependency>` — runtime-level
+
+A `Requires-for-correctness` reference to a higher-numbered layer is an **architectural defect** and must be reframed as either:
+
+(a) a vocabulary import (if the dependency is type-level only), or
+
+(b) a relocated capability (if the dependency is genuinely runtime-level and the vocabulary belongs to a different layer than is currently declared).
+
+The Tier 5 ARCH audit found ~25 `Consumes` declarations that mix the two; Wave 11 reclassifies the explicit cases per the per-spec edits below. Wave 12+ should sweep the remaining specs.
+
+> Footnote: This refinement does not promote any new INV. It clarifies the existing INV-007 (Layer Downward Dependency) per its operational interpretation.
+
 ## Contract map
 
 Active contract-grade sub-specs (~30 across 11 layers + cross-cutting). All carry `CONTRACT` status; promotion to `REAL` is per-layer and blocks on E2+ implementation evidence.

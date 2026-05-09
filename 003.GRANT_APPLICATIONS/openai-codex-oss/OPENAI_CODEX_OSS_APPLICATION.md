@@ -4,6 +4,26 @@ This file prepares concise answers for the OpenAI Codex for Open Source applicat
 
 Program page: https://openai.com/form/codex-for-oss/
 
+## Submission Status
+
+Status:
+
+```text
+Submitted
+```
+
+Submitted date:
+
+```text
+2026-05-08
+```
+
+Submitted repository:
+
+```text
+https://github.com/ai-os-dot-net/AI-Native-Linux
+```
+
 ## Repository
 
 GitHub repository URL:

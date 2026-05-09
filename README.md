@@ -3,6 +3,10 @@
 [![License: Apache-2.0](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](LICENSE)
 [![Specification: Rev.2](https://img.shields.io/badge/specification-Rev.2-ce2867.svg)](002.AI-OS.NET--SPECREV.2/00_MASTER_INDEX.md)
 [![Status: Specification First](https://img.shields.io/badge/status-specification--first-111111.svg)](002.AI-OS.NET--SPECREV.2/00_MASTER_INDEX.md)
+[![Layers: 11](https://img.shields.io/badge/layers-11-111111.svg)](002.AI-OS.NET--SPECREV.2/00_MASTER_INDEX.md)
+[![Sub-specs: 53](https://img.shields.io/badge/sub--specs-53-111111.svg)](002.AI-OS.NET--SPECREV.2/00_MASTER_INDEX.md)
+[![Invariants: 24](https://img.shields.io/badge/invariants-24-ce2867.svg)](002.AI-OS.NET--SPECREV.2/L0_Governance_Evidence_Safety/04_invariants.md)
+[![Record Types: 427](https://img.shields.io/badge/record--types-427-111111.svg)](002.AI-OS.NET--SPECREV.2/L9_Observability_Admin_Operations/01_evidence_log.md)
 
 AI-Native Linux is an open specification for a unified cognitive operating environment on top of Linux.
 
@@ -13,6 +17,20 @@ Public site: https://ai-os.net
 Canonical repository: https://github.com/ai-os-dot-net/AI-Native-Linux
 
 GitHub organization: https://github.com/ai-os-dot-net
+
+## Specification at a Glance
+
+| Metric                    | Value                               | Where it lives                                                                                                   |
+| ------------------------- | ----------------------------------- | ---------------------------------------------------------------------------------------------------------------- |
+| Architectural layers      | 11 (L0–L10 + XX cross-cutting)      | [Rev.2 master index](002.AI-OS.NET--SPECREV.2/00_MASTER_INDEX.md)                                                |
+| Contract sub-specs        | 53                                  | one folder per layer                                                                                             |
+| Constitutional invariants | 24                                  | [L0 invariants](002.AI-OS.NET--SPECREV.2/L0_Governance_Evidence_Safety/04_invariants.md)                         |
+| Typed Record types        | 427 (closed enum)                   | [L9 evidence log master enum](002.AI-OS.NET--SPECREV.2/L9_Observability_Admin_Operations/01_evidence_log.md)     |
+| Verification properties   | 32 (closed enum)                    | [L9 verification grammar](002.AI-OS.NET--SPECREV.2/L9_Observability_Admin_Operations/02_verification_grammar.md) |
+| INV-002 enforcement       | 6 mechanical sites                  | "AI proposes, never executes" — wired into the IDL, not stated as a maxim                                        |
+| Wave consolidations       | 13 closed (W1–W13)                  | last sweep: IDL roll-up of 22 → 428 RecordType entries                                                           |
+| Tier 5 audit              | Near-converged, SIM-D zero-findings | 9 read-only audit/simulation agents over the constitutional core                                                 |
+| Total spec mass           | 70 markdown files, 52,000+ lines    | English artifacts, agent-readable                                                                                |
 
 ## Why This Matters
 
@@ -72,8 +90,8 @@ AI -> sudo bash
 .
 ├── 001.AI-OS.NET--SPECREV.1/      # Frozen Rev.1 vision and specification
 ├── 002.AI-OS.NET--SPECREV.2/      # Active Rev.2 layered contract pack
+├── 003.GRANT_APPLICATIONS/         # Public grant application records
 ├── site/                           # Public Astro site for ai-os.net
-├── OPENAI_CODEX_OSS_APPLICATION.md # Prepared Codex for OSS application notes
 ├── CONTRIBUTING.md                 # Contribution guide
 ├── GOVERNANCE.md                   # Decision process and project rules
 ├── MAINTAINERS.md                  # Maintainer ownership
@@ -85,22 +103,38 @@ AI -> sudo bash
 
 ## Specification Revisions
 
-- [Rev.1 frozen](001.AI-OS.NET--SPECREV.1/00_MASTER_INDEX.md) - initial architecture vision.
-- [Rev.2 active](002.AI-OS.NET--SPECREV.2/00_MASTER_INDEX.md) - layered, agent-readable operating system contract.
+- [Rev.1 frozen](001.AI-OS.NET--SPECREV.1/00_MASTER_INDEX.md) — initial architecture vision (do not edit).
+- [Rev.2 active](002.AI-OS.NET--SPECREV.2/00_MASTER_INDEX.md) — layered, agent-readable operating system contract.
 
-Rev.2 is organized as L0-L10:
+Rev.2 is organized as L0–L10. A layer may depend on its own layer and lower-numbered layers; it must not require a higher-numbered layer for correctness.
 
-- L0 - Governance, evidence, and safety
-- L1 - Kernel bootstrap and recovery
-- L2 - AIOS-FS semantic filesystem
-- L3 - Service Graph Runtime
-- L4 - Policy, identity, and vault
-- L5 - Cognitive Core
-- L6 - Apps, packages, and compatibility
-- L7 - Interaction renderers
-- L8 - Network, hardware, and devices
-- L9 - Observability, admin, and operations
-- L10 - Distribution, ecosystem, and marketplace
+| Layer   | Folder                                                                                                                 | Owns                                                                           |
+| ------- | ---------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------ |
+| **L0**  | [Governance, Evidence, Safety](002.AI-OS.NET--SPECREV.2/L0_Governance_Evidence_Safety/00_overview.md)                  | Status taxonomy, evidence grades, invariants, gates                            |
+| **L1**  | [Kernel, Bootstrap, Recovery](002.AI-OS.NET--SPECREV.2/L1_Kernel_Bootstrap_Recovery/00_overview.md)                    | Linux substrate, host bootstrap, fallback kernel, recovery path                |
+| **L2**  | [AIOS-FS](002.AI-OS.NET--SPECREV.2/L2_AIOS_FS/00_overview.md)                                                          | Semantic object filesystem at `/aios`, versions, views, transactions           |
+| **L3**  | [SGR — Service Graph Runtime](002.AI-OS.NET--SPECREV.2/L3_AIOS_SGR_Service_Graph_Runtime/00_overview.md)               | Desired-state service graph, typed action lifecycle, adapter model             |
+| **L4**  | [Policy, Identity, Vault](002.AI-OS.NET--SPECREV.2/L4_Policy_Identity_Vault/00_overview.md)                            | Policy Kernel, identity, Vault Broker (secrets-as-capabilities)                |
+| **L5**  | [Cognitive Core](002.AI-OS.NET--SPECREV.2/L5_Cognitive_Core/00_overview.md)                                            | Intent translation, planning, memory, model routing, agent coordination        |
+| **L6**  | [Apps, Packages, Compatibility](002.AI-OS.NET--SPECREV.2/L6_Apps_Packages_Compatibility/00_overview.md)                | Sandboxed runtimes for Linux/Windows/Android apps and packages                 |
+| **L7**  | [Interaction Renderers](002.AI-OS.NET--SPECREV.2/L7_Interaction_Renderers/00_overview.md)                              | KDE Plasma, Web, CLI, Voice, Mobile over a shared UI schema                    |
+| **L8**  | [Network, Hardware, Devices](002.AI-OS.NET--SPECREV.2/L8_Network_Hardware_Devices/00_overview.md)                      | Network policy, hardware graph, drivers                                        |
+| **L9**  | [Observability, Admin, Operations](002.AI-OS.NET--SPECREV.2/L9_Observability_Admin_Operations/00_overview.md)          | Evidence log, verification grammar, telemetry, recovery operations             |
+| **L10** | [Distribution, Ecosystem, Marketplace](002.AI-OS.NET--SPECREV.2/L10_Distribution_Ecosystem_Marketplace/00_overview.md) | Distribution, ecosystem, marketplace, signed bundles                           |
+| **XX**  | [Cross-cutting contracts](002.AI-OS.NET--SPECREV.2/XX_Cross_Cutting/)                                                  | Action envelope lifecycle, ProxGuard reference, contracts shared across layers |
+
+## Quick Read for Reviewers
+
+If you have 15 minutes:
+
+1. [Executive summary](002.AI-OS.NET--SPECREV.2/01_executive_summary.md)
+2. [Architecture overview](002.AI-OS.NET--SPECREV.2/03_architecture_overview.md)
+3. [L0 invariants](002.AI-OS.NET--SPECREV.2/L0_Governance_Evidence_Safety/04_invariants.md) — the constitutional core
+4. [XX action envelope lifecycle](002.AI-OS.NET--SPECREV.2/XX_Cross_Cutting/01_action_envelope_lifecycle.md) — how a goal becomes a verified system change
+5. [L4 policy kernel](002.AI-OS.NET--SPECREV.2/L4_Policy_Identity_Vault/01_policy_kernel.md) — how the system says no
+6. [L9 evidence log](002.AI-OS.NET--SPECREV.2/L9_Observability_Admin_Operations/01_evidence_log.md) — append-only audit trail with the 427-entry RecordType enum
+
+If you have an afternoon: walk the [Rev.2 master index](002.AI-OS.NET--SPECREV.2/00_MASTER_INDEX.md) top-to-bottom; every sub-spec is contract-grade.
 
 ## First Reference App Candidate
 
@@ -126,13 +160,20 @@ This project is a strong fit for Codex-assisted open-source development because 
 - documentation automation
 - release and audit workflow automation
 
-See [OPENAI_CODEX_OSS_APPLICATION.md](OPENAI_CODEX_OSS_APPLICATION.md) for prepared application text.
+See [OpenAI Codex OSS application notes](003.GRANT_APPLICATIONS/openai-codex-oss/OPENAI_CODEX_OSS_APPLICATION.md) for the submitted application record.
 
 The application repository URL is:
 
 ```text
 https://github.com/ai-os-dot-net/AI-Native-Linux
 ```
+
+## Grant Applications
+
+Public grant application records are kept under [003.GRANT_APPLICATIONS](003.GRANT_APPLICATIONS):
+
+- [OpenAI Codex for OSS](003.GRANT_APPLICATIONS/openai-codex-oss/OPENAI_CODEX_OSS_APPLICATION.md)
+- [NLnet / NGI Zero Commons Fund](003.GRANT_APPLICATIONS/nlnet-ngi-zero-commons/NLNET_SUBMISSION_STATUS.md)
 
 ## Contributing
 

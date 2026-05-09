@@ -1,0 +1,126 @@
+AI Linux OS: Safe Local Runtime for Resident AI Agents
+Supporting document for Open Technology Fund / Internet Freedom Fund Concept Note
+
+Applicant: Lachezar Nikolov
+Project site: https://ai-os.net
+Repository: https://github.com/ai-os-dot-net/AI-Native-Linux
+License: Apache-2.0
+Estimated request: 200,000 USD
+Estimated duration: 6 months to 1 year
+Primary category: Technology Development
+
+1. Project focus
+
+AI Linux OS is an open-source effort to create a Linux-based local runtime where resident AI agents can assist users without receiving uncontrolled shell or root access.
+
+The project is not proposed as a full Linux distribution in this phase. The funded work would produce a foundation prototype and public technical specifications for safe local AI agent execution on Linux.
+
+The central safety principle is:
+
+AI agent -> typed action request -> policy decision -> constrained capability runtime -> verification -> evidence log
+
+This replaces direct AI-to-shell execution with auditable, policy-governed, recoverable system actions.
+
+2. Why this matters for Internet freedom
+
+Human rights defenders, journalists, activists, community media, and the technologists who support them increasingly need automation for secure workstations, encrypted workflows, self-hosted services, evidence handling, publishing, system inspection, and incident response.
+
+AI agents can help with these tasks, but current operating systems do not treat AI agents as constrained system actors. Most assistants either generate commands for a human to run, operate through broad application permissions, or rely on cloud services that may be inappropriate for sensitive local work.
+
+In high-risk environments, a poorly constrained agent could expose source material, credentials, documents, communications, or evidence. It could also weaken system security, damage local state, or create a new attack path for adversaries.
+
+AI Linux OS addresses this gap by creating a local, inspectable, open-source safety layer for resident agents. The aim is to make AI-assisted local computing safer for people who face surveillance, censorship, coercion, or targeted digital attacks.
+
+3. Expected deliverables
+
+The project would produce the following public deliverables:
+
+- threat model for resident AI agents on Linux
+- architecture specification for typed actions, policy decisions, capability execution, verification, and evidence logs
+- prototype typed action runtime where agents cannot directly execute arbitrary shell commands
+- default-deny policy model with approval paths and denial reasons
+- sandboxed resident agent workspace prototype using Linux isolation primitives
+- evidence log format for action requests, decisions, execution results, and verification outcomes
+- verification checks for selected local system states such as service state, file state, network reachability, and configuration changes
+- AIOS-FS semantic filesystem specification for agent memory, workspaces, metadata, rollback, and recovery boundaries
+- practical demo workflows for safe package installation, service inspection, secure workspace creation, and local evidence handling
+- public documentation, tests, and implementation report
+
+4. Technical approach
+
+The project builds on existing Linux primitives rather than replacing them. Candidate enforcement foundations include namespaces, cgroups, seccomp, Landlock, AppArmor, SELinux, systemd service isolation, containers, and virtual machines where appropriate.
+
+The novelty is not a new single sandbox mechanism. The novelty is the operating model around resident AI agents:
+
+- agents request structured actions instead of issuing commands
+- policy decides what is allowed
+- capability runtimes perform only approved operations
+- filesystem authority is scoped by workspace and purpose
+- verification checks whether the requested result is actually true
+- evidence logs record what happened and why
+- recovery paths preserve human control
+
+5. Intended users
+
+The first users are advanced Linux users and implementers:
+
+- digital security practitioners
+- self-hosted infrastructure operators
+- civil society technology teams
+- independent technologists supporting high-risk users
+- developers building local-first AI agent tools
+- maintainers of secure workstations and local services for journalists, human rights defenders, activists, and community media
+
+The direct beneficiaries are people and organizations that need local automation but cannot safely depend on cloud-only AI systems or unrestricted remote administration.
+
+6. Relationship to existing work
+
+AI Linux OS is complementary to existing projects:
+
+- Linux distributions provide packaging and hardware enablement.
+- SELinux, AppArmor, Landlock, seccomp, Secure Boot, TPM, and kernel hardening provide enforcement and security primitives.
+- Docker, Podman, Flatpak, Bubblewrap, Firejail, systemd-nspawn, and virtual machines provide isolation mechanisms.
+- Ansible, Salt, Puppet, Chef, systemd, sudo, and shell scripts provide automation mechanisms.
+- AI coding agents and chat assistants provide useful reasoning and code generation.
+
+The gap is that these tools do not define a local operating model for resident AI agents with explicit authority, policy, memory, evidence, verification, and recovery boundaries.
+
+7. Cost logic
+
+The requested amount would support implementation, documentation, testing, security analysis, and limited direct project costs. The budget would be refined if OTF invites a full proposal.
+
+Expected budget areas:
+
+- maintainer engineering for prototype implementation and documentation
+- security and threat model work
+- AI inference/API costs for controlled development assistance, review, test generation, and documentation checks
+- limited test hardware for reproducible local Linux testing, sandbox validation, storage/recovery tests, and system-state verification
+- community review and usability feedback activities where directly tied to deliverables
+
+The project should not require travel as a primary cost.
+
+8. Development and AI use methodology
+
+The project will use an AI-assisted autonomous software factory as a development method. This will be documented publicly.
+
+The factory model includes:
+
+- bounded tasks selected from repository state and project goals
+- coding workers for scoped implementation tasks
+- separate review and QA agents
+- local and remote models selected according to task type, privacy, cost, and latency
+- logs, tests, metrics, and evidence for development activity
+- human maintainer review for architecture, public claims, security-sensitive changes, releases, and merges
+
+The project will not treat AI-generated output as automatically correct. Security-sensitive changes must be reviewed, tested, and explained by the human maintainer.
+
+9. Sustainability and reuse
+
+The deliverables are intended as reusable open infrastructure:
+
+- specifications that other projects can inspect and implement
+- prototype crates/modules that can be reused by agent runtimes and Linux tools
+- threat models and evidence formats that can be reviewed by digital security practitioners
+- examples showing how AI agents can be constrained without removing their usefulness
+
+The long-term goal is a broader AI-native Linux operating environment, but the OTF-funded scope would focus on the safety foundation needed before a larger system is appropriate.

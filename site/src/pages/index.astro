@@ -52,12 +52,27 @@ const fsCells = [
 ];
 
 const rev2Contracts = [
-  { label: 'S0.1', title: 'Action Envelope', desc: 'Typed request, lifecycle FSM, errors, idempotency, trace, dry-run.' },
-  { label: 'S1.1', title: 'Capability Translator', desc: 'Catalog-bound compiler from intent to action drafts.' },
-  { label: 'S1.2', title: 'Latency Tiering', desc: 'Direct path, local model path, powerful reasoning path, degradation.' },
-  { label: 'S1.3', title: 'AIOS-FS Core', desc: 'Object model, conflict records, optimistic concurrency, staged merge.' },
-  { label: 'S2.3', title: 'Policy Kernel', desc: 'Default deny, hard denies, exact-request approvals, simulation.' },
-  { label: 'R1', title: 'ProxGuard App', desc: 'Optional infrastructure app for service, DNS, gateway, and audit capabilities.' },
+  { label: 'L0', title: 'Constitutional Core', desc: '24 invariants, evidence grades E0–E5, status taxonomy, signed bundle loaded at boot.' },
+  { label: 'L1', title: 'Boot & Recovery', desc: 'First-boot stages, recovery boundary, dedicated kernel pipeline, fail-closed installer.' },
+  { label: 'L2', title: 'AIOS-FS', desc: 'Object model, query/view language, namespace layout, conflict resolution.' },
+  { label: 'L3', title: 'Service Graph Runtime', desc: 'Unit manifests, A/B promotion FSM, capability runtime gRPC, adapter model.' },
+  { label: 'L4', title: 'Policy + Identity + Vault', desc: 'Default-deny kernel, identity model, vault broker (use-without-reveal), approvals, override.' },
+  { label: 'L5', title: 'Cognitive Core', desc: 'Intent / planning / proposing FSM, capability translator, latency tiering, model router.' },
+  { label: 'L6', title: 'Apps + Compatibility', desc: 'Cross-ecosystem runtime, package object model, compatibility knowledge, sandbox composition.' },
+  { label: 'L7', title: 'Renderers', desc: 'Surface composition, shared UI schema, visual language, KDE Plasma + Web + CLI.' },
+  { label: 'L8', title: 'Network + Hardware', desc: 'Hardware graph, network policy, DNS/VPN, firmware trust, GPU resource model.' },
+  { label: 'L9', title: 'Observability', desc: 'Evidence log (FOREVER hash chain), verification grammar, failure handling, telemetry.' },
+  { label: 'L10', title: 'Distribution', desc: 'Repository model, marketplace, external bridges (Flathub/OCI/distro repos).' },
+  { label: 'XX', title: 'Cross-Cutting', desc: 'Action envelope, MVP golden path, constitutional meta-principles, ProxGuard reference.' },
+];
+
+const inv002Sites = [
+  { code: 'L4.2', site: 'Vault hard-deny', record: 'SUBJECT_KIND_REJECTED_FOR_VAULT' },
+  { code: 'L10', site: 'Package install gate', record: 'APP_AI_DIRECT_INSTALL_ATTEMPTED_BLOCKED' },
+  { code: 'L8.1', site: 'Network egress', record: 'AI_DIRECT_INTERNET_DENIED' },
+  { code: 'L3', site: 'Capability runtime queue', record: 'AI_INTERACTIVE_QUEUE_DOWNGRADE' },
+  { code: 'L5', site: 'Cognitive proposing FSM', record: 'AGENT_DIRECT_FS_WRITE_BLOCKED' },
+  { code: 'L0', site: 'Self-grading prohibition', record: 'AGENT_SELF_GRADING_BLOCKED' },
 ];
 
 const proxguardCapabilities = [
@@ -67,6 +82,15 @@ const proxguardCapabilities = [
   'proxguard.dns.apply',
   'proxguard.gateway.route',
   'proxguard.audit.read',
+];
+
+const proxguardAlignment = [
+  { aios: 'INV-002', proxguard: 'AI is OPTIONAL; AI output is advisory only', match: 'AI proposes, never executes' },
+  { aios: 'INV-002 site map', proxguard: 'Allowlisted CLI ops; no shell execution', match: 'Typed actions, not commands' },
+  { aios: 'INV-005', proxguard: 'sim.evidence_pack + prod.audit_event append-only', match: 'Evidence append-only' },
+  { aios: 'L3 / L9 boundary', proxguard: 'Production never calls orchestrator/simulation', match: 'Strict executor / evidence split' },
+  { aios: 'S15.3 Adapter Model', proxguard: 'RuntimeAdapter ABC: Docker / Kubernetes / Nomad', match: 'Runtime abstraction by adapter' },
+  { aios: 'Closed vocabulary', proxguard: 'Pinned error codes E001..E9xx', match: 'Closed-enum reject discipline' },
 ];
 ---
 
@@ -85,7 +109,7 @@ const proxguardCapabilities = [
           AI-Native Linux.<br />Unified Cognitive Shell.
         </h1>
         <p class="animate mt-6 max-w-[680px] font-body text-[18px] leading-relaxed text-[var(--muted)]" style="animation-delay:200ms">
-          AI-OS.NET is not another Linux distribution. Revision 2 turns the vision into contract-grade specifications: typed actions, policy decisions, AIOS-FS objects, verification, evidence, and sandboxed execution.
+          AI-OS.NET is not another Linux distribution. Revision 2 is a contract-grade specification stack across 11 architectural layers — typed actions, policy decisions, AIOS-FS objects, verification, evidence, and sandboxed execution. The constitutional core, "AI proposes, never executes," is mechanically enforced at six distinct sites with closed-vocabulary reject codes and permanent forensic evidence on bypass.
         </p>
         <p class="animate mt-4 font-body text-[13px] text-[var(--muted)]" style="animation-delay:250ms">
           An <a href="https://iconys.bg/products/ai-os" target="_blank" rel="noopener" class="text-[var(--text)] hover:text-[var(--accent)] transition-colors">iconys Engineering Intelligence</a> operating system project.
@@ -130,16 +154,16 @@ const proxguardCapabilities = [
   <section class="bg-[var(--surface-1)] py-16">
     <div class="mx-auto grid max-w-content grid-cols-2 gap-8 px-8 lg:grid-cols-4">
       <div class="animate stagger-1">
-        <StatCard number="Rev.2" label="Contract Pack" description="Agent-readable spec" />
+        <StatCard number="11" label="Architectural Layers" description="L0 governance through L10 distribution" />
       </div>
       <div class="animate stagger-2">
-        <StatCard number="28" label="Spec Files" description="Layered documents" />
+        <StatCard number="53" label="Contract Sub-specs" description="All layers PARTIAL or contract-grade" />
       </div>
       <div class="animate stagger-3">
-        <StatCard number="Typed" label="System Actions" description="No free-form sudo bash" />
+        <StatCard number="24" label="Constitutional Invariants" description="Signed bundle, recovery-mutable only" />
       </div>
       <div class="animate stagger-4">
-        <StatCard number="KDE+Web" label="Unified UX" description="Same state, two renderers" />
+        <StatCard number="427" label="Typed Evidence Records" description="Closed enum, FOREVER hash chain" />
       </div>
     </div>
   </section>
@@ -192,7 +216,33 @@ const proxguardCapabilities = [
   </section>
 
   <section class="mx-auto max-w-content px-8 py-16">
-    <SectionDivider label="REVISION 2 CONTRACTS" />
+    <SectionDivider label="CONSTITUTIONAL CORE" />
+    <div class="mt-8 grid grid-cols-1 gap-10 lg:grid-cols-[0.85fr_1.15fr]">
+      <div>
+        <h2 class="font-heading text-[28px] font-bold text-[var(--text)]">
+          AI proposes,<br />never executes.
+        </h2>
+        <p class="mt-4 font-body text-[15px] leading-[1.7] text-[var(--muted)]">
+          INV-002 is the headline rule. Six independent enforcement sites turn it from aspirational language into a measurable runtime property. Every bypass attempt produces permanent forensic evidence — bounded AI agency becomes auditable, not just promised.
+        </p>
+        <p class="mt-4 font-body text-[13px] leading-relaxed text-[var(--muted)]">
+          Tier 5 audit cycle 2: zero findings on the six-site enforcement map. The constitutional core is mechanically intact.
+        </p>
+      </div>
+      <div class="grid grid-cols-1 gap-3">
+        {inv002Sites.map((site, i) => (
+          <div class={`animate stagger-${(i % 6) + 1} grid grid-cols-[60px_1fr_auto] items-center gap-4 rounded-[8px] border border-[var(--border)] bg-[var(--bg)] p-4`}>
+            <span class="font-mono text-[11px] uppercase tracking-[0.08em] text-[var(--accent)]">{site.code}</span>
+            <span class="font-body text-[13px] text-[var(--text)]">{site.site}</span>
+            <span class="font-mono text-[11px] text-[var(--muted)]">{site.record}</span>
+          </div>
+        ))}
+      </div>
+    </div>
+  </section>
+
+  <section class="mx-auto max-w-content px-8 py-16">
+    <SectionDivider label="REVISION 2 CONTRACTS BY LAYER" />
     <div class="mt-8 grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
       {rev2Contracts.map((contract, i) => (
         <div class={`card animate stagger-${(i % 6) + 1}`}>
@@ -206,23 +256,39 @@ const proxguardCapabilities = [
 
   <section class="bg-[var(--surface-1)] py-16">
     <div class="mx-auto max-w-content px-8">
-      <SectionDivider label="FIRST SYSTEM APP" />
+      <SectionDivider label="REFERENCE SYSTEM APP" />
       <div class="mt-8 grid grid-cols-1 gap-10 lg:grid-cols-[0.9fr_1.1fr]">
         <div>
           <div class="inline-block rounded-badge bg-[rgba(206,40,103,0.08)] px-3 py-1.5">
             <span class="font-body text-[11px] font-medium text-[#ce2867]">/aios/apps/proxguard</span>
           </div>
           <h2 class="mt-6 font-heading text-[28px] font-bold text-[var(--text)]">
-            ProxGuard becomes<br />an AIOS infrastructure app.
+            Independent convergence<br />on the same disciplines.
           </h2>
           <p class="mt-4 font-body text-[15px] leading-[1.7] text-[var(--muted)]">
-            ProxGuard is not part of the OS core. It can run as a sandboxed system app that provides service deployment, DNS, gateway, and audit capabilities through AIOS policy, vault, verification, and evidence.
+            ProxGuard is a deterministic, auditable application control plane built independently from AIOS. Its constitution reaches the same architectural rules from the opposite direction — sim/prod separation, append-only evidence, typed-not-shell, AI-as-proposer.
+          </p>
+          <p class="mt-4 font-body text-[13px] leading-relaxed text-[var(--muted)]">
+            Two systems converging on the same constitution without coordination is positive validation of the architecture. ProxGuard becomes the first sandboxed AIOS system app at <span class="font-mono text-[12px] text-[var(--text)]">/aios/apps/proxguard</span>, exposing typed capabilities while AIOS holds authority in policy, vault, sandbox, verification, and evidence.
           </p>
         </div>
         <div class="grid grid-cols-1 gap-3 md:grid-cols-2">
           {proxguardCapabilities.map((capability, i) => (
             <div class={`animate stagger-${(i % 6) + 1} rounded-[8px] border border-[var(--border)] bg-[var(--bg)] p-4`}>
               <span class="font-mono text-[11px] text-[var(--accent)]">{capability}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <div class="mt-12">
+        <h3 class="font-heading text-[18px] font-semibold text-[var(--text)]">Architectural alignment matrix</h3>
+        <div class="mt-4 grid grid-cols-1 gap-3">
+          {proxguardAlignment.map((row, i) => (
+            <div class={`animate stagger-${(i % 6) + 1} grid grid-cols-1 items-center gap-2 rounded-[8px] border border-[var(--border)] bg-[var(--bg)] p-4 md:grid-cols-[120px_1fr_1fr] md:gap-4`}>
+              <span class="font-mono text-[11px] uppercase tracking-[0.08em] text-[var(--accent)]">{row.aios}</span>
+              <span class="font-body text-[13px] text-[var(--text)]">{row.proxguard}</span>
+              <span class="font-body text-[12px] text-[var(--muted)]">{row.match}</span>
             </div>
           ))}
         </div>

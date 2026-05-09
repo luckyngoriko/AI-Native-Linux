@@ -74,6 +74,64 @@ Decision log. Each entry follows ADR (Architecture Decision Record) discipline: 
 
 ---
 
+## DEC-042 — S0.3 MVP Golden Path Contract (the executable test of the spec itself)
+
+- **Context:** Rev.1 §22 named the MVP golden path narratively but did not formalize it as a contract. Without a self-validation contract, the AIOS spec had no mechanical answer to "is the spec coherent enough to build from?" Audit-phase action-path simulations needed a canonical scenario to trace.
+- **Decision:** Write S0.3 (1094 lines) — the canonical scenario (operator records a journal entry) walked through 18 explicit steps, each cited to a CONTRACT-grade sub-spec section. Every step has inputs, outputs, INV citations, evidence record type emitted, failure mode reference (L9.3), and a binary acceptance check.
+- **The honesty principle preserved:** the agent surfaced 2 minor genuine gaps (`GAP-§Step.3`, `GAP-§Step.4`) and 1 acceptance gap (`GAP-§Acceptance.4`); user-task-flagged candidate gaps about subscription mechanism and AIOS-FS atomicity resolved cleanly via existing S3.1 + S1.3 sections. Spec is honest about what is and isn't fully specified.
+- **Self-validation as mechanical contract:** when AIOS is implemented, MVP acceptance test runs the canonical trace; passes iff all 18 outputs match + all evidence records emit + total chain is single signed DAG + renderer artifact visible to operator + total trace time ≤ X seconds. "MVP achieved" is checkable, not aspirational.
+- **Three additional traced scenarios** (operator-approves-AI proposal, operator-initiates-recovery, AI-tries-to-install-package-fails-closed) and three worked failure traces show the spec covers breadth + adversarial paths.
+- **Consequences:** XX cross-cutting layer gains S0.3 alongside S0.1 + S0.2 + R1. The spec now has a mechanical self-test. Any future audit can rerun the trace and compare against this contract; deltas are findings.
+- **Status:** `REAL` (applied 2026-05-11). Phase tag S0.3.
+
+---
+
+## DEC-041 — S6.3 L0 Evidence Receipt Schema (canonical receipt shape; binds INV-005/014/015 mechanical)
+
+- **Context:** With 205 (now 209) RecordTypes in the S3.1 narrative, every evidence emission referenced a "receipt" with implicit shape. S3.1 specified the log architecture (segments, hash chains, retention) but NOT the canonical fields each receipt carries. Without S6.3 evidence verification was per-RecordType ad-hoc rather than uniform.
+- **Decision:** Write S6.3 (760 lines) defining the canonical `EvidenceReceipt` proto with 16 typed fields in 6 organisational groups (Identity / Temporal / Authorship / Scope / Content / Lineage / Integrity / Adversarial-robustness). 4 closed enums: `RedactionClass`, `ReceiptIntegrityState`, `LineageRelation`, `RedactionRule`.
+- **Constitutional choices:**
+  - **Hash chain algorithm precisely specified:** genesis sentinel 64 zeros; each receipt links to prior via `hex_lower(BLAKE3(JCS(prior_receipt_without_signature)))[:32]`; cross-segment via genesis-of-segment links to prior segment's seal hash. Mechanical INV-005 (evidence append-only).
+  - **"No secrets in evidence" rule (INV-015 mechanical):** receipt payload filtered through redaction layer at EMIT time; receipts failing redaction validation are REJECTED at log append with secondary FOREVER `RECEIPT_REDACTION_FAILED` evidence. Closed `RedactionRule` enum (5).
+  - **Lineage discipline DAG-shaped, acyclic:** receipts can carry `parent_receipt_id` for derived events; audit walks lineage forward (cause → effect) and backward (effect → cause); cycles → TAMPER_DETECTED.
+  - **Per-grade evidence quality requirements:** explicit mapping E0–E5 → required populated receipt fields (E0 null evidence, E1 payload non-empty, E2 + linked artifact, E3 + parent receipt chain proving test ran, E4 + scheduled audit chain, E5 + rolling 7-of-14d health receipt window).
+  - **Constitutional fields enumerated:** every field's setter (emitter vs log) explicit; post-seal modifiability NO (binds INV-005); adversarial concern documented with mitigation.
+- **4 new FOREVER record types:** RECEIPT_REDACTION_FAILED, RECEIPT_INTEGRITY_QUARANTINED, RECEIPT_LINEAGE_CYCLE_DETECTED, RECEIPT_SEQUENCE_OUT_OF_ORDER. Cumulative narrative RecordType total: 205 → 209.
+- **Consequences:** L0 layer reaches all 4 sub-specs CONTRACT (S6.1 + S6.2 + S6.3 + S6.4). Evidence verification is uniform across all 209 RecordTypes. The audit phase now has a canonical receipt structure to walk against.
+- **Status:** `REAL` (applied 2026-05-11). Phase tag S6.3.
+
+---
+
+## DEC-040 — S14.1 L9 Failure Handling and Degradation (closed taxonomy; closed mapping; bounded blast radius)
+
+- **Context:** Every failure scenario in the spec needed a canonical answer. Without S14.1 (= L9.3 failure_handling), action-path simulations like "policy bundle corrupt", "vault unavailable", "network down", "L5 degraded" had no spec response. Other L9 sub-specs (S3.1 evidence log, S2.4 verification grammar) covered evidence + verification mechanics but not failure-mode-to-behavior mapping.
+- **Decision:** Write S14.1 (1050 lines) defining closed `FailureClass` (15 entries top-level taxonomy), closed `DegradationLevel` (6-state FSM: NORMAL → DEGRADED_SOFT → DEGRADED_HARD → READ_ONLY → RECOVERY_PENDING → HALTED), closed `BehaviorOnFailure` (5: FAIL_CLOSED default / DEGRADE_TO_KNOWN_GOOD / DEFER_TO_RECOVERY / AUTOMATIC_RETRY / HUMAN_DECISION_REQUIRED), closed `CircuitBreakerState` (3).
+- **Heart of the contract: the failure → behavior table.** 31 closed failure scenarios spanning 11 of 15 FailureClass values, mapped across L0/L1/L2/L3/L4.1/L4.2/L4.3/L5/L8.1/L8.2/L9.1/L9.2. Each entry explicitly maps: layer, behavior, degradation level, evidence record, recovery path. Examples: invariant bundle signature failure → FAIL_CLOSED + degrade to INV-001+002 only + INVARIANT_BUNDLE_REJECTED FOREVER + recovery; vault unavailable → FAIL_CLOSED on all vault-requiring ops + DEGRADED_HARD; AI provider unavailable → DEGRADE_TO_KNOWN_GOOD (no-LLM direct path); evidence chain hash mismatch → TAMPER_DETECTED + DEFER_TO_RECOVERY.
+- **Anti-cascading-failure discipline:** bounded retry budget per FailureClass; degradation propagation acyclic (binds INV-007 layer downward); TAMPER_DETECTED halts dependent layers but never propagates upward beyond evidence emission; recovery-loop detector (entered N times within M minutes → HALTED).
+- **Adversarial robustness:** cascading failure DoS prevented via circuit breaker; false-positive failure detection distinguished via S2.4 VerificationStatus (FAILED predicate vs PROBE_ERROR); failure suppression by malicious adapter caught by S9.3 element 5 kernel-side evidence emission; spurious recovery loops bounded.
+- **Operator runbook lookup contract:** for each FailureClass, runbook reference at `/aios/system/runbooks/<failure_class>/...` (the runbook content is operator documentation, out-of-scope; the lookup path is canonical and per-failure-class).
+- **10 record types queued** (4 FOREVER for structural failure events: COMPONENT_RESTART_BUDGET_EXHAUSTED, HALTED_PENDING_OPERATOR, BACKEND_VERSION_MISMATCH, RECOVERY_LOOP_DETECTED).
+- **Consequences:** L9 layer reaches 3 of 4 sub-specs CONTRACT (S3.1 + S2.4 + S14.1); only `04_telemetry_pipeline.md` stays SHELL. Action-path simulations now have canonical answers for every named failure class.
+- **Status:** `REAL` (applied 2026-05-11). Phase tag S14.1.
+
+---
+
+## DEC-039 — S9.2 L1 First-Boot Flow (idempotent stages; recovery operator non-skippable)
+
+- **Context:** Every operator path through AIOS starts at first-boot. Without S9.2, the spec's most fundamental scenario ("operator installs AIOS") had no spec answer. S9.1 specified recovery boundary semantics; S9.3 specified the dedicated kernel pipeline; but the bootstrap sequence from installer media through AIOS readiness was unspecified.
+- **Decision:** Write S9.2 (1002 lines) defining the linear FSM through 15 stages from STAGE_INSTALLER_MEDIA_VERIFIED to STAGE_FIRST_BOOT_COMPLETE. 6 closed enums: `FirstBootStage` (15), `FirstBootEntryReason` (3 — FRESH_INSTALL/RESET_TO_FACTORY/REIMAGE), `AIProviderMode` (4 — LOCAL_ONLY default/VAULT_BROKERED_EXTERNAL/HYBRID/DEFERRED), `RecoveryCredentialKind` (3), `FirstBootFailureReason` (12), `InitialFirewallPosture` (3 — LOOPBACK_ONLY default binds INV-006).
+- **Constitutional choices:**
+  - **Idempotency on each stage.** Interrupted stage is re-attempted on reboot; `STAGE_FIRST_BOOT_COMPLETE` is the ONLY non-idempotent point — once written, first-boot cannot re-run without RESET_TO_FACTORY (recovery operation, FOREVER evidence).
+  - **Recovery operator registration cannot be skipped.** STAGE_RECOVERY_OPERATOR_REGISTRATION is required before STAGE_FIRST_BOOT_COMPLETE. Operators who refuse to register recovery credentials cannot reach NORMAL mode.
+  - **AI provider configuration is operator's deliberate choice.** Closed `AIProviderMode` with default LOCAL_ONLY (privacy-first); VAULT_BROKERED_EXTERNAL records explicit consent; DEFERRED legitimate; FOREVER `AI_PROVIDER_MODE_SET` records the choice.
+  - **Initial firewall posture default LOOPBACK_ONLY** (binds INV-006). Public exposure NEVER enabled at first-boot — requires recovery operation post-install.
+  - **Minimum 1 group + 1 user.** STAGE_FIRST_GROUP_REGISTRATION + STAGE_FIRST_USER_REGISTRATION required; multi-group/multi-user is post-first-boot work.
+- **11 record types queued** (10 FOREVER): FIRST_BOOT_STARTED, FIRST_BOOT_FAILED, VAULT_ROOT_KEY_GENERATED, AI_PROVIDER_MODE_SET, INITIAL_FIREWALL_POSTURE_SET, FIRST_GROUP_REGISTERED, FIRST_USER_REGISTERED, RECOVERY_OPERATOR_REGISTERED, FIRST_BOOT_COMPLETE, RESET_TO_FACTORY_INITIATED.
+- **Consequences:** L1 layer reaches all 3 sub-specs CONTRACT (S9.1 + S9.2 + S9.3). Operator paths are spec-traceable from media verification through to NORMAL mode entry.
+- **Status:** `REAL` (applied 2026-05-11). Phase tag S9.2.
+
+---
+
 ## DEC-038 — S13.1 L5 Cognitive Core Model (closes the AI-side hole; mechanical INV-002 enforcement via FSM)
 
 - **Context:** L5 is the AI side of AIOS. Until S13.1 the only L5 contracts were S1.1 Capability Translator and S1.2 Latency Tiering — both peripheral specialised concerns. The foundational cognitive contract — what an AI agent IS in AIOS terms, how it perceives intent, plans, remembers, coordinates with other agents, and how its proposing pipeline mechanically respects INV-002/010/011/013/016 — was unspecified. The runtime / network / distribution / vault layers were guards around an empty center. This contract closes the hole.

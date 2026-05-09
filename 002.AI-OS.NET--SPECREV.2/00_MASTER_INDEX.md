@@ -47,6 +47,7 @@ Phase 0 (foundation):
 
 - **S0.1** — Action Envelope + Lifecycle → `XX_Cross_Cutting/01_action_envelope_lifecycle.md` (`CONTRACT`)
 - **S0.2** — Self-evolving backend resolution → applied to rev.1 README (commit `be318da`)
+- **S0.3** — MVP Golden Path Contract → `XX_Cross_Cutting/03_mvp_golden_path.md` (`CONTRACT`)
 
 Phase 1 (the three killers):
 
@@ -81,6 +82,7 @@ Phase 6 (L0 governance):
 
 - **S6.1** — Status taxonomy → `L0_Governance_Evidence_Safety/01_status_taxonomy.md` (`CONTRACT`)
 - **S6.2** — Evidence grades → `L0_Governance_Evidence_Safety/02_evidence_grades.md` (`CONTRACT`)
+- **S6.3** — Evidence Receipt Schema → `L0_Governance_Evidence_Safety/03_evidence_receipt_schema.md` (`CONTRACT`)
 - **S6.4** — Constitutional invariants (INV-001..INV-024) → `L0_Governance_Evidence_Safety/04_invariants.md` (`CONTRACT`)
 
 Phase 7 (renderer architecture):
@@ -99,6 +101,7 @@ Phase 8 (L8 hardware/network):
 Phase 9 (L1 substrate):
 
 - **S9.1** — Recovery Boundary → `L1_Kernel_Bootstrap_Recovery/01_recovery_boundary.md` (`CONTRACT`)
+- **S9.2** — First-Boot Flow → `L1_Kernel_Bootstrap_Recovery/02_first_boot_flow.md` (`CONTRACT`)
 - **S9.3** — Dedicated Kernel Pipeline (smart mechanism) → `L1_Kernel_Bootstrap_Recovery/03_dedicated_kernel_pipeline.md` (`CONTRACT`)
 
 Phase 10 (L3 runtime):
@@ -116,6 +119,10 @@ Phase 12 (L6 app runtime):
 Phase 13 (L5 cognitive core depth):
 
 - **S13.1** — Cognitive Core Model (intent + planning + memory + agent coordination) → `L5_Cognitive_Core/01_cognitive_core_model.md` (`CONTRACT`)
+
+Phase 14 (L9 failure handling):
+
+- **S14.1** — Failure Handling and Degradation → `L9_Observability_Admin_Operations/03_failure_handling.md` (`CONTRACT`)
 
 Reference donors:
 

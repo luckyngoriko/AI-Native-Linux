@@ -4,6 +4,8 @@ Specification - Revision 1
 
 Status: system specification, prototype contract, agent-readable engineering document.
 
+> **Positioning note (added 2026-05-09, rev.2 era):** §1 below states "It is not another Linux distribution" — that was the rev.1 framing of AIOS as an operating _layer above_ Linux. **Rev.2 reframes AIOS as an AI-native Linux distribution** whose distinguishing component is the semantic operating layer described here. The architecture (L0–L10, AI-proposes-never-executes, evidence-first, recovery without cognition) is unchanged. See [`002.AI-OS.NET--SPECREV.2/01_executive_summary.md`](../002.AI-OS.NET--SPECREV.2/01_executive_summary.md) and [`002.AI-OS.NET--SPECREV.2/03_architecture_overview.md`](../002.AI-OS.NET--SPECREV.2/03_architecture_overview.md) for the current positioning. The body of this rev.1 specification is preserved verbatim as a frozen historical artifact.
+
 This document is written as the canonical technical specification for AIOS: an AI-native Linux operating environment where human goals become typed, policy-checked, verified system actions.
 
 It is not a marketing document and it does not define a calendar plan.
@@ -186,19 +188,19 @@ A layer may depend on its own layer and lower-numbered layers.
 A layer must not require a higher-numbered layer for correctness.
 ```
 
-| Layer | Name | Responsibility |
-| --- | --- | --- |
-| L0 | Constitutional Truth / Governance / Evidence / Safety | status taxonomy, gates, evidence law, invariants |
-| L1 | Kernel and Host Bootstrap | Linux substrate, generic fallback kernel, recovery path, dedicated kernel candidate |
-| L2 | AIOS-FS | semantic object filesystem, `/aios`, versions, views, transactions |
-| L3 | AIOS-SGR and Runtime | desired machine state, service graph, runtime transitions |
-| L4 | Policy / Identity / Vault | subjects, capabilities, approvals, secrets, policy packages |
-| L5 | Cognitive Core and Model Governance | intent, planning, memory, model routing, agent coordination |
-| L6 | Apps / Packages / Compatibility | AIOS packages, apps, Windows/Android/Linux compatibility |
-| L7 | Interaction Renderers | KDE, Web, CLI, Voice, Mobile, shared UI schema |
-| L8 | Network / Hardware / Devices | network policy, hardware graph, drivers, firmware, devices |
-| L9 | Observability / Admin / Operations | health, logs, metrics, evidence viewer, recovery operations |
-| L10 | Distribution / Ecosystem / Marketplace | publishing, repositories, marketplace, external integrations |
+| Layer | Name                                                  | Responsibility                                                                      |
+| ----- | ----------------------------------------------------- | ----------------------------------------------------------------------------------- |
+| L0    | Constitutional Truth / Governance / Evidence / Safety | status taxonomy, gates, evidence law, invariants                                    |
+| L1    | Kernel and Host Bootstrap                             | Linux substrate, generic fallback kernel, recovery path, dedicated kernel candidate |
+| L2    | AIOS-FS                                               | semantic object filesystem, `/aios`, versions, views, transactions                  |
+| L3    | AIOS-SGR and Runtime                                  | desired machine state, service graph, runtime transitions                           |
+| L4    | Policy / Identity / Vault                             | subjects, capabilities, approvals, secrets, policy packages                         |
+| L5    | Cognitive Core and Model Governance                   | intent, planning, memory, model routing, agent coordination                         |
+| L6    | Apps / Packages / Compatibility                       | AIOS packages, apps, Windows/Android/Linux compatibility                            |
+| L7    | Interaction Renderers                                 | KDE, Web, CLI, Voice, Mobile, shared UI schema                                      |
+| L8    | Network / Hardware / Devices                          | network policy, hardware graph, drivers, firmware, devices                          |
+| L9    | Observability / Admin / Operations                    | health, logs, metrics, evidence viewer, recovery operations                         |
+| L10   | Distribution / Ecosystem / Marketplace                | publishing, repositories, marketplace, external integrations                        |
 
 Layer invariants:
 
@@ -227,27 +229,27 @@ Canonical statuses:
 
 Status meanings:
 
-| Status | Meaning |
-| --- | --- |
-| `REAL` | implemented and verified with current evidence |
-| `PARTIAL` | working but incomplete or partially verified |
-| `SHELL` | placeholder exists but behavior is not implemented |
+| Status     | Meaning                                                |
+| ---------- | ------------------------------------------------------ |
+| `REAL`     | implemented and verified with current evidence         |
+| `PARTIAL`  | working but incomplete or partially verified           |
+| `SHELL`    | placeholder exists but behavior is not implemented     |
 | `CONTRACT` | interface or obligation exists, implementation pending |
-| `DEFERRED` | intentionally outside current scope |
-| `BLOCKED` | cannot proceed until a named blocker clears |
-| `UNKNOWN` | state is not known |
-| `RETIRED` | superseded or intentionally removed |
+| `DEFERRED` | intentionally outside current scope                    |
+| `BLOCKED`  | cannot proceed until a named blocker clears            |
+| `UNKNOWN`  | state is not known                                     |
+| `RETIRED`  | superseded or intentionally removed                    |
 
 Evidence grades:
 
-| Grade | Meaning |
-| --- | --- |
-| E0 | no evidence |
-| E1 | file, folder, or artifact exists |
-| E2 | build, typecheck, lint, or schema validation |
-| E3 | unit, integration, smoke, or targeted verification |
-| E4 | end-to-end, recovery, release gate, or reproducible workflow |
-| E5 | live operational, repeated, production-grade evidence |
+| Grade | Meaning                                                      |
+| ----- | ------------------------------------------------------------ |
+| E0    | no evidence                                                  |
+| E1    | file, folder, or artifact exists                             |
+| E2    | build, typecheck, lint, or schema validation                 |
+| E3    | unit, integration, smoke, or targeted verification           |
+| E4    | end-to-end, recovery, release gate, or reproducible workflow |
+| E5    | live operational, repeated, production-grade evidence        |
 
 L0 truth rules:
 
@@ -480,13 +482,13 @@ Semantic resolution result:
 
 AIOS-FS recovery modes:
 
-| Mode | Behavior |
-| --- | --- |
-| `normal` | read/write, policy enforced, semantic indexes active |
-| `safe_readonly` | read-only mount, no pointer movement |
-| `repair` | explicit repair commands, no AI autonomy |
-| `quarantine` | suspicious objects isolated from views |
-| `reindex` | rebuild semantic and vector indexes from metadata |
+| Mode            | Behavior                                             |
+| --------------- | ---------------------------------------------------- |
+| `normal`        | read/write, policy enforced, semantic indexes active |
+| `safe_readonly` | read-only mount, no pointer movement                 |
+| `repair`        | explicit repair commands, no AI autonomy             |
+| `quarantine`    | suspicious objects isolated from views               |
+| `reindex`       | rebuild semantic and vector indexes from metadata    |
 
 ---
 
@@ -1071,11 +1073,7 @@ Shared UI schema example:
   "id": "approval_network_expose",
   "title": "Expose dashboard on LAN?",
   "state_binding": "policy.approval.apr_01HX",
-  "actions": [
-    "approve_once",
-    "deny",
-    "approve_with_limits"
-  ]
+  "actions": ["approve_once", "deny", "approve_with_limits"]
 }
 ```
 
@@ -1346,16 +1344,16 @@ Preferred technologies:
 
 Failure handling:
 
-| Failure | Required Behavior |
-| --- | --- |
-| dedicated kernel fails | boot fallback generic kernel |
-| `/aios` fails to mount | boot recovery root, offer read-only/repair mode |
-| Policy Kernel unavailable | fail closed, recovery runbook |
-| LLM unavailable | degrade cognition, keep runtime/recovery working |
-| service update fails | rollback previous verified artifact |
-| disk full | enter safe mode, preserve evidence |
-| trust failure | block promotion, quarantine artifact |
-| network compromise suspected | disable exposure, preserve logs |
+| Failure                      | Required Behavior                                |
+| ---------------------------- | ------------------------------------------------ |
+| dedicated kernel fails       | boot fallback generic kernel                     |
+| `/aios` fails to mount       | boot recovery root, offer read-only/repair mode  |
+| Policy Kernel unavailable    | fail closed, recovery runbook                    |
+| LLM unavailable              | degrade cognition, keep runtime/recovery working |
+| service update fails         | rollback previous verified artifact              |
+| disk full                    | enter safe mode, preserve evidence               |
+| trust failure                | block promotion, quarantine artifact             |
+| network compromise suspected | disable exposure, preserve logs                  |
 
 ---
 

@@ -2,6 +2,8 @@
 
 Status: `PARTIAL` (all 11 layers carry contract-grade sub-specs; whole-system promotion to `REAL` blocks on Tier 5 audit + simulation)
 
+AIOS is an **AI-native Linux distribution**. Linux remains the trusted execution substrate (kernel, drivers, scheduler, syscalls); the AIOS layer is what makes the distribution AI-native — cognition, policy, evidence, and AIOS-FS are real distribution components, not an assistant bolted on.
+
 Rev.2 turns the Rev.1 vision into an agent-readable contract stack. The key shift is that cognition, policy, execution, verification, storage, and evidence are separated by typed boundaries — and every boundary is mechanically enforced by closed-vocabulary rejection codes that produce permanent forensic evidence on bypass.
 
 ## High-level flow

@@ -8,9 +8,9 @@
 [![Invariants: 24](https://img.shields.io/badge/invariants-24-ce2867.svg)](002.AI-OS.NET--SPECREV.2/L0_Governance_Evidence_Safety/04_invariants.md)
 [![Record Types: 427](https://img.shields.io/badge/record--types-427-111111.svg)](002.AI-OS.NET--SPECREV.2/L9_Observability_Admin_Operations/01_evidence_log.md)
 
-AI-Native Linux is an open specification for a unified cognitive operating environment on top of Linux.
+AI-Native Linux (AIOS) is an open specification for an **AI-native Linux distribution** — a real Linux distro whose distinguishing layer is a cognitive core, a policy kernel, and an evidence log built on top of the standard Linux substrate.
 
-The goal is not to create another Linux distribution. The goal is to define an operating layer where humans express goals, the system translates those goals into typed actions, policy decides what is allowed, runtime adapters execute only approved operations, and verification produces evidence.
+It is a Linux distribution, not "Linux + an AI assistant bolted on." Humans express goals, the system translates those goals into typed actions, the policy kernel decides what is allowed, runtime adapters execute only approved operations, and verification produces append-only evidence. Linux remains the trusted execution substrate (kernel, drivers, scheduler, syscalls); the AIOS layer is what makes the distribution AI-native.
 
 Public site: https://ai-os.net
 

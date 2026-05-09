@@ -2,6 +2,10 @@
 
 Status: `PARTIAL` (rev.2 contracts are landing incrementally)
 
+## What AIOS is
+
+AIOS is an **AI-native Linux distribution**. Linux owns the substrate (kernel, drivers, scheduler, syscalls); the AIOS layer — Cognitive Core, Policy Kernel, AIOS-FS, Evidence Log, Capability Runtime, and KDE/Web/CLI/Voice/Mobile renderers — is what makes the distribution AI-native. Cognition, policy, and evidence are first-class distribution components, not an assistant bolted on.
+
 ## Purpose of rev.2
 
 Rev.1 established the AIOS vision and the layer model. Rev.2 turns that vision into contract-grade specifications: schemas, state machines, error models, and verification rules that an implementer can build against without further interpretation.

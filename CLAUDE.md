@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## What this repository is
 
-**AIOS — AI-Native Linux / Unified Cognitive Shell.** A specification-stage project for an operating environment that sits _above_ the Linux kernel and turns human goals into typed, policy-checked, verified system actions.
+**AIOS — AI-Native Linux Distribution.** A specification-stage project for a real Linux distribution whose distinguishing layer is a Unified Cognitive Shell: a cognitive core, policy kernel, and append-only evidence log on top of a standard Linux substrate. Human goals become typed, policy-checked, verified system actions.
 
 The repository is currently in **specification-only phase** — no source code, no build system, no test suite. Active work is the rev.2 layered specification.
 

@@ -2,6 +2,8 @@
 
 Architecture Vision - rev.1
 
+> **Positioning note (added 2026-05-09, rev.2 era):** The "not another Linux distribution" framing below was the rev.1 framing of AIOS as an operating _layer_. **Rev.2 reframes AIOS as an AI-native Linux distribution** — i.e. a real Linux distro whose distinguishing layer is the cognitive shell described here. The architectural model (L0–L10, AI-proposes-never-executes, evidence-first, recovery without cognition) is unchanged. See [`002.AI-OS.NET--SPECREV.2/01_executive_summary.md`](../002.AI-OS.NET--SPECREV.2/01_executive_summary.md) and [`002.AI-OS.NET--SPECREV.2/03_architecture_overview.md`](../002.AI-OS.NET--SPECREV.2/03_architecture_overview.md) for the current positioning. This rev.1 file is preserved verbatim below as a frozen historical artifact.
+
 ## Core Vision
 
 The goal is not to create another Linux distribution.

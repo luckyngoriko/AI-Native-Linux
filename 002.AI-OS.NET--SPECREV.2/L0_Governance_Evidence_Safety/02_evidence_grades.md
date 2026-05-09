@@ -269,7 +269,7 @@ A producer claiming `BUILD_PASSED` without an actual build is caught by the `STA
 
 ### 10.6 AI-self-grading
 
-An AI subject cannot emit `BUILD_PASSED`, `TEST_PASSED`, etc. receipts that name itself as producer if the receipt is for code the AI authored. The L0 governance service rejects such receipts with `ProducerCannotSelfGrade`. Consequence: a CI system run on behalf of a human operator emits the receipts; AI subjects are not authorized producers for grade-promotion receipts. This complements S6.1 §7 (AI cannot mark its own status `REAL`).
+An AI subject cannot emit `BUILD_PASSED`, `TEST_PASSED`, etc. receipts that name itself as producer if the receipt is for code the AI authored. The L0 governance service rejects such receipts with `AgentSelfGradingBlocked` (rule name aligned with S2.3 §17 PascalCase + record-stem-form discipline; the FOREVER record itself is `AGENT_SELF_GRADING_BLOCKED`). Consequence: a CI system run on behalf of a human operator emits the receipts; AI subjects are not authorized producers for grade-promotion receipts. This complements S6.1 §7 (AI cannot mark its own status `REAL`).
 
 ## 11. Cross-spec dependencies
 
@@ -318,7 +318,7 @@ Receipt claims BUILD_PASSED for capability X, but signature does not verify.
 Producer: family:family-assistant (is_ai=true).
 Receipt: TEST_PASSED for capability "S5.1.identity_model".
 Authorship check: family-assistant authored part of S5.1.
-   → Receipt rejected at append with ProducerCannotSelfGrade.
+   → Receipt rejected at append with AgentSelfGradingBlocked.
    → No grade contribution.
 ```
 

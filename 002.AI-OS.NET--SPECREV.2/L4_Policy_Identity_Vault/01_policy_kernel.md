@@ -410,6 +410,10 @@ This spec defines:
 - Approval cannot mutate the request.
 - Approval cannot bypass hard denies.
 
+**Recovery-mode mutations always require a human approver (Wave 12 amendment, addresses SIM-A2-006).** When `subject.is_recovery_mode = true` AND `request.action_class = MUTATE`, the approval pipeline §15 sets `approver_subject_filter = HUMAN_USER` even if the policy bundle did not explicitly require approval. This is a constitutional addition; no policy bundle may downgrade this requirement. It converts the §26.2.2 `RecoveryRequiredForSystemMutation` narrative claim — that recovery-mode mutations must surface a human approver — into a mechanical structural rule on the §15 approval boundary.
+
+Note: first-boot subjects (`subject.is_first_boot = true`) are exempt because no `HUMAN_USER` subject yet exists during first-boot stages 1–11; the hardware-key signature substitutes per S5.1 §5.2.1, and the §26.5 first-boot exception scope governs the carve-out. The §26.2.6 `MutuallyExclusiveModeFlagsRejected` hard-deny guarantees that the two flags cannot co-occur, so this exemption cannot be used to launder a recovery-mode mutation through a fake first-boot session.
+
 Delivery, UI, multi-channel routing, and prompt rendering are deferred to **`04_approval_mechanics.md`**.
 
 ## 16. Emergency override boundary
@@ -806,11 +810,11 @@ The conditions vocabulary (§4) gains five new fields. All are closed; bundle lo
 | `target`  | `target.user_id`           | string                              | `=`, `!=`, `in` |
 | `target`  | `target.reserved_name`     | string                              | `=`, `!=`, `in` |
 
-The `subject.is_first_boot` field is set by the L4 identity service per S9.2 only on the canonical first-boot service subjects enumerated in S9.2 §3.2.8 (`installer`, `vault-init`, `identity-init`, `policy-compiler`, `firstboot-coordinator`); it is `false` on every other subject and self-extinguishes after the first-boot coordinator writes the firstboot completion marker. See §26.5 for the constitutional scope of this exception.
+The `subject.is_first_boot` field is set by the L4 identity service per S9.2 only on the canonical first-boot service subjects enumerated in S9.2 §4.2.1 (`installer`, `vault-init`, `identity-init`, `policy-compiler`, `firstboot-coordinator`); it is `false` on every other subject and self-extinguishes after the first-boot coordinator writes the firstboot completion marker. See §26.5 for the constitutional scope of this exception.
 
-### 26.2 Five new constitutional hard-denies
+### 26.2 Six new constitutional hard-denies
 
-All five are constitutional invariants — they cannot be loosened by any policy bundle (analogous to S2.3 §17 AI self-approval prevention). The first three (§26.2.1 `CrossGroupAccessForbidden`, §26.2.2 `RecoveryRequiredForSystemMutation`, §26.2.3 `AISystemAdminBlocked`) were applied in Wave 4 alongside the S4.1 namespace integration. The two added in Wave 9 (§26.2.4 `AIInstallInitiationBlocked`, §26.2.5 `ConstitutionalSubstrateRequiresRecovery`) bind to existing INV-002 (site 2 mechanical floor) and INV-012 (recovery boundary) respectively; no new L0 invariants are introduced.
+All six are constitutional invariants — they cannot be loosened by any policy bundle (analogous to S2.3 §17 AI self-approval prevention). The first three (§26.2.1 `CrossGroupAccessForbidden`, §26.2.2 `RecoveryRequiredForSystemMutation`, §26.2.3 `AISystemAdminBlocked`) were applied in Wave 4 alongside the S4.1 namespace integration. The two added in Wave 9 (§26.2.4 `AIInstallInitiationBlocked`, §26.2.5 `ConstitutionalSubstrateRequiresRecovery`) bind to existing INV-002 (site 2 mechanical floor) and INV-012 (recovery boundary) respectively; the sixth (§26.2.6 `MutuallyExclusiveModeFlagsRejected`, added Wave 12) binds to the S9.1 §3.2 mutual-exclusion invariant. No new L0 invariants are introduced.
 
 #### 26.2.1 `CrossGroupAccessForbidden`
 
@@ -891,18 +895,34 @@ Per S10.1 W9 split (forthcoming), only the `_substrate` variant triggers this ru
 
 Constitutional binding: INV-012 (recovery boundary). The rule presumes the §26.6 closed condition `target.is_constitutional_substrate` (added in Wave 9 — see below) but the present hard-deny is action-name-based, not condition-derived; the condition field is added for bundle-rule expressiveness against the substrate-class predicate at a finer grain than the closed action enum.
 
+#### 26.2.6 `MutuallyExclusiveModeFlagsRejected`
+
+Added in Wave 12 (W12 amendment, closes SIM-A2-004). Per S9.1 §3.2 mutual-exclusion invariant, no subject session may carry both `is_first_boot = true` and `is_recovery_mode = true` — the two flags name disjoint constitutional phases (first-boot provisioning vs. operator-driven recovery). Conflating them would let a first-boot service subject inherit recovery-mode privileges or vice versa. The L4 policy plane enforces this at admission so that the flag combination cannot reach any downstream mutation. Without this hard-deny, the invariant was cited by S9.1 §3.2 + S9.2 §4.2.1 + S3.1 W10-A but had no mechanical floor in S2.3.
+
+```text
+IF subject.is_first_boot = true
+   AND subject.is_recovery_mode = true
+THEN DENY with code = MutuallyExclusiveModeFlags
+   AND emit FOREVER MUTUALLY_EXCLUSIVE_MODE_FLAGS_BLOCKED (queued for S3.1 W11+)
+```
+
+The `MUTUALLY_EXCLUSIVE_MODE_FLAGS_BLOCKED` RecordType is **queued for S3.1 W11+** evidence-record-catalog addition; until that addition lands, the FOREVER emission is recorded against the generic `POLICY_HARD_DENY` record family with the closed `policy_id = MutuallyExclusiveModeFlags` discriminator, so no evidence is lost in the interim.
+
+Constitutional binding: structural admission-time invariant pairing with the S9.1 §3.2 mutual-exclusion rule; no new L0 invariants introduced.
+
 ### 26.3 Hard-deny ordering
 
-The five hard-denies are evaluated in this order before the bundle's normal rule evaluation:
+The six hard-denies are evaluated in this order before the bundle's normal rule evaluation:
 
-1. `RecoveryRequiredForSystemMutation` (most fundamental — the recovery boundary)
-2. `ConstitutionalSubstrateRequiresRecovery` (Wave 9 — recovery boundary, substrate scope)
-3. `AISystemAdminBlocked` (constitutional invariant on AI subjects, system scope)
-4. `AIInstallInitiationBlocked` (Wave 9 — INV-002 site 2 mechanical floor, scope-agnostic)
-5. `CrossGroupAccessForbidden` (default-deny boundary)
-6. (then bundle rules)
+1. `MutuallyExclusiveModeFlagsRejected` (Wave 12 — admission-time structural floor; sessions with conflicting mode flags cannot reach any downstream rule)
+2. `RecoveryRequiredForSystemMutation` (most fundamental — the recovery boundary)
+3. `ConstitutionalSubstrateRequiresRecovery` (Wave 9 — recovery boundary, substrate scope)
+4. `AISystemAdminBlocked` (constitutional invariant on AI subjects, system scope)
+5. `AIInstallInitiationBlocked` (Wave 9 — INV-002 site 2 mechanical floor, scope-agnostic)
+6. `CrossGroupAccessForbidden` (default-deny boundary)
+7. (then bundle rules)
 
-If any hard-deny fires, evaluation short-circuits to `DENY` with the matching code. Existing AI self-approval prevention (§17) and existing hard denies remain in their original positions. The Wave 9 additions are inserted next to their semantic peers: `ConstitutionalSubstrateRequiresRecovery` is a recovery-boundary rule and follows `RecoveryRequiredForSystemMutation`; `AIInstallInitiationBlocked` is an AI-subject rule and follows `AISystemAdminBlocked`.
+If any hard-deny fires, evaluation short-circuits to `DENY` with the matching code. Existing AI self-approval prevention (§17) and existing hard denies remain in their original positions. The Wave 9 additions are inserted next to their semantic peers: `ConstitutionalSubstrateRequiresRecovery` is a recovery-boundary rule and follows `RecoveryRequiredForSystemMutation`; `AIInstallInitiationBlocked` is an AI-subject rule and follows `AISystemAdminBlocked`. The Wave 12 addition (`MutuallyExclusiveModeFlagsRejected`) sits at the very top because it gates the structural admissibility of the subject-session itself; if both mode flags are set, no other rule should be reached.
 
 ### 26.4 Telemetry additions
 
@@ -922,7 +942,7 @@ Wave 9 (Cluster 2 closure) introduces the `subject.is_first_boot` field (§26.1)
 
 **Scope of `subject.is_first_boot = true`:**
 
-- The flag is granted by S9.1 (`RecoveryMode.FIRST_BOOT` enum value, defined in another sub-spec) and set on the subject's session by S9.2 (first-boot flow) **only** for the canonical first-boot service subjects enumerated in S9.2 §3.2.8: `installer`, `vault-init`, `identity-init`, `policy-compiler`, `firstboot-coordinator`. No other subject ever carries `is_first_boot = true`.
+- The flag is granted by S9.1 (`RecoveryMode.FIRST_BOOT` enum value, defined in another sub-spec) and set on the subject's session by S9.2 (first-boot flow) **only** for the canonical first-boot service subjects enumerated in S9.2 §4.2.1: `installer`, `vault-init`, `identity-init`, `policy-compiler`, `firstboot-coordinator`. No other subject ever carries `is_first_boot = true`.
 - The flag is **self-extinguishing**: once the firstboot completion marker is written by `firstboot-coordinator`, S9.2 transitions all subsequent sessions of these service subjects (and every other subject in the system) to `is_first_boot = false`. The flag cannot be re-asserted without re-entering the first-boot flow, which itself requires recovery-mode operator authority and a fresh device-init bundle.
 - **Evidence**: every mutation that escapes `RecoveryRequiredForSystemMutation` via the `is_first_boot = true` clause emits a `FIRST_BOOT_OPERATION` FOREVER record (in lieu of the `RECOVERY_EVENT` FOREVER record that the recovery-mode escape would emit). The two records are mutually exclusive on a per-decision basis: a single decision either escapes via recovery (→ `RECOVERY_EVENT`) or via first-boot (→ `FIRST_BOOT_OPERATION`), never both.
 - **No human-approver gate during first-boot**: the first-boot window is constitutionally pre-approved by the operator's act of installing the device-init bundle (verified by S9.2's signature chain). No interactive human approver exists during first-boot; therefore the §15 approval boundary's recovery-mode human-approver requirement is inapplicable to first-boot decisions. This is the only structural carve-out from the recovery-mode + human-approver pairing.
@@ -994,16 +1014,17 @@ Binds **L0 INV-024** (GPU compute access is capability-gated). Bounds GPGPU comp
 
 ### 27.3 Hard-deny ordering update
 
-The two new hard-denies extend the §26.3 ordering. Full pre-bundle hard-deny chain becomes (incorporating Wave 9 additions inserted next to their semantic peers per §26.3):
+The two new hard-denies extend the §26.3 ordering. Full pre-bundle hard-deny chain becomes (incorporating Wave 9 additions inserted next to their semantic peers per §26.3, and the Wave 12 admission-time floor at the head of the chain):
 
-1. `RecoveryRequiredForSystemMutation`
-2. `ConstitutionalSubstrateRequiresRecovery` _(Wave 9)_
-3. `AISystemAdminBlocked`
-4. `AIInstallInitiationBlocked` _(Wave 9)_
-5. `CrossGroupAccessForbidden`
-6. `CompositionZoneForbidden` _(Wave 5)_
-7. `GpuComputeOutsideAuthorisedClass` _(Wave 5)_
-8. (then bundle rules)
+1. `MutuallyExclusiveModeFlagsRejected` _(Wave 12)_
+2. `RecoveryRequiredForSystemMutation`
+3. `ConstitutionalSubstrateRequiresRecovery` _(Wave 9)_
+4. `AISystemAdminBlocked`
+5. `AIInstallInitiationBlocked` _(Wave 9)_
+6. `CrossGroupAccessForbidden`
+7. `CompositionZoneForbidden` _(Wave 5)_
+8. `GpuComputeOutsideAuthorisedClass` _(Wave 5)_
+9. (then bundle rules)
 
 Short-circuit on first match. AI self-approval prevention (§17) is unchanged and still runs at its original constitutional position.
 

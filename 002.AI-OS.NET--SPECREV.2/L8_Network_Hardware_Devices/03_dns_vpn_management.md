@@ -251,7 +251,7 @@ Cardinality is bounded: distinct `fqdn` values within a 24-hour audit segment ar
 
 ```text
 operator submits EstablishVpnTunnel(
-  tunnel_id = vpn:01HX...A1,
+  tunnel_id = vpn_01HX01A1,
   kind = WIREGUARD_SPLIT_TUNNEL,
   peer_endpoint = vpn.example.com:51820,
   peer_pubkey = base64-ed25519,
@@ -286,19 +286,19 @@ declared_directive: ALLOW_LIST_ONLY
 allowlist:
   - kind: HOST_FQDN
     value: "git.work-internal.example.com"
-    via_vpn: vpn:01HX...A1
+    via_vpn: vpn_01HX01A1
   - kind: HOST_FQDN
     value: "ci.work-internal.example.com"
-    via_vpn: vpn:01HX...A1
+    via_vpn: vpn_01HX01A1
 ```
 
 At `EvaluateConnection` time:
 
-- The subject `homelab:work-app` connecting to `git.work-internal.example.com` is policy-evaluated; the manifest entry references `vpn:01HX...A1`; L8 checks that the tunnel is `ACTIVE`; the connection is routed via `wg-<tunnel_id_short>`; an audit record carries `interface = wg-<tunnel_id_short>`.
+- The subject `homelab:work-app` connecting to `git.work-internal.example.com` is policy-evaluated; the manifest entry references `vpn_01HX01A1`; L8 checks that the tunnel is `ACTIVE`; the connection is routed via `wg-<tunnel_id_short>`; an audit record carries `interface = wg-<tunnel_id_short>`.
 - The same subject connecting to `models.openai.com` (which is not in its manifest) is denied at S8.1 — `OUTBOUND_OUTSIDE_MANIFEST` `FOREVER` evidence (S8.1 §10).
 - A different subject `family:alice` connecting to `git.work-internal.example.com` is denied (the manifest is `homelab:work-app`'s, not `family:alice`'s); the tunnel does not provide a free namespace.
 
-Kill-switch behavior: if `vpn:01HX...A1` transitions from `ACTIVE` to `FAILED`, in-flight connections to `git.work-internal.example.com` are terminated within 250 ms (per S8.1 I11) and `VPN_TUNNEL_FAILED` `EXTENDED_60M` evidence is emitted carrying the tunnel id, the failure cause class, and the count of terminated connections.
+Kill-switch behavior: if `vpn_01HX01A1` transitions from `ACTIVE` to `FAILED`, in-flight connections to `git.work-internal.example.com` are terminated within 250 ms (per S8.1 I11) and `VPN_TUNNEL_FAILED` `EXTENDED_60M` evidence is emitted carrying the tunnel id, the failure cause class, and the count of terminated connections.
 
 ### 5.6 mDNS / Avahi gating
 
@@ -404,7 +404,7 @@ Outbound mDNS queries (to discover a peer):
 A `WIREGUARD_SPLIT_TUNNEL` manifest produces, deterministically, a configuration of the form:
 
 ```ini
-# /aios/system/network/vpn/vpn:01HX...A1/wg.conf  (mode 0600; owner _system:vpn)
+# /aios/system/network/vpn/vpn_01HX01A1/wg.conf  (mode 0600; owner _system:vpn)
 [Interface]
 PrivateKey = <local-key-blob; never logged; never echoed by GetVpnTunnel>
 Address    = 10.99.0.42/32
@@ -780,13 +780,13 @@ No answer set in the record. The metric `dns_queries_total{transport="DOT_TLS",o
 
 **Setup.** Operator wants a daily-use VPN routing only `git.work-internal.example.com` and `ci.work-internal.example.com` through the tunnel. Posture remains `LAN_AND_INTERNET`. The provider has issued a peer pubkey `base64-ed25519-A`.
 
-**Step 1 — `EstablishVpnTunnel`.** Operator (`HUMAN_USER`, `family:alice`, `session_class = INTERACTIVE`) submits `EstablishVpnTunnel(kind = WIREGUARD_SPLIT_TUNNEL, peer_endpoint = vpn.work-corp.example.com:51820, peer_pubkey = ..., allowed_ips = ["10.99.0.0/16"], bound_subjects = ["homelab:work-app"])`. Action id `act:01HX...01`.
+**Step 1 — `EstablishVpnTunnel`.** Operator (`HUMAN_USER`, `family:alice`, `session_class = INTERACTIVE`) submits `EstablishVpnTunnel(kind = WIREGUARD_SPLIT_TUNNEL, peer_endpoint = vpn.work-corp.example.com:51820, peer_pubkey = ..., allowed_ips = ["10.99.0.0/16"], bound_subjects = ["homelab:work-app"])`. Action id `act_01HX...01`.
 
 **Step 2 — Policy decision.** S2.3 evaluates. AI? No. Matching rule? Yes — `vpn.tunnel.establish` permits `HUMAN_USER` with `STRONG` strength. Decision: `REQUIRE_APPROVAL`, strength `STRONG`, ttl 300 s.
 
-**Step 3 — Approval.** Alice's session is `INTERACTIVE`; step-up reauthentication required. Alice authenticates with WebAuthn; session class becomes `STRONG`. The chrome-zone prompt shows `tunnel_id = vpn:01HX...A1, peer = vpn.work-corp.example.com:51820, allowed_ips = 10.99.0.0/16`. Alice presses Approve. `APPROVAL_GRANTED` evidence.
+**Step 3 — Approval.** Alice's session is `INTERACTIVE`; step-up reauthentication required. Alice authenticates with WebAuthn; session class becomes `STRONG`. The chrome-zone prompt shows `tunnel_id = vpn_01HX01A1, peer = vpn.work-corp.example.com:51820, allowed_ips = 10.99.0.0/16`. Alice presses Approve. `APPROVAL_GRANTED` evidence.
 
-**Step 4 — Tunnel establishment.** L8 generates `/aios/system/network/vpn/vpn:01HX...A1/wg.conf` with the operator's local key, the peer's pubkey, and `AllowedIPs = 10.99.0.0/16`. Brings up `wg-01HX01`. Routing rule added: `10.99.0.0/16 dev wg-01HX01`. Kill-switch installed: `iptables -A OUTPUT -d 10.99.0.0/16 -j DROP` is **not** added (the kill-switch is implemented as nftables `mark` rules that drop packets destined to AllowedIPs when the interface is down). Tunnel reaches `ACTIVE` in 3.2 s. `VPN_TUNNEL_ESTABLISHED` `STANDARD_24M` evidence emitted.
+**Step 4 — Tunnel establishment.** L8 generates `/aios/system/network/vpn/vpn_01HX01A1/wg.conf` with the operator's local key, the peer's pubkey, and `AllowedIPs = 10.99.0.0/16`. Brings up `wg-01HX01`. Routing rule added: `10.99.0.0/16 dev wg-01HX01`. Kill-switch installed: `iptables -A OUTPUT -d 10.99.0.0/16 -j DROP` is **not** added (the kill-switch is implemented as nftables `mark` rules that drop packets destined to AllowedIPs when the interface is down). Tunnel reaches `ACTIVE` in 3.2 s. `VPN_TUNNEL_ESTABLISHED` `STANDARD_24M` evidence emitted.
 
 **Step 5 — App rides the tunnel.** `homelab:work-app` opens TCP/443 to `git.work-internal.example.com`. DNS resolution: `git.work-internal.example.com → 10.99.5.10`. `EvaluateConnection` matches the manifest entry; the routing rule sends the packet via `wg-01HX01`. The connection's audit record carries `interface = wg-01HX01`.
 
@@ -800,7 +800,7 @@ No answer set in the record. The metric `dns_queries_total{transport="DOT_TLS",o
 
 **Setup.** `MdnsAvahiPosture = REQUIRE_OPERATOR_APPROVAL`. Operator wants Alice's machine to be able to discover the family Plex server (`Living Room Plex`) on the LAN. No active mDNS advertisement exists.
 
-**Step 1 — Subject submits discovery request.** Application `family:home-control` calls `MdnsResolveInstance(service_type = "_http._tcp.local.", instance_name = "Living Room Plex")`. Action id `act:01HX...02`.
+**Step 1 — Subject submits discovery request.** Application `family:home-control` calls `MdnsResolveInstance(service_type = "_http._tcp.local.", instance_name = "Living Room Plex")`. Action id `act_01HX...02`.
 
 **Step 2 — Policy decision.** S2.3 evaluates. AI? No. Matching rule? Yes — `mdns.resolve` permits `HUMAN_USER`-bound apps in group `family` to query mDNS. Decision: `ALLOW`. (Querying mDNS does not require `STRONG` approval; advertising does.)
 

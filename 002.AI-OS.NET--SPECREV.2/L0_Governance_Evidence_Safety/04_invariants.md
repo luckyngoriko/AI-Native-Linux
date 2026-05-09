@@ -73,7 +73,7 @@ enum InvariantId {
 
 **Why:** the value proposition of AIOS is that AI agency is bounded and auditable. Direct execution by AI removes the audit window.
 
-**Enforced by:** S0.1 envelope FSM (AI subjects cannot transition `policy_pending → executing`); S2.3 hard-deny `AISystemAdminBlocked`; S2.3 §17 AI self-approval prevention; S6.1 §7 AI cannot self-promote `REAL`; S6.2 §10.6 AI cannot self-grade.
+**Enforced by:** S2.3 §26.2.4 `AIInstallInitiationBlocked` (added Wave 9; AI subjects emitting install actions are hard-denied); S2.3 hard-deny `AISystemAdminBlocked`; S2.3 §17 AI self-approval prevention; S6.1 §7 AI cannot self-promote `REAL`; S6.2 §10.6 AI cannot self-grade.
 
 **Verified by:** S2.4 property `POLICY_AI_SELF_APPROVAL_BLOCKED` (existing closed `PropertyType` value).
 
@@ -243,7 +243,7 @@ These three roots are constitutional. AIOS-FS objects, agents, and apps live und
 
 ### INV-016 — AI cannot grade its own work
 
-**Statement:** AI-authored code cannot be graded by an AI-emitted evidence receipt. Receipts of types `BUILD_PASSED`, `TEST_PASSED`, `E2E_PASSED`, `RECOVERY_REHEARSAL_PASSED`, `RELEASE_GATE_PASSED`, `OPERATIONAL_HEALTHY` naming an AI as producer for an artifact authored by the same AI are rejected with `ProducerCannotSelfGrade`.
+**Statement:** AI-authored code cannot be graded by an AI-emitted evidence receipt. Receipts of types `BUILD_PASSED`, `TEST_PASSED`, `E2E_PASSED`, `RECOVERY_REHEARSAL_PASSED`, `RELEASE_GATE_PASSED`, `OPERATIONAL_HEALTHY` naming an AI as producer for an artifact authored by the same AI are rejected with `AgentSelfGradingBlocked` (renamed from `ProducerCannotSelfGrade` in Wave 12 to mirror INV-002 site-2's PascalCase rule + record-stem-form discipline; the FOREVER record name `AGENT_SELF_GRADING_BLOCKED` is unchanged).
 
 **Why:** this is the L0 mirror of INV-002 / INV-010 in the grade axis. Without it, AI could self-promote its own work to `REAL` via emitted evidence.
 

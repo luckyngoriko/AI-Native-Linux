@@ -64,7 +64,58 @@ A `Requires-for-correctness` reference to a higher-numbered layer is an **archit
 
 (b) a relocated capability (if the dependency is genuinely runtime-level and the vocabulary belongs to a different layer than is currently declared).
 
-The Tier 5 ARCH audit found ~25 `Consumes` declarations that mix the two; Wave 11 reclassifies the explicit cases per the per-spec edits below. Wave 12+ should sweep the remaining specs.
+The Tier 5 ARCH audit found ~25 `Consumes` declarations that mix the two; Wave 11 (W11-A) reclassified the explicit cases on a defined set of files. Wave 12 (W12) extended the discipline to S11.1 to reciprocate the L8 bilateral inversion. Wave 12+ should sweep the remaining specs.
+
+#### Discipline audit — `Consumes` header refinement coverage
+
+The table below maps each contract-grade sub-spec to whether its `Consumes` header has been split into the explicit `Imports vocabulary from` / `Requires for correctness` buckets. Y = refined; N = unrefined (still mixed). The 16 W11-A targets plus the W12 S11.1 addition are listed Y; the rest remain N pending sweep.
+
+| Spec   | File                                            | Header refined |
+| ------ | ----------------------------------------------- | -------------- |
+| S6.3   | `L0/03_evidence_receipt_schema.md`              | Y (W11-A)      |
+| S9.1   | `L1/01_recovery_boundary.md`                    | Y (W11-A)      |
+| S9.2   | `L1/02_first_boot_flow.md`                      | Y (W11-A)      |
+| S9.3   | `L1/03_dedicated_kernel_pipeline.md`            | Y (W11-A)      |
+| S1.3   | `L2/01_object_model.md`                         | Y (W11-A)      |
+| S1.3.b | `L2/03_conflict_resolution.md`                  | Y (W11-A)      |
+| S4.1   | `L2/05_namespace_layout.md`                     | Y (W11-A)      |
+| S10.1  | `L3/03_capability_runtime_grpc.md`              | Y (W11-A)      |
+| S2.3   | `L4/01_policy_kernel.md`                        | Y (W11-A)      |
+| S13.1  | `L5/01_cognitive_core_model.md`                 | Y (W11-A)      |
+| S1.1   | `L5/02_capability_translator.md`                | Y (W11-A)      |
+| S14.1  | `L7/01_surface_composition.md`                  | Y (W11-A)      |
+| S14.4  | `L7/04_kde_renderer.md`                         | Y (W11-A)      |
+| S14.5  | `L7/05_web_renderer.md`                         | Y (W11-A)      |
+| S8.3   | `L8/01_hardware_graph.md`                       | Y (W11-A)      |
+| S8.5   | `L8/04_firmware_trust.md`                       | Y (W11-A)      |
+| S11.1  | `L10/01_repository_model.md`                    | Y (W12)        |
+| S6.1   | `L0/01_status_taxonomy.md`                      | N              |
+| S6.2   | `L0/02_evidence_grades.md`                      | N              |
+| S6.4   | `L0/04_invariants.md`                           | N              |
+| S2.1   | `L2/02_query_view_language.md`                  | N              |
+| S2.2   | `L2/04_implementation_space.md`                 | N              |
+| S15.1  | `L3/01_unit_manifest.md`                        | N              |
+| S15.2  | `L3/02_state_transitions.md`                    | N              |
+| S15.3  | `L3/04_adapter_model.md`                        | N              |
+| S5.1   | `L4/03_identity_model.md`                       | N              |
+| S5.2   | `L4/02_vault_broker.md`                         | N              |
+| S5.3   | `L4/04_approval_mechanics.md`                   | N              |
+| S5.4   | `L4/05_emergency_override.md`                   | N              |
+| S1.2   | `L5/03_latency_tiering.md`                      | N              |
+| S13.2  | `L5/05_model_router.md`                         | N              |
+| S3.2   | `XX/sandbox composition` (per sub-spec home)    | N              |
+| S0.1   | `XX/01_action_envelope_lifecycle.md`            | N              |
+| S0.3   | `XX/03_mvp_golden_path.md`                      | N              |
+| S0.4   | `XX/04_constitutional_meta_principles.md`       | N              |
+| S3.1   | `L9/01_evidence_log.md`                         | N              |
+| S2.4   | (S2.4 verification grammar — per sub-spec home) | N              |
+| S8.1   | `L8/02_network_policy.md`                       | N              |
+| S8.4   | `L8/03_dns_vpn_management.md`                   | N              |
+| S12.1  | `L6/01_app_runtime_model.md`                    | N              |
+| S14.2  | `L7/02_chrome_zone.md`                          | N              |
+| S14.3  | `L7/03_visual_identity.md`                      | N              |
+
+(N rows are candidate scope for W12+ sweep; Y rows are evidence-supported by `grep -l "Imports vocabulary from\\|Requires for correctness"` over the spec tree.)
 
 > Footnote: This refinement does not promote any new INV. It clarifies the existing INV-007 (Layer Downward Dependency) per its operational interpretation.
 

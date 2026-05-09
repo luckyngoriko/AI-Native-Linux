@@ -637,7 +637,7 @@ AND
 subject.canonical_id == graded_capability.author_subject_id
 ```
 
-The check fires before any policy bundle rule. It is hard-coded in the policy kernel per S2.3 §17 and per S6.2 §10.6 (grade-receipt producer check). The receipt types covered are `BUILD_PASSED`, `TEST_PASSED`, `E2E_PASSED`, `RECOVERY_REHEARSAL_PASSED`, `RELEASE_GATE_PASSED`, `OPERATIONAL_HEALTHY` — naming an AI as producer for an artifact authored by the same AI is rejected with `ProducerCannotSelfGrade`.
+The check fires before any policy bundle rule. It is hard-coded in the policy kernel per S2.3 §17 and per S6.2 §10.6 (grade-receipt producer check). The receipt types covered are `BUILD_PASSED`, `TEST_PASSED`, `E2E_PASSED`, `RECOVERY_REHEARSAL_PASSED`, `RELEASE_GATE_PASSED`, `OPERATIONAL_HEALTHY` — naming an AI as producer for an artifact authored by the same AI is rejected with `AgentSelfGradingBlocked` (rule name; the FOREVER record stem is `AGENT_SELF_GRADING_BLOCKED`, see §10.2).
 
 ### 10.2 Evidence
 

@@ -183,7 +183,7 @@ Group deletion is not in Rev.2. Groups are retired (`GroupTier` is augmented wit
 
 #### 5.2.2 Subject identity at first-boot (informative)
 
-For reference, the closed set of `_system` subjects active during S9.2 first-boot is (per S9.2 §3.2.8 service subject set, forthcoming under W9-B):
+For reference, the closed set of `_system` subjects active during S9.2 first-boot is (per S9.2 §4.2.1 service subject set, forthcoming under W9-B):
 
 ```text
 _system:service:firstboot-coordinator   # orchestrates the first-boot stages

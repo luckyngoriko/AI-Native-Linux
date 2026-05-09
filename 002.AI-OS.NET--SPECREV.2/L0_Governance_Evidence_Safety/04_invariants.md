@@ -50,6 +50,8 @@ enum InvariantId {
   INV_020_TRUST_INDICATORS_VISIBLE = 20;
   INV_021_AI_HUMAN_VISUAL_DISTINCT = 21;
   INV_022_RECOVERY_AESTHETIC_DISTINCT = 22;
+  INV_023_CHROME_ZONE_RESERVED = 23;
+  INV_024_GPU_COMPUTE_GATED = 24;
 }
 ```
 
@@ -323,6 +325,30 @@ These three roots are constitutional. AIOS-FS objects, agents, and apps live und
 
 **Cannot be loosened by:** theme override, accessibility profile, or any operator-changeable setting. The recovery aesthetic is locked at boot time and cannot be changed mid-session.
 
+### INV-023 — CHROME composition zone is reserved for trust surfaces
+
+**Statement:** The `CHROME` composition zone (per L7.1 closed `CompositionZone` enum) is reserved exclusively for renderer-owned trust surfaces authored by the AIOS system identity. AI subjects (`is_ai = true` per L4 §10) cannot author CHROME-zone content under any circumstance. `APP_SURFACE`-kind and `STREAM_SURFACE`-kind surfaces cannot be promoted into the CHROME zone, regardless of subject. Any authorship or promotion attempt fails closed.
+
+**Why:** the CHROME zone hosts the operator's last-mile trust indicators — approval prompts, evidence links, security badges, identity chips, recovery-mode markers (per INV-020). If any other zone or any AI subject could compose into CHROME, the trust path collapses: an AI agent could synthesise a "Granted" badge over a denied action, an app surface could overlay the recovery-mode banner, or a marketplace skin could repaint the action-origin chip. The integrity of CHROME is the integrity of operator consent.
+
+**Enforced by:** L7.1 Surface + Composition runtime (rejects any non-system surface targeting `zone = CHROME` and rejects subject-id mismatch on CHROME nodes); L4.1 Policy Kernel constitutional hard-deny `CompositionZoneForbidden` (§27.2.1) which fires before bundle rules; renderer conformance tests (KDE — L7.4, Web — L7.5) reject CHROME-zone authorship by any subject other than the renderer's `aios_chrome` system identity.
+
+**Verified by:** S2.4 property `CHROME_ZONE_RESERVED` (added to the closed `PropertyType` enum). The audit walks every live surface, confirms `surface_kind ∈ {AIOS_SURFACE}` for all entries with `zone = CHROME`, and confirms no AI subject appears as author for any CHROME node. Scheduled audit will be wired in S2.4 at consolidation.
+
+**Cannot be loosened by:** theme override (themes can change CHROME tokens but cannot change CHROME authorship), accessibility profile, fullscreen mode, kiosk mode, app manifest declaration, capability binding, or any policy bundle. The CHROME zone is constitutional.
+
+### INV-024 — GPU compute access is capability-gated
+
+**Statement:** Access to `GPU_COMPUTE_HEAVY` (per L8.2 closed `GpuCapabilityClass` enum) requires an explicit `gpu.compute_heavy` capability grant tracked by the L4 capability catalog. The default capability set does not include this grant. Generic adapter capability negotiation cannot synthesise this access. Workloads that need GPGPU compute must request and receive the capability before any compute submission is dispatched to the device.
+
+**Why:** GPGPU compute is the highest-cost, highest-risk renderer-adjacent resource. Unbounded GPU compute is the canonical vector for cross-group side-channels (residual memory probing, timing leaks across VkDevice partitions), sustained thermal and energy abuse, and exfiltration via shader timing. Default-deny with explicit capability grant ensures an operator (or, in recovery mode, an emergency override per S5.4) has authorised the workload class. Combined with the L8.2 per-group VkDevice partitioning, this invariant bounds GPU compute to declared-and-approved usage.
+
+**Enforced by:** L8.2 GPU resource model — capability negotiation rejects compute submission without the active grant; L4.1 Policy Kernel constitutional hard-deny `GpuComputeOutsideAuthorisedClass` (§27.2.2) which fires before bundle rules; L4.3 capability binding records the grant with TTL, scope, and grant-evidence pointer; L9 telemetry (`gpu_compute_class_total`) reports per-class submission counts so out-of-class usage is visible operationally.
+
+**Verified by:** S2.4 property `GPU_COMPUTE_GATED` (added to the closed `PropertyType` enum). The audit walks active GPU compute submissions and confirms every one has a live `gpu.compute_heavy` capability binding for the submitting subject; absence triggers `TAMPER_DETECTED` evidence with `invariant_id = INV_024_GPU_COMPUTE_GATED`. Scheduled audit will be wired in S2.4 at consolidation.
+
+**Cannot be loosened by:** app manifest, capability auto-grant on install, generic adapter capability negotiation, fullscreen privilege, or any policy bundle. The capability is granted only through the L4 grant flow, which itself requires an approval (S5.3) — and outside recovery mode, hard-denied attempts can only be unblocked by an emergency override (S5.4) which records FOREVER evidence.
+
 ## 4. Invariant bundle (`invbundle_<hex>`)
 
 The active invariant set is loaded from a signed bundle:
@@ -378,13 +404,14 @@ A retired invariant cannot be re-activated; activating again requires a new Inva
 
 ## 6. Cross-spec dependencies
 
-| Spec | Direction  | What this spec contributes                                                                                                                                                                                                                                                                                                                                                                                                     |
-| ---- | ---------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| S2.4 | producer   | ten new properties (`FILESYSTEM_BOUNDARY_INTACT`, `WEB_UI_LOCALHOST_BOUND`, `APPROVAL_BOUND_AND_EXPIRING`, `RECOVERY_GATED_SYSTEM_MUTATIONS`, `AI_NEVER_SYSTEM_ADMIN`, `EVIDENCE_NO_SECRET_LEAK`, `RENDERER_VISUAL_IDENTITY_PRESERVED`, `TRUST_INDICATORS_ALWAYS_VISIBLE`, `AI_HUMAN_VISUAL_DISTINCTION`, `RECOVERY_AESTHETIC_DISTINCT`) — combined with previously added → S2.4 closed `PropertyType` enum reaches 20 entries |
-| S3.1 | producer   | new record types `INVARIANT_BUNDLE_LOADED` FOREVER, `INVARIANT_RETIRED` FOREVER, `WEB_EXPOSURE_GRANTED` FOREVER                                                                                                                                                                                                                                                                                                                |
-| S6.1 | constraint | gate G6 (acceptance passing) checks invariant compliance for the capability                                                                                                                                                                                                                                                                                                                                                    |
-| S6.2 | constraint | grade `E4` for any capability impacting `INV_001..INV_022` requires invariant verification                                                                                                                                                                                                                                                                                                                                     |
-| L7   | constraint | renderer specs (L7.1 Surface + Composition Model, L7.2 KDE Plasma, L7.3 Web, L7.4 CLI, L7.X Visual Language) must bind to invariants `INV_019..INV_022` and surface conformance evidence for each renderer                                                                                                                                                                                                                     |
+| Spec | Direction  | What this spec contributes                                                                                                                                                                                                                                                                                                                                                                                             |
+| ---- | ---------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| S2.4 | producer   | twelve new properties (`FILESYSTEM_BOUNDARY_INTACT`, `WEB_UI_LOCALHOST_BOUND`, `APPROVAL_BOUND_AND_EXPIRING`, `RECOVERY_GATED_SYSTEM_MUTATIONS`, `AI_NEVER_SYSTEM_ADMIN`, `EVIDENCE_NO_SECRET_LEAK`, `RENDERER_VISUAL_IDENTITY_PRESERVED`, `TRUST_INDICATORS_ALWAYS_VISIBLE`, `AI_HUMAN_VISUAL_DISTINCTION`, `RECOVERY_AESTHETIC_DISTINCT`, `CHROME_ZONE_RESERVED`, `GPU_COMPUTE_GATED`) queued for S2.4 consolidation |
+| S3.1 | producer   | new record types `INVARIANT_BUNDLE_LOADED` FOREVER, `INVARIANT_RETIRED` FOREVER, `WEB_EXPOSURE_GRANTED` FOREVER                                                                                                                                                                                                                                                                                                        |
+| S6.1 | constraint | gate G6 (acceptance passing) checks invariant compliance for the capability                                                                                                                                                                                                                                                                                                                                            |
+| S6.2 | constraint | grade `E4` for any capability impacting `INV_001..INV_024` requires invariant verification                                                                                                                                                                                                                                                                                                                             |
+| L7   | constraint | renderer specs (L7.1 Surface + Composition Model, L7.2 KDE Plasma, L7.3 Web, L7.4 CLI, L7.X Visual Language) must bind to invariants `INV_019..INV_023` and surface conformance evidence for each renderer                                                                                                                                                                                                             |
+| L8   | constraint | L8.2 GPU resource model is the enforcer of `INV_024_GPU_COMPUTE_GATED`; capability negotiation must reject compute submission without an active `gpu.compute_heavy` grant                                                                                                                                                                                                                                              |
 
 ## 7. Golden fixtures
 
@@ -441,7 +468,7 @@ Required steps:
 
 | Metric                                           | Type    | Labels (closed)                                    |
 | ------------------------------------------------ | ------- | -------------------------------------------------- |
-| `governance_invariant_violation_total`           | counter | `invariant_id` (closed enum, 22 entries)           |
+| `governance_invariant_violation_total`           | counter | `invariant_id` (closed enum, 24 entries)           |
 | `governance_invariant_bundle_load_total`         | counter | `result` (success/signature_failure/parse_failure) |
 | `governance_invariant_loosening_rejection_total` | counter | `attempted_loosening_class` (closed enum)          |
 | `governance_active_invariants`                   | gauge   | none                                               |
@@ -451,7 +478,7 @@ Cardinality budget: ≤ 30 active label tuples per metric.
 
 ## 9. Acceptance criteria
 
-- [ ] `InvariantId` is a closed enum with 22 values (corresponding to the 22 invariants in §3).
+- [ ] `InvariantId` is a closed enum with 24 values (corresponding to the 24 invariants in §3).
 - [ ] Each invariant in the catalog (§3) has an explicit Statement, Why, Enforced by, Verified by, and Cannot be loosened by section.
 - [ ] All ten new S2.4 properties are added to the closed `PropertyType` enum (`FILESYSTEM_BOUNDARY_INTACT`, `WEB_UI_LOCALHOST_BOUND`, `APPROVAL_BOUND_AND_EXPIRING`, `RECOVERY_GATED_SYSTEM_MUTATIONS`, `AI_NEVER_SYSTEM_ADMIN`, `EVIDENCE_NO_SECRET_LEAK`, `RENDERER_VISUAL_IDENTITY_PRESERVED`, `TRUST_INDICATORS_ALWAYS_VISIBLE`, `AI_HUMAN_VISUAL_DISTINCTION`, `RECOVERY_AESTHETIC_DISTINCT`).
 - [ ] Three new evidence record types added to S3.1 vocabulary (`INVARIANT_BUNDLE_LOADED` FOREVER, `INVARIANT_RETIRED` FOREVER, `WEB_EXPOSURE_GRANTED` FOREVER).

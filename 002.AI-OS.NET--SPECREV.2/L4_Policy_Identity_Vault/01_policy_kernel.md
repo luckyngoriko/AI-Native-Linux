@@ -891,7 +891,7 @@ The conditions vocabulary now holds **23 fields** (12 base + 5 namespace + 6 Wav
 
 ### 27.2 Two new constitutional hard-deny candidates
 
-Both are constitutional in spirit — they bind directly to L0 invariants and cannot be loosened by any policy bundle. They are evaluated alongside the §26 hard-denies, before normal rule evaluation. Promotion of these candidates into the L0 INV catalog as formal invariants is queued for the next L0 INV bundle revision; the current INV catalog remains at 22 entries.
+Both are constitutional — they bind directly to L0 invariants and cannot be loosened by any policy bundle. They are evaluated alongside the §26 hard-denies, before normal rule evaluation. Both have been promoted into the L0 INV catalog as formal invariants `INV-023 CHROME_ZONE_RESERVED` (binding `CompositionZoneForbidden`) and `INV-024 GPU_COMPUTE_GATED` (binding `GpuComputeOutsideAuthorisedClass`); the L0 INV catalog now holds 24 entries.
 
 #### 27.2.1 `CompositionZoneForbidden`
 
@@ -901,7 +901,7 @@ IF (subject.is_ai = true OR target.surface_kind = APP_SURFACE OR target.surface_
 THEN DENY with code = CompositionZoneForbidden
 ```
 
-Binds **L0 INV-020** (trust indicators always visible) and **L0 INV-021** (AI/human visual distinction). AI subjects cannot author CHROME-zone content under any circumstances; APP/STREAM-kind surfaces cannot be promoted into the CHROME zone, regardless of subject. The CHROME zone is reserved exclusively for the renderer-owned trust surface authored by the system identity.
+Binds **L0 INV-023** (CHROME composition zone reserved for trust surfaces) directly, and supports **L0 INV-020** (trust indicators always visible) and **L0 INV-021** (AI/human visual distinction). AI subjects cannot author CHROME-zone content under any circumstances; APP/STREAM-kind surfaces cannot be promoted into the CHROME zone, regardless of subject. The CHROME zone is reserved exclusively for the renderer-owned trust surface authored by the system identity.
 
 #### 27.2.2 `GpuComputeOutsideAuthorisedClass`
 
@@ -911,7 +911,7 @@ IF target.gpu_capability_class = GPU_COMPUTE_HEAVY
 THEN DENY with code = GpuComputeOutsideAuthorisedClass
 ```
 
-Bounds GPGPU compute access per S8.2 §11. The default capability set does not include `gpu.compute_heavy`; explicit grant is required, and the grant flows through the L4 capability catalog (not through generic adapter capability negotiation).
+Binds **L0 INV-024** (GPU compute access is capability-gated). Bounds GPGPU compute access per S8.2 §11. The default capability set does not include `gpu.compute_heavy`; explicit grant is required, and the grant flows through the L4 capability catalog (not through generic adapter capability negotiation).
 
 ### 27.3 Hard-deny ordering update
 

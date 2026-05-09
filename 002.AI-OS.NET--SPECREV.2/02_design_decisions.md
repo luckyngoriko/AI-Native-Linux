@@ -74,6 +74,21 @@ Decision log. Each entry follows ADR (Architecture Decision Record) discipline: 
 
 ---
 
+## DEC-044 — S0.4 Constitutional Meta-Principles (name three patterns the spec relies on but never named)
+
+- **Context:** With ~30 contract-grade sub-specs spanning all 11 layers, three structural patterns recur throughout the spec but are nowhere explicitly named: (1) constitutional asymmetry between unbounded AI assistance during spec construction vs bounded AI agency at runtime, (2) recursive self-application across five distinct sites where AIOS reasons about AIOS using AIOS, and (3) the INV-002 enforcement map showing that "AI proposes, never executes" is mechanically enforced at six distinct sites with closed-vocabulary reject codes and FOREVER evidence on bypass. Without naming these patterns, audit-phase reviewers must infer them; with naming, audits become per-site checkable.
+- **Decision:** Land `XX_Cross_Cutting/04_constitutional_meta_principles.md` (S0.4) as a meta-narrative contract. The contract observes — does not create new INVs (DEC-025/DEC-026 promotion discipline preserved). Each pattern has citation tables linking to the sub-specs where the pattern is realised, so an auditor can independently verify each site:
+  - **Pattern 1 — asymmetry:** §2 explains why the asymmetry is acceptable (specification is reversible, single-approver, public artefact), how the asymmetry inverts at deployment, and how readers should interpret AI-authored spec text. Stated explicitly: this is not a new INV, it is meta-level reflection on authorship.
+  - **Pattern 2 — recursive self-application:** §3 lists five sites — kernel build through AIOS (S9.3+S10.1), kernel as evidence subject (S9.3+S3.1), vault using vault (S5.2+S9.2), evidence about evidence (S6.3+S3.1), agents reasoning about agents (S13.1+S10.1). Bootstrap is mechanical — recursion roots in cryptographic anchors loaded at first-boot, so there is no infinite regress. Failure modes are detectable, not paradoxical.
+  - **Pattern 3 — INV-002 enforcement map:** §4 tabulates six mechanical enforcement sites with their closed-enum reject codes and FOREVER evidence anchors: vault SECRET_GET hard-deny (`SUBJECT_KIND_REJECTED_FOR_VAULT`), package install gate (`APP_AI_DIRECT_INSTALL_ATTEMPTED_BLOCKED`), network AI_VAULT_BROKERED_ONLY (`AI_DIRECT_INTERNET_DENIED`), runtime queue cap (`AI_INTERACTIVE_QUEUE_DOWNGRADE`), cognitive FSM no-execute (`AGENT_DIRECT_FS_WRITE_BLOCKED`), self-grading prohibition (`AGENT_SELF_GRADING_BLOCKED`). The "bypass attempts produce evidence" principle (§4.4) converts bounded-AI from a hope into a measurable runtime property.
+- **Use cases:** onboarding (read §2–§4 to understand recurring patterns), audit phase (cite §4 to verify INV-002 enforcement at every site, cite §3 to verify recursive sites intact, cite §2 for reader-trust questions), future architectural waves (§4.5 design check catches missing INV-002 sites; §3.4 design check catches missing recursive sites), external communication (§2 calibrates trust correctly for AI-authored spec).
+- **Constitutional standing:** S0.4 does NOT promote any of the patterns to a new INV. Promotion would be a deliberate constitutional act per DEC-025/DEC-026 discipline; this contract documents existing structure rather than adding to it.
+- **Consequences:** Tier 5 audit phase has named anchors to test against. Future contributors recognise the patterns when they see them. The spec gains a self-aware narrative layer without mutating the runtime constitution.
+- **Status:** `REAL` / `E1` (applied 2026-05-11; file structurally complete; cross-references resolved; six INV-002 sites independently testable against cited sub-specs)
+- **Phase tag:** S0.4 (Tier 3 autonomous closure cycle)
+
+---
+
 ## DEC-043 — Tier 2 layer-depth closure: 14 sub-specs across 7 layers
 
 - **Context:** After Tier 1 closed the foundational gaps (S9.2 / L9.3 / S6.3 / S0.3) blocking audit-phase completeness, 14 SHELL sub-specs remained across 7 already-PARTIAL layers. The project owner authorized autonomous execution to close them all in one integration cycle. The criterion remained smart vs stupid (no time-frame/feasibility thinking).

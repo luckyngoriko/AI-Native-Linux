@@ -48,6 +48,7 @@ Phase 0 (foundation):
 - **S0.1** — Action Envelope + Lifecycle → `XX_Cross_Cutting/01_action_envelope_lifecycle.md` (`CONTRACT`)
 - **S0.2** — Self-evolving backend resolution → applied to rev.1 README (commit `be318da`)
 - **S0.3** — MVP Golden Path Contract → `XX_Cross_Cutting/03_mvp_golden_path.md` (`CONTRACT`)
+- **S0.4** — Constitutional Meta-Principles → `XX_Cross_Cutting/04_constitutional_meta_principles.md` (`CONTRACT`)
 
 Phase 1 (the three killers):
 

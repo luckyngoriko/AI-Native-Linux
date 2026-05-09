@@ -46,6 +46,10 @@ enum InvariantId {
   INV_016_AI_CANNOT_SELF_GRADE = 16;
   INV_017_SANDBOX_FLOOR_CONSTITUTIONAL = 17;
   INV_018_VAULT_NO_RAW_SECRET_LEAK = 18;
+  INV_019_VISUAL_IDENTITY_PRESERVED = 19;
+  INV_020_TRUST_INDICATORS_VISIBLE = 20;
+  INV_021_AI_HUMAN_VISUAL_DISTINCT = 21;
+  INV_022_RECOVERY_AESTHETIC_DISTINCT = 22;
 }
 ```
 
@@ -271,6 +275,54 @@ These three roots are constitutional. AIOS-FS objects, agents, and apps live und
 
 **Cannot be loosened by:** any policy bundle. The reveal-to-human path is itself an INV-003-aware exception.
 
+### INV-019 — Visual identity preserved across renderers
+
+**Statement:** AIOS visual language is constitutional. The KDE Plasma renderer (L7.2), Web renderer (L7.3), CLI renderer (L7.4), Voice renderer, and Mobile renderer cannot invent their own chrome or trust UX. Cross-renderer visual identity must be recognizable as AIOS — an operator using KDE and an operator using Web must instantly know they are using the same OS.
+
+**Why:** without this invariant, each renderer drifts toward its host platform's defaults; AIOS looks like a generic app on each surface; the trust model degrades visually because security indicators look like generic notifications instead of constitutional chrome.
+
+**Enforced by:** L7 renderer specs binding to a shared visual language contract (L7.X — to be written); L7.1 Surface + Composition Model (to be written) defining composition zones and chrome rules; renderer build gate rejects chrome divergence.
+
+**Verified by:** S2.4 property `RENDERER_VISUAL_IDENTITY_PRESERVED` (added to the closed `PropertyType` enum). The property is a scheduled audit that checks each renderer's chrome rendering against the visual language contract; scheduled audit will be wired in S2.4 at consolidation.
+
+**Cannot be loosened by:** any policy bundle, theme override, accessibility profile, or operator action. Visual identity is constitutional.
+
+### INV-020 — Trust indicators cannot be hidden by app surfaces
+
+**Statement:** The security indicator showing subject `is_ai` (per L4 identity §10), `action_id` (per S0.1), and the evidence link (per S3.1) is always visible. App surfaces (per L7.1's future `SurfaceKind = APP_SURFACE`) cannot overdraw, obscure, or fake the AIOS chrome zone. The CHROME zone is always on top in L7.1's composition model.
+
+**Why:** trust indicators are how the operator knows who acted (AI or human), what they did (action id), and where to verify (evidence link). An app surface that can hide them becomes a phishing vector inside the OS itself.
+
+**Enforced by:** L7.1 composition zones — the CHROME zone is always on top; renderer rejects app-surface attempts to write into the CHROME zone; KWin layer-shell protocol enforces the top layer on KDE; DOM `z-index` plus shadow root on Web; CLI reserves a status row no app stream can overwrite.
+
+**Verified by:** S2.4 property `TRUST_INDICATORS_ALWAYS_VISIBLE` (added to the closed `PropertyType` enum). The audit confirms that the chrome zone is rendered above all app surfaces in every renderer; scheduled audit will be wired in S2.4 at consolidation.
+
+**Cannot be loosened by:** app manifest, user request, capability binding, or fullscreen mode. Fullscreen apps still see AIOS chrome.
+
+### INV-021 — AI vs human action visually distinct
+
+**Statement:** Every UI representation of an action — in evidence views, audit trails, approval queues, and action streams — visually distinguishes whether an AI subject (`is_ai = true` per L4 identity §10) or a human subject performed it. The distinct treatments are part of the constitutional visual language; the same treatment cannot be reused across AI and human actions.
+
+**Why:** the AIOS trust model rests on the operator knowing at a glance whether they are looking at AI output or a human action. Visual ambiguity erases the bounded-AI-agency property that the rest of the constitution depends on.
+
+**Enforced by:** L7.X visual language spec (to be written) defining `color.action.ai` and `color.action.human` as separate semantic tokens, with iconography and possibly typography distinctions; renderer implementations must bind to those tokens; renderer conformance tests reject token reuse across the AI/human axis.
+
+**Verified by:** S2.4 property `AI_HUMAN_VISUAL_DISTINCTION` (added to the closed `PropertyType` enum). The audit confirms there is no overlap between AI and human visual treatments in rendered output; scheduled audit will be wired in S2.4 at consolidation.
+
+**Cannot be loosened by:** theme override (themes can change colors but cannot collapse the distinction), accessibility profile (a11y modes use different distinctions like patterns or icons but the distinction must remain), or app skinning.
+
+### INV-022 — Recovery mode aesthetically distinct from normal mode
+
+**Statement:** The recovery shell — entered via the L1 recovery boot path, identity per L4 §7 `_system` scope subjects — is visually unmistakable from normal AIOS. Recovery uses different chrome treatment, a different accent palette, and stricter composition rules (no app surfaces in recovery mode per a future L7.1 invariant). The operator must instantly recognize that they are in recovery.
+
+**Why:** a recovery operator typing destructive commands into what they think is normal mode is a catastrophe. Visual distinction is the last line of defense before that mistake. Combined with INV-012 (recovery required for system mutation), this prevents the "I thought I was rehearsing" failure mode.
+
+**Enforced by:** L7.1 separate surface stack for recovery (no `APP_SURFACE` allowed); L7.X visual language defining a recovery-only theme that cannot be matched by any normal-mode theme; recovery accent tokens are gated to `is_recovery_mode = true` rendering paths.
+
+**Verified by:** S2.4 property `RECOVERY_AESTHETIC_DISTINCT` (added to the closed `PropertyType` enum). The audit confirms that recovery rendering uses recovery-only tokens not present in any normal-mode theme; scheduled audit will be wired in S2.4 at consolidation.
+
+**Cannot be loosened by:** theme override, accessibility profile, or any operator-changeable setting. The recovery aesthetic is locked at boot time and cannot be changed mid-session.
+
 ## 4. Invariant bundle (`invbundle_<hex>`)
 
 The active invariant set is loaded from a signed bundle:
@@ -326,12 +378,13 @@ A retired invariant cannot be re-activated; activating again requires a new Inva
 
 ## 6. Cross-spec dependencies
 
-| Spec | Direction  | What this spec contributes                                                                                                                                                                                                                                                                                      |
-| ---- | ---------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| S2.4 | producer   | five new properties (`FILESYSTEM_BOUNDARY_INTACT`, `WEB_UI_LOCALHOST_BOUND`, `APPROVAL_BOUND_AND_EXPIRING`, `RECOVERY_GATED_SYSTEM_MUTATIONS`, `AI_NEVER_SYSTEM_ADMIN`, `EVIDENCE_NO_SECRET_LEAK` — total six added; combined with three previously added → S2.4 closed `PropertyType` enum reaches 16 entries) |
-| S3.1 | producer   | new record types `INVARIANT_BUNDLE_LOADED` FOREVER, `INVARIANT_RETIRED` FOREVER, `WEB_EXPOSURE_GRANTED` FOREVER                                                                                                                                                                                                 |
-| S6.1 | constraint | gate G6 (acceptance passing) checks invariant compliance for the capability                                                                                                                                                                                                                                     |
-| S6.2 | constraint | grade `E4` for any capability impacting `INV_001..INV_018` requires invariant verification                                                                                                                                                                                                                      |
+| Spec | Direction  | What this spec contributes                                                                                                                                                                                                                                                                                                                                                                                                     |
+| ---- | ---------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| S2.4 | producer   | ten new properties (`FILESYSTEM_BOUNDARY_INTACT`, `WEB_UI_LOCALHOST_BOUND`, `APPROVAL_BOUND_AND_EXPIRING`, `RECOVERY_GATED_SYSTEM_MUTATIONS`, `AI_NEVER_SYSTEM_ADMIN`, `EVIDENCE_NO_SECRET_LEAK`, `RENDERER_VISUAL_IDENTITY_PRESERVED`, `TRUST_INDICATORS_ALWAYS_VISIBLE`, `AI_HUMAN_VISUAL_DISTINCTION`, `RECOVERY_AESTHETIC_DISTINCT`) — combined with previously added → S2.4 closed `PropertyType` enum reaches 20 entries |
+| S3.1 | producer   | new record types `INVARIANT_BUNDLE_LOADED` FOREVER, `INVARIANT_RETIRED` FOREVER, `WEB_EXPOSURE_GRANTED` FOREVER                                                                                                                                                                                                                                                                                                                |
+| S6.1 | constraint | gate G6 (acceptance passing) checks invariant compliance for the capability                                                                                                                                                                                                                                                                                                                                                    |
+| S6.2 | constraint | grade `E4` for any capability impacting `INV_001..INV_022` requires invariant verification                                                                                                                                                                                                                                                                                                                                     |
+| L7   | constraint | renderer specs (L7.1 Surface + Composition Model, L7.2 KDE Plasma, L7.3 Web, L7.4 CLI, L7.X Visual Language) must bind to invariants `INV_019..INV_022` and surface conformance evidence for each renderer                                                                                                                                                                                                                     |
 
 ## 7. Golden fixtures
 
@@ -388,7 +441,7 @@ Required steps:
 
 | Metric                                           | Type    | Labels (closed)                                    |
 | ------------------------------------------------ | ------- | -------------------------------------------------- |
-| `governance_invariant_violation_total`           | counter | `invariant_id` (closed enum, 18 entries)           |
+| `governance_invariant_violation_total`           | counter | `invariant_id` (closed enum, 22 entries)           |
 | `governance_invariant_bundle_load_total`         | counter | `result` (success/signature_failure/parse_failure) |
 | `governance_invariant_loosening_rejection_total` | counter | `attempted_loosening_class` (closed enum)          |
 | `governance_active_invariants`                   | gauge   | none                                               |
@@ -398,9 +451,9 @@ Cardinality budget: ≤ 30 active label tuples per metric.
 
 ## 9. Acceptance criteria
 
-- [ ] `InvariantId` is a closed enum with 18 values (corresponding to the 18 invariants in §3).
+- [ ] `InvariantId` is a closed enum with 22 values (corresponding to the 22 invariants in §3).
 - [ ] Each invariant in the catalog (§3) has an explicit Statement, Why, Enforced by, Verified by, and Cannot be loosened by section.
-- [ ] All six new S2.4 properties are added to the closed `PropertyType` enum (`FILESYSTEM_BOUNDARY_INTACT`, `WEB_UI_LOCALHOST_BOUND`, `APPROVAL_BOUND_AND_EXPIRING`, `RECOVERY_GATED_SYSTEM_MUTATIONS`, `AI_NEVER_SYSTEM_ADMIN`, `EVIDENCE_NO_SECRET_LEAK`).
+- [ ] All ten new S2.4 properties are added to the closed `PropertyType` enum (`FILESYSTEM_BOUNDARY_INTACT`, `WEB_UI_LOCALHOST_BOUND`, `APPROVAL_BOUND_AND_EXPIRING`, `RECOVERY_GATED_SYSTEM_MUTATIONS`, `AI_NEVER_SYSTEM_ADMIN`, `EVIDENCE_NO_SECRET_LEAK`, `RENDERER_VISUAL_IDENTITY_PRESERVED`, `TRUST_INDICATORS_ALWAYS_VISIBLE`, `AI_HUMAN_VISUAL_DISTINCTION`, `RECOVERY_AESTHETIC_DISTINCT`).
 - [ ] Three new evidence record types added to S3.1 vocabulary (`INVARIANT_BUNDLE_LOADED` FOREVER, `INVARIANT_RETIRED` FOREVER, `WEB_EXPOSURE_GRANTED` FOREVER).
 - [ ] Invariant bundle (`invbundle_<hex>`) is signed by AIOS root; signature failure puts governance service in degraded mode.
 - [ ] Invariant retirement requires recovery mode + HUMAN_USER + FOREVER-retained evidence.

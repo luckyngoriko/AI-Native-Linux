@@ -47,10 +47,11 @@ enum SubjectKind {
   DEVICE = 5;                  // a registered device (laptop, phone) acting on behalf of a user
   WORKFLOW = 6;                // a parameterized action sequence executing autonomously
   REMOTE_OPERATOR = 7;         // a human operating remotely under recovery or admin context
+  LOCAL_OPERATOR = 8;          // a human physically present at the host's recovery console / first-boot console (Wave 9)
 }
 ```
 
-Closed enum. Adding a kind is a versioned spec change.
+Closed enum with **eight** values. Adding a kind is a versioned spec change.
 
 | Kind              | Default `is_ai` | Where it lives                                                 | Authentication mechanism                    |
 | ----------------- | --------------- | -------------------------------------------------------------- | ------------------------------------------- |
@@ -61,8 +62,13 @@ Closed enum. Adding a kind is a versioned spec change.
 | `DEVICE`          | false           | metadata under `users/<u>/trust/devices/`                      | device cert + binding to a `HUMAN_USER`     |
 | `WORKFLOW`        | false           | `groups/<g>/shared/workflows/<wf_id>/`                         | signed workflow manifest + parent action_id |
 | `REMOTE_OPERATOR` | false           | recovery context only                                          | signed operator credential + recovery boot  |
+| `LOCAL_OPERATOR`  | false           | recovery / first-boot console only                             | hardware-key signature at the local console |
 
 Note: `is_ai = true` for `AI_AGENT` is constitutional. An app or workflow that internally uses LLMs is not classified as `AI_AGENT`; the LLM is a tool used inside the action, not the actor. Only an agent registered as `AI_AGENT` carries the `is_ai` flag, and only such subjects trigger S2.3's AI self-approval prevention (§17) and `AISystemAdminBlocked` (§26.2.3).
+
+`LOCAL_OPERATOR` is the recovery-console operator (physically present at the host's first-boot console or recovery shell). It is **distinct from** `REMOTE_OPERATOR`, which connects via SSH or web. Both are humans, but neither is `HUMAN_USER` for the purposes of dual-co-signer rules below.
+
+**DUAL co-signer cross-reference (binds S5.3 §554).** S5.3 restricts DUAL co-signer eligibility to `SubjectKind = HUMAN_USER`. `LOCAL_OPERATOR` and `REMOTE_OPERATOR` are **not** `HUMAN_USER`, even though a human being is physically driving them. Therefore the reset-to-factory and `RevealSecret` co-signer paths (S5.3, S5.2 §6.6) require a `HUMAN_USER` registered in some group on the host (e.g. `family:bob` co-signing for `family:alice`'s reset action). A `LOCAL_OPERATOR` cannot self-co-sign, and a `LOCAL_OPERATOR` cannot serve as the dual co-signer for a normal-mode HUMAN_USER's high-stakes action.
 
 ## 4. Canonical subject id
 
@@ -83,7 +89,18 @@ kind_segment by SubjectKind:
   DEVICE           → <user_id> ":" "device:" <device_id>
   WORKFLOW         → "workflow:" <wf_id> ":" <run_id>
   REMOTE_OPERATOR  → "remote:" <operator_id>       (only when group_part = "_system")
+  LOCAL_OPERATOR   → "local:"  <operator_id>       (only when group_part = "_system")  -- Wave 9
 ```
+
+`_system` scope kind_segment closed set:
+
+```
+SERVICE         -> "service:" <service_name>
+REMOTE_OPERATOR -> "remote:"  <operator_id>
+LOCAL_OPERATOR  -> "local:"   <operator_id>
+```
+
+These three are the only kind_segment forms permitted under `group_part = "_system"`. Any other prefix under `_system` is rejected at registration with `SystemScopeKindInvalid`.
 
 Examples:
 
@@ -95,7 +112,8 @@ homelab:app:bg.iconys.proxguard:i-01        # app instance
 _system:service:translator                  # system service
 family:alice:device:thinkpad-x1             # alice's device
 finance:workflow:quarterly-close:run-7842   # workflow execution
-_system:remote:operator-247                 # remote human operator
+_system:remote:operator-247                 # remote human operator (SSH/web)
+_system:local:operator-1                    # local operator at the first-boot/recovery console (Wave 9)
 ```
 
 ### 4.2 Regex
@@ -154,6 +172,27 @@ A group is created by:
 3. The identity service writes the group to the identity bundle, increments `idbundle_version`, and emits `GROUP_REGISTERED` evidence (FOREVER retention).
 
 Group deletion is not in Rev.2. Groups are retired (`GroupTier` is augmented with retirement metadata) but never deleted; their evidence trail remains queryable via the privacy ceiling rules in S3.1 §23.
+
+#### 5.2.1 First-boot exception (Wave 9)
+
+**Rule.** During S9.2 stage `STAGE_FIRST_GROUP_REGISTRATION`, the bootstrap group is registered by `_system:service:identity-init` (a `SERVICE`-kind subject) acting under `is_first_boot = true` (set by the firstboot-coordinator per S9.1 W9 `RecoveryMode.FIRST_BOOT`). The operator's hardware-key signature on the typed action substitutes for the missing `HUMAN_USER` subject id at this stage — the operator is physically present at the first-boot console (`_system:local:operator-1` per §4.1, with kind `LOCAL_OPERATOR`), but no `HUMAN_USER` exists yet, because group registration is precisely what enables provisioning the first user. The action is bound to `is_first_boot = true` on the calling session.
+
+**Why this is mechanical, not an ad-hoc bypass.** The constitutional hard-deny `RecoveryRequiredForSystemMutation` (S2.3 §26.2.2 Wave 9 update — forthcoming under W9-A) admits both `is_recovery_mode = true` AND `is_first_boot = true`. The closed-enum `RecoveryMode` taxonomy (S9.1 W9) names `FIRST_BOOT` as a distinct mode alongside `RECOVERY` and `NONE`. The first-boot exception is therefore expressible inside the existing closed-enum constitutional surface; no new policy class, no override, no special-case branching at the policy kernel.
+
+**Lifetime of the exception.** After `STAGE_FIRST_USER_REGISTRATION` completes (the first `HUMAN_USER` is registered into the just-created bootstrap group), subsequent group registrations revert to the normal rule above (HUMAN_USER subject in `_system` scope under recovery mode). The first-boot session is terminated at S9.2 stage exit; `is_first_boot = true` cannot be re-asserted on any subsequent session without rebooting into recovery and re-running first-boot from a wiped state.
+
+#### 5.2.2 Subject identity at first-boot (informative)
+
+For reference, the closed set of `_system` subjects active during S9.2 first-boot is (per S9.2 §3.2.8 service subject set, forthcoming under W9-B):
+
+```text
+_system:service:firstboot-coordinator   # orchestrates the first-boot stages
+_system:service:identity-init           # registers bootstrap group + first user
+_system:service:vault-init              # bootstraps vault master key (see S5.2 §3 BOOTSTRAP_KEY_SIGN)
+_system:local:operator-1                # the human at the first-boot console
+```
+
+These are the only subjects authenticated during first-boot. The first-boot-coordinator service subject is constitutional (loaded from the signed identity bundle); `_system:local:operator-1` is the LOCAL_OPERATOR registered at first hardware-key enrollment.
 
 ### 5.3 No nested groups
 
@@ -539,7 +578,7 @@ Cardinality budget: ≤ 100 active label tuples per metric. The closed enums tog
 
 ## 18. Acceptance criteria
 
-- [ ] `SubjectKind` is a closed enum with seven values; adding a value requires a versioned spec change.
+- [ ] `SubjectKind` is a closed enum with eight values (Wave 9 added `LOCAL_OPERATOR`); adding a value requires a versioned spec change.
 - [ ] Canonical subject id matches the regex in §4.2 and the kind-specific format in §4.1.
 - [ ] Group is registered only via recovery-mode action; signed `GROUP_REGISTERED` evidence with FOREVER retention.
 - [ ] Multi-group subjects have exactly one `primary_group_id` per session; `SwitchPrimaryGroup` requires re-authentication.
@@ -550,6 +589,8 @@ Cardinality budget: ≤ 100 active label tuples per metric. The closed enums tog
 - [ ] Capability bindings are scoped to `(subject, group_id, identity_bundle_version)`; vault broker enforces at use.
 - [ ] `NormalizedSubject` carries an Ed25519 signature; policy kernel verifies on every evaluation.
 - [ ] Identity bundle signature failure puts service into degraded mode (only constitutional `_system` subjects).
+- [ ] First-boot group registration (§5.2.1) is admitted when the calling subject is `_system:service:identity-init` and the session carries `is_first_boot = true`; after `STAGE_FIRST_USER_REGISTRATION`, the normal HUMAN_USER + recovery-mode rule applies.
+- [ ] `LOCAL_OPERATOR` is valid only under `group_part = "_system"` and only as kind_segment `"local:" <operator_id>`; LOCAL_OPERATOR is not eligible as a DUAL co-signer (S5.3 §554 cross-reference).
 - [ ] All six golden fixtures (§16) produce the specified outcomes.
 - [ ] Telemetry conforms to §17 cardinality bounds; subject/group/user/session ids never appear as labels.
 
@@ -616,6 +657,7 @@ enum SubjectKind {
   DEVICE = 5;
   WORKFLOW = 6;
   REMOTE_OPERATOR = 7;
+  LOCAL_OPERATOR = 8;        // Wave 9 — recovery / first-boot console operator
 }
 
 enum SessionClass {

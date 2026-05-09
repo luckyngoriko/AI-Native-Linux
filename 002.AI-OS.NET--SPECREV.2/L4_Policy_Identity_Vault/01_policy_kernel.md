@@ -800,14 +800,17 @@ The conditions vocabulary (§4) gains five new fields. All are closed; bundle lo
 | Namespace | Field                      | Type                                | Operators       |
 | --------- | -------------------------- | ----------------------------------- | --------------- |
 | `subject` | `subject.primary_group_id` | string                              | `=`, `!=`, `in` |
+| `subject` | `subject.is_first_boot`    | bool                                | `=`, `!=`       |
 | `target`  | `target.scope`             | `aios.namespace.v1alpha1.ScopeKind` | `=`, `!=`, `in` |
 | `target`  | `target.group_id`          | string                              | `=`, `!=`, `in` |
 | `target`  | `target.user_id`           | string                              | `=`, `!=`, `in` |
 | `target`  | `target.reserved_name`     | string                              | `=`, `!=`, `in` |
 
-### 26.2 Three new constitutional hard-denies
+The `subject.is_first_boot` field is set by the L4 identity service per S9.2 only on the canonical first-boot service subjects enumerated in S9.2 §3.2.8 (`installer`, `vault-init`, `identity-init`, `policy-compiler`, `firstboot-coordinator`); it is `false` on every other subject and self-extinguishes after the first-boot coordinator writes the firstboot completion marker. See §26.5 for the constitutional scope of this exception.
 
-All three are constitutional invariants — they cannot be loosened by any policy bundle (analogous to S2.3 §17 AI self-approval prevention).
+### 26.2 Five new constitutional hard-denies
+
+All five are constitutional invariants — they cannot be loosened by any policy bundle (analogous to S2.3 §17 AI self-approval prevention). The first three (§26.2.1 `CrossGroupAccessForbidden`, §26.2.2 `RecoveryRequiredForSystemMutation`, §26.2.3 `AISystemAdminBlocked`) were applied in Wave 4 alongside the S4.1 namespace integration. The two added in Wave 9 (§26.2.4 `AIInstallInitiationBlocked`, §26.2.5 `ConstitutionalSubstrateRequiresRecovery`) bind to existing INV-002 (site 2 mechanical floor) and INV-012 (recovery boundary) respectively; no new L0 invariants are introduced.
 
 #### 26.2.1 `CrossGroupAccessForbidden`
 
@@ -831,11 +834,14 @@ The exception is the only Rev.2 cross-group read path; cross-group writes have n
 IF target.scope = SYSTEM
    AND target.system_reserved IN {SYS_POLICY, SYS_CAPABILITIES, SYS_VAULT, SYS_RECOVERY}
    AND request.action_class = MUTATE
-   AND NOT (subject.recovery_mode = true AND request.has_human_approver = true)
+   AND subject.recovery_mode = false
+   AND subject.is_first_boot = false
 THEN DENY with code = RecoveryRequiredForSystemMutation
 ```
 
-The decision MUST also require a `RECOVERY_EVENT` evidence record per S3.1 (FOREVER retention).
+The decision MUST also require a `RECOVERY_EVENT` evidence record per S3.1 (FOREVER retention) when the escape clause is `subject.recovery_mode = true`. When the escape clause is `subject.is_first_boot = true`, a `FIRST_BOOT_OPERATION` FOREVER record is emitted instead (see §26.5). The human-approver gate retained from the prior Wave 4 form of this rule is no longer encoded in the hard-deny condition itself; it remains enforced downstream of the hard-deny short-circuit by the §15 approval boundary, which still requires recovery-mode mutations to surface a human approver before the action proceeds beyond `approval_pending`.
+
+The set `{SYS_POLICY, SYS_CAPABILITIES, SYS_VAULT, SYS_RECOVERY}` is the **RecoveryMutableScope** set: the closed enum of system-reserved namespaces whose mutation outside recovery mode would compromise the recovery boundary itself. Other system-reserved scopes (e.g. `SYS_APPS`, `SYS_AGENTS`) are not in this set and fall under §26.2.3 / §26.2.4 instead.
 
 #### 26.2.3 `AISystemAdminBlocked`
 
@@ -849,26 +855,99 @@ THEN DENY with code = AISystemAdminBlocked
 
 Extends §17 (AI self-approval prevention). An AI subject holding the `system_admin` capability is rejected at this stage — capability does not grant system-scope mutation authority for AI subjects under any circumstances.
 
+#### 26.2.4 `AIInstallInitiationBlocked`
+
+Added in Wave 9 (Cluster 4 closure) to give INV-002 enforcement site 2 (package install gate, per S0.4 §4.2 row 2) a real mechanical hard-deny floor inside the Policy Kernel. The Wave 4 rule `AISystemAdminBlocked` does not fire for user-scope installs because it requires `target.scope = SYSTEM`; Wave 9 closes the gap with a subject-only / action-only constitutional rule.
+
+```text
+IF subject.is_ai = true
+   AND request.action IN {
+       "package.install",
+       "package.uninstall.execute",
+       "app.install",
+       "app.uninstall.execute"
+   }
+THEN DENY with code = AIInstallInitiationBlocked
+   AND emit FOREVER record APP_AI_DIRECT_INSTALL_ATTEMPTED_BLOCKED
+   AND set policy_decision_id, blocked_action, blocked_subject in payload
+```
+
+The `APP_AI_DIRECT_INSTALL_ATTEMPTED_BLOCKED` RecordType is the FOREVER evidence already cited by S0.4 §4.2 row 2; Wave 9 makes the citation mechanically real. The legitimate AI-proposed install path uses the proposing-variant action name `package.install.request` (note the trailing `.request` family suffix), which carries `subject.is_ai = true` past this hard-deny untouched and is then resolved by the bundle as `REQUIRE_APPROVAL` with `approver_subject_filter = HUMAN_USER` (per the standard install-approval rules). This rule fires only when an AI subject attempts the **execution-variant** action (`package.install`, etc.) — i.e. the bypass path. The proposing path is unchanged.
+
+Constitutional binding: INV-002 enforcement site 2. The rule does **not** require `target.scope = SYSTEM`, so user-scope (`/home/<u>/aios/...`) installs by AI subjects are equally hard-denied; the discrimination is on subject + action, not on target scope.
+
+#### 26.2.5 `ConstitutionalSubstrateRequiresRecovery`
+
+Added in Wave 9 (Cluster 8 closure) to discriminate between accessory hardware drift (acceptable under HUMAN_USER discipline) and constitutional substrate drift (CPU / microcode / TPM / BIOS firmware-bound surfaces — RECOVERY_ONLY). Without this rule, the prior monolithic `hardware.accept_drift` action conflated the two cases at a single approval gate, allowing a HUMAN_USER subject outside recovery mode to accept substrate-class drift that should require the recovery boundary.
+
+```text
+IF subject.recovery_mode = false
+   AND request.action = "hardware.accept_drift_substrate"
+THEN DENY with code = ConstitutionalSubstrateRequiresRecovery
+   AND emit FOREVER record HARDWARE_SUBSTRATE_ACCEPT_OUTSIDE_RECOVERY_BLOCKED
+```
+
+Per S10.1 W9 split (forthcoming), only the `_substrate` variant triggers this rule; `_accessory` variant (`hardware.accept_drift_accessory`) continues under HUMAN_USER discipline through the existing approval pipeline. The `HARDWARE_SUBSTRATE_ACCEPT_OUTSIDE_RECOVERY_BLOCKED` RecordType is queued for S3.1 Wave 10 evidence-record-catalog addition; Wave 9 introduces the citation at the policy site, S3.1 closes the loop with the schema. Until S3.1 closure the FOREVER emission is recorded against the generic `POLICY_HARD_DENY` record family with the closed `policy_id = ConstitutionalSubstrateRequiresRecovery` discriminator, so no evidence is lost in the interim.
+
+Constitutional binding: INV-012 (recovery boundary). The rule presumes the §26.6 closed condition `target.is_constitutional_substrate` (added in Wave 9 — see below) but the present hard-deny is action-name-based, not condition-derived; the condition field is added for bundle-rule expressiveness against the substrate-class predicate at a finer grain than the closed action enum.
+
 ### 26.3 Hard-deny ordering
 
-The three new hard-denies are evaluated in this order before the bundle's normal rule evaluation:
+The five hard-denies are evaluated in this order before the bundle's normal rule evaluation:
 
 1. `RecoveryRequiredForSystemMutation` (most fundamental — the recovery boundary)
-2. `AISystemAdminBlocked` (constitutional invariant on AI subjects)
-3. `CrossGroupAccessForbidden` (default-deny boundary)
-4. (then bundle rules)
+2. `ConstitutionalSubstrateRequiresRecovery` (Wave 9 — recovery boundary, substrate scope)
+3. `AISystemAdminBlocked` (constitutional invariant on AI subjects, system scope)
+4. `AIInstallInitiationBlocked` (Wave 9 — INV-002 site 2 mechanical floor, scope-agnostic)
+5. `CrossGroupAccessForbidden` (default-deny boundary)
+6. (then bundle rules)
 
-If any hard-deny fires, evaluation short-circuits to `DENY` with the matching code. Existing AI self-approval prevention (§17) and existing hard denies remain in their original positions.
+If any hard-deny fires, evaluation short-circuits to `DENY` with the matching code. Existing AI self-approval prevention (§17) and existing hard denies remain in their original positions. The Wave 9 additions are inserted next to their semantic peers: `ConstitutionalSubstrateRequiresRecovery` is a recovery-boundary rule and follows `RecoveryRequiredForSystemMutation`; `AIInstallInitiationBlocked` is an AI-subject rule and follows `AISystemAdminBlocked`.
 
 ### 26.4 Telemetry additions
 
-Three counters added with bounded labels:
+Five counters added with bounded labels:
 
-| Metric                                  | Type    | Labels (closed)                        |
-| --------------------------------------- | ------- | -------------------------------------- |
-| `policy_cross_group_denial_total`       | counter | `target_scope` (group/user)            |
-| `policy_recovery_required_denial_total` | counter | `target_system_reserved` (closed enum) |
-| `policy_ai_system_admin_denial_total`   | counter | `target_system_reserved` (closed enum) |
+| Metric                                                  | Type    | Labels (closed)                                |
+| ------------------------------------------------------- | ------- | ---------------------------------------------- |
+| `policy_cross_group_denial_total`                       | counter | `target_scope` (group/user)                    |
+| `policy_recovery_required_denial_total`                 | counter | `target_system_reserved` (closed enum)         |
+| `policy_ai_system_admin_denial_total`                   | counter | `target_system_reserved` (closed enum)         |
+| `policy_ai_install_initiation_denial_total`             | counter | `blocked_action` (closed enum, four variants)  |
+| `policy_constitutional_substrate_recovery_denial_total` | counter | `blocked_action` (closed enum, single variant) |
+
+### 26.5 First-boot exception scope
+
+Wave 9 (Cluster 2 closure) introduces the `subject.is_first_boot` field (§26.1) and the matching escape clause in the `RecoveryRequiredForSystemMutation` hard-deny (§26.2.2). This subsection enumerates the constitutional scope of that exception so that auditors can verify the exception is structurally bounded rather than open-ended.
+
+**Scope of `subject.is_first_boot = true`:**
+
+- The flag is granted by S9.1 (`RecoveryMode.FIRST_BOOT` enum value, defined in another sub-spec) and set on the subject's session by S9.2 (first-boot flow) **only** for the canonical first-boot service subjects enumerated in S9.2 §3.2.8: `installer`, `vault-init`, `identity-init`, `policy-compiler`, `firstboot-coordinator`. No other subject ever carries `is_first_boot = true`.
+- The flag is **self-extinguishing**: once the firstboot completion marker is written by `firstboot-coordinator`, S9.2 transitions all subsequent sessions of these service subjects (and every other subject in the system) to `is_first_boot = false`. The flag cannot be re-asserted without re-entering the first-boot flow, which itself requires recovery-mode operator authority and a fresh device-init bundle.
+- **Evidence**: every mutation that escapes `RecoveryRequiredForSystemMutation` via the `is_first_boot = true` clause emits a `FIRST_BOOT_OPERATION` FOREVER record (in lieu of the `RECOVERY_EVENT` FOREVER record that the recovery-mode escape would emit). The two records are mutually exclusive on a per-decision basis: a single decision either escapes via recovery (→ `RECOVERY_EVENT`) or via first-boot (→ `FIRST_BOOT_OPERATION`), never both.
+- **No human-approver gate during first-boot**: the first-boot window is constitutionally pre-approved by the operator's act of installing the device-init bundle (verified by S9.2's signature chain). No interactive human approver exists during first-boot; therefore the §15 approval boundary's recovery-mode human-approver requirement is inapplicable to first-boot decisions. This is the only structural carve-out from the recovery-mode + human-approver pairing.
+
+**Dependency:** This exception requires S9.1 to define `RecoveryMode.FIRST_BOOT` and S9.2 to set `is_first_boot = true` on the listed service subjects' sessions during the first-boot window. Both dependencies are out of scope for S2.3 and are owned by L1's first-boot work; the Policy Kernel only consumes the boolean field. If S9.1 / S9.2 do not produce the field, every subject carries `is_first_boot = false` by the closed-vocabulary default and the §26.2.2 hard-deny resumes its pre-Wave-9 behavior.
+
+**Why this is not a constitutional regression:** the pre-Wave-9 `RecoveryRequiredForSystemMutation` rule structurally rejected first-boot service subjects' mandatory mutations (S9.2 stages 5–12 mutate `SYS_VAULT`, `SYS_POLICY`, `SYS_RECOVERY` paths during initial provisioning, but the host is not yet in recovery mode — recovery mode requires a recovery credential which is itself provisioned by stage 9). Wave 9 closes a first-boot constitutional gap that previously required out-of-band bootstrap paths; the rule's constitutional intent (no system-reserved mutation outside the recovery boundary) is **preserved**, not weakened — first-boot is folded into the recovery boundary as a constitutionally-bounded sibling of recovery-mode operation, not as a backdoor.
+
+### 26.6 Constitutional substrate condition field
+
+Wave 9 (Cluster 8 closure) adds one closed condition field to support `ConstitutionalSubstrateRequiresRecovery` (§26.2.5) and to let bundle authors express finer-grained substrate-class rules than the closed action enum permits.
+
+| Namespace | Field                                | Type | Operators |
+| --------- | ------------------------------------ | ---- | --------- |
+| `target`  | `target.is_constitutional_substrate` | bool | `=`, `!=` |
+
+**Derivation:**
+
+```text
+target.is_constitutional_substrate = true
+   IFF
+   target.device_class IN { CPU, TPM_2_0, BIOS_UEFI, GPU_DISCRETE_FIRMWARE_BOUND }
+```
+
+**Source:** S8.3 hardware graph (for `device_class` enumeration) + S8.5 firmware trust binding (for the firmware-bound predicate on `GPU_DISCRETE_FIRMWARE_BOUND`). The field is derived at enrichment time (§8) and contributes to the enrichment snapshot for determinism (§13). Bundle authors can use the field in any rule clause; the closed value set is `{true, false}` and bundle compilation rejects any other literal.
 
 ## 27. Wave 5 cross-spec touch-up (S7.1+S7.2+S7.3+S7.4+S7.5+S8.2 + L0 INV-019..022 consolidation)
 
@@ -915,14 +994,16 @@ Binds **L0 INV-024** (GPU compute access is capability-gated). Bounds GPGPU comp
 
 ### 27.3 Hard-deny ordering update
 
-The two new hard-denies extend the §26.3 ordering. Full pre-bundle hard-deny chain becomes:
+The two new hard-denies extend the §26.3 ordering. Full pre-bundle hard-deny chain becomes (incorporating Wave 9 additions inserted next to their semantic peers per §26.3):
 
 1. `RecoveryRequiredForSystemMutation`
-2. `AISystemAdminBlocked`
-3. `CrossGroupAccessForbidden`
-4. `CompositionZoneForbidden` _(new)_
-5. `GpuComputeOutsideAuthorisedClass` _(new)_
-6. (then bundle rules)
+2. `ConstitutionalSubstrateRequiresRecovery` _(Wave 9)_
+3. `AISystemAdminBlocked`
+4. `AIInstallInitiationBlocked` _(Wave 9)_
+5. `CrossGroupAccessForbidden`
+6. `CompositionZoneForbidden` _(Wave 5)_
+7. `GpuComputeOutsideAuthorisedClass` _(Wave 5)_
+8. (then bundle rules)
 
 Short-circuit on first match. AI self-approval prevention (§17) is unchanged and still runs at its original constitutional position.
 

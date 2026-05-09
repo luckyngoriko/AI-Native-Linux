@@ -225,6 +225,16 @@ Stage advancement is performed by the `_system:service:firstboot-coordinator` se
 6. Atomically updates the stage marker to the next stage.
 7. Returns control to the installer surface for any operator-interactive prompt at the next stage.
 
+#### §4.2.1 First-boot subject session flags
+
+Each first-boot service subject session — `_system:service:installer`, `_system:service:vault-init`, `_system:service:identity-init`, `_system:service:policy-compiler`, `_system:service:firstboot-coordinator` (S9.2 §3.2.8) — carries `is_first_boot = true` for the duration of the first-boot window. The flag is set by the firstboot-coordinator at session bootstrap, immediately after the subject identity is loaded from the seed identity bundle at `STAGE_IDENTITY_BUNDLE_LOADED`. (For the three pre-bundle stages — `STAGE_INSTALLER_MEDIA_VERIFIED`, `STAGE_DISK_PARTITIONED`, `STAGE_KERNEL_INSTALLED` — the installer subject runs from the initramfs identity stub, which carries `is_first_boot = true` from the kernel command line `aios.mode=FIRST_BOOT` per S9.1 §3.2.)
+
+The flag is cleared atomically with the firstboot-marker write at `STAGE_FIRST_BOOT_COMPLETE`: the same atomic operation that promotes the marker pointer also tears down the active first-boot service subject sessions, so no session with `is_first_boot = true` can survive into the post-first-boot `NORMAL` boot.
+
+Per S2.3 (Wave 9), this flag participates in the `RecoveryRequiredForSystemMutation` hard-deny condition: the rule admits subjects with `is_recovery_mode = true` **or** `is_first_boot = true` (and denies all others) when the target path is in `RecoveryMutableScope`. Without this Wave 9 update, the initial Policy Kernel bundle loaded at `STAGE_POLICY_BUNDLE_LOADED` would deny every subsequent first-boot system mutation, deadlocking the bootstrap at `STAGE_IDENTITY_BUNDLE_LOADED` (the first stage that mutates a `RecoveryMutableScope` path after the policy bundle is active).
+
+The mutual-exclusion invariant (S9.1 §3.2) holds: a first-boot service subject session has `is_first_boot = true` and `is_recovery_mode = false`. Recovery service subject sessions invert the pair. The Policy Kernel rejects any session that carries both flags with `MutuallyExclusiveModeFlags`.
+
 ### §4.3 Worked startup trace (happy path; abridged)
 
 ```text
@@ -569,6 +579,8 @@ Emits `RECOVERY_OPERATOR_REGISTERED` (FOREVER) with the canonical operator id, c
 
 The marker's signature (vault-root-signed; §5.3) is the witness that the constitutional layer has been bootstrapped through this exact flow. Subsequent boots verify the signature; failure triggers recovery boot per S9.1 §3.3 (`INVARIANT_BUNDLE_SIGNATURE_FAILURE` is a generalisable case that covers marker-signature failure here).
 
+The terminal commit also extinguishes `RecoveryMode = FIRST_BOOT` (S9.1 §3.2). The atomic operation that promotes the firstboot-marker pointer is the same operation that drops `is_first_boot = true` from every active first-boot service subject session (`installer`, `vault-init`, `identity-init`, `policy-compiler`, `firstboot-coordinator`; per §4.2.1). The drop is atomic with the marker write: there is no window in which the marker is committed but a session still carries `is_first_boot = true`, and there is no window in which the flag is cleared but the marker has not yet committed. The host then reboots; the next boot enters `RecoveryMode = NORMAL` via the rewritten GRUB entry table (S9.1 §4.1), and any subject session created post-reboot carries `is_first_boot = false` from creation. Cross-reference: S9.1 §3.2 mode definition; S9.1 §3.2.1 first-boot write permissions; this section closes the lifecycle the §3.2 definition opens.
+
 ### §11.2 Reset-to-factory
 
 The only path back to a fresh state is **reset-to-factory** — a recovery-mode operation. The flow:
@@ -682,7 +694,10 @@ T+07.0s   STAGE_INVARIANT_BUNDLE_LOADED
 
 T+07.5s   STAGE_POLICY_BUNDLE_LOADED
           Initial policy bundle compiled + loaded; default-deny + INV-008/012/013/018
-          hard-denies present.
+          hard-denies present. The bundle's `RecoveryRequiredForSystemMutation`
+          hard-deny rule (S2.3 §26.2.2 Wave 9 update) admits subjects with
+          `is_first_boot = true` in addition to `is_recovery_mode = true`.
+          Without this, the next stage's identity-bundle write would hard-deny.
 
 T+07.9s   STAGE_IDENTITY_BUNDLE_LOADED
           idbundle_<hex> with required _system service subjects active.

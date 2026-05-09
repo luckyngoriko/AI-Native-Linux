@@ -30,7 +30,7 @@ After this spec is in force, every reference to recovery in the AIOS contract bu
 This spec **defines**:
 
 1. The three constitutional roots `/`, `/root`, `/aios` and what each is for.
-2. The closed `RecoveryMode` enum and its three values.
+2. The closed `RecoveryMode` enum and its four values.
 3. The closed `RecoveryEntryReason` enum (why recovery may be entered).
 4. The closed `RecoveryExitReason` enum (how recovery exits — there is exactly one normal exit path).
 5. The closed `RecoveryStage` FSM (the linear stages of a recovery boot).
@@ -82,15 +82,48 @@ Constitutional invariants binding this section:
 
 The boot-time mode classification. A running AIOS host is always in exactly one of these modes.
 
-| Value      | Meaning                                                                                                                                                                                                                                                                                   |
-| ---------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `NORMAL`   | Full AIOS stack running. `/aios` mounted. L5 active. All renderers permitted. Web UI may be exposed per INV-006. AI subjects authenticated. The default and overwhelmingly common mode.                                                                                                   |
-| `RECOVERY` | Recovery boot path active. `/aios` **not** mounted. L5 services masked at unit level. Only L0 + L1 + L4 (degraded) running. Identity service in degraded mode (only `_system` scope subjects). Network defaults to `LOOPBACK_ONLY`.                                                       |
-| `DEGRADED` | Abnormal normal-mode. Some services failed health checks but the system did not yet decide to enter recovery. **Not** recovery; closed-loop transition to recovery is via reboot, not via in-place flag change. The kernel may schedule auto-recovery after N consecutive degraded boots. |
+| Value        | Meaning                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
+| ------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `NORMAL`     | Full AIOS stack running. `/aios` mounted. L5 active. All renderers permitted. Web UI may be exposed per INV-006. AI subjects authenticated. The default and overwhelmingly common mode.                                                                                                                                                                                                                                                                                                                            |
+| `RECOVERY`   | Recovery boot path active. `/aios` **not** mounted. L5 services masked at unit level. Only L0 + L1 + L4 (degraded) running. Identity service in degraded mode (only `_system` scope subjects). Network defaults to `LOOPBACK_ONLY`.                                                                                                                                                                                                                                                                                |
+| `DEGRADED`   | Abnormal normal-mode. Some services failed health checks but the system did not yet decide to enter recovery. **Not** recovery; closed-loop transition to recovery is via reboot, not via in-place flag change. The kernel may schedule auto-recovery after N consecutive degraded boots.                                                                                                                                                                                                                          |
+| `FIRST_BOOT` | First-boot installer active. `/aios` is being initialised. System mutations of `RecoveryMutableScope` paths are permitted **only** for the canonical first-boot service subjects enumerated in S9.2 §3.2.8 (`installer`, `vault-init`, `identity-init`, `policy-compiler`, `firstboot-coordinator`). Self-extinguishing: the mode terminates atomically the moment the firstboot marker is written at `STAGE_FIRST_BOOT_COMPLETE` and the host transitions directly to `NORMAL`. See §3.2.1 for write permissions. |
 
-There is no fourth mode. `MAINTENANCE`, `SAFE`, and `LIVE` are **not** AIOS modes; they are concepts from other operating systems. Any spec or implementation that introduces a fourth mode value is in violation of this contract.
+There is no fifth mode. `MAINTENANCE`, `SAFE`, and `LIVE` are **not** AIOS modes; they are concepts from other operating systems. Any spec or implementation that introduces a fifth mode value is in violation of this contract.
 
 `DEGRADED → RECOVERY` is **not** an in-place transition. It is always mediated by a reboot into the recovery boot path. The constitutional separation between normal and recovery is enforced by the kernel command line, not by a runtime flag. A degraded normal-mode host cannot acquire recovery-mode privileges by flipping a flag in a running process.
+
+`FIRST_BOOT` is similarly enforced at the kernel command line (the installer media writes a dedicated GRUB entry per S9.2 §4.1) and is not an in-place flag flip from any other mode. The mode is active only during S9.2 stages `STAGE_INSTALLER_MEDIA_VERIFIED` through `STAGE_RUNTIME_SERVICES_STARTED`. It self-extinguishes when `STAGE_FIRST_BOOT_COMPLETE` writes the marker; the immediately-subsequent boot enters `NORMAL` via the rewritten GRUB entry table. `FIRST_BOOT` and `RECOVERY` are distinct phases per S9.2 §1: a first-boot subject session does **not** carry `is_recovery_mode = true`, and a recovery subject session does **not** carry `is_first_boot = true`.
+
+**Mutual-exclusion invariant.** At most one of `subject.is_first_boot` and `subject.is_recovery_mode` may be true on any subject session. A session that carries both flags is itself a contract violation; the Policy Kernel rejects it at admission with `MutuallyExclusiveModeFlags`. The two flags name two disjoint constitutional phases (provisioning vs. operator-driven recovery), and conflating them would let a first-boot service subject inherit recovery-mode privileges or vice versa.
+
+#### §3.2.1 `FIRST_BOOT` mode write permissions
+
+When `RecoveryMode = FIRST_BOOT`, the canonical first-boot service subjects (S9.2 §3.2.8) may mutate the following `RecoveryMutableScope` paths, scoped to the stage at which each mutation is needed. No other subject — including any HUMAN_USER subject created at `STAGE_FIRST_USER_REGISTRATION` — receives first-boot write privileges. AI subjects (`is_ai = true`) receive no first-boot write privileges; the constitutional barrier against AI provisioning is preserved.
+
+| `RecoveryMutableScope` value     | Permitted first-boot writer subjects                                     | Stage at which the write occurs                                                                                                                                                                                      |
+| -------------------------------- | ------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `INVARIANT_BUNDLE`               | `_system:service:installer`                                              | `STAGE_INVARIANT_BUNDLE_LOADED`                                                                                                                                                                                      |
+| `POLICY_BUNDLE`                  | `_system:service:installer`, `_system:service:policy-compiler`           | `STAGE_POLICY_BUNDLE_LOADED`                                                                                                                                                                                         |
+| `IDENTITY_BUNDLE`                | `_system:service:installer`, `_system:service:identity-init`             | `STAGE_IDENTITY_BUNDLE_LOADED`, `STAGE_FIRST_GROUP_REGISTRATION`, `STAGE_FIRST_USER_REGISTRATION`                                                                                                                    |
+| `VAULT_ROOT_MATERIAL`            | `_system:service:installer`, `_system:service:vault-init`                | `STAGE_VAULT_ROOT_GENERATED`                                                                                                                                                                                         |
+| `RECOVERY_OPERATOR_REGISTRATION` | `_system:service:identity-init`, `_system:service:firstboot-coordinator` | `STAGE_RECOVERY_OPERATOR_REGISTRATION`                                                                                                                                                                               |
+| `CAPABILITY_CATALOG`             | `_system:service:installer`                                              | `STAGE_POLICY_BUNDLE_LOADED` (catalog is loaded together with the policy bundle)                                                                                                                                     |
+| `L1_BOOT_PARAMETERS`             | `_system:service:installer`, `_system:service:firstboot-coordinator`     | `STAGE_FIRST_BOOT_COMPLETE` (GRUB rewrite to the post-first-boot entry table)                                                                                                                                        |
+| `DEDICATED_KERNEL_PROMOTION`     | (none)                                                                   | First-boot does not promote a dedicated kernel; the generic kernel is the only kernel during and immediately after first-boot. Dedicated-kernel promotion is a post-first-boot recovery-mode operation per S9.1 §11. |
+
+Each write under `FIRST_BOOT` mode emits a FOREVER-retained `FIRST_BOOT_OPERATION` evidence record (queued for S3.1 vocabulary alongside the W10 update) carrying:
+
+- `subject_canonical_id` — the writing service subject (one of the canonical first-boot subjects above).
+- `target_path` — the `/aios/system/...` path written.
+- `target_scope` — the `RecoveryMutableScope` value covering `target_path`.
+- `stage` — the `FirstBootStage` (S9.2 §3.2) at which the mutation occurred.
+- `firstboot_session_id` — the unique id of the active first-boot session (assigned by the firstboot-coordinator at session bootstrap; one session per first-boot run).
+- `committed_at` — the rfc3339 timestamp at which the write committed.
+
+The `FIRST_BOOT_OPERATION` records form an audit trail across the constitutional bootstrap: the sequence of records for a given `firstboot_session_id`, replayed against the `FIRST_BOOT_STARTED` and `FIRST_BOOT_COMPLETE` records of S9.2 §12, fully reconstructs which subject mutated which constitutional path during which stage. INV-005 (evidence append-only) holds; first-boot does not loosen it.
+
+`FIRST_BOOT` mode does **not** grant write capability for `RecoveryReadOnlyScope` paths (§3.7). Group data (`AIOSFS_GROUP_DATA`) is irrelevant during first-boot — no group data exists yet — and the evidence log (`EVIDENCE_LOG_TAIL`) remains append-only with all writes mediated by the kernel's bound RPCs. `FIRST_BOOT` mode does **not** loosen `RecoveryDeniedClass` (§3.8): AI agent execution remains denied (no L5 cognition during first-boot per S9.2 §1), Web public exposure remains denied, evidence log rewrite remains denied, third-party binary execution remains denied, and LAN public exposure remains denied. The first-boot installer surface is an `AIOS_SURFACE`-only renderer (per L7.1 §6.3); it does not embed the L7 Web renderer. The constitutional floor of recovery is also the constitutional floor of first-boot.
 
 ### §3.3 `RecoveryEntryReason`
 
@@ -699,7 +732,9 @@ The following are deferred to other sub-specs or future revisions. They are list
 
 ## §17 Acceptance criteria
 
-- [ ] `RecoveryMode` is a closed enum with exactly three values (`NORMAL`, `RECOVERY`, `DEGRADED`).
+- [ ] `RecoveryMode` is a closed enum with exactly four values (`NORMAL`, `RECOVERY`, `DEGRADED`, `FIRST_BOOT`); the `is_first_boot` and `is_recovery_mode` subject flags are mutually exclusive.
+- [ ] `FIRST_BOOT` mode write permissions (§3.2.1) enumerate the canonical first-boot service subjects per `RecoveryMutableScope` value; AI subjects receive no first-boot write privileges; `RecoveryDeniedClass` and `RecoveryReadOnlyScope` are not loosened by `FIRST_BOOT` mode.
+- [ ] Each `FIRST_BOOT` mode mutation emits a FOREVER `FIRST_BOOT_OPERATION` record carrying `subject_canonical_id`, `target_path`, `target_scope`, `stage`, `firstboot_session_id`, `committed_at` (queued for S3.1 vocabulary alongside the W10 update).
 - [ ] `RecoveryEntryReason` is a closed enum with exactly eight values, covering operator-initiated, boot-failure-auto, and the six L0/L4/L2 trust-failure reasons.
 - [ ] `RecoveryExitReason` is a closed enum with exactly four values; the only normal exit is `REBOOT_TO_NORMAL`.
 - [ ] `RecoveryStage` is a closed enum with exactly nine values, forming a linear FSM with forward-only transitions.

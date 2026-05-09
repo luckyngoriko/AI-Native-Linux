@@ -453,6 +453,22 @@ The override-eligible scope (`OTHER_DEVICE_FIRMWARE`) is permitted because:
 
 The override path emits `OPERATOR_LOCAL_FIRMWARE_INSTALLED` FOREVER even though the firmware is technically `UNSIGNED_BLACKLISTED` — the operator's explicit override act is the witness.
 
+### §9.4 Cross-spec wiring — hardware-substrate drift acceptance triggers vault rekey requirement (W9 Cluster 8 finding SIM-C-003)
+
+The §9.3 constitutional refusal scopes block **unsigned firmware updates** to substrate devices, but they do not address a parallel surface: a substrate device that is _physically replaced_ (not flashed) and then approved through the S8.3 hardware-graph-drift accept-side flow. A swapped TPM module, a replaced motherboard with a new BIOS/UEFI, a microcode change introduced by a CPU swap, or a discrete-GPU replacement that participates in the measured-boot chain all invalidate cryptographic material that was sealed against the prior substrate. Without an explicit rekey gate, the host would proceed under the new substrate while every PCR-bound vault seal silently became unrecoverable.
+
+When `hardware.accept_drift_substrate` (S10.1 W9) is invoked accepting a `DeviceClass.TPM_2_0` mutation/replacement/removal, the L8 firmware-trust subsystem emits `VAULT_TPM_RESEAL_REQUIRED` (FOREVER, queued for S3.1 W10) and refuses to admit the new TPM into the active sealing path until the operator runs `vault.reseal` in recovery mode (S5.2 capability — already exists, see the `Rekey` RPC at S5.2 lines ~439, with anticipated `VAULT_REKEYED` FOREVER also queued for S3.1 W10). The accept-drift action itself SUCCEEDS at the L8 layer (the new device is now part of the host's signed hardware graph and the boot can complete), but the vault is in a **degraded state** until reseal completes — operators see this in the L9.1 status surface as `VAULT_RESEAL_PENDING`. Sessions that depend on TPM-quoted secrets are paused per S8.3 §6.1 (the existing pause-on-`TPM_2_0` discipline is reused).
+
+The same wiring applies (with appropriate scope-specific modifications) for:
+
+- **`BIOS_UEFI` substitution.** A new BIOS/UEFI image may invalidate UEFI-variable-bound seals and re-quote PCR 0/2/4/7. The host emits `VAULT_TPM_RESEAL_REQUIRED` even though the device class is `BIOS_UEFI` rather than `TPM_2_0`, because the constitutional surface that is invalidated is the TPM-PCR seal set the BIOS feeds. Operators are guided through `vault.reseal` in recovery; until completion, status reports `VAULT_RESEAL_PENDING`.
+- **`CPU_MICROCODE` replacement** (CPU swap or microcode-bound material change). A CPU swap may invalidate `cpuid`-bound material derived from CPU vendor/model fingerprint and any PCR delta the new CPU's microcode contributes. Same evidence path: `VAULT_TPM_RESEAL_REQUIRED` → `VAULT_REKEYED` resolution.
+- **`GPU_DISCRETE_FIRMWARE_BOUND` replacement** when the GPU ROM hash is part of the host's measured-boot chain. This is the narrow GPU subset whose firmware identity feeds the PCR set; commodity discrete GPUs whose firmware is not measured do not trigger this path (and would have been routed through `hardware.accept_drift_accessory` instead). Same evidence path.
+
+The S5.2 `Rekey` RPC's anticipated `VAULT_REKEYED` (FOREVER, queued for S3.1 W10) provides the resolution evidence; an operator who completes the reseal closes out the `VAULT_TPM_RESEAL_REQUIRED` chain via `originating_required_record_id` link (the same audit-chain pattern S8.3 §12 uses for `HARDWARE_GRAPH_DRIFT_ACCEPTED`'s `originating_drift_record_id`). Until the resolution record is appended, the vault remains in `VAULT_RESEAL_PENDING`; a non-recovery `vault.reseal` attempt is denied per the existing S5.2 + S9.1 recovery-mode discipline.
+
+This wiring closes the audit gap identified by W9 Cluster 8 finding SIM-C-003: a substrate replacement that was correctly accept-drifted at the L8 hardware-graph layer would otherwise leave the L4 vault holding seals that no longer verify. The `VAULT_TPM_RESEAL_REQUIRED` evidence is the constitutional flag; the `VAULT_REKEYED` resolution is the constitutional close-out.
+
 ## §10 Adversarial robustness
 
 ### §10.1 Vendor signing key compromise

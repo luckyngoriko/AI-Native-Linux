@@ -54,31 +54,86 @@ What this spec does **not** define:
 ```proto
 enum VaultCapabilityClass {
   VAULT_CAPABILITY_CLASS_UNSPECIFIED = 0;
-  KEY_SIGN = 1;          // sign blob with private key; returns signature
-  KEY_VERIFY = 2;        // verify signature with public key; returns bool
-  KEY_ENCRYPT = 3;       // encrypt blob with public key; returns ciphertext
-  KEY_DECRYPT = 4;       // decrypt ciphertext with private key; returns plaintext
-  MAC_GENERATE = 5;      // produce HMAC/AEAD MAC; returns mac
-  MAC_VERIFY = 6;        // verify MAC; returns bool
-  RANDOM_GENERATE = 7;   // CSPRNG bytes; capability needed beyond 64 bytes per call
-  SECRET_GET = 8;        // raw bytes — RESTRICTED (see I1, I4)
+  KEY_SIGN = 1;             // sign blob with private key; returns signature
+  KEY_VERIFY = 2;           // verify signature with public key; returns bool
+  KEY_ENCRYPT = 3;          // encrypt blob with public key; returns ciphertext
+  KEY_DECRYPT = 4;          // decrypt ciphertext with private key; returns plaintext
+  MAC_GENERATE = 5;         // produce HMAC/AEAD MAC; returns mac
+  MAC_VERIFY = 6;           // verify MAC; returns bool
+  RANDOM_GENERATE = 7;      // CSPRNG bytes; capability needed beyond 64 bytes per call
+  SECRET_GET = 8;           // raw bytes — RESTRICTED (see I1, I4)
+  BOOTSTRAP_KEY_SIGN = 9;   // first-boot one-shot Ed25519 sign over the firstboot marker (Wave 9)
 }
 ```
 
-Closed enum. Adding a class is a versioned spec change.
+Closed enum with **nine** values. Adding a class is a versioned spec change.
 
-| Class             | AI-permitted | Side effect           | Default budget          | Default rate cap |
-| ----------------- | ------------ | --------------------- | ----------------------- | ---------------- |
-| `KEY_SIGN`        | yes          | signature returned    | 1 000 ops               | 60 ops/min       |
-| `KEY_VERIFY`      | yes          | bool returned         | unlimited (no material) | none             |
-| `KEY_ENCRYPT`     | yes          | ciphertext returned   | 10 000 ops              | 600 ops/min      |
-| `KEY_DECRYPT`     | yes          | plaintext returned    | 1 000 ops               | 60 ops/min       |
-| `MAC_GENERATE`    | yes          | mac returned          | 10 000 ops              | 600 ops/min      |
-| `MAC_VERIFY`      | yes          | bool returned         | unlimited (no material) | none             |
-| `RANDOM_GENERATE` | yes          | random bytes returned | by byte count           | 1 MiB / minute   |
-| `SECRET_GET`      | **no**       | raw bytes returned    | 1 op (one-shot only)    | 1 op / hour      |
+| Class                | AI-permitted | Side effect                 | Default budget          | Default rate cap          |
+| -------------------- | ------------ | --------------------------- | ----------------------- | ------------------------- |
+| `KEY_SIGN`           | yes          | signature returned          | 1 000 ops               | 60 ops/min                |
+| `KEY_VERIFY`         | yes          | bool returned               | unlimited (no material) | none                      |
+| `KEY_ENCRYPT`        | yes          | ciphertext returned         | 10 000 ops              | 600 ops/min               |
+| `KEY_DECRYPT`        | yes          | plaintext returned          | 1 000 ops               | 60 ops/min                |
+| `MAC_GENERATE`       | yes          | mac returned                | 10 000 ops              | 600 ops/min               |
+| `MAC_VERIFY`         | yes          | bool returned               | unlimited (no material) | none                      |
+| `RANDOM_GENERATE`    | yes          | random bytes returned       | by byte count           | 1 MiB / minute            |
+| `SECRET_GET`         | **no**       | raw bytes returned          | 1 op (one-shot only)    | 1 op / hour               |
+| `BOOTSTRAP_KEY_SIGN` | **no**       | one-shot signature returned | 1 op per host, FOREVER  | 1 op / first-boot session |
 
 The defaults above are **floor** values. A capability binding may set tighter budgets and rate caps; it cannot loosen them. The broker enforces `min(default, requested)` in both fields.
+
+### 3.1 `BOOTSTRAP_KEY_SIGN` exception class (Wave 9)
+
+`BOOTSTRAP_KEY_SIGN` is a **closed-enum constitutional exception** that permits the vault broker to perform a single Ed25519 sign operation against the freshly bootstrapped vault root key **without** an upstream `CapabilityBinding` (S5.1 §9.1). It exists for one purpose only: signing the firstboot marker file at the end of S9.2 first-boot, so the system can later prove that this host completed first-boot.
+
+**Why an exception is required.** The normal `KEY_SIGN` path requires:
+
+1. an `ACTIVE` `CapabilityBinding` per S5.1 §9.1, which requires
+2. an `approval_id` per S5.3, which requires
+3. a granting subject of kind `HUMAN_USER`.
+
+At S9.2 first-boot, none of these exist: the vault has just been bootstrapped, no approval flow is yet armed, and the first `HUMAN_USER` is registered **after** `STAGE_FIRST_GROUP_REGISTRATION` and after the firstboot marker is signed. Without `BOOTSTRAP_KEY_SIGN`, there is a chicken-and-egg deadlock at first-boot.
+
+**Discipline (mandatory preconditions, all checked atomically).** The broker permits a `BOOTSTRAP_KEY_SIGN` operation **only** when **all** of these hold simultaneously:
+
+1. The invoking subject's canonical id equals `_system:service:firstboot-coordinator` (the constitutional first-boot orchestrator service per S9.2 §3.2.8 — forthcoming under W9-B).
+2. The session carries `is_first_boot = true` (per S9.1 W9 `RecoveryMode.FIRST_BOOT` — forthcoming under W9-A).
+3. The firstboot marker file at the well-known path (`/aios/system/firstboot/marker.signed`, fixed by S9.2) does **not** exist yet on disk.
+4. The per-host `BOOTSTRAP_KEY_SIGN` counter (held in vault broker memory and persisted into the master-key envelope on first-boot completion) has not yet been incremented; **exactly one** call per first-boot session is permitted.
+5. The target material is the vault root key generated during first-boot vault bootstrap (`material_kind = ED25519_PRIVATE_KEY`, fingerprint matching the just-bootstrapped vault root).
+
+Any precondition unmet → reject with `BootstrapKeySignNotPermitted`; do not partially sign; emit `VAULT_OPERATION` with `result = failure` and `error_code = bootstrap_key_sign_not_permitted`.
+
+**Evidence on success.** A successful `BOOTSTRAP_KEY_SIGN` invocation emits:
+
+```text
+VAULT_BOOTSTRAP_KEY_USED  (FOREVER, queued for S3.1 Wave 10 consolidation)
+  fields:
+    first_boot_session_id     -- ULID of the first-boot session that issued the call
+    signed_payload_digest     -- SHA-256 of the firstboot marker payload that was signed
+    marker_path               -- "/aios/system/firstboot/marker.signed"
+    timestamp
+    operator_subject_id       -- "_system:local:operator-1" (the human at the console)
+    coordinator_subject_id    -- "_system:service:firstboot-coordinator"
+```
+
+The schema is closed (no free-form payload, per §8.7); no signature bytes, no key bytes, no marker bytes.
+
+**Permanent exhaustion after first-boot.** After the firstboot marker is written, the per-host `BOOTSTRAP_KEY_SIGN` counter is permanently set to "exhausted" inside the vault broker's persisted state (sealed under the master-key envelope). Any subsequent `BOOTSTRAP_KEY_SIGN` request on this host — including under a future first-boot session id — is rejected with `BootstrapKeyAlreadyExhausted`. This emits:
+
+```text
+BOOTSTRAP_KEY_USE_AFTER_EXHAUST_BLOCKED  (FOREVER, queued for S3.1 Wave 10 consolidation)
+  fields:
+    attempted_subject_id
+    session_id
+    timestamp
+```
+
+`BOOTSTRAP_KEY_SIGN` is therefore a **per-host, one-shot** capability class. Re-arming it requires a full reset-to-factory (S5.4 + S5.3 reset path) that wipes the vault and re-runs S9.2 first-boot from scratch.
+
+**No AI access.** Like `SECRET_GET`, `BOOTSTRAP_KEY_SIGN` is hard-denied for any subject with `is_ai = true`. The only permitted subject is the constitutional service `_system:service:firstboot-coordinator`, which carries `is_ai = false` per S5.1 §3.
+
+**Cross-reference.** S9.2 §5.4 step 2 (forthcoming under W9-B) is the sole emission point of `BOOTSTRAP_KEY_SIGN` requests. No other spec, service, or path is permitted to invoke this class.
 
 ## 4. Material kind taxonomy
 
@@ -103,18 +158,19 @@ Closed enum. Adding a kind is a versioned spec change.
 
 The mapping between class and acceptable kinds is constitutional:
 
-| Class             | Acceptable `VaultMaterialKind`                                                        |
-| ----------------- | ------------------------------------------------------------------------------------- |
-| `KEY_SIGN`        | `ED25519_PRIVATE_KEY`, `RSA_PRIVATE_KEY`, `CERTIFICATE_PRIVATE_KEY`                   |
-| `KEY_VERIFY`      | `ED25519_PUBLIC_KEY` (public counterpart of stored private key, or imported public)   |
-| `KEY_ENCRYPT`     | `X25519_PRIVATE_KEY` (DH agreement), public counterparts; symmetric kinds (AEAD)      |
-| `KEY_DECRYPT`     | `X25519_PRIVATE_KEY`, `RSA_PRIVATE_KEY`, `SYMMETRIC_KEY_AES_256_GCM`, `..._CHACHA20`  |
-| `MAC_GENERATE`    | `HMAC_KEY_SHA256`, `MAC_KEY_BLAKE3`                                                   |
-| `MAC_VERIFY`      | `HMAC_KEY_SHA256`, `MAC_KEY_BLAKE3`                                                   |
-| `RANDOM_GENERATE` | none (no key material; CSPRNG seed handled internally)                                |
-| `SECRET_GET`      | `PASSWORD_BLOB`, `TOKEN_BLOB`, `CERTIFICATE_PRIVATE_KEY` (export under recovery only) |
+| Class                | Acceptable `VaultMaterialKind`                                                        |
+| -------------------- | ------------------------------------------------------------------------------------- |
+| `KEY_SIGN`           | `ED25519_PRIVATE_KEY`, `RSA_PRIVATE_KEY`, `CERTIFICATE_PRIVATE_KEY`                   |
+| `KEY_VERIFY`         | `ED25519_PUBLIC_KEY` (public counterpart of stored private key, or imported public)   |
+| `KEY_ENCRYPT`        | `X25519_PRIVATE_KEY` (DH agreement), public counterparts; symmetric kinds (AEAD)      |
+| `KEY_DECRYPT`        | `X25519_PRIVATE_KEY`, `RSA_PRIVATE_KEY`, `SYMMETRIC_KEY_AES_256_GCM`, `..._CHACHA20`  |
+| `MAC_GENERATE`       | `HMAC_KEY_SHA256`, `MAC_KEY_BLAKE3`                                                   |
+| `MAC_VERIFY`         | `HMAC_KEY_SHA256`, `MAC_KEY_BLAKE3`                                                   |
+| `RANDOM_GENERATE`    | none (no key material; CSPRNG seed handled internally)                                |
+| `SECRET_GET`         | `PASSWORD_BLOB`, `TOKEN_BLOB`, `CERTIFICATE_PRIVATE_KEY` (export under recovery only) |
+| `BOOTSTRAP_KEY_SIGN` | `ED25519_PRIVATE_KEY` only (the freshly bootstrapped vault root key)                  |
 
-Mismatched class/kind pairs are rejected at capability issuance with `CapabilityClassKindMismatch`.
+Mismatched class/kind pairs are rejected at capability issuance with `CapabilityClassKindMismatch`. `BOOTSTRAP_KEY_SIGN` is not issued through `IssueCapability` at all (it has no `CapabilityBinding`); the class/kind constraint is enforced inside the broker's first-boot path per §3.1.
 
 ## 5. Capability lifecycle FSM
 
@@ -389,18 +445,20 @@ Exiting recovery mode is exit-by-reboot (per S5.1 §7.2). The broker's normal-mo
 
 ## 11. Cross-spec dependencies
 
-| Spec                                        | Direction  | What this spec contributes / consumes                                                                                                       |
-| ------------------------------------------- | ---------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
-| S0.1                                        | consumer   | Action envelope `target.vault_capability_id` references this spec's `capability_id`; broker is the executor for actions naming a capability |
-| S2.3                                        | consumer   | Policy kernel constraint `vault_capability_required` (S2.3 §10 / §11) names a `vault_capability_id`; policy decision must precede use       |
-| S2.4                                        | producer   | New audit primitive `vault_no_raw_secret_in_recent_evidence` queued for S2.4 follow-up; verifies VAULT_NO_RAW_SECRET_LEAK property          |
-| S3.1                                        | producer   | 8 record types queued for next S3.1 refinement (see §14); evidence schemas restrict payloads to closed fields                               |
-| S3.2                                        | consumer   | Vault broker process runs under a constitutional sandbox profile (privileged, mlock, no core dumps, restricted syscalls)                    |
-| S5.1                                        | consumer   | `CapabilityBinding` skeleton (S5.1 §9) provides the binding scope `(subject, group_id, bundle_version)`; broker enforces at use             |
-| S5.4 (`04_approval_mechanics.md`, deferred) | constraint | `RevealSecret` co-signer is an `Approval` record per S5.4 mechanics                                                                         |
-| L0 INV-003                                  | binds      | "Secrets are capabilities" — implementation is this spec's I1, I4, §6                                                                       |
-| L0 INV-015                                  | binds      | "Evidence never contains secrets" — enforced by §3 redacted projection and §8.7 schema validation                                           |
-| L0 INV-018                                  | binds      | "Vault never leaks raw secrets" — implementation is this spec's I1, I4, §6.6                                                                |
+| Spec                                        | Direction  | What this spec contributes / consumes                                                                                                                                                                         |
+| ------------------------------------------- | ---------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| S0.1                                        | consumer   | Action envelope `target.vault_capability_id` references this spec's `capability_id`; broker is the executor for actions naming a capability                                                                   |
+| S2.3                                        | consumer   | Policy kernel constraint `vault_capability_required` (S2.3 §10 / §11) names a `vault_capability_id`; policy decision must precede use                                                                         |
+| S2.4                                        | producer   | New audit primitive `vault_no_raw_secret_in_recent_evidence` queued for S2.4 follow-up; verifies VAULT_NO_RAW_SECRET_LEAK property                                                                            |
+| S3.1                                        | producer   | 10 record types queued for next S3.1 refinement (see §14): 8 from initial contract + 2 added by Wave 9 (`VAULT_BOOTSTRAP_KEY_USED`, `BOOTSTRAP_KEY_USE_AFTER_EXHAUST_BLOCKED`) for S3.1 Wave 10 consolidation |
+| S9.1 (Wave 9, forthcoming)                  | consumer   | `RecoveryMode.FIRST_BOOT` is the session flag (`is_first_boot = true`) that gates `BOOTSTRAP_KEY_SIGN` per §3.1                                                                                               |
+| S9.2 (Wave 9, forthcoming)                  | consumer   | §5.4 step 2 is the sole emission point of `BOOTSTRAP_KEY_SIGN`; §3.2.8 names the constitutional first-boot service subjects                                                                                   |
+| S3.2                                        | consumer   | Vault broker process runs under a constitutional sandbox profile (privileged, mlock, no core dumps, restricted syscalls)                                                                                      |
+| S5.1                                        | consumer   | `CapabilityBinding` skeleton (S5.1 §9) provides the binding scope `(subject, group_id, bundle_version)`; broker enforces at use                                                                               |
+| S5.4 (`04_approval_mechanics.md`, deferred) | constraint | `RevealSecret` co-signer is an `Approval` record per S5.4 mechanics                                                                                                                                           |
+| L0 INV-003                                  | binds      | "Secrets are capabilities" — implementation is this spec's I1, I4, §6                                                                                                                                         |
+| L0 INV-015                                  | binds      | "Evidence never contains secrets" — enforced by §3 redacted projection and §8.7 schema validation                                                                                                             |
+| L0 INV-018                                  | binds      | "Vault never leaks raw secrets" — implementation is this spec's I1, I4, §6.6                                                                                                                                  |
 
 ## 12. Golden fixtures
 
@@ -539,53 +597,103 @@ SignBlob(cap_FORGED, blob, nonce):
     session_id_hash. S2.4 anomaly detector invoked.
 ```
 
+### Fixture 9 — First-boot bootstrap key sign (Wave 9)
+
+```text
+Setup (S9.2 first-boot, post vault bootstrap, pre firstboot marker):
+  subject  = "_system:service:firstboot-coordinator" (kind=SERVICE, is_ai=false)
+  session  = first-boot session, is_first_boot = true
+  vault root key just generated, ED25519_PRIVATE_KEY
+  marker_path = "/aios/system/firstboot/marker.signed" — does not exist
+  per-host BOOTSTRAP_KEY_SIGN counter = 0 (not yet exhausted)
+  payload  = <firstboot marker payload bytes>
+
+Broker first-boot path invokes BOOTSTRAP_KEY_SIGN over payload:
+  Preconditions §3.1 (1)-(5) all hold → admit.
+  Sign performed against vault root key.
+  Marker file written; per-host counter incremented to "exhausted".
+  Emits: VAULT_BOOTSTRAP_KEY_USED (FOREVER, queued for S3.1 W10) with
+    first_boot_session_id, signed_payload_digest=SHA-256(payload),
+    marker_path, operator_subject_id, coordinator_subject_id.
+  No signature bytes in evidence; no key bytes in evidence.
+
+Subsequent attempt (e.g. attacker reboots into recovery and tries to forge a marker):
+  BOOTSTRAP_KEY_SIGN(...) invoked again on this host.
+  Precondition (3) fails: marker already exists.
+  Precondition (4) fails: per-host counter already exhausted.
+  REJECT: BootstrapKeyAlreadyExhausted.
+  Emits: BOOTSTRAP_KEY_USE_AFTER_EXHAUST_BLOCKED (FOREVER, queued for S3.1 W10).
+  No cryptographic operation performed.
+```
+
+### Fixture 10 — AI agent attempts BOOTSTRAP_KEY_SIGN (Wave 9)
+
+```text
+Setup:
+  attacker has compromised an AI_AGENT subject "family:family-assistant"
+    (is_ai=true) and crafts a request masquerading as the firstboot path.
+
+Broker receives BOOTSTRAP_KEY_SIGN-class request from this subject:
+  is_ai = true → hard-deny at request entry point (mirrors I1).
+  Precondition (1) also fails (subject ≠ _system:service:firstboot-coordinator).
+  REJECT: SubjectKindRejectedForVault.
+  Emits: SUBJECT_KIND_REJECTED_FOR_VAULT (FOREVER) with class=BOOTSTRAP_KEY_SIGN.
+  No cryptographic operation performed.
+```
+
 ## 13. Telemetry contract
 
 All metrics MUST use bounded label cardinality. **`capability_id`, `subject_canonical_id`, `group_id`, `session_id`, `material_fingerprint` are NEVER labels.**
 
-| Metric                                      | Type      | Labels (closed)                                                             |
-| ------------------------------------------- | --------- | --------------------------------------------------------------------------- |
-| `vault_operation_total`                     | counter   | `class` (closed enum), `result` (success/error), `error_code` (closed enum) |
-| `vault_operation_duration_seconds`          | histogram | `class`, `result`                                                           |
-| `vault_capability_issued_total`             | counter   | `class`, `material_kind` (closed enum)                                      |
-| `vault_capability_revoked_total`            | counter   | `reason` (closed enum)                                                      |
-| `vault_capability_rotated_total`            | counter   | `rotation_reason` (closed enum)                                             |
-| `vault_active_capabilities`                 | gauge     | `class`                                                                     |
-| `vault_raw_reveal_total`                    | counter   | `result` (success/rejected), `error_code`                                   |
-| `vault_subject_kind_rejected_total`         | counter   | `kind` (closed enum), `class`                                               |
-| `vault_capability_forgery_total`            | counter   | none                                                                        |
-| `vault_nonce_replay_total`                  | counter   | `class`                                                                     |
-| `vault_rate_cap_exceeded_total`             | counter   | `class`                                                                     |
-| `vault_master_key_state`                    | gauge     | `state` ∈ {locked, unlocked, rekey_in_progress}                             |
-| `vault_recovery_snapshot_loaded_total`      | counter   | none                                                                        |
-| `vault_bundle_rollover_invalidations_total` | counter   | none                                                                        |
+| Metric                                                | Type      | Labels (closed)                                                             |
+| ----------------------------------------------------- | --------- | --------------------------------------------------------------------------- |
+| `vault_operation_total`                               | counter   | `class` (closed enum), `result` (success/error), `error_code` (closed enum) |
+| `vault_operation_duration_seconds`                    | histogram | `class`, `result`                                                           |
+| `vault_capability_issued_total`                       | counter   | `class`, `material_kind` (closed enum)                                      |
+| `vault_capability_revoked_total`                      | counter   | `reason` (closed enum)                                                      |
+| `vault_capability_rotated_total`                      | counter   | `rotation_reason` (closed enum)                                             |
+| `vault_active_capabilities`                           | gauge     | `class`                                                                     |
+| `vault_raw_reveal_total`                              | counter   | `result` (success/rejected), `error_code`                                   |
+| `vault_subject_kind_rejected_total`                   | counter   | `kind` (closed enum), `class`                                               |
+| `vault_capability_forgery_total`                      | counter   | none                                                                        |
+| `vault_nonce_replay_total`                            | counter   | `class`                                                                     |
+| `vault_rate_cap_exceeded_total`                       | counter   | `class`                                                                     |
+| `vault_master_key_state`                              | gauge     | `state` ∈ {locked, unlocked, rekey_in_progress}                             |
+| `vault_recovery_snapshot_loaded_total`                | counter   | none                                                                        |
+| `vault_bundle_rollover_invalidations_total`           | counter   | none                                                                        |
+| `vault_bootstrap_key_used_total`                      | counter   | none (one-shot per host; expected count is 0 or 1)                          |
+| `vault_bootstrap_key_use_after_exhaust_blocked_total` | counter   | none (any non-zero value indicates an attempt after first-boot exhaustion)  |
 
 Cardinality budget: ≤ 100 active label tuples per metric. The closed enums together produce fewer than 80 distinct tuples across all metrics.
 
 ## 14. Evidence record types queued for S3.1 follow-up
 
-This spec queues 8 new record types for the next S3.1 refinement to add to the closed `RecordType` vocabulary. Each row names the type, its retention class (per S3.1 retention enum), and its emission point.
+This spec queues 10 new record types for the next S3.1 refinement to add to the closed `RecordType` vocabulary (8 from the original S5.2 contract + 2 added by Wave 9 for the `BOOTSTRAP_KEY_SIGN` exception class). The two Wave 9 additions are queued for **S3.1 Wave 10 consolidation** specifically (alongside other Wave 9 first-boot record types from W9-A and W9-B). Each row names the type, its retention class (per S3.1 retention enum), and its emission point.
 
-| RecordType                        | Retention class | Emitted by               | When                                                                            |
-| --------------------------------- | --------------- | ------------------------ | ------------------------------------------------------------------------------- |
-| `VAULT_CAPABILITY_ISSUED`         | `STANDARD_24M`  | `IssueCapability`        | Successful capability issuance (DRAFT → ACTIVE).                                |
-| `VAULT_CAPABILITY_ROTATED`        | `STANDARD_24M`  | `RotateCapability`       | Successful rotation (material swap).                                            |
-| `VAULT_CAPABILITY_REVOKED`        | `EXTENDED_60M`  | `RevokeCapability`       | Revocation, including auto-revoke on bundle rollover or material loss.          |
-| `VAULT_OPERATION`                 | `STANDARD_24M`  | All operations §6.1–§6.5 | Every operation attempt, success or failure (high volume; redacted projection). |
-| `VAULT_RAW_REVEAL`                | `FOREVER`       | `RevealSecret`           | **Successful** raw-bytes reveal under recovery + co-signer.                     |
-| `VAULT_CAPABILITY_FORGERY`        | `FOREVER`       | All operations           | Capability signature verification failure (§8.2).                               |
-| `SUBJECT_KIND_REJECTED_FOR_VAULT` | `FOREVER`       | All operations           | AI subject attempts a class disallowed by I1 (§8.1).                            |
-| `VAULT_RECOVERY_SNAPSHOT_LOADED`  | `FOREVER`       | Recovery boot path       | Recovery snapshot opened (§10.1).                                               |
+| RecordType                                | Retention class | Emitted by               | When                                                                                                                          |
+| ----------------------------------------- | --------------- | ------------------------ | ----------------------------------------------------------------------------------------------------------------------------- |
+| `VAULT_CAPABILITY_ISSUED`                 | `STANDARD_24M`  | `IssueCapability`        | Successful capability issuance (DRAFT → ACTIVE).                                                                              |
+| `VAULT_CAPABILITY_ROTATED`                | `STANDARD_24M`  | `RotateCapability`       | Successful rotation (material swap).                                                                                          |
+| `VAULT_CAPABILITY_REVOKED`                | `EXTENDED_60M`  | `RevokeCapability`       | Revocation, including auto-revoke on bundle rollover or material loss.                                                        |
+| `VAULT_OPERATION`                         | `STANDARD_24M`  | All operations §6.1–§6.5 | Every operation attempt, success or failure (high volume; redacted projection).                                               |
+| `VAULT_RAW_REVEAL`                        | `FOREVER`       | `RevealSecret`           | **Successful** raw-bytes reveal under recovery + co-signer.                                                                   |
+| `VAULT_CAPABILITY_FORGERY`                | `FOREVER`       | All operations           | Capability signature verification failure (§8.2).                                                                             |
+| `SUBJECT_KIND_REJECTED_FOR_VAULT`         | `FOREVER`       | All operations           | AI subject attempts a class disallowed by I1 (§8.1).                                                                          |
+| `VAULT_RECOVERY_SNAPSHOT_LOADED`          | `FOREVER`       | Recovery boot path       | Recovery snapshot opened (§10.1).                                                                                             |
+| `VAULT_BOOTSTRAP_KEY_USED`                | `FOREVER`       | First-boot path (§3.1)   | **Successful** one-shot `BOOTSTRAP_KEY_SIGN` over the firstboot marker. (Wave 9; queued for S3.1 Wave 10)                     |
+| `BOOTSTRAP_KEY_USE_AFTER_EXHAUST_BLOCKED` | `FOREVER`       | First-boot path (§3.1)   | Any attempt to invoke `BOOTSTRAP_KEY_SIGN` on a host whose firstboot marker already exists. (Wave 9; queued for S3.1 Wave 10) |
 
-A future-S3.1 follow-up may add `VAULT_REKEYED` (FOREVER, recovery only) when the recovery rekey mechanic is refined; this spec lists it as anticipated but does not yet queue it formally to keep the count tight at 8.
+A future-S3.1 follow-up may add `VAULT_REKEYED` (FOREVER, recovery only) when the recovery rekey mechanic is refined; this spec lists it as anticipated but does not yet queue it formally.
 
 The schema for each RecordType restricts the payload to closed fields (per §8.7). No free-form payload is permitted; the evidence broker (S3.1) rejects records whose payloads contain unexpected fields.
 
 ## 15. Acceptance criteria
 
-- [ ] `VaultCapabilityClass` is a closed enum with eight values; adding a value requires a versioned spec change.
+- [ ] `VaultCapabilityClass` is a closed enum with **nine** values (Wave 9 added `BOOTSTRAP_KEY_SIGN`); adding a value requires a versioned spec change.
 - [ ] `VaultMaterialKind` is a closed enum with eleven values; adding a value requires a versioned spec change.
-- [ ] AI subjects (`is_ai = true`) are rejected from `SECRET_GET` at the request entry point regardless of capability state; emits `SUBJECT_KIND_REJECTED_FOR_VAULT` (FOREVER).
+- [ ] AI subjects (`is_ai = true`) are rejected from `SECRET_GET` and `BOOTSTRAP_KEY_SIGN` at the request entry point regardless of capability state; emits `SUBJECT_KIND_REJECTED_FOR_VAULT` (FOREVER).
+- [ ] `BOOTSTRAP_KEY_SIGN` (§3.1) is admitted only when subject = `_system:service:firstboot-coordinator`, session.is_first_boot = true, the firstboot marker does not yet exist, and the per-host counter is not yet exhausted; emits `VAULT_BOOTSTRAP_KEY_USED` (FOREVER) on success.
+- [ ] After the firstboot marker is written, any further `BOOTSTRAP_KEY_SIGN` request on this host is rejected with `BootstrapKeyAlreadyExhausted` and emits `BOOTSTRAP_KEY_USE_AFTER_EXHAUST_BLOCKED` (FOREVER).
 - [ ] Capability bindings are scoped to `(subject_canonical_id, group_id, identity_bundle_version)`; broker re-validates on every operation.
 - [ ] Bundle rollover invalidates all bindings tied to the prior version; emits `VAULT_CAPABILITY_REVOKED` with `reason = bundle_rollover`.
 - [ ] `RevealSecret` succeeds only under `kind = HUMAN_USER` + `session_class = STRONG` + `recovery_mode = true` + valid distinct human co-signer + one-shot capability; emits `VAULT_RAW_REVEAL` (FOREVER).
@@ -595,7 +703,7 @@ The schema for each RecordType restricts the payload to closed fields (per §8.7
 - [ ] Capability rotation is atomic with a bounded grace window for in-flight operations; old material is wiped after the grace window.
 - [ ] Master key never leaves the broker process address space; broker process runs `mlock`-pinned, non-dumpable, syscall-restricted.
 - [ ] All evidence records emitted by the broker conform to closed-field schemas; no free-form payload; no raw bytes, plaintext, or signatures.
-- [ ] All eight golden fixtures (§12) produce the specified outcomes.
+- [ ] All ten golden fixtures (§12) produce the specified outcomes (Wave 9 added Fixtures 9–10 for `BOOTSTRAP_KEY_SIGN`).
 - [ ] Telemetry conforms to §13 cardinality bounds; capability/subject/group/session ids never appear as labels.
 - [ ] Performance p95s in §7 are met under the deployment guide's reference hardware.
 
@@ -663,6 +771,7 @@ enum VaultCapabilityClass {
   MAC_VERIFY = 6;
   RANDOM_GENERATE = 7;
   SECRET_GET = 8;
+  BOOTSTRAP_KEY_SIGN = 9;     // Wave 9 — first-boot one-shot, no CapabilityBinding (see §3.1)
 }
 
 enum VaultMaterialKind {
@@ -732,6 +841,8 @@ enum VaultErrorCode {
   MASTER_KEY_UNAVAILABLE = 19;
   MATERIAL_NOT_FOUND = 20;
   VAULT_BROKER_INTERNAL = 21;
+  BOOTSTRAP_KEY_SIGN_NOT_PERMITTED = 22;     // Wave 9 — preconditions §3.1 unmet
+  BOOTSTRAP_KEY_ALREADY_EXHAUSTED = 23;       // Wave 9 — firstboot marker already exists
 }
 
 // ============================================================================

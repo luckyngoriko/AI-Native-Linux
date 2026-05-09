@@ -1178,6 +1178,201 @@ Evidence: E1 (file exists; structural contract complete; signed off in spec rev.
 
 The next evidence step (E2) requires a typecheck-clean proto IDL extracted from this sub-spec into the `aios.runtime.v1alpha1` schema package, including the closed `ActionLifecycleState`, `ActionDispatchKind`, `AdapterIOMode`, `AdapterStability`, `QueueClass`, `ExecutionFailureReason`, `RollbackOutcome`, `RuntimeErrorCode`, and `RollbackStrategy` enums and the `AdapterManifest` record. The next step (E3) requires unit and integration tests against the FSM and the eight-step pre-dispatch sequence under all closed failure-reason values. The next step (E4) requires end-to-end execution of the three worked examples in §16 against a working Capability Runtime instance with real adapters, with all evidence reconstructible from L9.1. The full E5 (live operational) status is reached only after the runtime is deployed and producing evidence in non-simulation mode against multiple production adapters.
 
+## Wave 8 cross-spec touch-up (Tier 1 + Tier 2 typed action catalog additions)
+
+Applied 2026-05-11. Sources: [S12.1 App Runtime Model](../L6_Apps_Packages_Compatibility/01_app_runtime_model.md), [S9.3 Dedicated Kernel Pipeline](../L1_Kernel_Bootstrap_Recovery/03_dedicated_kernel_pipeline.md), [S12.4 Compatibility Knowledge](../L6_Apps_Packages_Compatibility/05_compatibility_knowledge.md), [S8.3 Hardware Graph](../L8_Network_Hardware_Devices/01_hardware_graph.md), [S8.4 DNS / VPN / mDNS Management](../L8_Network_Hardware_Devices/03_dns_vpn_management.md), [S8.5 Firmware Trust](../L8_Network_Hardware_Devices/04_firmware_trust.md), [S11.3 External Integrations](../L10_Distribution_Ecosystem_Marketplace/03_external_integrations.md), [S13.2 Model Router](../L5_Cognitive_Core/05_model_router.md), [S9.2 First-Boot Flow](../L1_Kernel_Bootstrap_Recovery/02_first_boot_flow.md). This section consolidates every typed action explicitly queued for S10.1 by Tier 1 and Tier 2 source contracts (Wave 7 §26.6 and the Tier 2 cross-spec impact notes). It is **additive**: no existing §3 enum or §4 lifecycle is redefined. Every action below binds to the existing closed `ActionDispatchKind`, `AdapterIOMode`, and `AdapterStability` vocabulary. Each action's RecordType emissions have already been consolidated into the S3.1 Wave 8 RecordType enum; this contract does not redefine evidence shape.
+
+### W8.1 New typed actions per source spec
+
+Each subsection lists the actions queued by exactly one source. The columns are:
+
+- **action_kind** — dotted name; bundle-load fails on unknown (per §3 closed-vocabulary discipline);
+- **AdapterIOMode** — `TYPED_PARAMETERS_ONLY` or `TEMPLATE_PARAMETERS` (closed enum, §3.3);
+- **Permission** — `HUMAN_USER` (S5.3 EXACT_ACTION binding required at dispatch), `AI_SUBJECT_OK` (system service or AI-origin subject permitted by the source spec under standing approval or the propose-only INV-002 contract), `RECOVERY_ONLY` (`request.environment` MUST be `RECOVERY` per S0.1; non-recovery dispatches are hard-denied with `RecoveryRequiredForSystemMutation`);
+- **Source spec** — the contract that introduced and queued the action;
+- **Purpose** — single-sentence operational meaning.
+
+All actions in this Wave dispatch as `ISOLATED_SANDBOX` (per §3.2: any AI-origin action AND any system-service action whose target resolves under `/aios/system/...` is forced to isolated sandbox). All actions are `STABLE` once their adapter is registered; until then they inherit `EXPERIMENTAL` per §3.4.
+
+#### W8.1.1 — S12.1 App Runtime Model (4 actions)
+
+Queued by [S12.1 §8.2](../L6_Apps_Packages_Compatibility/01_app_runtime_model.md). Originally promised in Wave 7 §26.6 against this sub-spec; consolidated here.
+
+| action_kind                  | AdapterIOMode           | Permission      | Source spec | Purpose                                                                                                                                                                                                                                                                       |
+| ---------------------------- | ----------------------- | --------------- | ----------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `app.observe_in_sandbox`     | `TYPED_PARAMETERS_ONLY` | `AI_SUBJECT_OK` | S12.1 §6    | Phase A — run a foreign-ecosystem app inside the maximally-restricted observation sandbox to record `ObservedBehavior`; subject is `_system:service:app-observer`.                                                                                                            |
+| `app.translate_manifest`     | `TYPED_PARAMETERS_ONLY` | `AI_SUBJECT_OK` | S12.1 §7    | Phase B — AI proposer derives `SandboxProfile + NetworkOutboundManifest + capability list` from the foreign artifact via a closed `ManifestTranslationStrategy`; subject is the AI agent (`is_ai = true`); INV-002 binds — execution is the proposal record, not the install. |
+| `app.propose_manifest_delta` | `TYPED_PARAMETERS_ONLY` | `AI_SUBJECT_OK` | S12.1 §7.4  | Phase D — AI proposer emits a `ManifestDeltaOutcome` proposal recommending capability or sandbox adjustments based on Phase C audit signals; INV-002 binds.                                                                                                                   |
+| `app.contribute_recipe`      | `TYPED_PARAMETERS_ONLY` | `HUMAN_USER`    | S12.1 §7.5  | Operator-initiated contribution of a successfully-installed app's recipe back to the Community Recipe Registry; AI cannot contribute on behalf of the operator (INV-002 envelope-FSM rejection on `policy_pending → executing`).                                              |
+
+#### W8.1.2 — S9.3 Dedicated Kernel Pipeline (2 actions)
+
+Queued by [S9.3 §8.1, §11.1](../L1_Kernel_Bootstrap_Recovery/03_dedicated_kernel_pipeline.md). Originally promised in Wave 7 §26.6 against this sub-spec; consolidated here.
+
+| action_kind      | AdapterIOMode           | Permission      | Source spec | Purpose                                                                                                                                                                                                                                                                                                                                                                                    |
+| ---------------- | ----------------------- | --------------- | ----------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `kernel.build`   | `TYPED_PARAMETERS_ONLY` | `AI_SUBJECT_OK` | S9.3 §8.1   | Run the `KernelBuilder.Build` pipeline (Build + Convergence + Six Gates) and produce a `KernelImage`. Subject is `_system:service:kernel-builder` (`is_ai = false`); approval is the standing pipeline-definition approval, not per-invocation; per-invocation operator approval is required only at separate `kernel.promote_to_a` (which is RECOVERY_ONLY and out of this Wave's scope). |
+| `kernel.refresh` | `TYPED_PARAMETERS_ONLY` | `AI_SUBJECT_OK` | S9.3 §11.1  | Scheduled L3 SGR action that resolves the latest pinned upstream stable tag and dispatches `kernel.build` against it. Same subject and approval discipline as `kernel.build`; emits `KERNEL_REFRESH_SCHEDULED` at start and `KernelMaintenanceResult` at finish.                                                                                                                           |
+
+#### W8.1.3 — S12.4 Compatibility Knowledge (3 actions)
+
+Queued by [S12.4 §8](../L6_Apps_Packages_Compatibility/05_compatibility_knowledge.md). All three flow through S5.3 `EXACT_ACTION` approval; AI subjects can populate the envelope but cannot drive `policy_pending → executing` (INV-002 binding analogous to `APP_AI_DIRECT_INSTALL_ATTEMPTED_BLOCKED`).
+
+| action_kind                             | AdapterIOMode           | Permission   | Source spec | Purpose                                                                                                                                                                                                                                                                                                                           |
+| --------------------------------------- | ----------------------- | ------------ | ----------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `compat.contribute_profile_observation` | `TYPED_PARAMETERS_ONLY` | `HUMAN_USER` | S12.4 §8    | Operator records a `RecipeRating` observation for an app + `EcosystemRuntime` pair with explicit `ProfileVisibility` disclosure; visibility upgrades are presented as a separate operator-comprehensible disclosure in the approval prompt.                                                                                       |
+| `compat.import_profile_from_upstream`   | `TYPED_PARAMETERS_ONLY` | `HUMAN_USER` | S12.4 §8    | Operator-initiated one-shot import of a snapshot profile from a closed upstream registry (`PROTONDB`, `WINEHQ_APPDB`, `FLATHUB`, `SNAPCRAFT`) under a `_system:bridge:<source>` system bridge subject; approval prompt names the source explicitly ("import N ProtonDB ratings as advisory metadata; no installs are performed"). |
+| `compat.review_outlier_contribution`    | `TYPED_PARAMETERS_ONLY` | `HUMAN_USER` | S12.4 §8    | Operator with `compat.review` capability (or AIOS-root governance) adjudicates a contribution flagged by the outlier detector (§5.4 of S12.4); outcome adjusts contributor weight and registry inclusion per §5.1.                                                                                                                |
+
+#### W8.1.4 — S8.3 Hardware Graph (5 actions)
+
+Queued by [S8.3 §8.2 + §11](../L8_Network_Hardware_Devices/01_hardware_graph.md). Every mutating HDM RPC is a typed action under this contract. INV-013 is enforced at envelope validation: AI subjects are hard-denied with `AI_FORBIDDEN_OPERATION` and `AI_REMOVABLE_DEVICE_BLOCKED` FOREVER evidence before dispatch.
+
+| action_kind                                 | AdapterIOMode           | Permission   | Source spec | Purpose                                                                                                                                                                                                                 |
+| ------------------------------------------- | ----------------------- | ------------ | ----------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `hardware.approve_removable_device`         | `TYPED_PARAMETERS_ONLY` | `HUMAN_USER` | S8.3 §8.2   | Operator approves a removable device under a closed `RemovableDevicePolicy` class with bounded TTL; emits `REMOVABLE_DEVICE_APPROVED` evidence and writes the typed grant to `/aios/system/hardware/grants/<grant_id>`. |
+| `hardware.revoke_removable_device_approval` | `TYPED_PARAMETERS_ONLY` | `HUMAN_USER` | S8.3 §8.4   | Operator explicitly revokes a previously-issued grant; transitions the device to `QUARANTINED` with reason `OPERATOR_INITIATED` and unbinds its driver.                                                                 |
+| `hardware.quarantine_device`                | `TYPED_PARAMETERS_ONLY` | `HUMAN_USER` | S8.3 §6     | Operator forces a device into the `QUARANTINED` state for forensic review; emits `DEVICE_QUARANTINED` FOREVER evidence carrying the closed `DeviceQuarantineReason`.                                                    |
+| `hardware.rebind_driver`                    | `TYPED_PARAMETERS_ONLY` | `HUMAN_USER` | S8.3 §5.3   | Operator forces re-evaluation of driver binding for a device; out-of-tree driver bind requires `RECOVERY_REQUIRED` per INV-012, but normal-mode in-tree rebind is permitted under operator approval.                    |
+| `hardware.accept_drift`                     | `TYPED_PARAMETERS_ONLY` | `HUMAN_USER` | S8.3 §7.2   | Operator approves an unapproved cross-boot hardware-graph drift entry, transitioning the diff from `UNAPPROVED` to `APPROVED`; FOREVER evidence retained regardless of outcome.                                         |
+
+#### W8.1.5 — S8.4 DNS / VPN / mDNS Management (8 actions)
+
+Queued by [S8.4 §11](../L8_Network_Hardware_Devices/03_dns_vpn_management.md). All resolver/VPN/mDNS mutations are typed actions under this contract. INV-002 binds (§3.4 of S8.4): AI-authored attempts are hard-denied at S2.3.
+
+| action_kind                         | AdapterIOMode           | Permission      | Source spec | Purpose                                                                                                                                                                                                                 |
+| ----------------------------------- | ----------------------- | --------------- | ----------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `network.resolver.set_backend`      | `TYPED_PARAMETERS_ONLY` | `HUMAN_USER`    | S8.4 §6.1   | Switch the active resolver backend among `SYSTEMD_RESOLVED`, `UNBOUND_LOCAL`, `DNSCRYPT_PROXY`; in-flight queries drained over a 5-second window.                                                                       |
+| `network.resolver.set_allowlist`    | `TYPED_PARAMETERS_ONLY` | `RECOVERY_ONLY` | S8.4 §6.2   | Replace the signed resolver allowlist; recovery-mode-only per INV-012; outside recovery returns `RECOVERY_REQUIRED`.                                                                                                    |
+| `network.vpn.establish_tunnel`      | `TYPED_PARAMETERS_ONLY` | `HUMAN_USER`    | S8.4 §6.3   | Operator establishes a WireGuard tunnel; non-WireGuard kinds are hard-denied via `OPERATOR_DEFINED_OTHER_BLACKLISTED`; activation requires `STRONG` approval strength.                                                  |
+| `network.vpn.revoke_tunnel`         | `TYPED_PARAMETERS_ONLY` | `HUMAN_USER`    | S8.4 §5.4   | Operator revokes an active VPN tunnel; cascades to peer key cleanup and emits `VPN_TUNNEL_REVOKED` evidence.                                                                                                            |
+| `network.vpn.rotate_peer_key`       | `TYPED_PARAMETERS_ONLY` | `HUMAN_USER`    | S8.4 §6.4   | Provider rotates its peer public key; signed by the provider's enrollment-time identity key (the signature is the authority — no extra `STRONG` approval required, but the rotation is recorded with FOREVER evidence). |
+| `network.mdns.set_avahi_posture`    | `TYPED_PARAMETERS_ONLY` | `HUMAN_USER`    | S8.4 §5.6   | Operator sets the host-wide `MdnsAvahiPosture` (`DENY_DEFAULT` / `LAN_LOCAL_ALLOWED` / `RECOVERY_DENIED`).                                                                                                              |
+| `network.mdns.grant_advertisement`  | `TYPED_PARAMETERS_ONLY` | `HUMAN_USER`    | S8.4 §6.5   | Per-service mDNS advertisement grant with TTL ≤ 30 days; requires `STRONG` approval strength; renewals re-emit the approval flow.                                                                                       |
+| `network.mdns.revoke_advertisement` | `TYPED_PARAMETERS_ONLY` | `HUMAN_USER`    | S8.4 §6     | Operator revokes a previously-granted mDNS advertisement; immediate effect.                                                                                                                                             |
+
+#### W8.1.6 — S8.5 Firmware Trust (1 action)
+
+Queued by [S8.5 §4 + §8](../L8_Network_Hardware_Devices/04_firmware_trust.md). The seven-stage firmware update flow is a single typed action under this contract; the stages are internal to the action's adapter execution.
+
+| action_kind               | AdapterIOMode           | Permission   | Source spec  | Purpose                                                                                                                                                                                                                                                                                                              |
+| ------------------------- | ----------------------- | ------------ | ------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `firmware.update.request` | `TYPED_PARAMETERS_ONLY` | `HUMAN_USER` | S8.5 §4 / §8 | Operator-authored firmware update flowing through the seven-stage pipeline (FETCH → VERIFY → APPROVE → STAGE → APPLY → VERIFY_POST → COMMIT_OR_ROLLBACK). AI subjects (`is_ai = true`) are hard-denied at envelope validation under S2.3 hard-deny `AISystemAdminBlocked`; rule id `hd.firmware_update.ai_authored`. |
+
+#### W8.1.7 — S11.3 External Integrations (5 actions)
+
+Queued by [S11.3 §11](../L10_Distribution_Ecosystem_Marketplace/03_external_integrations.md). Auto-bridge operations run under `_system:service:bridge-<source>` system bridge subjects (`is_ai = false`); the explicit OCI fetch path requires HUMAN_USER per the deferred §6.2 carve-out.
+
+| action_kind                 | AdapterIOMode           | Permission      | Source spec | Purpose                                                                                                                                                                               |
+| --------------------------- | ----------------------- | --------------- | ----------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `bridge.fetch`              | `TYPED_PARAMETERS_ONLY` | `AI_SUBJECT_OK` | S11.3 §4    | System bridge fetches an upstream artifact (DEB, RPM, Flatpak, OCI metadata) from a pinned upstream mirror under the closed `BridgeSource` enum; subject cannot install directly.     |
+| `bridge.repackage`          | `TYPED_PARAMETERS_ONLY` | `AI_SUBJECT_OK` | S11.3 §4    | System bridge repackages the upstream artifact into an AIOS package with attribution preserved; output flows to S11.1's standard install pipeline.                                    |
+| `bridge.import_metadata`    | `TYPED_PARAMETERS_ONLY` | `AI_SUBJECT_OK` | S11.3 §6    | System bridge imports upstream catalogue metadata (e.g. GHCR container catalogue) for L7 marketplace surface display; importing metadata never authorises an install.                 |
+| `bridge.import_recipe`      | `TYPED_PARAMETERS_ONLY` | `AI_SUBJECT_OK` | S11.3 §4    | System bridge imports an upstream recipe (Flathub manifest, AUR PKGBUILD) into the Community Recipe Registry, with attribution preserved as `RECIPE_IMPORTED`.                        |
+| `bridge.oci.fetch_explicit` | `TYPED_PARAMETERS_ONLY` | `HUMAN_USER`    | S11.3 §6.2  | Operator-explicit OCI image fetch gated by S5.3 `EXACT_ACTION` approval; runs through a separate admission pipeline outside the auto-bridge (full UX queued for S11.2 consolidation). |
+
+#### W8.1.8 — S13.2 Model Router (2 actions)
+
+Queued by [S13.2 Appendix A](../L5_Cognitive_Core/05_model_router.md). The model router's hot path (`Invoke`) is **not** a typed action — it is a runtime dispatch under the standing routing precedence; only adapter lifecycle is action-mediated.
+
+| action_kind                     | AdapterIOMode           | Permission   | Source spec | Purpose                                                                                                                                                                                                 |
+| ------------------------------- | ----------------------- | ------------ | ----------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `model_router.register_backend` | `TYPED_PARAMETERS_ONLY` | `HUMAN_USER` | S13.2 §A    | Register a new `ModelBackendKind` adapter (Ollama, vLLM, vault-brokered external provider) into the router's precedence table; mediated through the S11.1 install pipeline — not a free-form write API. |
+| `model_router.retire_backend`   | `TYPED_PARAMETERS_ONLY` | `HUMAN_USER` | S13.2 §A    | Retire a registered backend; cascading effect closes any open circuit-breaker and removes the backend from precedence selection; emits `MODEL_BACKEND_RETIRED` evidence.                                |
+
+#### W8.1.9 — S9.2 First-Boot Flow (1 action)
+
+Queued by [S9.2 §11](../L1_Kernel_Bootstrap_Recovery/02_first_boot_flow.md). The recovery firstboot reset is the only path back to first-boot and is constitutionally recovery-mode-only.
+
+| action_kind                | AdapterIOMode           | Permission      | Source spec | Purpose                                                                                                                                                                                                                                                                                                          |
+| -------------------------- | ----------------------- | --------------- | ----------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `recovery.firstboot.reset` | `TYPED_PARAMETERS_ONLY` | `RECOVERY_ONLY` | S9.2 §11    | Operator-initiated reset of `/aios/system/firstboot/marker` from recovery mode with co-signer + explicit confirmation phrase; AI subjects rejected by `AISystemAdminBlocked` (INV-013); normal-mode subjects rejected by `RecoveryRequiredForSystemMutation` (INV-012); the cascade of guards is constitutional. |
+
+### W8.2 Permission-class distribution
+
+Truthful per-subsection recount:
+
+| Subsection     | HUMAN_USER | AI_SUBJECT_OK | RECOVERY_ONLY | Subtotal |
+| -------------- | ---------- | ------------- | ------------- | -------- |
+| W8.1.1 (S12.1) | 1          | 3             | 0             | 4        |
+| W8.1.2 (S9.3)  | 0          | 2             | 0             | 2        |
+| W8.1.3 (S12.4) | 3          | 0             | 0             | 3        |
+| W8.1.4 (S8.3)  | 5          | 0             | 0             | 5        |
+| W8.1.5 (S8.4)  | 7          | 0             | 1             | 8        |
+| W8.1.6 (S8.5)  | 1          | 0             | 0             | 1        |
+| W8.1.7 (S11.3) | 1          | 4             | 0             | 5        |
+| W8.1.8 (S13.2) | 2          | 0             | 0             | 2        |
+| W8.1.9 (S9.2)  | 0          | 0             | 1             | 1        |
+| **Totals**     | **20**     | **9**         | **2**         | **31**   |
+
+`HUMAN_USER` required: **20 actions**.
+`AI_SUBJECT_OK`: **9 actions**.
+`RECOVERY_ONLY`: **2 actions**.
+
+#### W8.2.1 INV-002 enforcement check (mandatory)
+
+Per [XX_Cross_Cutting/04 §4](../XX_Cross_Cutting/04_constitutional_meta_principles.md), every install / destructive / system-admin action that AI subjects could attempt to author MUST trigger the existing closed-enum reject (`APP_AI_DIRECT_INSTALL_ATTEMPTED_BLOCKED` for app installs, or analogue codes per source) at the envelope FSM boundary. The Wave 8 catalog is audited as follows:
+
+| action_kind                                                                     | INV-002 enforcement                                                                                                                                                                             | Reject code (closed)                                                        | Citation      |
+| ------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------- | ------------- |
+| `app.contribute_recipe`                                                         | AI envelope-FSM rejection on `policy_pending → executing`                                                                                                                                       | `APP_AI_DIRECT_INSTALL_ATTEMPTED_BLOCKED` (analogue)                        | S12.1 §9.1    |
+| `compat.contribute_profile_observation`                                         | Same envelope-FSM rejection; reuses the S12.1 evidence type                                                                                                                                     | `APP_AI_DIRECT_INSTALL_ATTEMPTED_BLOCKED` (reused per S12.4 §9.9)           | S12.4 §9.9    |
+| `compat.import_profile_from_upstream`                                           | Same envelope-FSM rejection                                                                                                                                                                     | `APP_AI_DIRECT_INSTALL_ATTEMPTED_BLOCKED` (reused)                          | S12.4 §9.9    |
+| `compat.review_outlier_contribution`                                            | Same envelope-FSM rejection                                                                                                                                                                     | `APP_AI_DIRECT_INSTALL_ATTEMPTED_BLOCKED` (reused)                          | S12.4 §9.9    |
+| `hardware.approve_removable_device` (and four siblings)                         | S2.3 hard-deny `AISystemAdminBlocked` at envelope validation                                                                                                                                    | `AI_REMOVABLE_DEVICE_BLOCKED` FOREVER                                       | S8.3 §8.3     |
+| `network.resolver.set_backend` (and four resolver/VPN/mDNS HUMAN_USER siblings) | S2.3 hard-deny `AISystemAdminBlocked` at envelope validation; also covered by INV-002 §4.2 site 3 (Network AI_VAULT_BROKERED_ONLY) at the network-policy plane                                  | `AI_DIRECT_INTERNET_DENIED` FOREVER                                         | S8.4 §3.4     |
+| `network.resolver.set_allowlist`                                                | RECOVERY_ONLY — both INV-002 (AI-author) and INV-012 (non-recovery) hard-denies cascade                                                                                                         | `RecoveryRequiredForSystemMutation` + `AISystemAdminBlocked`                | S8.4 §6.2     |
+| `firmware.update.request`                                                       | S2.3 hard-deny `AISystemAdminBlocked` with rule id `hd.firmware_update.ai_authored`                                                                                                             | (S2.3 hard-deny class)                                                      | S8.5 §8       |
+| `bridge.oci.fetch_explicit`                                                     | Subject is HUMAN_USER; the auto-bridge subjects (`is_ai = false`, `_system:bridge:*`) are not AI subjects, so INV-002 §4.2 sites 1+3 (vault, network) bind at their respective layers, not here | (n/a — not an AI subject)                                                   | S11.3 §145    |
+| `model_router.register_backend` / `retire_backend`                              | Mediated through S11.1 install pipeline (INV-002 §4.2 site 2 — package install gate)                                                                                                            | `APP_AI_DIRECT_INSTALL_ATTEMPTED_BLOCKED` (reused via the install pipeline) | S13.2 §A note |
+| `recovery.firstboot.reset`                                                      | INV-013 + INV-012 cascade hard-denies as documented in S9.2 §11.2 worked example                                                                                                                | `AISystemAdminBlocked` + `RecoveryRequiredForSystemMutation`                | S9.2 §11      |
+
+Observation: every HUMAN_USER and RECOVERY_ONLY action in this Wave is covered by an existing INV-002 enforcement site (or its INV-012/INV-013 sibling). No new closed-enum reject code is introduced by this consolidation; existing FOREVER evidence semantics are reused. The §4.2 enforcement map (site 2 — Package install gate; site 4 — Capability Runtime queue cap) is the one that fires for `app.*`, `compat.*`, `model_router.*` AI-author attempts; sites 1 (vault) and 3 (network) cover the secret-bearing and outbound paths respectively.
+
+The `AI_SUBJECT_OK` actions (9 total — three `app.*` Phase A/B/D, two `kernel.*` system-service, four `bridge.*` system-bridge) are explicitly designed for non-human subjects: they are either propose-only (INV-002-shaped — execution is the proposal record, not the side effect) or system-service identities under standing approval. None of them performs a destructive system mutation against `/aios/system/...` outside the recovery boundary.
+
+### W8.3 Reconciliation (truthful arithmetic)
+
+Total Wave 8 typed-action additions: **31**.
+
+This sub-spec (S10.1) had no enumerated typed-action catalog before Wave 8; the action_kind vocabulary was previously implicit and consumed via the L5 capability catalog (S1.1 §6.4). Wave 8 establishes the first explicit cross-spec catalog under this contract. After Wave 8, the cumulative narrative total of S10.1-bound typed action_kinds explicitly listed in this sub-spec is **31**.
+
+Note: this count is **not** the total system-wide action_kind count. Other action_kinds (e.g. `pkg.install`, `kernel.promote_to_a`, `kernel.module_set.add`, `policy_bundle.replace`, `app.launch`, the per-runtime `runtime.<adapter>.launch_app` family from S12.3, `RotateResolverList` and other internal RPCs that map to action_kinds) exist and bind to the same vocabulary but were either pre-existing (referenced in §16 worked examples) or were not explicitly queued by their source contract for S10.1 catalog consolidation — see W8.4 below.
+
+### W8.4 Cross-spec impact note
+
+#### W8.4.1 RecordType and verification primitive consolidation already complete
+
+Each of the 31 Wave 8 actions emits at least one `RecordType` (action lifecycle records — `ACTION_REGISTERED`, `EXECUTION_OBSERVED`, `EXECUTION_VERIFICATION_FAILED`, etc. — plus the per-source-spec evidence types catalogued in S12.1 §13, S9.3 §15, S12.4 §11, S8.3 §12, S8.4 §10, S8.5 §11, S11.3 §10, S13.2 §11, S9.2 §10). All of these have been consolidated into S3.1 in earlier Wave passes. This Wave does not re-declare RecordType vocabulary.
+
+#### W8.4.2 S2.4 property assertions held for separate refinement
+
+S2.4 verification grammar may want a property assertion per typed action (e.g. `ACTION_DISPATCH_KIND_INTACT`, `ACTION_PERMISSION_CLASS_INTACT`) so an auditor can verify the runtime did not silently lower the permission class for a registered action. This is **not** consolidated in Wave 8 — it is a property-vocabulary extension that belongs in a future S2.4 refinement (queued).
+
+#### W8.4.3 Source specs that queued no typed action for Wave 8
+
+The following Tier 2 specs were inspected for queued S10.1 actions and found to introduce **no** new action_kinds requiring catalog consolidation:
+
+- **S12.2 Package Model**: introduces on-disk `PackageObjectKind` / `PackageObjectState` / `RollbackKind` enums and references `aios.package.install`, `aios.package.update.stage`, `aios.package.update.promote`, `aios.package.rollback` action_kinds in worked examples (§5, §13), but those action_kinds are owned by S11.1 (the install pipeline contract) and were not explicitly queued by S12.2 for consolidation here. They remain in the implicit catalog under L5/S1.1 §6.4.
+- **S12.3 Compatibility Runtime**: introduces the abstract `runtime.<adapter_name>.launch_app` family of per-`EcosystemRuntime` typed actions (concrete instances `runtime.linux_native.launch_app`, `runtime.proton.launch_app`, `runtime.waydroid.launch_app`, `runtime.kvm.launch_app`, etc., one per closed `EcosystemRuntime` value from S12.1 §3.1), but the contract explicitly states these are adapter-implementation contracts under S10.1 internal dispatch (§5.6 of S12.3) and are **not** queued for catalog consolidation here. They are reachable only via the orchestrator-owned `app.launch` action.
+- **S7.6 CLI Renderer**: introduces no new typed actions; the CLI is a renderer over the existing typed-action surface (§1 of S7.6 explicitly forbids free-form shell escapes per `AdapterIOMode`).
+- **S11.2 Marketplace**: introduces the `DiscoveryProposal` action envelope shape (§9 of S11.2) but defers the full schema to L5; not consolidated here. Install actions on the marketplace surface flow through the existing S11.1 install pipeline.
+- **S14.1 Failure Handling**: consumer of S10.1; introduces no new typed actions. Adapter degradation (row 19 of §6) is a state mutation owned by S10.1 §3.4 (`AdapterStability` transitions), not a separate typed action.
+- **S14.2 Telemetry Pipeline**: consumer of S10.1; uses `adapter_kind` as a label source. No new typed actions.
+
+#### W8.4.4 Audit findings (potential RECOVERY_ONLY mismatches)
+
+This consolidation surfaces two action_kinds whose permission classification merits a follow-up audit pass against the L0 invariant catalog:
+
+- **`hardware.rebind_driver`** (W8.1.4) is classified `HUMAN_USER` here, matching S8.3 §5.3 + §8.3. However, S8.3 §9.6 documents that out-of-tree driver bind requires `RECOVERY_REQUIRED` per INV-012, and the action's adapter cannot statically distinguish between in-tree rebind (legitimately HUMAN_USER) and out-of-tree rebind (requires recovery) at envelope validation time — the discrimination is inside the adapter's driver-binding evaluator. An auditor reading W8.1.4 in isolation might miss this nuance. Recommended follow-up: introduce a closed `target.driver_provenance` condition field at S2.3 (already queued in S8.3 §11.1) and split this into `hardware.rebind_driver_in_tree` (HUMAN_USER) versus `hardware.rebind_driver_out_of_tree` (RECOVERY_ONLY) in the next refinement Wave.
+- **`hardware.accept_drift`** (W8.1.4) is classified `HUMAN_USER`. A drift entry that involves a quarantined-device firmware downgrade or a CPU/microcode/TPM substitution may merit RECOVERY_ONLY treatment because the substrate is constitutional (cf. S8.5 §9.3 constitutional refusal scopes). The current contract permits operator approval in normal mode; a stricter reading of INV-022 (recovery aesthetic distinct, by analogy) and INV-012 (recovery required for system mutation) might require recovery-mode for the constitutional-scope subset. Recommended follow-up: scope-condition-class split in the next S8.3 refinement Wave.
+
+Both observations are flagged as **audit findings**, not blockers. The current classifications match the source specs verbatim; tightening to RECOVERY_ONLY is a constitutional decision that requires a deliberate L0 invariant promotion (per the DEC-025 / DEC-026 discipline), not a unilateral edit in this consolidation pass.
+
+#### W8.4.5 No execution-discipline change
+
+This Wave is purely additive against §3 (vocabulary) and the L5 capability catalog. It does not modify §4 (lifecycle FSM), §5 (gRPC service surface), §6 (eight-step pre-dispatch), §7 (verification and rollback), §8 (emergency override), §10 (adapter manifest contract), or §11 (queueing and AI-share cap). Every Wave 8 action is dispatched under the existing FSM and the existing `ISOLATED_SANDBOX` discipline; no new dispatch kind, no new failure reason, no new error code, no new queue class is introduced.
+
 ## See also
 
 - [L3 Overview](./00_overview.md)

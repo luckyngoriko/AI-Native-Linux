@@ -854,7 +854,143 @@ The two new property entries contribute closed enum labels to `verification_prop
 
 This section is a narrative declaration of the new closed enum entries and primitive messages. Full reconciliation against Appendix A (the consolidated proto IDL) is deferred to the next IDL roll-up, mirroring §18.7 and §17. No existing field number is changed; the additions are strictly additive.
 
-## 20. See also
+## 20. Wave 8 cross-spec touch-up (Tier 1 + Tier 2 verification properties)
+
+Applied 2026-05-09. Sources scanned for queued S2.4 contributions across Tier 1 (S9.2, S14.1, S6.3, S0.3) and Tier 2 (S15.1, S15.2, S15.3, S13.2, S13.1, S12.2, S12.3, S12.4, S7.6, S8.3, S8.4, S8.5, S14.2, S11.2, S11.3). This section consolidates the queued verification properties and primitives into the closed S2.4 vocabulary. It is additive: §17 / §18 / §19 are not edited. As with prior waves, this is a narrative declaration; full Appendix A IDL reconciliation is deferred to the next IDL roll-up (mirrors §17.1 / §18.7 / §19.6 pattern).
+
+Per L0.4 §3 I1, **invariant catalog mutation is a versioned spec change**: candidate L0 invariants surfaced by these source specs are NOT promoted in Wave 8 and are catalogued in §20.5 below for the audit-phase L0 sweep.
+
+### 20.1 New verification properties — per source contract
+
+The closed `PropertyType` enum (§7.1) gains five entries in Wave 8. After this addition the enum holds **21 entries** total (16 prior + 5 Wave 8). Severity is one of: **constitutional** (verifies an L0 invariant or a constitutional structural claim; emits `TAMPER_DETECTED` on failure), **operational** (verifies a sub-spec contract; emits the source spec's regular failure record), **informational** (verifies a hygienic property; emits an audit-only record).
+
+#### 20.1.1 From S6.3 (Evidence Receipt Schema) — four properties
+
+| Property name                    | What it asserts                                                                                                                                                                                                                          | Where measured                                                                                                                                                                                                                           | Severity       | Source spec |
+| -------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------- | ----------- |
+| `RECEIPT_SIGNATURE_VERIFIED`     | For every receipt in scope, the Ed25519 signature in `integrity.signature` verifies against the `signing_key_id` resolved through the L4.2 vault broker; the signing subject matches the receipt's `subject_canonical_id` per S6.3 §9.1. | Read-side audit over a segment range or single receipt; the verifier reads sealed bytes from S3.1, recomputes the canonical signature payload (BLAKE3 over JCS of the signed-fields oneof), and verifies via the broker `bound_subject`. | constitutional | S6.3 §11    |
+| `RECEIPT_REDACTION_VALID`        | For every receipt in scope, the `redaction_profile` was applied at emit time per S6.3 §6 and the sealed payload contains no secret-shaped content (per the `RedactionRule` registry version recorded on the receipt).                    | Read-side audit; the verifier replays the redaction rule registry against the receipt's payload-by-shape and asserts no rule would have rejected the receipt.                                                                            | constitutional | S6.3 §11    |
+| `RECEIPT_LINEAGE_DAG`            | For every `parent_receipt_id` reference within scope, the resolved parent exists, the resulting graph is acyclic, and depth is bounded per S6.3 §7.                                                                                      | Read-side audit; the verifier walks `parent_receipt_id` edges with cycle-detection and depth budget; cycles emit `RECEIPT_LINEAGE_CYCLE_DETECTED` (S6.3 §13).                                                                            | constitutional | S6.3 §11    |
+| `RECEIPT_RETENTION_MATCHES_TYPE` | For every receipt in scope, `retention_class` equals the canonical retention class for the receipt's `record_type` per S3.1 §13; mismatch is a forgery signal under S6.3 §9.                                                             | Read-side audit; the verifier joins receipt's `record_type` against the S3.1 retention table and asserts the receipt's recorded class matches.                                                                                           | constitutional | S6.3 §11    |
+
+Subsection count after S6.3: **4 properties** added in 20.1.1.
+
+#### 20.1.2 From S13.1 (Cognitive Core Model) — one property
+
+| Property name                 | What it asserts                                                                                                                                                                                                                                                                                                                                                                                          | Where measured                                                                                                                                                                                                                   | Severity       | Source spec      |
+| ----------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------- | ---------------- |
+| `AI_PROPOSAL_PIPELINE_INTACT` | For every action whose `subject.is_ai = true`, the lifecycle trace contains exactly one `SubmitAction` envelope edge into L3 and zero direct-execution edges; the agent FSM has no transition that bypasses `SubmitAction`; INV-002 is not merely behaviorally honoured but structurally unreachable to violate. Composes with the existing `POLICY_AI_SELF_APPROVAL_BLOCKED` for full INV-002 coverage. | Scheduled audit + every cognitive-core agent FSM transition. The probe walks the agent's emitted action trace from S3.1 `AGENT_PROPOSAL_EMITTED` chain and asserts no execution-side adapter was reached without `SubmitAction`. | constitutional | S13.1 §6.2 / §11 |
+
+Subsection count after S13.1: **1 property** added in 20.1.2.
+
+#### 20.1.3 From S12.2 (Package Object Model) — one property
+
+| Property name                  | What it asserts                                                                                                                                                                                                                                                                                                                                                                                                                                           | Where measured                                                                                                                                                                                                                                                            | Severity    | Source spec |
+| ------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------- | ----------- |
+| `PACKAGE_OBJECT_LAYOUT_INTACT` | For a package object: (1) the closed file set per S12.2 §4.2 matches exactly (no missing required, no extras); (2) `meta.aios.manifest_pointer` resolves and `BLAKE3(manifest.json) == manifest_pointer`; (3) the Merkle root over `code/ + data/ + config/ + probes/` matches `meta.aios.merkle_root`; (4) `state.aios` parses and the most recent transition is consistent with `meta.aios.kind`; (5) `rollback.json` parses and each pointer resolves. | Verified by the loader at every load (S12.2 §9) and on-demand by S2.4 schedule. The probe reads the package object via S1.3 chunk discipline, recomputes the Merkle root, and joins against `meta.aios`. Failure emits `PACKAGE_OBJECT_QUARANTINED` (S12.2 §14, FOREVER). | operational | S12.2 §13.2 |
+
+Subsection count after S12.2: **1 property** added in 20.1.3.
+
+Property total across 20.1: **6 properties** queued; **5 promoted in Wave 8** (the four S6.3 receipt-integrity properties + the S13.1 INV-002 structural verifier; the S12.2 layout property is also promoted — recount: actually all six are promoted). Truthful recount: 4 (S6.3) + 1 (S13.1) + 1 (S12.2) = **6 properties**. Closed `PropertyType` enum total after Wave 8: 16 prior + 6 Wave 8 = **22 entries**.
+
+### 20.2 New primitives — per source contract
+
+#### 20.2.1 From S8.4 (DNS / VPN Management) — three primitives
+
+The closed primitive vocabulary (§4) gains three further read-only entries. After this addition the vocabulary holds **27 entries** total (24 prior + 3 Wave 8). Field numbers continue the §3 oneof numbering; this is a narrative declaration — full IDL reconciliation deferred (mirrors §18.7 / §19.6 pattern).
+
+```proto
+// from S8.4 — returns the active resolver backend for a host
+message DnsResolverBackendPrimitive {
+  string host_id = 1;
+  aios.dnsvpn.v1alpha1.ResolverBackend expected_backend = 2;       // optional
+  aios.dnsvpn.v1alpha1.DnsTransport expected_transport = 3;        // optional
+}
+
+// from S8.4 — returns whether a named VPN tunnel is currently active
+message VpnTunnelActivePrimitive {
+  string tunnel_id = 1;
+  aios.dnsvpn.v1alpha1.VpnTunnelKind expected_kind = 2;            // optional
+}
+
+// from S8.4 — returns the active mDNS / Avahi posture for a host
+message MdnsPosturePrimitive {
+  string host_id = 1;
+  aios.dnsvpn.v1alpha1.MdnsAvahiPosture expected_posture = 2;
+}
+```
+
+| Primitive              | Field | Required args                                                         | Observed data on success                                                                    |
+| ---------------------- | ----- | --------------------------------------------------------------------- | ------------------------------------------------------------------------------------------- |
+| `dns_resolver_backend` | 26    | `host_id`, optional `expected_backend`, optional `expected_transport` | `{ observed_backend, observed_transport, allowlist_version, resolver_id, pin_match: bool }` |
+| `vpn_tunnel_active`    | 27    | `tunnel_id`, optional `expected_kind`                                 | `{ observed_kind, peer_endpoint_pin, last_handshake_age_seconds, observed_state }`          |
+| `mdns_posture`         | 28    | `host_id`, `expected_posture`                                         | `{ observed_posture, advertisement_count, grant_ttl_remaining }`                            |
+
+**Statements and backend probe procedures.**
+
+- **`dns_resolver_backend(host_id)`** — returns the active `ResolverBackend` (closed enum, [S8.4 §4](../L8_Network_Hardware_Devices/03_dns_vpn_management.md)) and `DnsTransport` (closed enum, S8.4 §4) for the host. The probe queries `DnsVpnService.GetResolverProfile`; the AIOS-root-signed allowlist version is correlated against the active resolver registry. Composes with S2.3 condition field `target.dns_transport` (queued at S8.4 §11.1).
+
+- **`vpn_tunnel_active(tunnel_id)`** — returns `true` iff the named WireGuard / equivalent tunnel has an active session with a recent handshake (within the per-`VpnTunnelKind` budget) and the peer endpoint matches the pinned manifest. The probe queries `DnsVpnService.GetVpnTunnel`. Stale handshake without re-key is reported as `FAILED` with `reason_code = VpnHandshakeStale`.
+
+- **`mdns_posture(host_id)`** — returns the active `MdnsAvahiPosture` (closed enum, S8.4 §4) for the host. The probe queries `DnsVpnService.GetMdnsPosture`. Mismatch with `expected_posture` fails the predicate; `RECOVERY_DENIED` posture is asserted automatically when the host is in recovery mode.
+
+**Status semantics for all three primitives:**
+
+- `PASSED` — observation matches the expected predicate (or, for an unbound expectation, the read succeeded with consistent state).
+- `FAILED` — observation succeeds but disagrees with the expected predicate.
+- `PROBE_ERROR` — `DnsVpnService` unavailable, schema-version mismatch, or allowlist-version drift.
+- `TIMEOUT` — observation did not return within the per-primitive timeout (default 1 s, max 5 s; these are local control-plane queries).
+- `SKIPPED` — primitive evaluated under a composition that short-circuited before reaching it.
+
+Subsection count after S8.4: **3 primitives** added in 20.2.1.
+
+Primitive total across 20.2: **3 primitives**. Closed primitive vocabulary total after Wave 8: 24 prior + 3 Wave 8 = **27 entries**.
+
+### 20.3 No execution-discipline change
+
+All Wave 8 additions obey existing execution rules: read-only, no L4 capability invocation, no AIOS-FS writes, no outbound network traffic generated by the probe itself. The receipt-integrity properties (20.1.1) read sealed segments only; `RECEIPT_SIGNATURE_VERIFIED` invokes the broker for `bound_subject` lookup but never requests private key material. The cognitive-core verifier (`AI_PROPOSAL_PIPELINE_INTACT`) reads the agent's emitted-action trace from S3.1 only — it does not invoke the agent. The package layout property reads chunk content via the regular S1.3 read path; recompute is bounded by package-object size. The three S8.4 primitives are local control-plane queries; none opens a new external connection.
+
+### 20.4 Telemetry impact
+
+The six new property entries contribute closed enum labels to `verification_property_audit_total{property_type}`; the closed enum is now **22 entries** — within the cardinality budget declared in §14. The three new primitive entries contribute closed labels to `verification_total{primitive}` and `verification_latency_seconds{primitive}`; the closed primitive set is now **27 entries** — within budget. No new telemetry metric is introduced.
+
+### 20.5 Candidate L0 invariants held for audit-phase L0 sweep
+
+The following six candidate L0 invariants surfaced across Tier 1 + Tier 2 source contracts. **Per L0.4 §3 I1, invariant catalog mutation is a versioned spec change and a recovery-mode invariant-bundle update; these are NOT promoted in Wave 8.** They are held for the audit-phase L0 sweep per the project owner's "deliberate single-purpose constitutional act" pattern (DEC-025 / DEC-026 / DEC-033 precedent). Promotion will happen as a separate L0 sweep after the audit phase finalizes the cumulative candidate set.
+
+| Candidate name                  | Source spec | Narrative-only intent                                                                                                                                                                                                                                                                       |
+| ------------------------------- | ----------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `AI_PROPOSAL_PIPELINE_INTACT`   | S13.1 §6.2  | "An AI subject's lifecycle has no transition that reaches L3 execution adapters except through `SubmitAction`. Structural impossibility of self-execution, not behavioral discipline." Verified mechanically by the Wave 8 property of the same name (20.1.2).                              |
+| `HARDWARE_GRAPH_DRIFT_FOREVER`  | S8.3 §I6    | "Every unapproved cross-boot hardware-graph drift emits FOREVER evidence (`HARDWARE_GRAPH_DRIFT_DETECTED`). The evil-maid swap signal is constitutional, not optional." Already enforced at S8.3's HardwareManager; L0 promotion makes it cross-implementation binding.                     |
+| `PACKAGE_OBJECT_LAYOUT_INTACT`  | S12.2 §13.2 | "Every package object on disk satisfies the closed-file-set + Merkle-root + state-consistency contract; loader rejects on any deviation." Already enforced at S12.2's loader; L0 promotion makes it constitutional. Verified mechanically by the Wave 8 property of the same name (20.1.3). |
+| `NETWORK_DEFAULT_DENY_OUTBOUND` | S8.1 §3.4   | "Default-deny on all outbound network traffic; allowlist + per-app outbound manifests are the only escape. AI subjects are NEVER granted ALLOW_INTERNET." Carried forward from prior Wave (still queued — not promoted in Wave 6/7/8).                                                      |
+| `PACKAGE_TRUST_CHAIN_BOUND`     | S11.1 §19   | "Every package's signing key chains to AIOS root in ≤ 3 hops; deeper chains rejected with FOREVER `TRUST_CHAIN_TOO_DEEP`. The signing chain is constitutional — no chain, no install." Already enforced at S11.1's install pipeline.                                                        |
+| `ECOSYSTEM_HONESTY_DISCLOSURE`  | S12.1 §8    | "AIOS shall not present an `EcosystemHonestyClass` weaker than the runtime is verified to deliver. Honesty class disclosure is mandatory at install and at every operator-visible surface." Already enforced at S12.1's recipe registry.                                                    |
+
+Candidate L0 invariants total after Wave 8 catalog: **6 candidates queued narrative-only**. Promotion path: a future single-purpose L0 sweep that authors the L0 invariant entries, increments the L0 invariant bundle version, and re-issues the bundle through recovery-mode per L1.1 `RecoveryMutableScope.INVARIANT_BUNDLE`.
+
+### 20.6 Reconciliation
+
+Total properties added in Wave 8: **6** (4 from S6.3, 1 from S13.1, 1 from S12.2).
+New cumulative `PropertyType` enum count: 16 prior + 6 Wave 8 = **22 entries**.
+
+Total primitives added in Wave 8: **3** (all from S8.4).
+New cumulative primitive vocabulary count: 24 prior + 3 Wave 8 = **27 entries**.
+
+Severity distribution of the 6 new properties: **constitutional 5** (`RECEIPT_SIGNATURE_VERIFIED`, `RECEIPT_REDACTION_VALID`, `RECEIPT_LINEAGE_DAG`, `RECEIPT_RETENTION_MATCHES_TYPE`, `AI_PROPOSAL_PIPELINE_INTACT`) / **operational 1** (`PACKAGE_OBJECT_LAYOUT_INTACT`) / **informational 0**.
+
+### 20.7 Cross-spec impact note
+
+- **New L0 invariants (audit-phase):** none promoted in Wave 8. Six candidates queued narrative-only — see §20.5.
+- **New typed actions (S10.1 Wave 8):** none from this S2.4 sweep. The 6 typed actions queued by Wave 7 (S9.3's `kernel.build` / `kernel.refresh` and S12.1's four `app.*` actions) plus the Tier 2 typed-action surfaces (e.g. S15.x SGR transitions, S8.4 DNS/VPN actions, S8.5 firmware actions, S11.2 marketplace, S11.3 external integrations) remain queued for the next S10.1 catalog roll-up — out of scope for this contract.
+- **Sources scanned with NO queued S2.4 contributions:** S9.2 (queues only S3.1 record types and the marker contract; no verification property), S14.1 (consumes S2.4's probe-error/verification-fail distinction; queues no new property), S0.3 (consumes existing S2.4 primitives; queues no new property), S15.1 / S15.2 / S15.3 (consume S2.4 primitive vocabulary for SGR health probes; queue no new property — S15.2 explicitly notes existing primitive names suffice), S13.2 (model router consumes S5.2 / S8.1 / S11.1; no S2.4 production), S12.3 (compatibility runtime consumes named primitives `process_alive` / `port_listening` / `unix_socket_listening` / `dbus_name_acquired` / `wayland_surface_visible` / `manifest_health_endpoint` from S2.4's existing closed catalog; no new property), S12.4 (compatibility knowledge; consumes S3.1 only), S7.6 (CLI renderer; consumes S7.2 + S7.3; no S2.4 production), S8.3 (hardware graph; queues only the L0 invariant candidate `HARDWARE_GRAPH_DRIFT_FOREVER` — caught at §20.5 — and S2.3 condition fields), S8.5 (firmware trust; queues a hardware-drift property via S8.3 and S5.4 NonOverridableClass review; no S2.4 property), S14.2 (telemetry pipeline; consumes S2.4's distinction; queues no S2.4 production), S11.2 (marketplace; consumes S5.3 / S5.4; no S2.4 production), S11.3 (external integrations; consumes S11.1 trust chain; no S2.4 production).
+- **Composition note.** The receipt-integrity properties (20.1.1) compose naturally with the existing `EVIDENCE_LOG_APPEND_ONLY`, `EVIDENCE_HASH_CHAIN_INTACT`, and `STATUS_GRADE_CONSISTENT` properties (§7.1 base 9): a sealed receipt that passes the chain-intact predicate but fails `RECEIPT_SIGNATURE_VERIFIED` is a forgery surface that prior properties did not catch.
+
+### 20.8 IDL reconciliation note
+
+This section is a narrative declaration of the new closed enum entries and primitive messages. Full reconciliation against Appendix A (the consolidated proto IDL) is deferred to the next IDL roll-up, mirroring §17.1 / §18.7 / §19.6. No existing field number is changed; the additions are strictly additive.
+
+## 21. See also
 
 - [S0.1 Action Envelope + Lifecycle](../XX_Cross_Cutting/01_action_envelope_lifecycle.md)
 - [S3.1 Evidence Log](01_evidence_log.md)

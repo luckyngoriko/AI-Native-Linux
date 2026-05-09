@@ -1080,7 +1080,434 @@ This Wave 7 records only the `RecordType` consolidation. Other items queued by t
 - **One new field** queued for the S3.2 `SandboxProfile` shape (`ecosystem_runtime: EcosystemRuntime`); handled by the S3.2 orchestrator.
 - **Three candidate L0 invariants** queued narrative-only by these contracts: `NETWORK_DEFAULT_DENY_OUTBOUND` (S8.1, carried forward from Wave 6 and still pending), `PACKAGE_TRUST_CHAIN_BOUND` (S11.1 §19), and `ECOSYSTEM_HONESTY_DISCLOSURE` (S12.1). Per L0 §3 I1, invariant catalog mutation is a versioned spec change and recovery-mode invariant-bundle update — these are held for the audit-phase L0 sweep per the project owner's "deliberate single-purpose constitutional act" pattern and are **not** promoted in this Wave.
 
-## 27. See also
+## 27. Wave 8 cross-spec touch-up (Tier 1 + Tier 2 record-type consolidation)
+
+Applied 2026-05-09. Sources: [S9.2 §12](../L1_Kernel_Bootstrap_Recovery/02_first_boot_flow.md), [S14.1 §11](03_failure_handling.md), [S6.3 §12](../L0_Governance_Evidence_Safety/03_evidence_receipt_schema.md), [S15.1 §11](../L3_AIOS_SGR_Service_Graph_Runtime/01_unit_manifest.md), [S15.2 §9](../L3_AIOS_SGR_Service_Graph_Runtime/02_state_transitions.md), [S15.3 §9](../L3_AIOS_SGR_Service_Graph_Runtime/04_adapter_model.md), [S13.2 §13](../L5_Cognitive_Core/05_model_router.md), [S13.1 §16](../L5_Cognitive_Core/01_cognitive_core_model.md), [S12.2 §11](../L6_Apps_Packages_Compatibility/02_package_model.md), [S12.3 §11](../L6_Apps_Packages_Compatibility/03_compatibility_runtime.md), [S12.4 §11](../L6_Apps_Packages_Compatibility/05_compatibility_knowledge.md), [S7.6 §11](../L7_Interaction_Renderers/06_cli_renderer.md), [S8.3 §12](../L8_Network_Hardware_Devices/01_hardware_graph.md), [S8.4 §13](../L8_Network_Hardware_Devices/03_dns_vpn_management.md), [S8.5 §13](../L8_Network_Hardware_Devices/04_firmware_trust.md), [S14.2 §13](04_telemetry_pipeline.md), [S11.2 §12](../L10_Distribution_Ecosystem_Marketplace/02_marketplace.md), [S11.3 §13](../L10_Distribution_Ecosystem_Marketplace/03_external_integrations.md). This Wave consolidates the queued `RecordType` additions from three Tier-1 contracts (first-boot flow, failure-handling discipline, evidence-receipt schema) and fifteen Tier-2 contracts (SGR unit / state / adapter; cognitive model router; cognitive core model; package model; compatibility runtime; compatibility knowledge; CLI renderer; hardware graph; DNS/VPN management; firmware trust; telemetry pipeline; marketplace; external integrations) through the L9.1 Evidence Log. Each row binds a record name to its retention class (closed enum from §6.4: `STANDARD_24M` / `EXTENDED_60M` / `FOREVER`) and to the source spec section that owns its emission contract. Following the §23 / §24 / §25 / §26 narrative-only declaration pattern, this addition does **not** modify Appendix A's proto IDL block; full IDL reconciliation (the addition of new payload messages to the discriminated `RecordPayload` oneof) is deferred to a subsequent refinement sweep. After this addition the **`RecordType` vocabulary now totals 400 entries narratively** (205 prior + 195 Wave 8 unique additions; no exact-name collisions with prior Wave-1..7 names — adjacency notes are recorded in §27.21).
+
+### 27.1 From S9.2 First-Boot Flow (11 types)
+
+Source: [S9.2 §12](../L1_Kernel_Bootstrap_Recovery/02_first_boot_flow.md). Append authority is restricted to the L1 first-boot installer subjects (`_system:service:identity-init`, `_system:service:vault-init`, `_system:service:firstboot-orchestrator`) for the constitutional commits; the `FIRST_BOOT_STAGE_COMPLETED` record is appended per stage by the orchestrator. The ten FOREVER entries below cover every constitutional commit a host makes during first-boot — vault root key, AI provider mode, firewall posture, first group, first user, recovery operator, first-boot completion marker, reset-to-factory initiation, and the start / failure of the flow itself. The chain across `FIRST_BOOT_STARTED → ... → FIRST_BOOT_COMPLETE` plus any subsequent `RESET_TO_FACTORY_INITIATED` records is the host's lifetime constitutional history.
+
+| RecordType                     | Retention      | Source spec | Purpose                                                                                                                     |
+| ------------------------------ | -------------- | ----------- | --------------------------------------------------------------------------------------------------------------------------- |
+| `FIRST_BOOT_STARTED`           | `FOREVER`      | S9.2 §12    | First-boot session began; carries `FirstBootEntryReason`, host hostname, media signature id.                                |
+| `FIRST_BOOT_STAGE_COMPLETED`   | `STANDARD_24M` | S9.2 §12    | Per-stage completion record; one per `FirstBootStage` transition (15 stages × 1 record each on success).                    |
+| `FIRST_BOOT_FAILED`            | `FOREVER`      | S9.2 §12    | Terminal-failure at any stage; carries failed `FirstBootStage` and `FirstBootFailureReason`.                                |
+| `VAULT_ROOT_KEY_GENERATED`     | `FOREVER`      | S9.2 §12    | The vault master key was generated and sealed; carries `seal_kind` (TPM / HARDWARE_KEY / HARDWARE_KEY_FILE) and PCRs.       |
+| `AI_PROVIDER_MODE_SET`         | `FOREVER`      | S9.2 §12    | Operator chose `AIProviderMode`; carries provider id (no key material per INV-015), routing-table hash for HYBRID.          |
+| `INITIAL_FIREWALL_POSTURE_SET` | `FOREVER`      | S9.2 §12    | Operator chose `InitialFirewallPosture`; carries derived LAN ranges where applicable.                                       |
+| `FIRST_GROUP_REGISTERED`       | `FOREVER`      | S9.2 §12    | The host's first user group manifest was sealed; carries `group_id`, `GroupTier`, AI/install eligibility flags.             |
+| `FIRST_USER_REGISTERED`        | `FOREVER`      | S9.2 §12    | The first `HUMAN_USER` subject was created; carries canonical id and enrolled credential kinds.                             |
+| `RECOVERY_OPERATOR_REGISTERED` | `FOREVER`      | S9.2 §12    | The recovery-mode operator credential set was bound; carries `RecoveryCredentialKind` and hardware-key serial hash.         |
+| `FIRST_BOOT_COMPLETE`          | `FOREVER`      | S9.2 §12    | Terminal commit: `/aios/system/firstboot/marker` was atomically written; carries the constitutional `state_hash`.           |
+| `RESET_TO_FACTORY_INITIATED`   | `FOREVER`      | S9.2 §12    | Recovery-mode reset-to-factory began (precedes a fresh first-boot run); carries operator id, co-signer, prior `state_hash`. |
+
+Subsection retention split: `STANDARD_24M` × 1, `EXTENDED_60M` × 0, `FOREVER` × 10 (eleven rows total).
+
+### 27.2 From S14.1 Failure Handling (10 types)
+
+Source: [S14.1 §11](03_failure_handling.md). Append authority is restricted to the L4.1 policy kernel for the `*_BUNDLE_REJECTED` family (which is referenced by S14.1 but already covered as a forensic class), to component supervisors for `COMPONENT_RESTARTED` / `COMPONENT_RESTART_BUDGET_EXHAUSTED`, to the runtime's circuit-breaker for `CIRCUIT_BREAKER_OPENED` / `CLOSED`, to the boot-time substrate-version checker for `BACKEND_VERSION_MISMATCH`, and to the recovery supervisor for `HALTED_PENDING_OPERATOR` / `RECOVERY_LOOP_DETECTED`. The four FOREVER entries cover the constitutional escalation surface — restart-budget exhaustion, halt-to-operator, substrate version mismatch (boot-time refusal to mount `/aios`), and recovery-loop detection (3-in-60-min for the same `RecoveryEntryReason`). Per S14.1 §9.5, FOREVER records in this set are **never** rate-limited; saturation cannot drop them.
+
+| RecordType                           | Retention      | Source spec | Purpose                                                                                                           |
+| ------------------------------------ | -------------- | ----------- | ----------------------------------------------------------------------------------------------------------------- |
+| `FAILURE_OBSERVED`                   | `STANDARD_24M` | S14.1 §11   | Generic failure observation; carries `FailureClass`, layer id, runbook reference.                                 |
+| `DEGRADATION_LEVEL_TRANSITIONED`     | `STANDARD_24M` | S14.1 §11   | The host transitioned between `DegradationLevel` values; carries `from`, `to`, triggering `FailureClass`.         |
+| `COMPONENT_RESTARTED`                | `STANDARD_24M` | S14.1 §11   | Per-restart record for a managed component (3-in-5 / 5-in-10 budget tracking).                                    |
+| `COMPONENT_RESTART_BUDGET_EXHAUSTED` | `FOREVER`      | S14.1 §11   | Restart budget exhausted; defines the moment of recovery escalation.                                              |
+| `CIRCUIT_BREAKER_OPENED`             | `EXTENDED_60M` | S14.1 §11   | Breaker opened; carries target, failure count, cool-down window.                                                  |
+| `CIRCUIT_BREAKER_CLOSED`             | `STANDARD_24M` | S14.1 §11   | Breaker closed; carries target, time-open.                                                                        |
+| `HALTED_PENDING_OPERATOR`            | `FOREVER`      | S14.1 §11   | System entered HALTED degradation level; carries triggering `FailureClass` and the chain of escalation.           |
+| `TIME_DRIFT_DETECTED`                | `EXTENDED_60M` | S14.1 §11   | Wall-clock drift exceeded tolerance; carries observed skew and tolerance.                                         |
+| `BACKEND_VERSION_MISMATCH`           | `FOREVER`      | S14.1 §11   | Boot-time substrate version mismatch (kernel / AIOS-FS); the host halts before `/aios` mount.                     |
+| `RECOVERY_LOOP_DETECTED`             | `FOREVER`      | S14.1 §11   | N entries in M minutes for the same `RecoveryEntryReason` (default 3-in-60-min); the system halts and emits this. |
+
+Subsection retention split: `STANDARD_24M` × 4, `EXTENDED_60M` × 2, `FOREVER` × 4 (ten rows total).
+
+### 27.3 From S6.3 Evidence Receipt Schema (4 types)
+
+Source: [S6.3 §12](../L0_Governance_Evidence_Safety/03_evidence_receipt_schema.md). Append authority for all four is the Evidence Log itself — these records describe the log catching forgery, integrity, lineage, and sequence anomalies in its own append-and-audit pipeline. Emission attempts from any other subject are hard-denied at the engine surface and emit `TAMPER_DETECTED` per §11.5. Note: the S6.3 contract self-declared a cumulative running total of "209 entries narratively (205 prior + 4 from S6.3)"; that arithmetic is consumed verbatim into this Wave 8 consolidation. All four are FOREVER because they record adversarial-detection events on the audit chain itself — the apex constitutional surface.
+
+| RecordType                       | Retention | Source spec | Purpose                                                                                                            |
+| -------------------------------- | --------- | ----------- | ------------------------------------------------------------------------------------------------------------------ |
+| `RECEIPT_REDACTION_FAILED`       | `FOREVER` | S6.3 §6.2   | Emit-time redaction validation could not complete and the receipt was rejected (secret-shaped payload content).    |
+| `RECEIPT_INTEGRITY_QUARANTINED`  | `FOREVER` | S6.3 §4.2   | A segment-integrity audit found a chain-hash mismatch or a segment-Ed25519 signature failure; segment quarantined. |
+| `RECEIPT_LINEAGE_CYCLE_DETECTED` | `FOREVER` | S6.3 §7.3   | A scheduled lineage audit found a cycle in the receipt DAG; carries cycle's receipt ids and detection method.      |
+| `RECEIPT_SEQUENCE_OUT_OF_ORDER`  | `FOREVER` | S6.3 §9.8   | A sequence-ordering anomaly was detected at audit time (e.g. WAL replay produced a non-monotonic sequence).        |
+
+Subsection retention split: `STANDARD_24M` × 0, `EXTENDED_60M` × 0, `FOREVER` × 4 (four rows total).
+
+### 27.4 From S15.1 Unit Manifest (8 types)
+
+Source: [S15.1 §11](../L3_AIOS_SGR_Service_Graph_Runtime/01_unit_manifest.md). Append authority is restricted to the L3 SGR runtime for unit lifecycle records. The single FOREVER entry covers the constitutional-fault detection of dependency cycles in admission validation — adversarial manifest forensics. Three additional names (`MANIFEST_VALIDATION_REJECTED`, `UNIT_REPLAY_REJECTED`, `UNIT_PUBLISHER_TRUST_REVOKED`) are mentioned narrative-only by S15.1 and are **excluded** from this Wave-8 count per the source's own "queued narrative-only for next-Wave consolidation" framing.
+
+| RecordType                       | Retention      | Source spec | Purpose                                                                                                                         |
+| -------------------------------- | -------------- | ----------- | ------------------------------------------------------------------------------------------------------------------------------- |
+| `UNIT_REGISTERED`                | `STANDARD_24M` | S15.1 §11   | Manifest admitted; transition `DRAFT → QUEUED`; carries `unit_id`, `unit_kind`, `canonical_hash`, `publisher_id`.               |
+| `UNIT_STARTED`                   | `STANDARD_24M` | S15.1 §11   | Transition `STARTING → RUNNING`; carries adapter id, dispatch kind, action_id of the `unit.start` envelope.                     |
+| `UNIT_HEALTHY`                   | `STANDARD_24M` | S15.1 §11   | Transition into `HEALTHY` after `RUNNING` or recovery from `UNHEALTHY`; carries verification result hashes.                     |
+| `UNIT_DEGRADED`                  | `EXTENDED_60M` | S15.1 §11   | Transition `HEALTHY → DEGRADED`; carries verification primitive that returned `WARNING` and operator-runbook reference.         |
+| `UNIT_FAILED`                    | `EXTENDED_60M` | S15.1 §11   | Transition into `FAILED` from any state; carries last `UnitState`, `ExecutionFailureReason`, action_id chain.                   |
+| `UNIT_STOPPED`                   | `STANDARD_24M` | S15.1 §11   | Transition `STOPPING → STOPPED`; carries stop reason (`OPERATOR` / `DEPENDENCY_STOP` / `ROLLBACK` / `RETIREMENT`).              |
+| `UNIT_ROLLBACK_TRIGGERED`        | `EXTENDED_60M` | S15.1 §11   | A `RollbackTrigger` fired and `unit.rollback` was dispatched; carries pointer id, CAS outcome, prior/next version pair.         |
+| `UNIT_DEPENDENCY_CYCLE_DETECTED` | `FOREVER`      | S15.1 §11   | Admission validator detected a cycle in dependencies; carries unit_id, cycle path, publisher_id. Constitutional forensic event. |
+
+Subsection retention split: `STANDARD_24M` × 4, `EXTENDED_60M` × 3, `FOREVER` × 1 (eight rows total).
+
+### 27.5 From S15.2 SGR State Transitions (12 types)
+
+Source: [S15.2 §9](../L3_AIOS_SGR_Service_Graph_Runtime/02_state_transitions.md). Append authority is restricted to the L3 SGR runtime's transition dispatcher and the dependency solver. The three FOREVER entries cover constitutional refusals: A/B rollback (post-promotion fault), dependency cycle (a constitutional fault that the runtime fails closed against), and transition conflict (two contradictory transitions on the same unit; the first-submitted wins, the second is FOREVER-recorded). Note: `DEPENDENCY_CYCLE_DETECTED` here (S15.2) is semantically adjacent to `UNIT_DEPENDENCY_CYCLE_DETECTED` (S15.1, §27.4) but constitutes a distinct record-name binding — the unit-manifest variant fires at admission, the state-transition variant fires at dependency-graph evaluation. Both are retained because the per-source append authority and the payload shape differ.
+
+| RecordType                  | Retention      | Source spec | Purpose                                                                                                                           |
+| --------------------------- | -------------- | ----------- | --------------------------------------------------------------------------------------------------------------------------------- |
+| `GRAPH_EVALUATED`           | `STANDARD_24M` | S15.2 §9    | A graph evaluation completed with result `IN_PROGRESS`; carries `transition_plan_id`, transition count, dependency_result.        |
+| `TRANSITION_QUEUED`         | `STANDARD_24M` | S15.2 §9    | A transition was added to the dispatch queue; carries `transition_id`, `transition_kind`, `unit_id`.                              |
+| `TRANSITION_STARTED`        | `STANDARD_24M` | S15.2 §9    | A transition was dispatched to the adapter; carries `transition_id`, dispatch start timestamp.                                    |
+| `TRANSITION_SUCCEEDED`      | `STANDARD_24M` | S15.2 §9    | A transition reached its terminal-success state; carries `transition_id`, verification result hash.                               |
+| `TRANSITION_FAILED`         | `EXTENDED_60M` | S15.2 §9    | Terminal-failure (verification failed, adapter error, budget exceeded); carries `transition_id`, reason.                          |
+| `AB_CANARY_PROMOTED`        | `STANDARD_24M` | S15.2 §9    | A/B promotion FSM transitioned `CANARY → A_PROMOTED`; carries `unit_id`, success_count, target_image_hash.                        |
+| `AB_ROLLBACK_PERFORMED`     | `FOREVER`      | S15.2 §9    | A/B promotion FSM transitioned to `ROLLBACK`; carries failure_count, prior/target image hashes. Constitutional refused-promotion. |
+| `DEPENDENCY_CYCLE_DETECTED` | `FOREVER`      | S15.2 §9    | The dependency solver detected a cycle at evaluation; carries `cycle_nodes[]`, `cycle_edges[]`, evaluation_input_hash.            |
+| `TRANSITION_CONFLICT`       | `FOREVER`      | S15.2 §9    | Two contradictory transitions detected on the same unit; carries winning/rejected ids, conflict_kind. First-submitted wins.       |
+| `RESOURCE_BUDGET_DENIED`    | `EXTENDED_60M` | S15.2 §9    | A transition was rejected by composition; carries `resource_dimension`, requested, available, source_blocking.                    |
+| `GRAPH_BLOCKED_RESOURCE`    | `STANDARD_24M` | S15.2 §9    | An evaluation returned `BLOCKED_RESOURCE`; carries blocking dimension, blocking source.                                           |
+| `GRAPH_CONVERGED`           | `STANDARD_24M` | S15.2 §9    | An evaluation returned `CONVERGED`; carries `graph_state_hash`, `target_state_hash` (equal), evaluation duration.                 |
+
+Subsection retention split: `STANDARD_24M` × 7, `EXTENDED_60M` × 2, `FOREVER` × 3 (twelve rows total).
+
+### 27.6 From S15.3 SGR Adapter Model (10 types)
+
+Source: [S15.3 §9](../L3_AIOS_SGR_Service_Graph_Runtime/04_adapter_model.md). Append authority is restricted to the L3 adapter directory service for all admission / lifecycle records and to the sandbox enforcer for the violation records. The four FOREVER entries cover the four classes of admission-boundary failure / runtime-violation that constitute adapter-trust faults: registration rejection (any of the six admission steps failing), action-kind violation (adapter served outside its declared kinds), capability violation (adapter exceeded its declared capability set; caught at the kernel boundary), and downgrade rejection (replay attack against the version-monotonicity check).
+
+| RecordType                       | Retention      | Source spec | Purpose                                                                                                                                   |
+| -------------------------------- | -------------- | ----------- | ----------------------------------------------------------------------------------------------------------------------------------------- |
+| `ADAPTER_REGISTRATION_REQUESTED` | `STANDARD_24M` | S15.3 §9    | `runtime.adapter.register` accepted at validation; manifest enters `DRAFT`; carries `adapter_id`, version, publisher root id.             |
+| `ADAPTER_REGISTRATION_REJECTED`  | `FOREVER`      | S15.3 §9    | Any of the six admission checks failed; carries failed step id and manifest digest. Constitutional forensic event.                        |
+| `ADAPTER_REGISTERED`             | `STANDARD_24M` | S15.3 §9    | All admission checks passed; manifest sealed; `VALIDATING → REGISTERED`.                                                                  |
+| `ADAPTER_HEALTHY`                | `STANDARD_24M` | S15.3 §9    | Adapter transitioned `DEGRADED → REGISTERED`; auto-heal observed.                                                                         |
+| `ADAPTER_DEGRADED`               | `EXTENDED_60M` | S15.3 §9    | Adapter transitioned `REGISTERED → DEGRADED`; health threshold crossed.                                                                   |
+| `ADAPTER_ACTION_KIND_VIOLATION`  | `FOREVER`      | S15.3 §9    | Adapter served a response for an action kind outside its declared set; forces `RETIRED`; constitutional kind-overrun.                     |
+| `ADAPTER_CAPABILITY_VIOLATION`   | `FOREVER`      | S15.3 §9    | Adapter invoked a capability outside its declared set (caught at sandbox boundary); forces `RETIRED`; constitutional capability-lie.      |
+| `ADAPTER_HOT_RELOADED`           | `STANDARD_24M` | S15.3 §9    | Versioned manifest update succeeded; old snapshot retained for in-flight; new snapshot active for new submissions.                        |
+| `ADAPTER_DOWNGRADE_REJECTED`     | `FOREVER`      | S15.3 §9    | Registration with `adapter_version` strictly less than highest seen; replay/downgrade defence.                                            |
+| `ADAPTER_DEREGISTERED`           | `EXTENDED_60M` | S15.3 §9    | Adapter removed from directory; carries reason (`VOLUNTARY` / `MANIFEST_EXPIRED` / `OPERATOR` / `HEALTH_ESCALATION` / `OPERATOR_RETIRE`). |
+
+Subsection retention split: `STANDARD_24M` × 4, `EXTENDED_60M` × 2, `FOREVER` × 4 (ten rows total).
+
+### 27.7 From S13.2 Cognitive Model Router (12 types)
+
+Source: [S13.2 §13](../L5_Cognitive_Core/05_model_router.md). Append authority is restricted to the L5 model router for invocation / backend / rate-limit records, with parallel emissions from L4.2 (vault-deny) and L8.1 (network-deny) on those denial paths. The two FOREVER entries cover the cognitive trust surface: prompt-injection detection (response body contains an injection pattern recognised by the finding-pass scanner) and response-signature failure (provider's Ed25519 response signature did not verify, where supported). Both are constitutional because they represent the model-output trust boundary — the moment when the cognitive core may have been adversarially influenced. Note: `MODEL_CALL` exists in the original Appendix A enum (line 1155) but is a coarse-grained legacy entry; the twelve names below are the finer-grained replacement vocabulary that subsumes it. Reconciliation between `MODEL_CALL` and the new family is deferred to the IDL sweep.
+
+| RecordType                        | Retention      | Source spec | Purpose                                                                                                         |
+| --------------------------------- | -------------- | ----------- | --------------------------------------------------------------------------------------------------------------- |
+| `MODEL_INVOCATION_STARTED`        | `STANDARD_24M` | S13.2 §13   | Router begins dispatch to a backend; carries `routing_id`, `correlation_id`, `backend_kind`, `provider_class`.  |
+| `MODEL_INVOCATION_SUCCEEDED`      | `STANDARD_24M` | S13.2 §13   | Backend returned `RETURNED_NORMAL` or `RETURNED_DEGRADED`; carries token counts, cost, latency, signature flag. |
+| `MODEL_INVOCATION_FAILED`         | `EXTENDED_60M` | S13.2 §13   | Backend returned `TIMEOUT` / `PROVIDER_ERROR`; carries error code, observed latency.                            |
+| `MODEL_BACKEND_DEGRADED`          | `EXTENDED_60M` | S13.2 §13   | Backend health FSM transitioned to `DEGRADED_LATENCY` / `DEGRADED_AVAILABILITY`.                                |
+| `MODEL_CIRCUIT_OPENED`            | `EXTENDED_60M` | S13.2 §13   | Circuit breaker opens on a backend; carries error rate, cool-down seconds.                                      |
+| `MODEL_PROMPT_INJECTION_DETECTED` | `FOREVER`      | S13.2 §13   | Finding pass detected an injection pattern in the response body; constitutional cognitive-trust event.          |
+| `MODEL_RESPONSE_SIGNATURE_FAILED` | `FOREVER`      | S13.2 §13   | Provider response Ed25519 signature failed verification; response dropped, never returned to S1.2.              |
+| `MODEL_VAULT_DENY`                | `EXTENDED_60M` | S13.2 §13   | L4.2 broker rejected the model invocation (capability missing, budget, AI-tries-`SECRET_GET`).                  |
+| `MODEL_NETWORK_DENY`              | `EXTENDED_60M` | S13.2 §13   | L8.1 dropped the connection for the brokered request; carries posture and network error code.                   |
+| `MODEL_RATE_LIMITED`              | `STANDARD_24M` | S13.2 §13   | Subject / group budget exhausted; router queue full.                                                            |
+| `MODEL_BACKEND_REGISTERED`        | `STANDARD_24M` | S13.2 §13   | A new model adapter loaded and registered; or signature-failed registration recorded.                           |
+| `MODEL_BACKEND_RETIRED`           | `EXTENDED_60M` | S13.2 §13   | An adapter was retired (operator-initiated takedown per S11.1, or version supersession).                        |
+
+Subsection retention split: `STANDARD_24M` × 4, `EXTENDED_60M` × 6, `FOREVER` × 2 (twelve rows total).
+
+### 27.8 From S13.1 Cognitive Core Model (18 types)
+
+Source: [S13.1 §16](../L5_Cognitive_Core/01_cognitive_core_model.md). Append authority is restricted to the L5 cognitive runtime for the agent lifecycle / proposal / memory / coordination records, and to the policy / sandbox enforcers for the constitutional refusal records. The six FOREVER entries cover INV-002 (AI proposes never executes) enforcement on direct FS write; INV-016 (no self-grading) enforcement; INV-011 (cross-group access forbidden) at the agent coordination layer; INV-004/INV-012 (recovery interrupt) on agents in non-terminal state at recovery entry; the cross-user memory boundary; and the prompt-injection detection at the cognitive ingress.
+
+| RecordType                               | Retention      | Source spec | Purpose                                                                                                              |
+| ---------------------------------------- | -------------- | ----------- | -------------------------------------------------------------------------------------------------------------------- |
+| `AGENT_REGISTERED`                       | `STANDARD_24M` | S13.1 §16   | A new `Subject` of `SubjectKind = AI_AGENT` was issued.                                                              |
+| `AGENT_RETIRED`                          | `EXTENDED_60M` | S13.1 §16   | An agent transitioned to `RETIRED`; carries reason, last lifecycle_state, retirement timestamp.                      |
+| `AGENT_INTERRUPTED_BY_RECOVERY`          | `FOREVER`      | S13.1 §16   | An agent was forcibly transitioned to `RETIRING` because `recovery_mode = true`; constitutional INV-004 enforcement. |
+| `AGENT_PROPOSAL_EMITTED`                 | `STANDARD_24M` | S13.1 §16   | An action draft entered the proposing pipeline and reached L3 via `SubmitAction`.                                    |
+| `AGENT_PROPOSAL_APPROVED`                | `STANDARD_24M` | S13.1 §16   | An AI-origin action received approval at `STANDARD` or `STRONG` strength.                                            |
+| `AGENT_PROPOSAL_DENIED`                  | `EXTENDED_60M` | S13.1 §16   | An AI-origin action was denied at policy or approval; carries deny_reason_code.                                      |
+| `AGENT_PLAN_BUNDLED_APPROVED`            | `STANDARD_24M` | S13.1 §16   | A plan was approved as a bundle at `STRONG` strength; carries plan_id, approval_bundle_hash.                         |
+| `AGENT_PLAN_ABANDONED`                   | `EXTENDED_60M` | S13.1 §16   | A plan transitioned to `ABANDONED`; carries reason.                                                                  |
+| `AGENT_MEMORY_WRITE`                     | `STANDARD_24M` | S13.1 §16   | The typed action `agent.memory.write` succeeded; payload bytes never logged (digest only).                           |
+| `AGENT_MEMORY_READ`                      | `STANDARD_24M` | S13.1 §16   | The typed action `agent.memory.read` succeeded with privacy-class respect.                                           |
+| `AGENT_MEMORY_CROSS_USER_DENIED`         | `FOREVER`      | S13.1 §16   | Agent attempted to read another user's `PRIVATE_TO_USER` memory; constitutional cross-user boundary fault.           |
+| `AGENT_INTER_MESSAGE_SENT`               | `STANDARD_24M` | S13.1 §16   | The typed action `agent.coordinate.send` succeeded.                                                                  |
+| `AGENT_INTER_MESSAGE_REJECTED`           | `EXTENDED_60M` | S13.1 §16   | An inter-agent message was denied; carries deny_reason.                                                              |
+| `AGENT_SELF_GRADING_BLOCKED`             | `FOREVER`      | S13.1 §16   | INV-016 enforcement: agent attempted to grade an artifact authored by itself or its own kind.                        |
+| `AGENT_DIRECT_FS_WRITE_BLOCKED`          | `FOREVER`      | S13.1 §16   | Agent attempted direct AIOS-FS write outside the proposing pipeline; INV-002 enforcement at the FS boundary.         |
+| `AGENT_CROSS_GROUP_COORDINATION_BLOCKED` | `FOREVER`      | S13.1 §16   | Agent attempted cross-group coordination; INV-011 enforcement.                                                       |
+| `AGENT_BACKEND_DEGRADED`                 | `EXTENDED_60M` | S13.1 §16   | A cognitive backend adapter became unavailable and a fallback was activated.                                         |
+| `AGENT_PROMPT_INJECTION_DETECTED`        | `FOREVER`      | S13.1 §16   | The adversarial-input filter (S1.1 §17.1) fired on an utterance reaching this agent's INTENT_PERCEPTION.             |
+
+Subsection retention split: `STANDARD_24M` × 7, `EXTENDED_60M` × 5, `FOREVER` × 6 (eighteen rows total).
+
+### 27.9 From S12.2 Package Object Model (10 types)
+
+Source: [S12.2 §11](../L6_Apps_Packages_Compatibility/02_package_model.md). Append authority is restricted to the L6 package-object engine for the lifecycle records and to the sandbox enforcer for the cross-package state corruption record. The five FOREVER entries cover the constitutional package-trust surface: rollback, quarantine, private-state corruption, version downgrade blocked (CVE-blocklist), and recovery-mode restore. Note: `PACKAGE_OBJECT_QUARANTINED` (this Wave 8) is semantically adjacent to `PACKAGE_QUARANTINED` (Wave 7 S11.1) but distinct — Wave 7's variant fires at the install-pipeline FSM transition; Wave 8's variant fires at the package-object engine's per-load detection. Both retained.
+
+| RecordType                               | Retention      | Source spec | Purpose                                                                                                            |
+| ---------------------------------------- | -------------- | ----------- | ------------------------------------------------------------------------------------------------------------------ |
+| `PACKAGE_OBJECT_CREATED`                 | `STANDARD_24M` | S12.2 §11   | First-time installation of a package object completes (active or system; per-scope).                               |
+| `PACKAGE_OBJECT_UPDATED`                 | `STANDARD_24M` | S12.2 §11   | A `STAGED_UPDATE` is promoted to `ACTIVE`; carries `from_version`, `to_version`, `installer_action_id`.            |
+| `PACKAGE_OBJECT_ROLLED_BACK`             | `FOREVER`      | S12.2 §11   | Package transitions `ACTIVE → ROLLED_BACK`; carries reason, target version, blocklist consult result.              |
+| `PACKAGE_OBJECT_QUARANTINED`             | `FOREVER`      | S12.2 §11   | Package transitions to `QUARANTINED`; carries reason (capability_lie / hash_mismatch / state_corruption / etc.).   |
+| `PACKAGE_PRIVATE_STATE_INITIALIZED`      | `STANDARD_24M` | S12.2 §11   | First-launch initialization of `state/` completes.                                                                 |
+| `PACKAGE_PRIVATE_STATE_CORRUPT_DETECTED` | `FOREVER`      | S12.2 §11   | Cross-subject write into `state/` detected; constitutional sandbox-boundary fault.                                 |
+| `PACKAGE_VERSION_DOWNGRADE_BLOCKED`      | `FOREVER`      | S12.2 §11   | Rollback target rejected because the version is on the `RollbackBlocklist`; carries CVE reference, target version. |
+| `PACKAGE_OBJECT_RETIRED`                 | `EXTENDED_60M` | S12.2 §11   | A `_rollback_<n>/` peer is retired (post-30d) or operator-driven uninstall.                                        |
+| `PACKAGE_OBJECT_VERIFICATION_FAILED`     | `EXTENDED_60M` | S12.2 §11   | Per-load Merkle mismatch or staged-peer verification failure; carries reason and recomputed-vs-claimed hashes.     |
+| `PACKAGE_RECOVERY_RESTORE_PERFORMED`     | `FOREVER`      | S12.2 §11   | `QUARANTINED` package was restored under recovery mode; carries operator id and target version.                    |
+
+Subsection retention split: `STANDARD_24M` × 3, `EXTENDED_60M` × 2, `FOREVER` × 5 (ten rows total).
+
+### 27.10 From S12.3 Compatibility Runtime (10 types)
+
+Source: [S12.3 §11](../L6_Apps_Packages_Compatibility/03_compatibility_runtime.md). Append authority is restricted to the L6 compatibility orchestrator for the launch lifecycle records and to the kernel-level sandbox enforcers for the breakout / escape detection records. The three FOREVER entries cover the constitutional compatibility-runtime trust surface: Wine prefix breakout, Waydroid escape attempt, and orchestration-kind mismatch (manifest declared `EcosystemRuntime` ≠ orchestrator selected `OrchestrationKind` — silent disagreement is never permitted).
+
+| RecordType                             | Retention      | Source spec | Purpose                                                                                                                       |
+| -------------------------------------- | -------------- | ----------- | ----------------------------------------------------------------------------------------------------------------------------- |
+| `APP_LAUNCH_STARTED`                   | `STANDARD_24M` | S12.3 §11   | `app.launch` action transitioned to `executing`; orchestrator entered Step A.                                                 |
+| `APP_LAUNCH_SUCCEEDED`                 | `STANDARD_24M` | S12.3 §11   | Step G passed; `LaunchOutcome = LAUNCHED`; envelope transitioned to `succeeded`.                                              |
+| `APP_LAUNCH_FAILED`                    | `EXTENDED_60M` | S12.3 §11   | Any `LaunchOutcome ≠ LAUNCHED`; envelope transitioned to `failed`. Carries `FailureCategory` and `reason_id`.                 |
+| `WINE_PREFIX_CREATED`                  | `STANDARD_24M` | S12.3 §11   | A new Wine prefix was created (Step F under `WINE_PREFIX_NEW`); carries `WinePrefixKind` and prefix path.                     |
+| `WINE_PREFIX_BREAKOUT_ATTEMPTED`       | `FOREVER`      | S12.3 §11   | Kernel-level sandbox enforcer caught a Win32 binary trying to escape its prefix; constitutional sandbox-floor event.          |
+| `WAYDROID_CONTAINER_STARTED`           | `STANDARD_24M` | S12.3 §11   | A Waydroid container started; carries `WaydroidIsolationLevel`.                                                               |
+| `WAYDROID_ESCAPE_ATTEMPTED`            | `FOREVER`      | S12.3 §11   | LXC namespace boundary or AIOS group namespace caught a Waydroid-internal process trying to reach forbidden host/cross-group. |
+| `KVM_VM_BOOTED`                        | `STANDARD_24M` | S12.3 §11   | A KVM guest reached the guest agent's "ready" handshake; carries `VMFallbackKind` and `ephemeral` flag.                       |
+| `KVM_VM_TERMINATED`                    | `STANDARD_24M` | S12.3 §11   | A KVM guest was shut down; carries termination reason.                                                                        |
+| `ORCHESTRATION_KIND_MISMATCH_REJECTED` | `FOREVER`      | S12.3 §11   | Selected `OrchestrationKind` disagrees with manifest's `EcosystemRuntime` or policy required value; constitutional refusal.   |
+
+Subsection retention split: `STANDARD_24M` × 6, `EXTENDED_60M` × 1, `FOREVER` × 3 (ten rows total).
+
+### 27.11 From S12.4 Compatibility Knowledge (8 types)
+
+Source: [S12.4 §11](../L6_Apps_Packages_Compatibility/05_compatibility_knowledge.md). Append authority is restricted to the L6 compatibility-profile registry for ingestion / aggregation / outlier records and to the AIOS-root governance review path for farm-suspicion / visibility-downgrade records. The single FOREVER entry covers the reputation-farm detection surface (coordinated-burst detection per §9.2); a confirmed farm event is queued for AIOS-root review and contributors' weights held at `0.0`.
+
+| RecordType                          | Retention      | Source spec | Purpose                                                                                                                |
+| ----------------------------------- | -------------- | ----------- | ---------------------------------------------------------------------------------------------------------------------- |
+| `PROFILE_CONTRIBUTED`               | `STANDARD_24M` | S12.4 §11   | An operator's `compat.contribute_profile_observation` action transitioned to `succeeded`.                              |
+| `PROFILE_RATING_AGGREGATED`         | `STANDARD_24M` | S12.4 §11   | An aggregation step produced a per-dimension rating; carries before/after rating, drift, contribution counts.          |
+| `PROFILE_OUTLIER_DETECTED`          | `EXTENDED_60M` | S12.4 §11   | A contribution was flagged as outlier and excluded from the active aggregate.                                          |
+| `PROFILE_RECOMMENDATION_SHOWN`      | `STANDARD_24M` | S12.4 §11   | The L7 marketplace surface presented a profile-derived recommendation to the operator.                                 |
+| `PROFILE_IMPORTED_FROM_UPSTREAM`    | `STANDARD_24M` | S12.4 §11   | A `compat.import_profile_from_upstream` action transitioned to `succeeded`; carries source, content hash, attribution. |
+| `PROFILE_REPUTATION_FARM_SUSPECTED` | `FOREVER`      | S12.4 §11   | Farm detector flagged a coordinated cluster; AIOS-root review requested; contributors' weights held at `0.0`.          |
+| `PROFILE_VISIBILITY_DOWNGRADED`     | `EXTENDED_60M` | S12.4 §11   | Profile contribution's effective visibility was reduced by registry action.                                            |
+| `PROFILE_RETIRED`                   | `EXTENDED_60M` | S12.4 §11   | A profile transitioned to retired; carries `ProfileRetiredReason` and back-reference to surviving recipe(s).           |
+
+Subsection retention split: `STANDARD_24M` × 4, `EXTENDED_60M` × 3, `FOREVER` × 1 (eight rows total).
+
+### 27.12 From S7.6 CLI Renderer (10 types)
+
+Source: [S7.6 §11](../L7_Interaction_Renderers/06_cli_renderer.md). Append authority is restricted to the L7 CLI renderer service for render lifecycle records, with `CLI_OPERATOR_AUTHENTICATED` co-emitted by the identity service. The four FOREVER entries cover the renderer's constitutional defence surface: recovery-kind misuse (e.g. `APP_SURFACE` requested in recovery TTY), auto-confirm via piped stdin (binds INV-009 — approvals are bound to one request and one approver), ANSI escape injection in non-renderer content, and trust-indicator reordering (a renderer-bug or in-process attacker reordering compiled trust-bearing nodes — TAMPER-class).
+
+| RecordType                      | Retention      | Source spec | Purpose                                                                                                               |
+| ------------------------------- | -------------- | ----------- | --------------------------------------------------------------------------------------------------------------------- |
+| `CLI_RENDER_STARTED`            | `STANDARD_24M` | S7.6 §11    | Carries session_id, render mode (`CliRenderMode`), input mode (`CliInputMode`), ANSI level, term id.                  |
+| `CLI_RENDER_FAILED`             | `EXTENDED_60M` | S7.6 §11    | Carries render_id, tree_id, result_code (`CliCompilationResult`), offending node id.                                  |
+| `CLI_NODE_KIND_UNSUPPORTED`     | `STANDARD_24M` | S7.6 §11    | Compilation step found a node kind not supported by this renderer's compiler.                                         |
+| `CLI_RECOVERY_KIND_REJECTED`    | `FOREVER`      | S7.6 §11    | Render attempted in `RECOVERY_TTY` mode included a forbidden node kind (`APP_SURFACE` / `STREAM_SURFACE` / `STREAM`). |
+| `CLI_AUTO_CONFIRM_REJECTED`     | `FOREVER`      | S7.6 §11    | Approval response read from non-TTY stdin without pre-bound approval id; INV-009 enforcement.                         |
+| `CLI_ANSI_INJECTION_BLOCKED`    | `FOREVER`      | S7.6 §11    | ANSI escape injection detected in non-renderer content; offending node replaced with `[content sanitized]`.           |
+| `CLI_DEGRADED_NO_TTY`           | `STANDARD_24M` | S7.6 §11    | Renderer entered degraded mode (no isatty, no scrolling region, terminfo missing).                                    |
+| `CLI_SCRIPTING_MODE_INVOKED`    | `STANDARD_24M` | S7.6 §11    | A scripting-mode session began; carries caller_subject_canonical_id, command_line_redacted_hash.                      |
+| `CLI_OPERATOR_AUTHENTICATED`    | `STANDARD_24M` | S7.6 §11    | Operator authentication completed; carries operator_subject_canonical_id, recovery_session_id (if recovery).          |
+| `CLI_TRUST_INDICATOR_REORDERED` | `FOREVER`      | S7.6 §11    | TAMPER-class: `SECURITY_INDICATOR` was compiled after non-trust-bearing content; renderer self-check failed.          |
+
+Subsection retention split: `STANDARD_24M` × 5, `EXTENDED_60M` × 1, `FOREVER` × 4 (ten rows total).
+
+### 27.13 From S8.3 Hardware Graph (14 types)
+
+Source: [S8.3 §12](../L8_Network_Hardware_Devices/01_hardware_graph.md). Append authority is restricted to the L8 hardware-device-manager service (`_system:service:hardware-manager`) for graph / device lifecycle records, signed by its Ed25519 key. The five FOREVER entries cover the constitutional device-trust surface: device quarantine (lifecycle `* → QUARANTINED`), AI removable-device blocked (INV-013 device-plane enforcement), hardware-graph cross-boot drift (the evil-maid swap signal — the L0 invariant candidate `HARDWARE_GRAPH_DRIFT_FOREVER`), firmware version downgrade blocked (per-device monotonicity), and out-of-tree driver blocked (default refusal of unsigned/community kernel modules).
+
+| RecordType                           | Retention      | Source spec | Purpose                                                                                                   |
+| ------------------------------------ | -------------- | ----------- | --------------------------------------------------------------------------------------------------------- |
+| `HARDWARE_GRAPH_REBUILT`             | `STANDARD_24M` | S8.3 §12    | Carries `snapshot_id`, `previous_snapshot_id`, `device_count`, `built_at`, `recovery_mode` flag.          |
+| `DEVICE_DETECTED`                    | `STANDARD_24M` | S8.3 §12    | First-time observation of a device-identity tuple; carries class, vendor id, device id, bus kind.         |
+| `DEVICE_DRIVER_BOUND`                | `STANDARD_24M` | S8.3 §12    | Successful driver bind; carries `driver_id`, `driver_provenance`, `trust_class`, `firmware_trusted` flag. |
+| `DEVICE_DRIVER_REJECTED`             | `EXTENDED_60M` | S8.3 §12    | Driver bind refused; carries candidate `driver_id`, provenance, refusal reason.                           |
+| `DEVICE_QUARANTINED`                 | `FOREVER`      | S8.3 §12    | Lifecycle transition into `QUARANTINED`; carries `DeviceQuarantineReason` and prior state.                |
+| `DEVICE_DISCONNECTED`                | `STANDARD_24M` | S8.3 §12    | Hot-unplug or hard-disconnect; carries last lifecycle state before disconnect.                            |
+| `REMOVABLE_DEVICE_REQUEST`           | `STANDARD_24M` | S8.3 §12    | Removable device awaiting approval; carries class, requesting subject id, model_string.                   |
+| `REMOVABLE_DEVICE_APPROVED`          | `STANDARD_24M` | S8.3 §12    | Approval granted; carries policy class (`ALLOW_AUTO_THIS_BOOT` / `FOREVER` / per-group) and TTL.          |
+| `REMOVABLE_DEVICE_DENIED`            | `EXTENDED_60M` | S8.3 §12    | Approval refused; carries refusal reason (recovery-deny / policy-deny / AI-blocked).                      |
+| `AI_REMOVABLE_DEVICE_BLOCKED`        | `FOREVER`      | S8.3 §12    | INV-013 device-plane hard-deny fired; AI subject attempted a mutating HDM RPC.                            |
+| `HARDWARE_GRAPH_DRIFT_DETECTED`      | `FOREVER`      | S8.3 §12    | Cross-boot drift detected; the evil-maid swap signal; carries added/removed/mutated sets.                 |
+| `FIRMWARE_VERSION_DOWNGRADE_BLOCKED` | `FOREVER`      | S8.3 §12    | Firmware monotonicity violation; carries prior version, attempted version, source.                        |
+| `IOMMU_DMA_PROTECTION_DEGRADED`      | `EXTENDED_60M` | S8.3 §12    | IOMMU absent or degraded; carries bus kind, host IOMMU global state.                                      |
+| `OUT_OF_TREE_DRIVER_BLOCKED`         | `FOREVER`      | S8.3 §12    | Out-of-tree driver bind refused by default; recovery-mode override path is separate.                      |
+
+Subsection retention split: `STANDARD_24M` × 6, `EXTENDED_60M` × 3, `FOREVER` × 5 (fourteen rows total). **Charter mismatch note:** S8.3 §12 narrative claims "FOREVER count grows by 6"; direct row-by-row recount of §12 yields 5 FOREVER entries (`DEVICE_QUARANTINED`, `AI_REMOVABLE_DEVICE_BLOCKED`, `HARDWARE_GRAPH_DRIFT_DETECTED`, `FIRMWARE_VERSION_DOWNGRADE_BLOCKED`, `OUT_OF_TREE_DRIVER_BLOCKED`). The narrative `HOST_CAPABILITY_LIE` mentioned in S8.3 §3 is owned by S8.2 (GPU resource model) and is not in S8.3's queued vocabulary table; the truthful Wave-8 count for S8.3 is 5 FOREVER, not 6.
+
+### 27.14 From S8.4 DNS / VPN Management (12 types)
+
+Source: [S8.4 §13](../L8_Network_Hardware_Devices/03_dns_vpn_management.md). Append authority is restricted to the L8 DnsVpnService process; forgery from any other subject is hard-denied at S3.1 and emits `TAMPER_DETECTED`. The six FOREVER entries cover the constitutional resolver-trust and VPN-trust surfaces: rebinding detection, plain-DNS attempt, resolver substitution attempt, VPN provider key rotation (legitimate; carries old/new BLAKE3), VPN provider key forgery (rotation rejected on Ed25519 fail), and mDNS poisoning (response IP outside LAN_SUBNET).
+
+| RecordType                           | Retention      | Source spec | Purpose                                                                                                            |
+| ------------------------------------ | -------------- | ----------- | ------------------------------------------------------------------------------------------------------------------ |
+| `DNS_QUERY_PERFORMED`                | `STANDARD_24M` | S8.4 §13    | Every successfully evaluated DNS query; FQDN auditable; **no payload** (answer set never recorded).                |
+| `DNS_RESOLVER_REBINDING_DETECTED`    | `FOREVER`      | S8.4 §13    | Response returned IPs outside the pinned set; FQDN entry transitions to `AWAITING_OPERATOR`.                       |
+| `DNS_PLAIN_BLOCKED`                  | `FOREVER`      | S8.4 §13    | Subject attempted UDP/53 or TCP/53 in the clear; kernel filter dropped.                                            |
+| `DNS_RESOLVER_SUBSTITUTION_REJECTED` | `FOREVER`      | S8.4 §13    | Subject attempted to register an out-of-allowlist resolver (config write, mount, RES_OPTIONS).                     |
+| `VPN_TUNNEL_ESTABLISHED`             | `STANDARD_24M` | S8.4 §13    | A `VpnTunnel` reached `ACTIVE`; carries kind, peer endpoint class, approver chain.                                 |
+| `VPN_TUNNEL_FAILED`                  | `EXTENDED_60M` | S8.4 §13    | Tunnel transitioned to `FAILED` (kill-switch, peer unreachable, key handshake failure).                            |
+| `VPN_PROVIDER_KEY_ROTATED`           | `FOREVER`      | S8.4 §13    | Successful key rotation for a tunnel; carries old/new key BLAKE3 and signing identity.                             |
+| `VPN_PROVIDER_KEY_FORGERY_REJECTED`  | `FOREVER`      | S8.4 §13    | A `RotateVpnPeerKey` attempt failed Ed25519 verification.                                                          |
+| `MDNS_REQUEST_RECEIVED`              | `STANDARD_24M` | S8.4 §13    | A subject submitted `MdnsResolveInstance`; carries service type, instance name class, outcome.                     |
+| `MDNS_BROADCAST_DENIED`              | `EXTENDED_60M` | S8.4 §13    | Advertisement denied (posture, expired grant, recovery-suspended).                                                 |
+| `MDNS_POISONING_DETECTED`            | `FOREVER`      | S8.4 §13    | mDNS response IP fell outside the interface's LAN_SUBNET.                                                          |
+| `RESOLVER_BACKEND_DEGRADED`          | `EXTENDED_60M` | S8.4 §13    | `ResolverBackend` transitioned to `DEGRADED_HOSTS_FILE_ONLY` (signature failure, all upstreams unreachable, etc.). |
+
+Subsection retention split: `STANDARD_24M` × 3, `EXTENDED_60M` × 3, `FOREVER` × 6 (twelve rows total).
+
+### 27.15 From S8.5 Firmware Trust (12 types)
+
+Source: [S8.5 §13](../L8_Network_Hardware_Devices/04_firmware_trust.md). Append authority is restricted to the `_system:service:firmware-update` subject scope. The six FOREVER entries cover the constitutional firmware-trust surface — code that runs **below** the kernel: monotonicity-violation downgrade attempt, unsigned firmware refusal, vendor deplatform, post-apply rollback (always FOREVER because the pre-rollback firmware ran for some interval), tamper detection on cross-boot version drift (evil-maid firmware-only swap), and operator-local-signed install (the explicit operator-as-final-authority path with hardware-key-witness disclosure).
+
+| RecordType                          | Retention      | Source spec | Purpose                                                                                                             |
+| ----------------------------------- | -------------- | ----------- | ------------------------------------------------------------------------------------------------------------------- |
+| `FIRMWARE_UPDATE_REQUESTED`         | `STANDARD_24M` | S8.5 §13    | Operator-authored `firmware.update.request` accepted at envelope validation.                                        |
+| `FIRMWARE_VERIFICATION_PASSED`      | `STANDARD_24M` | S8.5 §13    | Stage 2 returned `VERIFIED_LVFS` / `VERIFIED_VENDOR_SIGNATURE` / `VERIFIED_DISTRIBUTION`.                           |
+| `FIRMWARE_VERIFICATION_FAILED`      | `EXTENDED_60M` | S8.5 §13    | Stage 2 returned a non-FOREVER failure (signature, hash mismatch, scope mismatch, device absent).                   |
+| `FIRMWARE_DOWNGRADE_BLOCKED`        | `FOREVER`      | S8.5 §13    | Stage 2 monotonicity check rejected; carries proposed and high-water versions.                                      |
+| `FIRMWARE_UNSIGNED_REJECTED`        | `FOREVER`      | S8.5 §13    | Stage 2 class derivation returned `UNSIGNED_BLACKLISTED`; the override path was not taken.                          |
+| `FIRMWARE_VENDOR_DEPLATFORMED`      | `FOREVER`      | S8.5 §13    | Stage 2 detected vendor in S11.1 `DEPLATFORMED` state.                                                              |
+| `FIRMWARE_APPLIED`                  | `STANDARD_24M` | S8.5 §13    | Stage 7 commit succeeded; carries class, scope, prior/new versions, apply strategy, approver id.                    |
+| `FIRMWARE_APPLY_FAILED`             | `EXTENDED_60M` | S8.5 §13    | Stage 5 apply step failed (write error, capsule reject, driver reload error).                                       |
+| `FIRMWARE_ROLLBACK_PERFORMED`       | `FOREVER`      | S8.5 §13    | Stage 7 rollback path succeeded (or failed with `rollback_impossible = true`); carries strategy and outcome.        |
+| `BIOS_UEFI_UPDATE_DEFERRED`         | `EXTENDED_60M` | S8.5 §13    | Stage 4 deferred a `BIOS_UEFI` update; operator-visibility need is higher for this scope.                           |
+| `FIRMWARE_TAMPER_DETECTED`          | `FOREVER`      | S8.5 §13    | Boot-time hardware-graph drift detection observed `firmware_version` mismatch; forces recovery entry.               |
+| `OPERATOR_LOCAL_FIRMWARE_INSTALLED` | `FOREVER`      | S8.5 §13    | Stage 7 commit of an `OPERATOR_LOCAL_SIGNED` firmware update; carries hardware-key serial hash and disclosure hash. |
+
+Subsection retention split: `STANDARD_24M` × 3, `EXTENDED_60M` × 3, `FOREVER` × 6 (twelve rows total).
+
+### 27.16 From S14.2 Telemetry Pipeline (10 types)
+
+Source: [S14.2 §13](04_telemetry_pipeline.md). Append authority is restricted to the L9 telemetry pipeline service for the registration / rate-tier / probe-load records and to the redaction / cardinality / sanitizer enforcers for the violation records. The four FOREVER entries cover the constitutional telemetry-trust surface: cardinality breach (label-explosion attempt), redaction failure (secret-shaped content reached the emission boundary), log-line injection (escape-sequence injection caught by the sanitizer), and eBPF probe rejected (probe outside the closed catalog, overhead-budget exceeded, or AI subject attempting load).
+
+| RecordType                          | Retention      | Source spec | Purpose                                                                                                        |
+| ----------------------------------- | -------------- | ----------- | -------------------------------------------------------------------------------------------------------------- |
+| `TELEMETRY_PIPELINE_STARTED`        | `STANDARD_24M` | S14.2 §13   | A signal registration was accepted (or rejected with `outcome = REJECTED`).                                    |
+| `TELEMETRY_CARDINALITY_BREACH`      | `FOREVER`      | S14.2 §13   | A signal exceeded its `CardinalityBudget` and AUTO_DEMOTE triggered.                                           |
+| `TELEMETRY_REDACTION_FAILED`        | `FOREVER`      | S14.2 §13   | The redaction layer rejected an emission; the data point is dropped before storage.                            |
+| `TELEMETRY_BACKEND_UNAVAILABLE`     | `EXTENDED_60M` | S14.2 §13   | A backend (Prometheus, Loki, OTLP collector) became unreachable; rate-limited.                                 |
+| `TELEMETRY_BACKEND_DEGRADED`        | `EXTENDED_60M` | S14.2 §13   | A backend is reachable but experiencing backpressure (`SCRAPE_SLOW` / `INGEST_REJECTED` / `RING_BUFFER_FULL`). |
+| `TELEMETRY_LOG_INJECTION_DETECTED`  | `FOREVER`      | S14.2 §13   | The log-line escape sanitizer rejected an emission; offending content not stored.                              |
+| `TELEMETRY_RETENTION_TIER_PROMOTED` | `STANDARD_24M` | S14.2 §13   | A signal's `RetentionTier` was changed; carries previous and new tier.                                         |
+| `TELEMETRY_SAMPLING_RATE_ADJUSTED`  | `STANDARD_24M` | S14.2 §13   | A signal's sampling rate was changed; carries previous/new rate and reason code.                               |
+| `TELEMETRY_EBPF_PROBE_LOADED`       | `STANDARD_24M` | S14.2 §13   | An eBPF probe from the closed catalog was loaded; carries probe template and cumulative overhead.              |
+| `TELEMETRY_EBPF_PROBE_REJECTED`     | `FOREVER`      | S14.2 §13   | An eBPF probe load was rejected (outside catalog, overhead exceeded, AI subject attempting load).              |
+
+Subsection retention split: `STANDARD_24M` × 4, `EXTENDED_60M` × 2, `FOREVER` × 4 (ten rows total). **Charter mismatch note:** S14.2 §13 narrative declares "S3.1 §24 noted 87; this brings the running total to **97 entries**." This claim is internally inconsistent with the L9.1 evidence-log running total tracked here (post-Wave 7 = 205 narrative entries; S14.2's "87" appears to reference an older cumulative snapshot). The truthful Wave-8 contribution from S14.2 is 10 rows; the running cumulative narrative total after Wave 8 is computed in §27.19 from the L9.1 ledger, not from S14.2's stale snapshot.
+
+### 27.17 From S11.2 Marketplace (12 types)
+
+Source: [S11.2 §12](../L10_Distribution_Ecosystem_Marketplace/02_marketplace.md). Append authority is restricted to the L10 marketplace state engine for the publisher-onboarding / capability-review / listing records, mirrored against S11.1 for the `PUBLISHER_ONBOARDING_DEPLATFORMED` event. The six FOREVER entries cover the constitutional marketplace-trust surface: publisher onboarding outcomes (approved / rejected / deplatformed — all three are constitutional events for the trust catalog); capability-review deceptive rejection (the deceptive-justification audit trail); listing-vs-manifest mismatch (the bait-and-switch detection point); and review-bypass attempt (the audit-side detection that fires when an install-time manifest contains capabilities that should have been caught at review).
+
+| RecordType                                   | Retention      | Source spec | Purpose                                                                                                             |
+| -------------------------------------------- | -------------- | ----------- | ------------------------------------------------------------------------------------------------------------------- |
+| `PUBLISHER_ONBOARDING_APPLICATION_SUBMITTED` | `STANDARD_24M` | S11.2 §12   | `APPLICATION_SUBMITTED` state entered after successful field validation.                                            |
+| `PUBLISHER_ONBOARDING_IDENTITY_VERIFIED`     | `EXTENDED_60M` | S11.2 §12   | `IDENTITY_VERIFICATION_PENDING → TECHNICAL_REVIEW` transition.                                                      |
+| `PUBLISHER_ONBOARDING_APPROVED`              | `FOREVER`      | S11.2 §12   | `SECURITY_REVIEW → APPROVED_VERIFIED`; catalog entry written; mirrors S11.1 onboarding-approval signal.             |
+| `PUBLISHER_ONBOARDING_REJECTED`              | `FOREVER`      | S11.2 §12   | Any review stage → `REJECTED`; mirrors S11.1 rejection signal.                                                      |
+| `PUBLISHER_ONBOARDING_DEPLATFORMED`          | `FOREVER`      | S11.2 §12   | `APPROVED_VERIFIED → DEPLATFORMED`; mirrors S11.1 `PUBLISHER_DEPLATFORMED` for FSM symmetry.                        |
+| `CAPABILITY_REVIEW_REQUESTED`                | `STANDARD_24M` | S11.2 §12   | `TECHNICAL_REVIEW` entered; one record per draft manifest summarising the capability count.                         |
+| `CAPABILITY_REVIEW_APPROVED`                 | `EXTENDED_60M` | S11.2 §12   | Per-capability `APPROVED_AS_DECLARED` or `APPROVED_WITH_NARROWED_SCOPE` outcome.                                    |
+| `CAPABILITY_REVIEW_DECEPTIVE_REJECTED`       | `FOREVER`      | S11.2 §12   | Per-capability `REJECTED_DECEPTIVE` outcome; feeds publisher's `capability_lie_history_count`.                      |
+| `LISTING_PUBLISHED`                          | `STANDARD_24M` | S11.2 §12   | `Listing.visibility` transitions from unset to any visible state; canonical hash recorded.                          |
+| `LISTING_VISIBILITY_DOWNGRADED`              | `EXTENDED_60M` | S11.2 §12   | Visibility transitions toward `DEPRECATED_VIEWABLE` or `RETIRED_HIDDEN`; reason recorded.                           |
+| `LISTING_LISTING_VS_MANIFEST_MISMATCH`       | `FOREVER`      | S11.2 §12   | Listing-vs-manifest cross-check failed at publication or at install; constitutional bait-and-switch event.          |
+| `MARKETPLACE_REVIEW_BYPASS_ATTEMPTED`        | `FOREVER`      | S11.2 §12   | Install pipeline detected a manifest that should have been caught at review; constitutional review-bypass forensic. |
+
+Subsection retention split: `STANDARD_24M` × 3, `EXTENDED_60M` × 3, `FOREVER` × 6 (twelve rows total).
+
+### 27.18 From S11.3 External Integrations (12 types)
+
+Source: [S11.3 §13](../L10_Distribution_Ecosystem_Marketplace/03_external_integrations.md). Append authority is restricted to the L10 external-bridge service for fetch / repackage / metadata / recipe records, with parallel emissions from the bridge admission pipeline for deceptive-claim / signature-failure / blacklist records. The four FOREVER entries cover the constitutional bridge-trust surface: upstream signature failure (constitutionally inadmissible per §I3 — no operator override), deceptive trust-class claim in upstream metadata (permanent rejection, keyed on upstream content hash), bridge auto-blacklisted (per-source reputation collapse), and trust-class deception detected (the deceptive-claim audit trail).
+
+| RecordType                              | Retention      | Source spec | Purpose                                                                                                  |
+| --------------------------------------- | -------------- | ----------- | -------------------------------------------------------------------------------------------------------- |
+| `BRIDGE_FETCH_STARTED`                  | `STANDARD_24M` | S11.3 §13   | Bridge fetch operation started.                                                                          |
+| `BRIDGE_FETCH_COMPLETED`                | `STANDARD_24M` | S11.3 §13   | Bridge fetch completed successfully; carries upstream content hash and byte count.                       |
+| `BRIDGE_UPSTREAM_SIGNATURE_VERIFIED`    | `STANDARD_24M` | S11.3 §13   | Upstream signature verification passed; carries upstream signing key id and signature timestamp.         |
+| `BRIDGE_UPSTREAM_SIGNATURE_FAILED`      | `FOREVER`      | S11.3 §13   | Upstream signature failed or upstream is `UNSIGNED_REJECTED`; constitutionally inadmissible.             |
+| `BRIDGE_REPACKAGED_WITH_AIOS_KEY`       | `STANDARD_24M` | S11.3 §13   | Bridge synthesised an AIOS manifest at `COMMUNITY` trust and signed with the AIOS bridge per-source key. |
+| `BRIDGE_DECEPTIVE_REJECTED`             | `FOREVER`      | S11.3 §13   | Bridge admission rejected with `REJECTED_DECEPTIVE`; carries sub-reason and offending field.             |
+| `BRIDGE_RATE_LIMIT_EXCEEDED`            | `EXTENDED_60M` | S11.3 §13   | Bridge accumulated `≥ 3` deferrals in a 1-hour window.                                                   |
+| `BRIDGE_METADATA_IMPORTED`              | `STANDARD_24M` | S11.3 §13   | Metadata-only import completed; carries `MetadataAttribution`.                                           |
+| `BRIDGE_RECIPE_IMPORTED`                | `STANDARD_24M` | S11.3 §13   | Recipe import completed; carries upstream attribution and recipe canonical id.                           |
+| `BRIDGE_BLACKLISTED`                    | `FOREVER`      | S11.3 §13   | Bridge auto-blacklisted; carries source, trigger condition, counter snapshot.                            |
+| `BRIDGE_DEGRADED_UPSTREAM_UNAVAILABLE`  | `EXTENDED_60M` | S11.3 §13   | Bridge fetch failed after retry budget exhausted; carries source, upstream URL, last error.              |
+| `BRIDGE_TRUST_CLASS_DECEPTION_DETECTED` | `FOREVER`      | S11.3 §13   | Deceptive-claim check detected an AIOS-side trust-class claim in upstream metadata; pattern matched.     |
+
+Subsection retention split: `STANDARD_24M` × 6, `EXTENDED_60M` × 2, `FOREVER` × 4 (twelve rows total).
+
+### 27.19 Reconciliation note (truthful arithmetic)
+
+Per §24's narrative-total counting pattern, this Wave 8 records **195 unique `RecordType` additions** across eighteen source contracts with no exact-name collisions against the prior Wave-1..7 vocabulary (synonym-adjacency notes are recorded in §27.20). The retention-class distribution across these 195 additions, counted directly from §27.1 through §27.18, is:
+
+| Source                  | `STANDARD_24M` | `EXTENDED_60M` | `FOREVER` |   Total |
+| ----------------------- | -------------: | -------------: | --------: | ------: |
+| §27.1 S9.2 first-boot   |              1 |              0 |        10 |      11 |
+| §27.2 S14.1 failures    |              4 |              2 |         4 |      10 |
+| §27.3 S6.3 receipt      |              0 |              0 |         4 |       4 |
+| §27.4 S15.1 unit        |              4 |              3 |         1 |       8 |
+| §27.5 S15.2 transitions |              7 |              2 |         3 |      12 |
+| §27.6 S15.3 adapter     |              4 |              2 |         4 |      10 |
+| §27.7 S13.2 router      |              4 |              6 |         2 |      12 |
+| §27.8 S13.1 cog-core    |              7 |              5 |         6 |      18 |
+| §27.9 S12.2 package     |              3 |              2 |         5 |      10 |
+| §27.10 S12.3 compat-rt  |              6 |              1 |         3 |      10 |
+| §27.11 S12.4 compat-kn  |              4 |              3 |         1 |       8 |
+| §27.12 S7.6 CLI         |              5 |              1 |         4 |      10 |
+| §27.13 S8.3 hw-graph    |              6 |              3 |         5 |      14 |
+| §27.14 S8.4 dns/vpn     |              3 |              3 |         6 |      12 |
+| §27.15 S8.5 firmware    |              3 |              3 |         6 |      12 |
+| §27.16 S14.2 telemetry  |              4 |              2 |         4 |      10 |
+| §27.17 S11.2 market     |              3 |              3 |         6 |      12 |
+| §27.18 S11.3 ext-int    |              6 |              2 |         4 |      12 |
+| **Wave 8 totals**       |         **74** |         **43** |    **78** | **195** |
+
+Total: 74 + 43 + 78 = 195 unique additions. Subsection-by-subsection sum of "Total": 11+10+4+8+12+10+12+18+10+10+8+10+14+12+12+10+12+12 = 195 ✓.
+
+New cumulative narrative total: **205 (post-Wave 7) + 195 (Wave 8) = 400 entries**. (Note: S6.3 contract self-stated "209 narrative entries" by accounting only for its own four additions on top of 205; that arithmetic is a strict subset of the 400 computed here, not a contradiction.)
+
+> **Counting note vs charter expectations.** Two charter-vs-source mismatches were detected and called out at the subsection level:
+>
+> 1. **S8.3 (§27.13)** — source narrative claims "FOREVER count grows by 6"; row-by-row recount yields 5 FOREVER entries. The truthful Wave-8 contribution is 5 FOREVER from S8.3, not 6.
+> 2. **S14.2 (§27.16)** — source narrative claims a cumulative running total of "97 entries" referencing an older S3.1 baseline of 87; the L9.1 cumulative ledger tracked here was 159 post-Wave 6 and 205 post-Wave 7. S14.2's snapshot is stale by multiple Waves; its 10-row contribution is correct, its cumulative claim is not.
+>
+> Per §26.4's discipline, the per-class arithmetic in the table above is the source-of-truth for L9.1; the source-spec narratives that disagree are recorded as charter mismatches and not propagated.
+
+Per §23 / §24 / §25 / §26's narrative-only declaration pattern, this Wave 8 does **not** edit Appendix A. Full IDL reconciliation — addition of the 195 new payload messages to the discriminated `RecordPayload` oneof — is a separate sweep when the spec is next refined.
+
+### 27.20 Telemetry impact
+
+Each new FOREVER record type contributes to the FOREVER retention storage class summarised in §6.4. Wave 8 introduces **78 new FOREVER record types** (per §27.19 column total). Cumulative FOREVER narrative entries through Wave 8: 65 (post-Wave 7) + 78 (Wave 8) = **143 narrative FOREVER entries**. The §20 per-`record_type` cardinality reservation is bumped from 205 to 400 entries narratively. Existing histogram and counter labels remain valid; subject, group, and channel ids are never labels — they would inflate cardinality unboundedly and would re-introduce subject identity into the metrics surface that §20 forbids.
+
+The new FOREVER surface in Wave 8 is dominated by four constitutional axes:
+
+- **First-boot constitutional commits** (S9.2 × 10) — the ten constitutional events a host emits during first-boot establish the host's lifetime audit trail. Volume is bounded to one set per host lifetime plus one per reset-to-factory operation.
+- **Trust-boundary refusals** (S15.3 adapter × 4, S12.2 package × 5, S11.2 marketplace × 6, S11.3 bridge × 4 = 19) — the points where the trust chain rejects manifests / packages / publishers / bridges. Volume is bounded by adversary attempt rate.
+- **Hardware / firmware / receipt audit-chain anomalies** (S8.3 × 5, S8.5 × 6, S6.3 × 4 = 15) — drift, downgrade, tamper, forgery, lineage cycles, sequence anomalies. Constitutional forensic events; volume is bounded by adversarial attack surface.
+- **AI / cognitive boundary enforcement** (S13.1 × 6, S13.2 × 2, S14.2 × 4, S7.6 × 4 = 16) — INV-002 / INV-011 / INV-013 / INV-016 enforcement at the cognitive, telemetry, and renderer layers; prompt injection, response signature failure, eBPF probe rejection, ANSI injection. Volume is bounded by adversary attack rate.
+
+These are the four most security-sensitive surfaces in the host post-installation, so the FOREVER share of Wave 8 (78 / 195 = 40 %) is structural, not accidental.
+
+### 27.21 Cross-spec impact note (queued for separate consolidations)
+
+This Wave 8 records only the `RecordType` consolidation. Other items queued by the eighteen source contracts are **out of scope** for this Wave and are deferred to separate sweeps:
+
+- **Synonym / adjacency notes** (recorded narrative-only here; no name changes proposed):
+  - `UNIT_DEPENDENCY_CYCLE_DETECTED` (S15.1, admission-time) and `DEPENDENCY_CYCLE_DETECTED` (S15.2, evaluation-time) are semantically adjacent but distinct record-name bindings. Both retained.
+  - `PACKAGE_OBJECT_QUARANTINED` (Wave 8 S12.2, package-engine per-load detection) and `PACKAGE_QUARANTINED` (Wave 7 S11.1, install-pipeline FSM transition) are semantically adjacent but distinct. Both retained.
+  - `MODEL_CALL` (original Appendix A, line 1155) is a coarse-grained legacy record that the twelve S13.2 names (§27.7) functionally replace. Reconciliation deferred to the IDL sweep.
+  - `ORCHESTRATION_KIND_MISMATCH_REJECTED` (Wave 8 S12.3) and `APP_ECOSYSTEM_RUNTIME_BREAKOUT_ATTEMPTED` (Wave 7 S12.1) cover related-but-distinct surfaces (orchestration-kind disagreement vs runtime-breakout). Both retained.
+- **New typed actions** queued for the S10.1 Capability Runtime catalog: at least `firmware.update.request` (S8.5), `RotateVpnPeerKey` (S8.4), `compat.contribute_profile_observation` (S12.4), `compat.import_profile_from_upstream` (S12.4), `app.launch` (S12.3), `agent.coordinate.send` / `agent.memory.read` / `agent.memory.write` / `agent.grade.attempt` / `external_model_call` (S13.1 / S13.2), plus the SGR `unit.start` / `unit.rollback` / `runtime.adapter.register` / `runtime.adapter.retire` (S15.1 / S15.3) and the marketplace / bridge actions (S11.2 / S11.3). Consolidated into S10.1 separately.
+- **New fields** queued for the S3.2 `SandboxProfile` shape and the S8.3 hardware-graph snapshot shape; handled by the respective orchestrators.
+- **Candidate L0 invariants** queued narrative-only by these contracts: `NETWORK_DEFAULT_DENY_OUTBOUND` (S8.1, carried forward from Waves 6 and 7 and still pending), `PACKAGE_TRUST_CHAIN_BOUND` (S11.1 §19, carried from Wave 7), `ECOSYSTEM_HONESTY_DISCLOSURE` (S12.1, carried from Wave 7), `HARDWARE_GRAPH_DRIFT_FOREVER` (S8.3 §I6 / §12.2), and the four firmware-update scopes (`CPU_MICROCODE`, `GPU_FIRMWARE`, `TPM_FIRMWARE`, `BIOS_UEFI`) queued for `NonOverridableClass` extension by S8.5 §9. Per L0 §3 I1, invariant catalog mutation is a versioned spec change and recovery-mode invariant-bundle update — these are held for the audit-phase L0 sweep per the project owner's "deliberate single-purpose constitutional act" pattern and are **not** promoted in this Wave.
+- **No-records sources:** all eighteen sources contributed at least one queued `RecordType`. None were skipped; S6.3 is included despite being primarily a receipt-envelope schema because §12 of that contract explicitly queues four FOREVER record types for the L9.1 vocabulary.
+
+## 28. See also
 
 - [S0.1 Action Envelope + Lifecycle](../XX_Cross_Cutting/01_action_envelope_lifecycle.md)
 - [S2.4 Verification Grammar](02_verification_grammar.md)
@@ -1090,18 +1517,36 @@ This Wave 7 records only the `RecordType` consolidation. Other items queued by t
 - [S5.2 Vault Broker](../L4_Policy_Identity_Vault/02_vault_broker.md)
 - [S5.3 Approval Mechanics](../L4_Policy_Identity_Vault/04_approval_mechanics.md)
 - [S5.4 Emergency Override](../L4_Policy_Identity_Vault/05_emergency_override.md)
+- [S6.3 Evidence Receipt Schema](../L0_Governance_Evidence_Safety/03_evidence_receipt_schema.md)
 - [S7.1 Surface Composition](../L7_Interaction_Renderers/01_surface_composition.md)
 - [S7.2 Shared UI Schema](../L7_Interaction_Renderers/02_shared_ui_schema.md)
 - [S7.3 Visual Language](../L7_Interaction_Renderers/03_visual_language.md)
 - [S7.4 KDE Renderer](../L7_Interaction_Renderers/04_kde_renderer.md)
 - [S7.5 Web Renderer](../L7_Interaction_Renderers/05_web_renderer.md)
+- [S7.6 CLI Renderer](../L7_Interaction_Renderers/06_cli_renderer.md)
 - [S8.1 Network Policy](../L8_Network_Hardware_Devices/02_network_policy.md)
 - [S8.2 GPU Resource Model](../L8_Network_Hardware_Devices/05_gpu_resource_model.md)
+- [S8.3 Hardware Graph](../L8_Network_Hardware_Devices/01_hardware_graph.md)
+- [S8.4 DNS / VPN Management](../L8_Network_Hardware_Devices/03_dns_vpn_management.md)
+- [S8.5 Firmware Trust](../L8_Network_Hardware_Devices/04_firmware_trust.md)
 - [S9.1 Recovery Boundary](../L1_Kernel_Bootstrap_Recovery/01_recovery_boundary.md)
+- [S9.2 First-Boot Flow](../L1_Kernel_Bootstrap_Recovery/02_first_boot_flow.md)
 - [S9.3 Dedicated Kernel Pipeline](../L1_Kernel_Bootstrap_Recovery/03_dedicated_kernel_pipeline.md)
 - [S10.1 Capability Runtime gRPC](../L3_AIOS_SGR_Service_Graph_Runtime/03_capability_runtime_grpc.md)
 - [S11.1 Repository Model](../L10_Distribution_Ecosystem_Marketplace/01_repository_model.md)
+- [S11.2 Marketplace](../L10_Distribution_Ecosystem_Marketplace/02_marketplace.md)
+- [S11.3 External Integrations](../L10_Distribution_Ecosystem_Marketplace/03_external_integrations.md)
 - [S12.1 App Runtime Model](../L6_Apps_Packages_Compatibility/01_app_runtime_model.md)
+- [S12.2 Package Object Model](../L6_Apps_Packages_Compatibility/02_package_model.md)
+- [S12.3 Compatibility Runtime](../L6_Apps_Packages_Compatibility/03_compatibility_runtime.md)
+- [S12.4 Compatibility Knowledge](../L6_Apps_Packages_Compatibility/05_compatibility_knowledge.md)
+- [S13.1 Cognitive Core Model](../L5_Cognitive_Core/01_cognitive_core_model.md)
+- [S13.2 Cognitive Model Router](../L5_Cognitive_Core/05_model_router.md)
+- [S14.1 Failure Handling](03_failure_handling.md)
+- [S14.2 Telemetry Pipeline](04_telemetry_pipeline.md)
+- [S15.1 Unit Manifest](../L3_AIOS_SGR_Service_Graph_Runtime/01_unit_manifest.md)
+- [S15.2 SGR State Transitions](../L3_AIOS_SGR_Service_Graph_Runtime/02_state_transitions.md)
+- [S15.3 SGR Adapter Model](../L3_AIOS_SGR_Service_Graph_Runtime/04_adapter_model.md)
 - [Rev.2 Master Index](../00_MASTER_INDEX.md)
 
 ## Appendix A: Complete proto IDL

@@ -926,6 +926,96 @@ message NamespaceCatalogDescriptor {
 }
 ```
 
+## Wave 8 cross-spec touch-up (Tier 1 + Tier 2 namespace path additions)
+
+Applied 2026-05-11. This section consolidates namespace path additions queued by Tier 1 and Tier 2 source specs since S4.1 was promoted (2026-05-09). Each addition is a **closed-enum extension**, not a redefinition of an existing scope; the catalog version (§13) bumps once on adoption (`nscat_<new_hex>`). Until adoption, source specs stamp their references with the existing catalog and the resolver returns `INVALID_SYSTEM_RESERVED` / `INVALID_GROUP_RESERVED` / `INVALID_USER_RESERVED` for the new names — preserving fail-closed discipline.
+
+Sources: S9.2 (first_boot_flow), S0.3 (mvp_golden_path), S15.1 (unit_manifest), S15.2 (state_transitions), S13.2 (model_router), S12.2 (package_model — Tier 2 USR_APPS), S12.3 (compatibility_runtime), S12.4 (compatibility_knowledge), S8.3 (hardware_graph), S8.4 (dns_vpn_management), S8.5 (firmware_trust), S14.1 (failure_handling), S11.2 (marketplace).
+
+Sources that contributed no namespace path addition (W8.4): S6.3 (evidence_receipt_schema), S15.3 (adapter_model — sandbox profile examples only), S13.1 (cognitive_core_model — uses existing GRP_AGENTS / USR_AGENTS / GRP_SHARED structure), S7.6 (cli_renderer — uses existing SYS_RECOVERY for operator keys), S14.2 (telemetry_pipeline), S11.3 (external_integrations — bridge runtime nests under existing SYS_RUNTIME, no new reserved name).
+
+### W8.1 New scope path enum entries
+
+#### SystemReservedName extensions (16 new values; current closed enum extends from 8 → 24)
+
+| Enum               | New value | Owner subject                           | Path                         | Recovery treatment                                                                                                                      | Source spec                           |
+| ------------------ | --------- | --------------------------------------- | ---------------------------- | --------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------- |
+| `SYS_BOOT`         | 9         | `_system:service:boot-coordinator`      | `/aios/system/boot/`         | recovery-safe (rw via `RecoveryMutableScope.L1_BOOT_PARAMETERS`)                                                                        | S9.2 §3.2; S9.1 §3.6                  |
+| `SYS_FIRSTBOOT`    | 10        | `_system:service:firstboot-coordinator` | `/aios/system/firstboot/`    | recovery-safe (rw for `recovery.firstboot.reset` only, INV-012)                                                                         | S9.2 §3.2, §6.4                       |
+| `SYS_GOVERNANCE`   | 11        | `_system:service:governance`            | `/aios/system/governance/`   | recovery-safe (rw via `RecoveryMutableScope.INVARIANT_BUNDLE`)                                                                          | S9.2 §3.2; S9.1 §3.6 row 4            |
+| `SYS_IDENTITY`     | 12        | `_system:service:identity`              | `/aios/system/identity/`     | recovery-safe (rw via `RecoveryMutableScope.IDENTITY_BUNDLE`)                                                                           | S0.3 §4.3; S9.2 §3.2; S9.1 §3.6 row 5 |
+| `SYS_KERNEL`       | 13        | `_system:service:kernel-manager`        | `/aios/system/kernel/`       | recovery-safe (rw via `RecoveryMutableScope.DEDICATED_KERNEL_PROMOTION`)                                                                | S9.2 §3.2; S9.1 §3.6 row 7            |
+| `SYS_HARDWARE`     | 14        | `_system:service:hardware-manager`      | `/aios/system/hardware/`     | recovery-quarantined (snapshots preserved; rebuilt from physical scan at every boot)                                                    | S8.3 §I6, §6.2, §15                   |
+| `SYS_DRIVERS`      | 15        | `_system:service:driver-registry`       | `/aios/system/drivers/`      | recovery-quarantined (signed driver catalog; ro in recovery for inspection)                                                             | S8.3 §5.3                             |
+| `SYS_FIRMWARE`     | 16        | `_system:service:firmware-trust`        | `/aios/system/firmware/`     | recovery-safe (rw for monotonicity counter reset via `RecoveryMutableScope.FIRMWARE_VERSION_COUNTER`, queued in S9.1 follow-up)         | S8.5 §6                               |
+| `SYS_NETWORK`      | 17        | `_system:service:network`               | `/aios/system/network/`      | recovery-quarantined (resolver allowlist preserved; rotation via recovery-mode action; recovery boot forces `DEGRADED_HOSTS_FILE_ONLY`) | S8.4 §I2, §3.1, §6.1                  |
+| `SYS_SGR`          | 18        | `_system:service:sgr`                   | `/aios/system/sgr/`          | recovery-quarantined (desired graph + promotion state preserved; no L3 in recovery, so not loaded)                                      | S15.2 §4, §6.2                        |
+| `SYS_UNITS`        | 19        | `_system:service:sgr`                   | `/aios/system/units/`        | recovery-quarantined (unit manifests preserved; admission requires L3 which is not running)                                             | S15.1 §11                             |
+| `SYS_RUNBOOKS`     | 20        | `_system:service:runbook-registry`      | `/aios/system/runbooks/`     | recovery-safe (ro mountable; recovery operator reads runbooks; no recovery-time mutation)                                               | S14.1 §6.4                            |
+| `SYS_THEMES`       | 21        | `_system:service:theme-registry`        | `/aios/system/themes/`       | recovery-safe (ro mountable; AIOS-root-signed; constitutional icons reachable in recovery surface)                                      | S7.4 §I6, S7.5 §I6                    |
+| `SYS_RENDERERS`    | 22        | `_system:service:renderer-registry`     | `/aios/system/renderers/`    | recovery-safe (ro mountable; KWin scripts signed; CLI renderer uses recovery-only surface stack)                                        | S7.4 §I8                              |
+| `SYS_WEB`          | 23        | `_system:service:web-renderer`          | `/aios/system/web/`          | recovery-safe (ro mountable; recovery web surface served from `recovery.localhost` per S7.5 §10)                                        | S7.5 §10                              |
+| `SYS_DISTRIBUTION` | 24        | `_system:service:distribution`          | `/aios/system/distribution/` | recovery-quarantined (staging + applications registry preserved; package install requires L3, not running)                              | S11.2 §4.2                            |
+
+#### GroupReservedName extensions (2 new values; current closed enum extends from 11 → 13)
+
+| Enum           | New value | Owner subject                              | Path                         | Recovery treatment                                                                  | Source spec          |
+| -------------- | --------- | ------------------------------------------ | ---------------------------- | ----------------------------------------------------------------------------------- | -------------------- |
+| `GRP_SERVICES` | 12        | `<group_id>:service:<service_name>`        | `/aios/groups/<g>/services/` | recovery-quarantined (groups never traversed in recovery per I3; preserved on disk) | S12.4 §6.3           |
+| `GRP_SYSTEM`   | 13        | `<group_id>:role:group_admin` (human-only) | `/aios/groups/<g>/system/`   | recovery-quarantined (groups never traversed in recovery per I3; preserved on disk) | S13.2 §5.4; S11.1 §3 |
+
+#### UserReservedName extensions (3 new values; current closed enum extends from 8 → 11)
+
+| Enum          | New value | Owner subject          | Path                                  | Recovery treatment                                                                                                             | Source spec                                    |
+| ------------- | --------- | ---------------------- | ------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------ | ---------------------------------------------- |
+| `USR_APPS`    | 9         | `<group_id>:<user_id>` | `/aios/groups/<g>/users/<u>/apps/`    | recovery-quarantined (groups never traversed in recovery per I3; preserved on disk)                                            | S12.2 §13.1 (Tier 2; explicit queued addition) |
+| `USR_RUNTIME` | 10        | `<group_id>:<user_id>` | `/aios/groups/<g>/users/<u>/runtime/` | recovery-quarantined (Wine prefixes / Waydroid containers / VM disks preserved; tmpfs scratch is by definition non-persistent) | S12.3 §6.2, §7, §8.3                           |
+| `USR_EXPORTS` | 11        | `<group_id>:<user_id>` | `/aios/groups/<g>/users/<u>/exports/` | recovery-quarantined (operator-requested export snapshots; preserved on disk)                                                  | S12.2 §10                                      |
+
+### W8.2 Recovery-mode behaviour for new paths
+
+Per S9.1 §5 mount discipline, every new system-scope path must explicitly bind to one of the three recovery treatments. This W8.2 confirms each binding:
+
+- **recovery-safe (read-only mountable in recovery; rw only via explicit `RecoveryMutableScope`).** `SYS_BOOT`, `SYS_FIRSTBOOT`, `SYS_GOVERNANCE`, `SYS_IDENTITY`, `SYS_KERNEL`, `SYS_FIRMWARE`, `SYS_RUNBOOKS`, `SYS_THEMES`, `SYS_RENDERERS`, `SYS_WEB`. The five recovery-mutable ones (boot, firstboot, governance, identity, kernel, firmware) are governed by S9.1's `RecoveryMutableScope` enum; W8.4 below records the three additions to that enum (`SYS_FIRSTBOOT_RESET`, `FIRMWARE_VERSION_COUNTER`) that the matching S9.1 touch-up must apply.
+- **recovery-redacted (cleared at recovery boot).** None. No new system path requires redaction; the only paths the recovery boundary clears today are L5-related directories under `/aios/system/agents/` (already governed by S9.1 §6).
+- **recovery-quarantined (preserved on disk but not mounted).** `SYS_HARDWARE`, `SYS_DRIVERS`, `SYS_NETWORK`, `SYS_SGR`, `SYS_UNITS`, `SYS_DISTRIBUTION`, plus all group-scope and user-scope additions (`GRP_SERVICES`, `GRP_SYSTEM`, `USR_APPS`, `USR_RUNTIME`, `USR_EXPORTS`). The group/user paths are quarantined by I3 (recovery never traverses `/aios/groups/...`); the system-scope quarantined paths host runtime state for services that do not run in recovery (L3 SGR, L8 hardware/driver/network managers, L10 distribution), so the data is preserved but the services that own it are not started.
+
+No path in W8.1 has ambiguous recovery treatment; every entry has an explicit binding.
+
+### W8.3 Reconciliation
+
+Total namespace path additions: **21** (16 system + 2 group + 3 user).
+
+Per-scope split:
+
+- **SystemScope (`_system`):** 16 new reserved names (`SYS_BOOT`, `SYS_FIRSTBOOT`, `SYS_GOVERNANCE`, `SYS_IDENTITY`, `SYS_KERNEL`, `SYS_HARDWARE`, `SYS_DRIVERS`, `SYS_FIRMWARE`, `SYS_NETWORK`, `SYS_SGR`, `SYS_UNITS`, `SYS_RUNBOOKS`, `SYS_THEMES`, `SYS_RENDERERS`, `SYS_WEB`, `SYS_DISTRIBUTION`).
+- **GroupScope (per `<group_id>`):** 2 new reserved names (`GRP_SERVICES`, `GRP_SYSTEM`).
+- **UserScope (per `<group_id>`/`<user_id>`):** 3 new reserved names (`USR_APPS`, `USR_RUNTIME`, `USR_EXPORTS`).
+- **EvidenceScope:** 0. Evidence records carry an optional `(scope, group_id, user_id)` triple per S3.1 §12.6 — no new dedicated evidence-scope path is introduced here; evidence remains under `SYS_EVIDENCE` (already enum value 5).
+- **RecoveryScope:** 0 new path enum values. `SYS_RECOVERY` (existing enum value 8) continues to host operator credentials and recovery-only assets; the recovery boundary itself is governed by S9.1's `RecoveryMutableScope` / `RecoveryReadOnlyScope` enums, which are extended in the parallel S9.1 touch-up (see W8.4).
+
+Cumulative S4.1 enum cardinality after Wave 8 adoption:
+
+- `TopLevelReservedName`: **2** (unchanged: `SYSTEM`, `GROUPS`).
+- `SystemReservedName`: **24** (was 8).
+- `GroupReservedName`: **13** (was 11).
+- `UserReservedName`: **11** (was 8).
+- Reserved-id prefixes: **5** (unchanged: `_`, `_system`, `_recovery`, `_aios`, `_root`).
+
+Net catalog descriptor delta: **+21 closed enum values across 3 enums**. The catalog version bumps from `nscat_<v1>` to `nscat_<v2>` on adoption. Per §13, all paths resolved under `nscat_<v1>` must be re-resolved before policy decisions consume them under `nscat_<v2>` (the resolver enforces this via `CATALOG_VERSION_MISMATCH`).
+
+### W8.4 Cross-spec impact note
+
+Each new path may need supporting work in adjacent contracts. The expected handoff is:
+
+- **S3.1 RecordType assertions (handled by S3.1 Wave 8 follow-up).** Several new system paths host typed mutations that must emit dedicated evidence. Candidates already implied by source specs: `FIRSTBOOT_MARKER_WRITTEN` / `FIRST_BOOT_COMPLETE` (already FOREVER, S9.2); `KERNEL_SLOT_PROMOTED` (S9.3); `HARDWARE_GRAPH_REBUILT`, `HARDWARE_GRAPH_DRIFT_DETECTED` (S8.3 already); `FIRMWARE_APPLIED`, `FIRMWARE_VERSION_COUNTER_RESET` (S8.5); `RESOLVER_ALLOWLIST_ROTATED`, `VPN_TUNNEL_ESTABLISHED` (S8.4 already); `RUNBOOK_REGISTERED` (S14.1, queued); `DISTRIBUTION_STAGING_PROMOTED` (S11.1, queued). S3.1's Wave 8 must reconcile against this list and fold the new RecordTypes into the closed enum.
+- **S2.4 verification properties (handled by S2.4 Wave 8 follow-up).** New properties needed at minimum: `NAMESPACE_NEW_PATHS_ALL_OWNED` (every new path resolves and binds to its declared owner subject); `RECOVERY_TREATMENT_BINDING_COMPLETE` (every new system path has an explicit recovery treatment in the W8.2 table); `CATALOG_VERSION_BUMPED_ON_ADOPTION` (catalog version changed exactly once when this Wave landed, not silently). The `aiosfs_path_in_namespace` primitive (added in §12.5) needs no schema change; only fixture coverage extends.
+- **S2.3 Policy Kernel default-deny ACL rows (handled separately).** Each new scope-bound path needs a default-deny row keyed on `target.scope` + `target.system_reserved` / `target.group_reserved` / `target.user_reserved`. The existing constitutional hard-denies (`CrossGroupAccessForbidden`, `RecoveryRequiredForSystemMutation`, `AISystemAdminBlocked` per §12.4) already fire correctly for the new system-scope paths because they match against the closed enum **value**, not against a hard-coded list of names — so the bump from 8 to 24 system-reserved values automatically extends the hard-deny coverage. The Policy Kernel touch-up only needs to widen `RecoveryRequiredForSystemMutation`'s closed allowlist `{SYS_POLICY, SYS_CAPABILITIES, SYS_VAULT, SYS_RECOVERY}` to also include `{SYS_BOOT, SYS_FIRSTBOOT, SYS_GOVERNANCE, SYS_IDENTITY, SYS_KERNEL, SYS_FIRMWARE}` so normal-mode mutations of those paths fail-closed at the constitutional layer (matching S9.1's `RecoveryMutableScope`).
+- **S9.1 RecoveryMutableScope extensions (handled by S9.1 Wave 8 follow-up).** Two new values needed: `SYS_FIRSTBOOT_RESET` (for the `recovery.firstboot.reset` action; S9.2 §6.4) and `FIRMWARE_VERSION_COUNTER` (S8.5 §6). The S9.1 enum is currently 8 values per its §3.6; this brings it to 10. The S9.1 touch-up must update its W8.2 mount-discipline table (S9.1 §5.2) accordingly.
+- **L4 identity scope expansion.** `GRP_SYSTEM` mutation class is `GROUP_ADMIN` (human-only, AI-blocked at the namespace layer; S2.3 hard-deny `AISystemAdminBlocked` does not fire here because the target is group-scope, not system-scope — but the mutation class enforces the human-only rule independently). L4 identity refinement must define `group_admin` precisely; until then the constraint is captured per §12.8.
+
+Sources that contributed no namespace path addition: see header note above. Their absence is recorded explicitly so the next refinement cycle can verify nothing slipped through unnoted.
+
 ## See also
 
 - [S0.1 — Action Envelope and Lifecycle](../XX_Cross_Cutting/01_action_envelope_lifecycle.md)

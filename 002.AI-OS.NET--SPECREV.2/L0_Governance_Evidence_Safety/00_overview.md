@@ -1,6 +1,6 @@
 # L0 — Governance, Evidence, Safety
 
-Status: `SHELL`
+Status: `PARTIAL` (3 of 4 sub-specs `CONTRACT`; `03_evidence_receipt_schema.md` remains `SHELL`)
 
 ## Responsibility
 
@@ -22,12 +22,12 @@ May depend on: nothing. L0 is the bottom of the dependency stack.
 
 ## Planned sub-specs
 
-| File                            | Topic                                                                                           | Status  |
-| ------------------------------- | ----------------------------------------------------------------------------------------------- | ------- |
-| `01_status_taxonomy.md`         | `REAL`/`PARTIAL`/`SHELL`/`CONTRACT`/`DEFERRED`/`BLOCKED`/`UNKNOWN`/`RETIRED` formal definitions | `SHELL` |
-| `02_evidence_grades.md`         | E0–E5 grade definitions, escalation rules, grade-to-status mapping                              | `SHELL` |
-| `03_evidence_receipt_schema.md` | Canonical schema for an evidence receipt                                                        | `SHELL` |
-| `04_invariants.md`              | Cross-cutting invariants and how they are enforced                                              | `SHELL` |
+| File                            | Topic                                                                                           | Status            |
+| ------------------------------- | ----------------------------------------------------------------------------------------------- | ----------------- |
+| `01_status_taxonomy.md`         | `REAL`/`PARTIAL`/`SHELL`/`CONTRACT`/`DEFERRED`/`BLOCKED`/`UNKNOWN`/`RETIRED` formal definitions | `CONTRACT` (S6.1) |
+| `02_evidence_grades.md`         | E0–E5 grade definitions, escalation rules, grade-to-status mapping                              | `CONTRACT` (S6.2) |
+| `03_evidence_receipt_schema.md` | Canonical schema for an evidence receipt                                                        | `SHELL`           |
+| `04_invariants.md`              | Cross-cutting invariants and how they are enforced                                              | `CONTRACT` (S6.4) |
 
 ## See also
 

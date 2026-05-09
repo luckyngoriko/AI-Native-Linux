@@ -74,6 +74,40 @@ Decision log. Each entry follows ADR (Architecture Decision Record) discipline: 
 
 ---
 
+## DEC-017 — L0 Governance bundle: status taxonomy + evidence grades + invariants (initial contracts)
+
+- **Context:** L0 (Governance, Evidence, Safety) is the bottom of the dependency stack but has been a `SHELL` overview for the entire Phase 3 pass. Every existing contract referenced "REAL/PARTIAL/CONTRACT" statuses and "E0..E5 evidence grades" without those vocabularies being formally defined. Constitutional invariants from Rev.1 §6 were enforced informally — the cross-group hard-deny in S2.3 cited "constitutional", but where the constitution lives was unspecified. This DEC closes that.
+- **Decision:** Write three of the four planned L0 sub-specs in a single combined cycle (the fourth, `03_evidence_receipt_schema.md`, remains `SHELL` because S3.1 §4 already covers receipt schema in sufficient detail; promoting it would be redundant).
+  - **S6.1 `01_status_taxonomy.md`** (466 lines): Closed `CapabilityStatus` enum with eight values formally defined; per-status minimum required evidence grade; partial order on the capability axis with off-axis statuses (`CONTRACT`/`DEFERRED`/`BLOCKED`/`UNKNOWN`/`RETIRED`); allowed transitions table with 16 valid transitions and forbidden transitions explicitly rejected; ten gates (`G1`–`G10`) with deterministic check functions; AI cannot pass G6 for capabilities they authored (`AISelfStatusPromotionBlocked` — L0 mirror of S2.3 §17); automatic demotion on regression (`G8`) and dependency status change (`G7`); layer headline status computed from sub-specs (rollup function); new `STATUS_TRANSITION` STANDARD_24M, `STATUS_AUTODEMOTED` STANDARD_24M, `STATUS_BUNDLE_DRIFT` FOREVER record types added to S3.1 vocabulary; six golden fixtures.
+  - **S6.2 `02_evidence_grades.md`** (385 lines): Closed `EvidenceGrade` enum with six values; per-grade artifact-list verification (E1 artifact exists / E2 build typecheck / E3 unit-integration test / E4 e2e or recovery-rehearsal or release-gate / E5 live operational with rolling 7-of-14d window); grade subsumption (`E5 ⊃ E4 ⊃ E3 ⊃ E2 ⊃ E1`); deterministic grade computation function; grade-to-status mapping enforces S6.1 gates; recovery-critical bundle (`reccritical_<hex>`) gates `E4` requirement for `REAL`; AI cannot emit grade-promotion receipts for self-authored code (`ProducerCannotSelfGrade`); seven new evidence record types added to S3.1 vocabulary (`ARTIFACT_RECORDED`, `BUILD_PASSED`, `TEST_PASSED`, `E2E_PASSED`, `RECOVERY_REHEARSAL_PASSED` FOREVER, `RELEASE_GATE_PASSED` FOREVER, `OPERATIONAL_HEALTHY`); closed `ArtifactKind` enum with thirteen values; six golden fixtures.
+  - **S6.4 `04_invariants.md`** (431 lines): Closed `InvariantId` enum with eighteen values cataloging the AIOS constitution; per-invariant Statement / Why / Enforced by / Verified by / Cannot be loosened by sections; signed `InvariantBundle` (`invbundle_<hex>`) with degraded-mode fallback on signature failure (only INV-001 recovery independence + INV-002 AI proposes never executes active without bundle); invariant retirement requires recovery mode + HUMAN_USER + FOREVER-retained `INVARIANT_RETIRED` evidence; six new S2.4 properties (`FILESYSTEM_BOUNDARY_INTACT`, `WEB_UI_LOCALHOST_BOUND`, `APPROVAL_BOUND_AND_EXPIRING`, `RECOVERY_GATED_SYSTEM_MUTATIONS`, `AI_NEVER_SYSTEM_ADMIN`, `EVIDENCE_NO_SECRET_LEAK`) added to S2.4 closed `PropertyType` enum (total now 16); three new evidence record types (`INVARIANT_BUNDLE_LOADED` FOREVER, `INVARIANT_RETIRED` FOREVER, `WEB_EXPOSURE_GRANTED` FOREVER); five golden fixtures.
+
+  The eighteen invariants:
+  1. INV-001 Recovery independent of L5
+  2. INV-002 AI proposes, never executes
+  3. INV-003 Secrets are capabilities
+  4. INV-004 Recovery boundary preserved (`/`, `/root`, `/aios`)
+  5. INV-005 Evidence append-only
+  6. INV-006 Web UI localhost default
+  7. INV-007 Layer downward dependency
+  8. INV-008 Default deny in policy
+  9. INV-009 Approval bound to one request and expiring
+  10. INV-010 AI cannot self-approve
+  11. INV-011 Cross-group access forbidden by default
+  12. INV-012 Recovery required for system mutation
+  13. INV-013 AI cannot perform system admin
+  14. INV-014 No proof, no completion
+  15. INV-015 Evidence never contains secrets
+  16. INV-016 AI cannot grade its own work
+  17. INV-017 Sandbox floor constitutional
+  18. INV-018 Vault never leaks raw secrets
+
+- **Consequences:** L0 layer transitions from `SHELL` to `PARTIAL` (3 of 4 sub-specs `CONTRACT`). The constitutional vocabulary that has been used informally throughout Phase 3 is now formal: `REAL`/`PARTIAL`/`SHELL`/`CONTRACT`/`DEFERRED`/`BLOCKED`/`UNKNOWN`/`RETIRED` are closed enum values, not narrative labels; `E0..E5` are deterministic-check grades, not project lead opinion; the eighteen invariants are signed, audited by S2.4 properties, and enforceable. Future contract refinement cycles can reference the constitutional layer instead of restating it. Ten new evidence record types added to S3.1 vocabulary across the three specs (S3.1's `RecordType` closed enum is now significantly richer — every Phase 3 contract benefits). Six new S2.4 properties added bring the closed `PropertyType` enum to 16 entries. The L0 contract closes one of the long-standing "we know this is constitutional but where is it" gaps in the Rev.2 spec stack.
+- **Status:** `REAL` (applied 2026-05-09).
+- **Phase tag:** S6.1 + S6.2 + S6.4.
+
+---
+
 ## DEC-016 — S5.1 L4 Identity Model (initial contract)
 
 - **Context:** S2.3 §3 (subject normalization) and S3.2 §5.2 (floor selection per `is_ai`/`is_recovery_mode`) referenced an "L4 identity" placeholder. S4.1 §12.8 added concrete constraints: subject canonical id format `<group_id>:<sub_id>`, group as first-class identity, single `primary_group_id` semantics, recovery-mode subjects always under `_system` scope. With those constraints in place L4 identity could be written rigorously rather than as a free-form sketch.

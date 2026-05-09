@@ -1,6 +1,6 @@
 # L8 — Network, Hardware, Devices
 
-Status: `SHELL`
+Status: `PARTIAL` (`05_gpu_resource_model.md` is `CONTRACT`; the four originally planned sub-specs remain `SHELL`)
 
 ## Responsibility
 
@@ -20,12 +20,13 @@ May depend on: L0, L1, L2, L3, L4.
 
 ## Planned sub-specs
 
-| File                       | Topic                                                        | Status  |
-| -------------------------- | ------------------------------------------------------------ | ------- |
-| `01_hardware_graph.md`     | Device detection, identification, classification, lifecycle  | `SHELL` |
-| `02_network_policy.md`     | Default-deny posture; per-app outbound; firewall integration | `SHELL` |
-| `03_dns_vpn_management.md` | Resolver backend, WireGuard, mDNS/Avahi gating               | `SHELL` |
-| `04_firmware_trust.md`     | Firmware update classification; signed update paths          | `SHELL` |
+| File                       | Topic                                                                                                                                                      | Status            |
+| -------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------- |
+| `01_hardware_graph.md`     | Device detection, identification, classification, lifecycle                                                                                                | `SHELL`           |
+| `02_network_policy.md`     | Default-deny posture; per-app outbound; firewall integration                                                                                               | `SHELL`           |
+| `03_dns_vpn_management.md` | Resolver backend, WireGuard, mDNS/Avahi gating                                                                                                             | `SHELL`           |
+| `04_firmware_trust.md`     | Firmware update classification; signed update paths                                                                                                        | `SHELL`           |
+| `05_gpu_resource_model.md` | Device topology, VRAM accounting, dmabuf brokering, closed `GpuCapabilityClass` enum, per-group `VkDevice` partitioning, hardware capability-lie detection | `CONTRACT` (S8.2) |
 
 ## Optional capability provider: ProxGuard
 

@@ -719,5 +719,5 @@ message GetSurfaceServiceInfoResponse {
 - [S5.1 — Identity Model](../L4_Policy_Identity_Vault/03_identity_model.md)
 - [S6.4 — Constitutional Invariants (incl. INV-019..INV-022)](../L0_Governance_Evidence_Safety/04_invariants.md)
 - [L7 Overview](00_overview.md)
-- [L8 GPU Resource Model](../L8_Network_Hardware_Devices/02_gpu_resource_model.md) (concurrent draft)
+- [L8 GPU Resource Model](../L8_Network_Hardware_Devices/05_gpu_resource_model.md)
 - [Rev.2 Master Index](../00_MASTER_INDEX.md)

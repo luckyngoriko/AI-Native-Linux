@@ -593,7 +593,7 @@ Verifies that `path` resolves through the active namespace catalog to the expect
 - `PROBE_ERROR` — resolver unavailable, catalog signature failure, or `CATALOG_VERSION_MISMATCH` between probe and expectation.
 - `TIMEOUT` — resolution did not return within the per-primitive timeout (default 5 s, max 30 s).
 
-Adding this primitive is a versioned spec change consistent with §3 — no further primitive-vocabulary expansion is implied.
+Adding this primitive is a versioned spec change consistent with §3 — no further primitive-vocabulary expansion is implied. Wave 13 reconciled this addition into Appendix A's primitive `oneof` as `aiosfs_path_in_namespace = 40` (full message body); Wave 4 contributes 1 PropertyType entry (`NAMESPACE_NO_CROSS_GROUP_POINTERS = 10`) and 1 primitive message.
 
 ### 17.2 New property — `NAMESPACE_NO_CROSS_GROUP_POINTERS`
 
@@ -735,6 +735,10 @@ Status semantics for all eight primitives:
 
 All eight primitives obey existing execution rules: read-only, no L4 capability invocation, no AIOS-FS writes, no external network beyond the local renderer / GPU subsystem queries. None of them performs an HTTP probe — `web_renderer_bound_to` is a local socket / kernel state inspection, not an outbound HTTP request. This avoids feedback loops where a verification probe is itself counted as renderer traffic.
 
+### 18.4 IDL reconciliation note
+
+Wave 13 (§22) reconciled Wave 5's four PropertyType entries into Appendix A's `enum PropertyType` at IDs 11..14 (`RENDERER_VISUAL_IDENTITY_PRESERVED = 11`, `TRUST_INDICATORS_ALWAYS_VISIBLE = 12`, `AI_HUMAN_VISUAL_DISTINCTION = 13`, `RECOVERY_AESTHETIC_DISTINCT = 14`) and Wave 5's eight primitive messages into Appendix A's primitive `oneof` at field IDs 41..48 (`surface_in_zone = 41`, `tree_contains_kind = 42`, `tree_max_depth = 43`, `theme_satisfies_invariants = 44`, `theme_constitutional_icons_intact = 45`, `gpu_binding_class = 46`, `web_renderer_bound_to = 47`, `web_chrome_z_index_at_least = 48`) with the proto3 message bodies declared above. No existing field number is changed; the additions are strictly additive.
+
 ## 19. Wave 6 cross-spec touch-up (L0 INV-023/024 + S8.1 network primitive consolidation)
 
 Applied 2026-05-11. Sources: [L0.4 INV-023 / INV-024](../L0_Governance_Evidence_Safety/04_invariants.md), [S8.1 Network Policy](../L8_Network_Hardware_Devices/02_network_policy.md). This section consolidates the two L0-promoted invariants from DEC-026 (`CHROME_ZONE_RESERVED`, `GPU_COMPUTE_GATED`) and the three S8.1 network primitives queued at §11.1 of S8.1, into the closed S2.4 vocabulary. It is additive: §17 and §18 are not edited.
@@ -852,7 +856,7 @@ The two new property entries contribute closed enum labels to `verification_prop
 
 ### 19.6 IDL reconciliation note
 
-This section is a narrative declaration of the new closed enum entries and primitive messages. Full reconciliation against Appendix A (the consolidated proto IDL) is deferred to the next IDL roll-up, mirroring §18.7 and §17. No existing field number is changed; the additions are strictly additive.
+This section originally declared the new closed enum entries and primitive messages narratively. Wave 13 (§22) reconciled Wave 6's two PropertyType entries into Appendix A's `enum PropertyType` at IDs 15..16 (`CHROME_ZONE_RESERVED = 15`, `GPU_COMPUTE_GATED = 16`) and Wave 6's three primitive messages into Appendix A's primitive `oneof` at field IDs 23..25 (`network_subject_outbound_class = 23`, `network_active_exposure_class = 24`, `network_external_model_call_brokered_only = 25`) with the proto3 message bodies declared above. No existing field number is changed; the additions are strictly additive.
 
 ## 20. Wave 8 cross-spec touch-up (Tier 1 + Tier 2 verification properties)
 
@@ -988,7 +992,7 @@ Severity distribution of the 6 new properties: **constitutional 5** (`RECEIPT_SI
 
 ### 20.8 IDL reconciliation note
 
-This section is a narrative declaration of the new closed enum entries and primitive messages. Full reconciliation against Appendix A (the consolidated proto IDL) is deferred to the next IDL roll-up, mirroring §17.1 / §18.7 / §19.6. No existing field number is changed; the additions are strictly additive.
+This section originally declared the new closed enum entries and primitive messages narratively. Wave 13 (§22) reconciled Wave 8's six PropertyType entries into Appendix A's `enum PropertyType` at IDs 17..22 (`RECEIPT_SIGNATURE_VERIFIED = 17`, `RECEIPT_REDACTION_VALID = 18`, `RECEIPT_LINEAGE_DAG = 19`, `RECEIPT_RETENTION_MATCHES_TYPE = 20`, `AI_PROPOSAL_PIPELINE_INTACT = 21`, `PACKAGE_OBJECT_LAYOUT_INTACT = 22`) and Wave 8's three primitive messages into Appendix A's primitive `oneof` at field IDs 26..28 (`dns_resolver_backend = 26`, `vpn_tunnel_active = 27`, `mdns_posture = 28`) with the proto3 message bodies declared above. No existing field number is changed; the additions are strictly additive.
 
 ## 21. Wave 10 cross-spec touch-up (Cluster 6 phantom cleanup + Cluster 7 namespace properties + Wave 9 substrate verification)
 
@@ -1133,9 +1137,78 @@ The 10 new property entries contribute closed enum labels to `verification_prope
 
 ### 21.9 IDL reconciliation note
 
-This section is a narrative declaration of the new closed enum entries and primitive messages. Full reconciliation against Appendix A (the consolidated proto IDL) is deferred to the next IDL roll-up, mirroring §17.1 / §18.7 / §19.6 / §20.8. No existing field number is changed; the additions are strictly additive. Wave 10 queues 10 PropertyType enum entries and 5 primitive messages for the IDL roll-up.
+This section originally declared the new closed enum entries and primitive messages narratively (10 PropertyType + 5 primitives). Wave 13 (§22) reconciled Wave 10's ten PropertyType entries into Appendix A's `enum PropertyType` at IDs 23..32 (`POLICY_AI_SELF_APPROVAL_BLOCKED = 23`, `RECOVERY_PATH_INDEPENDENT_OF_L5 = 24`, `VAULT_NO_RAW_SECRET_LEAK = 25`, `NAMESPACE_NEW_PATHS_ALL_OWNED = 26`, `RECOVERY_TREATMENT_BINDING_COMPLETE = 27`, `CATALOG_VERSION_BUMPED_ON_ADOPTION = 28`, `HARDWARE_SUBSTRATE_DRIFT_RECOVERY_ONLY = 29`, `VAULT_RESEAL_OUTSTANDING_REPORTED = 30`, `FIRST_BOOT_MODE_BOUNDED = 31`, `FIRST_BOOT_MODE_MUTUALLY_EXCLUSIVE_WITH_RECOVERY = 32`). Wave 10's five primitives are reconciled into Appendix A's primitive `oneof` at field IDs 49..53 as **SHELL message stubs** — names and field numbers are stable, but the proto3 message bodies remain deferred (Wave 10 declared primitive names without proto definitions; field-body roll-up is queued for Wave 14+). No existing field number is changed; the additions are strictly additive.
 
-## 22. See also
+## 22. Wave 13 IDL reconciliation (Appendix A roll-up)
+
+Applied 2026-05-09. Wave 13 closes the gap between the narrative declarations of Waves 4 / 5 / 6 / 8 / 10 and the consolidated proto IDL in Appendix A. It is **additive only** — the base 9 PropertyType IDs (1..9) and the base 12 primitive `oneof` field IDs (10..21) are preserved verbatim. No row-by-row Wave content is edited; only the IDL surface is brought into sync with the post-Wave-10 cumulative claim of **32 PropertyType entries + 32 primitive messages**.
+
+### 22.1 Scope of this reconciliation
+
+- **In scope.** PropertyType enum body in Appendix A; primitive `oneof` in Appendix A's `VerificationIntent`; primitive proto message declarations for Waves 4 / 5 / 6 / 8 (full bodies) and Wave 10 (SHELL stubs).
+- **Out of scope.** §3 (the typed-intent oneof body) base definitions; §4 base primitive vocabulary table; §7.1 base PropertyType enum body; row-by-row Wave additions content. Wave-section reconciliation footers are updated narrowly with the resolved IDs.
+
+### 22.2 PropertyType enum cardinality (target: 32) — per-Wave ID assignments
+
+| Wave           | Entry count | ID range | Source narrative              |
+| -------------- | ----------- | -------- | ----------------------------- |
+| Base (§7.1)    | 9           | 1..9     | §7.1                          |
+| Wave 4 (§17.2) | 1           | 10       | §17.2                         |
+| Wave 5 (§18.1) | 4           | 11..14   | §18.1                         |
+| Wave 6 (§19.1) | 2           | 15..16   | §19.1                         |
+| Wave 8 (§20.1) | 6           | 17..22   | §20.1.1 / §20.1.2 / §20.1.3   |
+| Wave 10 (§21)  | 10          | 23..32   | §21.1 / §21.2 / §21.3 / §21.4 |
+| **Total**      | **32**      | 1..32    | (matches §21.6 narrative)     |
+
+Forward room: `reserved 100 to 999;` is added in Appendix A for Wave 14+ growth (IDs 33..99 left as natural-fill expansion budget).
+
+### 22.3 Primitive vocabulary cardinality (target: 32) — per-Wave field-ID assignments
+
+The primitive vocabulary in this spec is shaped as **individual proto3 messages declared inside `oneof primitive` of `VerificationIntent`** (§3 / Appendix A). Wave 13 extends this `oneof` and adds the corresponding message declarations.
+
+| Wave             | Message count | `oneof` field IDs | IDL body shape  | Source narrative                             |
+| ---------------- | ------------- | ----------------- | --------------- | -------------------------------------------- |
+| Base (§3)        | 12            | 10..21            | full bodies     | §3                                           |
+| Wave 4 (§17.1)   | 1             | 40                | full body       | §17.1                                        |
+| Wave 5 (§18.2)   | 8             | 41..48            | full bodies     | §18.2                                        |
+| Wave 6 (§19.2)   | 3             | 23..25            | full bodies     | §19.2 (narrative-prescribed IDs preserved)   |
+| Wave 8 (§20.2.1) | 3             | 26..28            | full bodies     | §20.2.1 (narrative-prescribed IDs preserved) |
+| Wave 10 (§21)    | 5             | 49..53            | **SHELL stubs** | §21.2 / §21.3 / §21.4                        |
+| **Total**        | **32**        | 10..28, 40..53    | mixed           | (matches §21.6 narrative)                    |
+
+Field ID 30 (`Composition composition = 30;`) and field 22 (`PropertyCheckIntent property_check = 22;`) are preserved unchanged.
+
+### 22.4 What remains deferred to Wave 14+
+
+- **Full proto3 message bodies for the five Wave 10 SHELL stubs.** Wave 10 declared the primitive **names** (`aiosfs_path_owner_resolved`, `aiosfs_path_recovery_treatment_set`, `namespace_catalog_version`, `status_indicator_visible`, `subject_session_flag_state`) and their semantic predicates without proto3 message definitions. Wave 13 commits the message names + field IDs (49..53) into the `oneof`; the message bodies are SHELL (`/* W14: fields per §21.x */`). Wave 14+ will author the field-level proto3 contracts when the upstream sources (S4.1 W8.4, S9.1, S6.4 subject-session table) finalize their schemas.
+- **External imports.** The Wave 4/5/6/8 message bodies reference closed enums declared in other specs (`aios.namespace.v1alpha1.ScopeKind`, `aios.surface.v1alpha1.CompositionZone`, `aios.ui.v1alpha1.NodeKind`, `aios.gpu.v1alpha1.GpuCapabilityClass`, `aios.network.v1alpha1.OutboundDirective` etc.). The Appendix A IDL declares them as `uint32` placeholders with the canonical type carried in a comment, pending a cross-spec import-graph pass (Wave 14+). This preserves wire compatibility with the eventual import — `uint32` matches proto3 enum wire encoding.
+- **§3 oneof body.** §3 (the in-narrative oneof) still lists only the base 12 + property_check + composition. Wave 13's roll-up lives in Appendix A, the consolidated IDL surface, per scope guard. A future cleanup Wave may unify §3 and Appendix A presentations.
+
+### 22.5 Phantom citation handling (Tier 5 audit closures)
+
+- `STATUS_GRADE_CONSISTENT` — **NOT in enum.** Wave 10 §21.1 deleted the phantom citation in §20.7; it was never defined in the closed enum and is not promoted by Wave 13.
+- `POLICY_AI_SELF_APPROVAL_BLOCKED` — **IN enum at ID 23.** Promoted by Wave 10 §21.1.1; Wave 13 commits it as ID 23.
+- `RECOVERY_PATH_INDEPENDENT_OF_L5` — **IN enum at ID 24.** Promoted by Wave 10 §21.1.2; distinct from `RECOVERY_PATH_BOOTABLE` (ID 7).
+- `VAULT_NO_RAW_SECRET_LEAK` — **IN enum at ID 25.** Promoted by Wave 10 §21.1.3.
+
+No duplicate / synonym names were detected across the 32 PropertyType entries or 32 primitive messages; each appears exactly once with a stable ID.
+
+### 22.6 Telemetry impact
+
+The closed enum cardinality used by `verification_property_audit_total{property_type}` is now **32** (matching §21.8). The closed primitive cardinality used by `verification_total{primitive}` and `verification_latency_seconds{primitive}` is now **32** (matching §21.8). §14's earlier note `primitive = 12, property_type = 9` reflects pre-Wave-13 base-only labels and is superseded by the cumulative cardinality recorded in §19.5 / §20.4 / §21.8. No new telemetry metric is introduced by Wave 13.
+
+### 22.7 Wave 14+ guidance
+
+A future Wave (14 or later) MAY:
+
+- Author full proto3 bodies for the 5 Wave 10 SHELL stubs at field IDs 49..53.
+- Replace the `uint32` external-enum placeholders with proper `import "..."` + typed enum references when the upstream specs finalize their proto packages.
+- Unify §3's narrative oneof with Appendix A's reconciled oneof.
+- Extend further within the `reserved 100 to 999;` budget for new property types and beyond field 53 for new primitives.
+
+Wave 13 itself does not anticipate further additions; it is a roll-up, not an additive Wave.
+
+## 23. See also
 
 - [S0.1 Action Envelope + Lifecycle](../XX_Cross_Cutting/01_action_envelope_lifecycle.md)
 - [S3.1 Evidence Log](01_evidence_log.md)
@@ -1168,6 +1241,7 @@ message VerificationIntent {
   string intent_id = 1;
   google.protobuf.Duration timeout = 2;
   oneof primitive {
+    // Base 12 primitives (§3) — IDs 10..21 stable
     ServiceActiveIntent      service_active     = 10;
     ServiceInactiveIntent    service_inactive   = 11;
     PackageInstalledIntent   package_installed  = 12;
@@ -1181,8 +1255,45 @@ message VerificationIntent {
     PolicyDecisionIntent     policy_decision    = 20;
     EvidenceExistsIntent     evidence_exists    = 21;
     PropertyCheckIntent      property_check     = 22;
+
+    // Wave 6 (§19.2) — S8.1 network probes — IDs 23..25
+    NetworkSubjectOutboundClassPrimitive        network_subject_outbound_class            = 23;
+    NetworkActiveExposureClassPrimitive         network_active_exposure_class             = 24;
+    NetworkExternalModelCallBrokeredOnlyPrimitive network_external_model_call_brokered_only = 25;
+
+    // Wave 8 (§20.2.1) — S8.4 DNS / VPN — IDs 26..28
+    DnsResolverBackendPrimitive    dns_resolver_backend = 26;
+    VpnTunnelActivePrimitive       vpn_tunnel_active    = 27;
+    MdnsPosturePrimitive           mdns_posture         = 28;
+
+    // Composition combinator — ID 30 stable
     Composition              composition        = 30;
+
+    // Wave 4 (§17.1) — namespace touch-up — ID 40
+    AiosfsPathInNamespacePrimitive aiosfs_path_in_namespace = 40;
+
+    // Wave 5 (§18.2) — surface / theme / GPU / web renderer — IDs 41..48
+    SurfaceInZonePrimitive                  surface_in_zone                  = 41;
+    TreeContainsKindPrimitive               tree_contains_kind               = 42;
+    TreeMaxDepthPrimitive                   tree_max_depth                   = 43;
+    ThemeSatisfiesInvariantsPrimitive       theme_satisfies_invariants       = 44;
+    ThemeConstitutionalIconsIntactPrimitive theme_constitutional_icons_intact = 45;
+    GpuBindingClassPrimitive                gpu_binding_class                = 46;
+    WebRendererBoundToPrimitive             web_renderer_bound_to            = 47;
+    WebChromeZIndexAtLeastPrimitive         web_chrome_z_index_at_least      = 48;
+
+    // Wave 10 (§21) — namespace integrity + substrate + first-boot — IDs 49..53
+    // SHELL stubs: names + IDs stable; full proto3 message bodies queued for Wave 14+
+    AiosfsPathOwnerResolvedPrimitive        aiosfs_path_owner_resolved         = 49;
+    AiosfsPathRecoveryTreatmentSetPrimitive aiosfs_path_recovery_treatment_set = 50;
+    NamespaceCatalogVersionPrimitive        namespace_catalog_version          = 51;
+    StatusIndicatorVisiblePrimitive         status_indicator_visible           = 52;
+    SubjectSessionFlagStatePrimitive        subject_session_flag_state         = 53;
+
+    // Reserved for future expansion. Wave 14+ may extend further.
   }
+
+  // reserved 100 to 999;
 }
 
 message ServiceActiveIntent     { string service = 1; }
@@ -1210,6 +1321,121 @@ message PolicyDecisionIntent {
 }
 message EvidenceExistsIntent { string receipt_id = 1; }
 
+// ─────────────────────────────────────────────────────────────────
+// Wave 4 (§17.1) — namespace touch-up
+// ─────────────────────────────────────────────────────────────────
+
+message AiosfsPathInNamespacePrimitive {
+  string path = 1;
+  // aios.namespace.v1alpha1.ScopeKind expected_scope = 2;  // imported externally
+  uint32 expected_scope = 2;
+  string expected_group_id = 3;
+  string expected_user_id = 4;
+  string expected_reserved_name = 5;
+}
+
+// ─────────────────────────────────────────────────────────────────
+// Wave 5 (§18.2) — surface / theme / GPU / web renderer probes
+// ─────────────────────────────────────────────────────────────────
+
+message SurfaceInZonePrimitive {
+  string surface_id = 1;
+  // aios.surface.v1alpha1.CompositionZone expected_zone = 2;
+  uint32 expected_zone = 2;
+}
+
+message TreeContainsKindPrimitive {
+  string tree_id = 1;
+  // aios.ui.v1alpha1.NodeKind kind = 2;
+  uint32 kind = 2;
+  bool must_contain = 3;
+}
+
+message TreeMaxDepthPrimitive {
+  string tree_id = 1;
+  uint32 max_depth = 2;
+}
+
+message ThemeSatisfiesInvariantsPrimitive {
+  string theme_id = 1;
+}
+
+message ThemeConstitutionalIconsIntactPrimitive {
+  string theme_id = 1;
+}
+
+message GpuBindingClassPrimitive {
+  string binding_id = 1;
+  // aios.gpu.v1alpha1.GpuCapabilityClass expected_class = 2;
+  uint32 expected_class = 2;
+}
+
+message WebRendererBoundToPrimitive {
+  string host = 1;
+  uint32 port = 2;
+}
+
+message WebChromeZIndexAtLeastPrimitive {
+  uint32 minimum_z_index = 1;
+}
+
+// ─────────────────────────────────────────────────────────────────
+// Wave 6 (§19.2) — S8.1 network probes
+// ─────────────────────────────────────────────────────────────────
+
+message NetworkSubjectOutboundClassPrimitive {
+  string subject_id = 1;
+  // aios.network.v1alpha1.OutboundDirective expected_directive = 2;
+  uint32 expected_directive = 2;
+  // aios.network.v1alpha1.AICrossOriginPosture expected_ai_posture = 3;
+  uint32 expected_ai_posture = 3;
+}
+
+message NetworkActiveExposureClassPrimitive {
+  string surface_id = 1;
+  // aios.network.v1alpha1.InboundExposureClass expected_class = 2;
+  uint32 expected_class = 2;
+}
+
+message NetworkExternalModelCallBrokeredOnlyPrimitive {
+  string subject_id = 1;
+}
+
+// ─────────────────────────────────────────────────────────────────
+// Wave 8 (§20.2.1) — S8.4 DNS / VPN probes
+// ─────────────────────────────────────────────────────────────────
+
+message DnsResolverBackendPrimitive {
+  string host_id = 1;
+  // aios.dnsvpn.v1alpha1.ResolverBackend expected_backend = 2;
+  uint32 expected_backend = 2;
+  // aios.dnsvpn.v1alpha1.DnsTransport expected_transport = 3;
+  uint32 expected_transport = 3;
+}
+
+message VpnTunnelActivePrimitive {
+  string tunnel_id = 1;
+  // aios.dnsvpn.v1alpha1.VpnTunnelKind expected_kind = 2;
+  uint32 expected_kind = 2;
+}
+
+message MdnsPosturePrimitive {
+  string host_id = 1;
+  // aios.dnsvpn.v1alpha1.MdnsAvahiPosture expected_posture = 2;
+  uint32 expected_posture = 2;
+}
+
+// ─────────────────────────────────────────────────────────────────
+// Wave 10 (§21) — namespace integrity + substrate + first-boot
+// SHELL stubs: full message bodies queued for Wave 14+ IDL roll-up
+// ─────────────────────────────────────────────────────────────────
+
+message AiosfsPathOwnerResolvedPrimitive        { /* W14: fields per §21.2 */ }
+message AiosfsPathRecoveryTreatmentSetPrimitive { /* W14: fields per §21.2 */ }
+message NamespaceCatalogVersionPrimitive        { /* W14: fields per §21.2 */ }
+message StatusIndicatorVisiblePrimitive         { /* W14: fields per §21.3 */ }
+message SubjectSessionFlagStatePrimitive        { /* W14: fields per §21.4 */ }
+
 message PropertyCheckIntent {
   PropertyType type = 1;
   google.protobuf.Struct args = 2;
@@ -1217,6 +1443,8 @@ message PropertyCheckIntent {
 
 enum PropertyType {
   PROPERTY_TYPE_UNSPECIFIED         = 0;
+
+  // ── Base 9 (§7.1) — IDs 1..9 stable ──────────────────────────────
   EVIDENCE_LOG_APPEND_ONLY          = 1;
   EVIDENCE_HASH_CHAIN_INTACT        = 2;
   AIOSFS_POINTER_HISTORY_ACYCLIC    = 3;
@@ -1226,6 +1454,43 @@ enum PropertyType {
   RECOVERY_PATH_BOOTABLE            = 7;
   PRIVACY_CLASS_MONOTONIC           = 8;
   TRANSACTION_LOG_REPLAYABLE        = 9;
+
+  // ── Wave 4 (§17.2) — namespace touch-up — ID 10 ─────────────────
+  NAMESPACE_NO_CROSS_GROUP_POINTERS = 10;
+
+  // ── Wave 5 (§18.1) — INV-019..022 renderer/visual — IDs 11..14 ──
+  RENDERER_VISUAL_IDENTITY_PRESERVED = 11;
+  TRUST_INDICATORS_ALWAYS_VISIBLE    = 12;
+  AI_HUMAN_VISUAL_DISTINCTION        = 13;
+  RECOVERY_AESTHETIC_DISTINCT        = 14;
+
+  // ── Wave 6 (§19.1) — INV-023/INV-024 — IDs 15..16 ───────────────
+  CHROME_ZONE_RESERVED               = 15;
+  GPU_COMPUTE_GATED                  = 16;
+
+  // ── Wave 8 (§20.1) — receipt integrity + agent + package — IDs 17..22
+  RECEIPT_SIGNATURE_VERIFIED         = 17;
+  RECEIPT_REDACTION_VALID            = 18;
+  RECEIPT_LINEAGE_DAG                = 19;
+  RECEIPT_RETENTION_MATCHES_TYPE     = 20;
+  AI_PROPOSAL_PIPELINE_INTACT        = 21;
+  PACKAGE_OBJECT_LAYOUT_INTACT       = 22;
+
+  // ── Wave 10 (§21) — phantom-cleanup promotions + namespace integrity
+  //                    + substrate + first-boot — IDs 23..32 ──────
+  POLICY_AI_SELF_APPROVAL_BLOCKED              = 23;  // §21.1.1; binds INV-010
+  RECOVERY_PATH_INDEPENDENT_OF_L5              = 24;  // §21.1.2; binds INV-001
+  VAULT_NO_RAW_SECRET_LEAK                     = 25;  // §21.1.3; binds INV-018
+  NAMESPACE_NEW_PATHS_ALL_OWNED                = 26;  // §21.2
+  RECOVERY_TREATMENT_BINDING_COMPLETE          = 27;  // §21.2
+  CATALOG_VERSION_BUMPED_ON_ADOPTION           = 28;  // §21.2
+  HARDWARE_SUBSTRATE_DRIFT_RECOVERY_ONLY       = 29;  // §21.3
+  VAULT_RESEAL_OUTSTANDING_REPORTED            = 30;  // §21.3
+  FIRST_BOOT_MODE_BOUNDED                      = 31;  // §21.4
+  FIRST_BOOT_MODE_MUTUALLY_EXCLUSIVE_WITH_RECOVERY = 32;  // §21.4
+
+  // Reserved for future expansion. Wave 14+ may extend further.
+  reserved 100 to 999;
 }
 
 // ─────────────────────────────────────────────────────────────────

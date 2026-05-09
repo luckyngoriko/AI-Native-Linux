@@ -702,6 +702,8 @@ Two counters added with bounded labels:
 | `evidence_namespace_scope_total`    | counter | `scope` (system/group/user)   |
 | `evidence_cross_group_filter_total` | counter | none (cumulative suppression) |
 
+> **Wave 13 reconciliation (2026-05-11):** the 2 §23 record types are now reconciled into Appendix A's `enum RecordType` block at IDs 23..24: `SYSTEM_ADMIN_OPERATION` = 23, `CROSS_GROUP_ACCESS_DENIED` = 24. Payload messages remain deferred to Wave 14+. See §29.
+
 ## 24. Wave 5 cross-spec touch-up (S7.1+S7.2+S7.3+S7.4+S7.5+S8.2 + L0 INV-019..022 consolidation)
 
 Applied 2026-05-10. Sources: [S7.1 §11](../L7_Interaction_Renderers/01_surface_composition.md), [S7.2 §10](../L7_Interaction_Renderers/02_shared_ui_schema.md), [S7.3 §9](../L7_Interaction_Renderers/03_visual_language.md), [S7.4 §10](../L7_Interaction_Renderers/04_kde_renderer.md), [S7.5 §11](../L7_Interaction_Renderers/05_web_renderer.md), [S8.2 §10](../L8_Network_Hardware_Devices/05_gpu_resource_model.md). This section consolidates the evidence record types required to observe the renderer, theme, and GPU subsystems and to enforce L0 INV-019..022. After this addition the **`RecordType` vocabulary now totals 87 entries** (29 prior + 58 Wave 5). Most additions are observable lifecycle events at `STANDARD_24M` retention; a smaller set of constitutional and forensic events use `EXTENDED_60M` or `FOREVER` retention.
@@ -821,6 +823,8 @@ Forgery from any other subject is hard-denied at the engine surface and emits a 
 ### 24.4 Telemetry note
 
 Per-`record_type` cardinality bound updates from 22 to 87. Existing histogram and counter labels remain valid; the §20 cardinality reservation is bumped accordingly.
+
+> **Wave 13 reconciliation (2026-05-11):** the 58 Wave 5 record types above are now reconciled into Appendix A's `enum RecordType` block at IDs 25..82 (preserving narrative declaration order). Payload message reconciliation (one `RecordPayload` oneof variant per RecordType) remains deferred to Wave 14+. See §29.
 
 ## 25. Wave 6 cross-spec touch-up (S5.2+S5.3+S5.4+S9.1+S10.1+S8.1 record-type consolidation)
 
@@ -965,6 +969,8 @@ Truthful Wave 6 arithmetic:
 
 Per §23 / §24's narrative-only declaration pattern, this Wave 6 does **not** edit Appendix A. Full IDL reconciliation — including the addition of the 72 new payload messages to the discriminated `RecordPayload` oneof, the encoding of `BINDING_VOIDED_ACTION_REVISED` as the canonical enum value, and the documentation of `APPROVAL_BINDING_VOIDED` as a synonym in proto comments — is a separate sweep when the spec is next refined.
 
+> **Wave 13 reconciliation (2026-05-11):** the Wave 6 record types are now reconciled into Appendix A's `enum RecordType` block at IDs 83..150. Of the 72 narrative-unique additions, **4 names reuse pre-existing Wave-1..5 IDs** (no fresh ID issued): `APPROVAL_REQUESTED` = 5, `APPROVAL_GRANTED` = 6, `APPROVAL_DENIED` = 7 (S5.3 §25.2 cites these but they are already in the original §4 vocabulary), and `ACTION_RECEIVED` = 1 (S10.1 §25.5 cites it but it is already at ID 1). The synonym `APPROVAL_BINDING_VOIDED` is documented narrative-only and gets **no** enum entry; the canonical `BINDING_VOIDED_ACTION_REVISED` is at ID 128. Net new IDs allocated by Wave 6: 68. Payload messages remain deferred to Wave 14+. See §29.
+
 ### 25.8 Telemetry impact
 
 Each new FOREVER record type contributes to the FOREVER retention storage class summarised in §6.4. Wave 6 introduces **33 new FOREVER record types** (S5.2 × 4, S5.4 × 8, S9.1 × 10, S10.1 × 4, S8.1 × 7), **8 new EXTENDED_60M record types** (S5.2 × 1, S5.3 × 3, S10.1 × 5 — note one S5.3 EXTENDED_60M label has been counted under EXTENDED in this Wave 6 default mapping; the actual count is S5.2 × 1, S5.3 × 3, S10.1 × 5, S8.1 × 5 = 14), and the remainder at `STANDARD_24M`. Truthful per-class delta arithmetic for storage planning:
@@ -1065,6 +1071,8 @@ Total: 20 + 8 + 18 = 46 unique additions. New cumulative narrative total: **159 
 > **Counting note vs Wave 7 charter.** The Wave 7 charter expected a distribution of `STANDARD_24M = 18 / EXTENDED_60M = 7 / FOREVER = 21`. Direct row-by-row recount against the source contracts (§26.1 / §26.2 / §26.3) yields `20 / 8 / 18`. The truthful counts are recorded above; the charter's expectation appears to have miscounted three S12.1 STANDARD_24M rows as FOREVER (the Phase B/D approval-granted pair plus one delta-approved row) and one S11.1 EXTENDED_60M row. The total of 46 is unchanged either way; the per-class arithmetic here is the source-of-truth.
 
 Per §23 / §24 / §25's narrative-only declaration pattern, this Wave 7 does **not** edit Appendix A. Full IDL reconciliation — addition of the 46 new payload messages to the discriminated `RecordPayload` oneof — is a separate sweep when the spec is next refined.
+
+> **Wave 13 reconciliation (2026-05-11):** the 46 Wave 7 record types are now reconciled into Appendix A's `enum RecordType` block at IDs 151..196 (preserving narrative declaration order: S11.1 IDs 151..169, S9.3 IDs 170..182, S12.1 IDs 183..196). No name collisions with prior IDs. Payload messages remain deferred to Wave 14+. See §29.
 
 ### 26.5 Telemetry impact
 
@@ -1480,6 +1488,8 @@ New cumulative narrative total: **205 (post-Wave 7) + 195 (Wave 8) = 400 entries
 
 Per §23 / §24 / §25 / §26's narrative-only declaration pattern, this Wave 8 does **not** edit Appendix A. Full IDL reconciliation — addition of the 195 new payload messages to the discriminated `RecordPayload` oneof — is a separate sweep when the spec is next refined.
 
+> **Wave 13 reconciliation (2026-05-11):** the Wave 8 record types are now reconciled into Appendix A's `enum RecordType` block at IDs 197..387. Of the 195 narrative-unique additions, **4 names reuse pre-existing Wave 6 S10.1 IDs** (no fresh ID issued): `ADAPTER_REGISTERED` = 123, `ADAPTER_REGISTRATION_REJECTED` = 124, `ADAPTER_DEGRADED` = 125, `ADAPTER_DEREGISTERED` = 126 (all four cited again by S15.3 §27.6 but the canonical IDs from Wave 6 §25.5 are authoritative — same record-name surface, two source contracts using the name). Net new IDs allocated by Wave 8: 191. The §27.21 synonym/adjacency notes (`UNIT_DEPENDENCY_CYCLE_DETECTED` vs `DEPENDENCY_CYCLE_DETECTED`, `PACKAGE_OBJECT_QUARANTINED` vs `PACKAGE_QUARANTINED`, `MODEL_CALL` vs the 12-name S13.2 family, `ORCHESTRATION_KIND_MISMATCH_REJECTED` vs `APP_ECOSYSTEM_RUNTIME_BREAKOUT_ATTEMPTED`) are preserved as **distinct enum entries** per the §27.21 "both retained" discipline; no collapses are applied. Payload messages remain deferred to Wave 14+. See §29.
+
 ### 27.20 Telemetry impact
 
 Each new FOREVER record type contributes to the FOREVER retention storage class summarised in §6.4. Wave 8 introduces **78 new FOREVER record types** (per §27.19 column total). Cumulative FOREVER narrative entries through Wave 8: 65 (post-Wave 7) + 78 (Wave 8) = **143 narrative FOREVER entries**. The §20 per-`record_type` cardinality reservation is bumped from 205 to 400 entries narratively. Existing histogram and counter labels remain valid; subject, group, and channel ids are never labels — they would inflate cardinality unboundedly and would re-introduce subject identity into the metrics surface that §20 forbids.
@@ -1720,6 +1730,8 @@ New cumulative narrative total: **400 (post-Wave 8) + 40 (Wave 10) = 440 entries
 
 Per §23 / §24 / §25 / §26 / §27's narrative-only declaration pattern, this Wave 10 does **not** edit Appendix A. Full IDL reconciliation — addition of the 40 new payload messages to the discriminated `RecordPayload` oneof — is a separate sweep when the spec is next refined.
 
+> **Wave 13 reconciliation (2026-05-11):** the 40 Wave 10 record types are now reconciled into Appendix A's `enum RecordType` block at IDs 388..427 (preserving narrative declaration order across the fifteen subsections §28.1..§28.15). No name collisions with prior IDs. Payload messages remain deferred to Wave 14+. See §29.
+
 ### 28.17 Telemetry impact
 
 Each new FOREVER record type contributes to the FOREVER retention storage class summarised in §6.4. Wave 10 introduces **22 new FOREVER record types** (per §28.16 column total). Cumulative FOREVER narrative entries through Wave 10: 143 (post-Wave 8) + 22 (Wave 10) = **165 narrative FOREVER entries**. The §20 per-`record_type` cardinality reservation is bumped from **400 to 440 entries narratively**. Existing histogram and counter labels remain valid; subject, group, and channel ids are never labels — they would inflate cardinality unboundedly and would re-introduce subject identity into the metrics surface that §20 forbids.
@@ -1749,7 +1761,99 @@ This Wave 10 records only the `RecordType` consolidation. Other items queued by 
   - `AGENT_LIFECYCLE_TRANSITIONED` (Wave 10 §28.15) is the positive-emission peer to the FOREVER `AGENT_*_BLOCKED` records (Wave 8 §27.8); together they make the AI-subject FSM audit a positive-witness surface rather than an absence-witness surface.
 - **Carried-forward L0 invariant candidates** — as in §27.21, the candidates `NETWORK_DEFAULT_DENY_OUTBOUND`, `PACKAGE_TRUST_CHAIN_BOUND`, `ECOSYSTEM_HONESTY_DISCLOSURE`, `HARDWARE_GRAPH_DRIFT_FOREVER`, the four firmware-update scopes for `NonOverridableClass`, and now `INVARIANT_RETIRED` are **not** promoted in this Wave. They are held for the audit-phase L0 sweep per the project owner's "deliberate single-purpose constitutional act" pattern.
 
-## 29. See also
+## 29. Wave 13 IDL reconciliation (2026-05-11)
+
+Applied 2026-05-11. This Wave closes the deferral disclaimers carried by §23 / §24 / §25 / §26 / §27 / §28 by **partially** reconciling their narrative `RecordType` declarations into Appendix A's proto IDL. The reconciliation is **scoped exclusively to the `enum RecordType` definition** — it does not add the per-RecordType `RecordPayload` oneof variants nor the per-type `*Payload` messages. That second, larger reconciliation (one new payload message per Wave-introduced RecordType) is owned by **Wave 14+** and remains deferred.
+
+### 29.1 What Wave 13 changes
+
+- **Appendix A `enum RecordType`** is extended from 22 values to **427 unique enum values** (plus `RECORD_TYPE_UNSPECIFIED = 0`). Each Wave's narrative additions land at a contiguous ID range, preserving the declaration order from the source subsection. The first 22 IDs (1..22) are **preserved verbatim** from the original §4 vocabulary — never renumbered.
+- A `reserved 1000 to 9999;` line is added at the end of the enum to forward-reserve room for future Waves and to prevent accidental ID collisions during subsequent expansions. This is proto3 best practice for closed-vocabulary enums that are expected to grow under audit.
+- A leading comment in the enum block records the Wave 13 expansion fact, the truthful cardinality (427), and the two arithmetic discrepancies (the +5 narrative drift in §24's "29 prior" baseline and the 8 reused IDs across Waves 6 and 8).
+
+### 29.2 Per-Wave ID assignments
+
+| Wave / source                  | Narrative-claimed unique additions | ID range allocated | Net new IDs allocated |            Reused / collapsed |
+| ------------------------------ | ---------------------------------: | -----------------: | --------------------: | ----------------------------: |
+| Original §4 (Rev.1 carry-over) |                                 22 |              1..22 |                    22 |                             — |
+| §23 Namespace integration      |                                  2 |             23..24 |                     2 |                             — |
+| §24 Wave 5                     |                                 58 |             25..82 |                    58 |                             — |
+| §25 Wave 6                     |                                 72 |            83..150 |                    68 | 4 reused, 1 synonym collapsed |
+| §26 Wave 7                     |                                 46 |           151..196 |                    46 |                             — |
+| §27 Wave 8                     |                                195 |           197..387 |                   191 |                      4 reused |
+| §28 Wave 10                    |                                 40 |           388..427 |                    40 |                             — |
+| **Total**                      |                            **435** |         **1..427** |               **427** |     **8 reused, 1 collapsed** |
+
+### 29.3 Reused / collapsed name discipline
+
+Per the scope-discipline rule "**Numeric IDs are STABLE**. Once assigned, they never change," names that appear in a later Wave's narrative table while already holding an ID from an earlier Wave do **not** receive a fresh ID. The following names were detected and the canonical (earlier) ID was retained:
+
+- **§25.2 (S5.3 Approval Mechanics) reuses original §4 IDs:**
+  - `APPROVAL_REQUESTED` keeps ID 5 (cited again at S5.3 §10).
+  - `APPROVAL_GRANTED` keeps ID 6.
+  - `APPROVAL_DENIED` keeps ID 7.
+- **§25.5 (S10.1 Capability Runtime) reuses original §4 ID:**
+  - `ACTION_RECEIVED` keeps ID 1 (cited again at S10.1 §13).
+- **§27.6 (S15.3 SGR Adapter Model) reuses Wave 6 §25.5 IDs:**
+  - `ADAPTER_REGISTERED` keeps ID 123.
+  - `ADAPTER_REGISTRATION_REJECTED` keeps ID 124.
+  - `ADAPTER_DEGRADED` keeps ID 125.
+  - `ADAPTER_DEREGISTERED` keeps ID 126.
+- **§25.7 synonym collapse:**
+  - `APPROVAL_BINDING_VOIDED` (S5.3 §10) is documented narrative-only and receives **no enum entry**. The runtime detection is canonically named `BINDING_VOIDED_ACTION_REVISED` (S10.1 §13) at ID 128. The `APPROVAL_BINDING_VOIDED` name is preserved as a synonym for binding-lifecycle prose; producers MUST emit `BINDING_VOIDED_ACTION_REVISED`.
+
+### 29.4 Synonym / adjacency entries that ARE retained as distinct IDs
+
+Per the §27.21 discipline and the Wave-13 scope guard "Synonym handling: each gets its own ID; do NOT collapse them," the following name pairs are **preserved as distinct enum values** (no collapses applied):
+
+- `UNIT_DEPENDENCY_CYCLE_DETECTED` (ID 229, S15.1 admission-time) and `DEPENDENCY_CYCLE_DETECTED` (ID 237, S15.2 evaluation-time) — distinct emission sites; both retained.
+- `PACKAGE_OBJECT_QUARANTINED` (ID 281, S12.2 per-load detection) and `PACKAGE_QUARANTINED` (ID 157, S11.1 install-pipeline FSM) — distinct emission sites; both retained.
+- `MODEL_CALL` (ID 13, original §4 coarse-grained legacy) and the 12-name S13.2 family (`MODEL_INVOCATION_*`, `MODEL_BACKEND_*`, `MODEL_CIRCUIT_OPENED`, `MODEL_PROMPT_INJECTION_DETECTED`, `MODEL_RESPONSE_SIGNATURE_FAILED`, `MODEL_VAULT_DENY`, `MODEL_NETWORK_DENY`, `MODEL_RATE_LIMITED` — IDs 248..259) — the legacy ID 13 is retained for backward compatibility; the fine-grained family is the recommended emission surface for new callers. Reconciliation between them (whether to deprecate ID 13 in a future Wave) is deferred.
+- `ORCHESTRATION_KIND_MISMATCH_REJECTED` (ID 297, S12.3) and `APP_ECOSYSTEM_RUNTIME_BREAKOUT_ATTEMPTED` (ID 194, S12.1) — semantically related but cover distinct surfaces (kind disagreement vs runtime breakout); both retained.
+
+### 29.5 Truthful arithmetic vs narrative running totals
+
+The narrative running totals in §24..§28 cumulate from "29 prior" through "440 entries narratively" via the chain:
+
+```
+24 (after §23) → 29 (claimed prior to Wave 5; truth: 24)
++ 58 (Wave 5)  = 87 narratively (truth: 82)
++ 72 (Wave 6)  = 159 narratively (truth: 154 — also 4 reused, 1 collapsed → +67 not +72)
++ 46 (Wave 7)  = 205 narratively (truth: 196)
++ 195 (Wave 8) = 400 narratively (truth: 387 — also 4 reused → +191 not +195)
++ 40 (Wave 10) = 440 narratively (truth: 427)
+```
+
+Sources of the 13-entry drift (440 narrative − 427 truthful):
+
+1. **+5 from §24's "29 prior" baseline.** §24 declared 29 prior entries when only 22 (original) + 2 (§23) = 24 had landed in S3.1. Per L0 §3 / S6.1 truthful-arithmetic rule, the L9.1 ledger here is the source-of-truth for IDs; the +5 drift is recorded as a charter-vs-source mismatch not propagated.
+2. **+4 from Wave 6 §25 reuse of original IDs** (`APPROVAL_REQUESTED`, `APPROVAL_GRANTED`, `APPROVAL_DENIED`, `ACTION_RECEIVED`). These four names appear in Wave 6's "72 unique additions" count even though they reuse pre-existing IDs.
+3. **+4 from Wave 8 §27.6 reuse of Wave 6 IDs** (`ADAPTER_REGISTERED`, `ADAPTER_REGISTRATION_REJECTED`, `ADAPTER_DEGRADED`, `ADAPTER_DEREGISTERED`). These four names appear in Wave 8's "195 unique additions" count even though they reuse Wave 6 IDs.
+
+Net: 5 + 4 + 4 = 13 entries claimed by narrative cumulation but not allocated as fresh IDs. The truthful enum cardinality is **427 RecordType values** plus `RECORD_TYPE_UNSPECIFIED = 0` (428 total enum values). The §20 per-`record_type` cardinality reservation should follow the truthful 427, not the narrative 440.
+
+### 29.6 What Wave 13 explicitly does NOT change
+
+- **No new RecordPayload oneof variants.** Appendix A's `RecordPayload` message still exposes only the original 22 oneof variants. The 405 newly-enum'd RecordTypes do not yet have payload messages declared in proto.
+- **No new `*Payload` message bodies.** Each Wave-introduced RecordType conceptually has a payload schema described in its source spec (e.g. `SurfaceCreatedPayload`, `KdeRendererStartedPayload`, `OverrideRequestedPayload`), but those messages are not yet declared in Appendix A.
+- **No retention-class IDL field.** §6.4's closed retention enum is implicit per record type; promoting it into proto (e.g. as `RetentionClass record_type_retention = N;` in `EvidenceReceipt`) is out of scope.
+- **No deprecation of `MODEL_CALL` (ID 13).** The legacy coarse-grained MODEL_CALL remains valid; reconciliation with the 12-name S13.2 family is deferred.
+
+### 29.7 Wave 14+ scope (deferred)
+
+The next IDL reconciliation Wave should:
+
+1. Add a `*Payload` message body for each of the 405 newly-enum'd RecordTypes (in declaration order), drawing schema content from each source subsection's "Purpose" / "carries" descriptions.
+2. Extend the `RecordPayload` oneof with one variant per new RecordType (variant tags follow ascending order from the current `tamper_detected = 22`).
+3. Decide on `MODEL_CALL` (ID 13) deprecation strategy — likely `[deprecated = true]` annotation + emission switch to the S13.2 fine-grained family, with one Wave's overlap.
+4. Lock in the Wave 13 `reserved 1000 to 9999;` range as the home for any post-Wave-14 additions; or, alternatively, allocate IDs 428..999 first if the next Wave's additions stay sub-1000 and contiguity matters more than reservation.
+
+### 29.8 Acceptance signal for Wave 13
+
+- **Pass:** `enum RecordType` in Appendix A contains 428 entries (`UNSPECIFIED` + 427 RecordTypes), IDs 1..22 are preserved verbatim, IDs 23..427 are assigned in narrative declaration order, the reserved range is present, every reconciliation footer in §23..§28 references this Wave 13.
+- **Fail:** any of the original 22 IDs is renumbered, any RecordType from a Wave-cited table is missing from the enum, any synonym pair from §29.4 is collapsed without explicit §29.3 documentation, the reserved range is absent.
+
+## 30. See also
 
 - [S0.1 Action Envelope + Lifecycle](../XX_Cross_Cutting/01_action_envelope_lifecycle.md)
 - [S2.4 Verification Grammar](02_verification_grammar.md)
@@ -1825,30 +1929,527 @@ message EvidenceReceipt {
   RecordPayload payload = 17;
 }
 
+// Wave 13 (2026-05-11): expanded from 22 to 427 entries reconciling §23 namespace
+// integration and Wave 5/6/7/8/10 narrative additions. Payload message reconciliation
+// (one RecordPayload variant per RecordType) deferred to Wave 14+. Truthful row-by-row
+// count is 427 unique IDs; the narrative running totals in §24..§28 cumulate to 440
+// due to (a) a +5 drift in §24's "29 prior" baseline (actual prior = 24), (b) 4 names
+// reused from prior IDs in Wave 6 (APPROVAL_REQUESTED/GRANTED/DENIED, ACTION_RECEIVED),
+// (c) 4 names reused from Wave 6 IDs in Wave 8 §27.6 (ADAPTER_REGISTERED,
+// ADAPTER_REGISTRATION_REJECTED, ADAPTER_DEGRADED, ADAPTER_DEREGISTERED), and
+// (d) 1 synonym collapsed (APPROVAL_BINDING_VOIDED → BINDING_VOIDED_ACTION_REVISED).
+// See §29 for the per-Wave audit. Numeric IDs are stable; future Waves must extend
+// within the reserved 1000..9999 range (or carefully follow ascending order outside it)
+// to prevent collisions.
 enum RecordType {
-  RECORD_TYPE_UNSPECIFIED          = 0;
-  ACTION_RECEIVED                   = 1;
-  TRANSLATION_CREATED               = 2;
-  ROUTING_DECISION                  = 3;
-  POLICY_DECISION                   = 4;
-  APPROVAL_REQUESTED                = 5;
-  APPROVAL_GRANTED                  = 6;
-  APPROVAL_DENIED                   = 7;
-  EXECUTION_STARTED                 = 8;
-  EXECUTION_COMPLETED               = 9;
-  VERIFICATION_RESULT               = 10;
-  ROLLBACK_COMPLETED                = 11;
-  RECOVERY_EVENT                    = 12;
-  MODEL_CALL                        = 13;
-  CHAIN_CHECKPOINT                  = 14;
-  GC_PASS                           = 15;
-  QUARANTINE_EVENT                  = 16;
-  CONFLICT_EVENT                    = 17;
-  EMERGENCY_OVERRIDE_GRANT          = 18;
-  POLICY_BUNDLE_LOAD                = 19;
-  SEGMENT_SEALED                    = 20;
-  CHAIN_INCONSISTENCY_DETECTED      = 21;
-  TAMPER_DETECTED                   = 22;
+  RECORD_TYPE_UNSPECIFIED                          = 0;
+
+  // === Original §4 vocabulary: 22 entries (IDs 1..22) ===
+  ACTION_RECEIVED                                   = 1;
+  TRANSLATION_CREATED                               = 2;
+  ROUTING_DECISION                                  = 3;
+  POLICY_DECISION                                   = 4;
+  APPROVAL_REQUESTED                                = 5;
+  APPROVAL_GRANTED                                  = 6;
+  APPROVAL_DENIED                                   = 7;
+  EXECUTION_STARTED                                 = 8;
+  EXECUTION_COMPLETED                               = 9;
+  VERIFICATION_RESULT                               = 10;
+  ROLLBACK_COMPLETED                                = 11;
+  RECOVERY_EVENT                                    = 12;
+  MODEL_CALL                                        = 13;
+  CHAIN_CHECKPOINT                                  = 14;
+  GC_PASS                                           = 15;
+  QUARANTINE_EVENT                                  = 16;
+  CONFLICT_EVENT                                    = 17;
+  EMERGENCY_OVERRIDE_GRANT                          = 18;
+  POLICY_BUNDLE_LOAD                                = 19;
+  SEGMENT_SEALED                                    = 20;
+  CHAIN_INCONSISTENCY_DETECTED                      = 21;
+  TAMPER_DETECTED                                   = 22;
+
+  // === §23 Namespace integration (S4.1) additions: 2 entries (IDs 23..24) ===
+  SYSTEM_ADMIN_OPERATION                            = 23;
+  CROSS_GROUP_ACCESS_DENIED                         = 24;
+
+  // === Wave 5 additions (§24): 58 entries (IDs 25..82) ===
+  // S7.1 Surface Composition (7)
+  SURFACE_CREATED                                   = 25;
+  SURFACE_DESTROYED                                 = 26;
+  SURFACE_GPU_BUDGET_EXCEEDED                       = 27;
+  CROSS_SURFACE_READ_DENIED                         = 28;
+  CROSS_ZONE_VIOLATION_ATTEMPTED                    = 29;
+  RECOVERY_KIND_REJECTED                            = 30;
+  SURFACE_NEVER_RENDERED                            = 31;
+  // S7.2 Shared UI Schema (3)
+  UI_TREE_VALIDATION_REJECTED                       = 32;
+  UI_TRUST_BEARING_AUTHORSHIP_REFUSED               = 33;
+  UI_RECOVERY_NODE_DROPPED                          = 34;
+  // S7.3 Visual Language (4)
+  THEME_LOADED                                      = 35;
+  THEME_REJECTED                                    = 36;
+  THEME_SWITCHED                                    = 37;
+  THEME_INVARIANT_VIOLATED                          = 38;
+  // S7.4 KDE Renderer (11)
+  KDE_RENDERER_STARTED                              = 39;
+  KDE_RENDERER_DEGRADED                             = 40;
+  KDE_FRAME_DROPPED                                 = 41;
+  KDE_LAYER_SHELL_REJECTED                          = 42;
+  KDE_KWIN_SCRIPT_LOADED                            = 43;
+  KDE_KWIN_SCRIPT_REJECTED                          = 44;
+  KDE_RECOVERY_SHELL_STARTED                        = 45;
+  KDE_RECOVERY_KIND_REJECTED_AT_RENDERER            = 46;
+  KDE_PLASMA_THEME_OVERRIDDEN                       = 47;
+  KDE_RENDER_FAILED                                 = 48;
+  KDE_TOKEN_FALLBACK_USED                           = 49;
+  // S7.5 Web Renderer (17)
+  WEB_LAN_EXPOSURE_GRANTED                          = 50;
+  WEB_PUBLIC_EXPOSURE_GRANTED                       = 51;
+  WEB_RECOVERY_KIND_REJECTED                        = 52;
+  WEB_PUBLIC_EXPOSURE_FIREWALL_RECORDED             = 53;
+  WEB_RECOVERY_PAGE_LOADED                          = 54;
+  WEB_RECOVERY_PAGE_EXITED                          = 55;
+  WEB_RENDERER_STARTED                              = 56;
+  WEB_RENDERER_DEGRADED                             = 57;
+  WEB_LAN_EXPOSURE_ACTIVE                           = 58;
+  WEB_EXPOSURE_REVOKED                              = 59;
+  WEB_EXTENSION_INTERFERENCE                        = 60;
+  WEB_FULLSCREEN_REQUESTED                          = 61;
+  WEB_THEME_INJECTION_BLOCKED                       = 62;
+  WEB_THEME_FALLBACK_USED                           = 63;
+  WEB_CLIENT_STORAGE_QUOTA_BREACH                   = 64;
+  WEB_RENDERER_CLS_BREACH                           = 65;
+  WEB_CONSTITUTIONAL_ELEMENT_REREGISTER_BLOCKED     = 66;
+  // S8.2 GPU Resource Model (16)
+  GPU_DEVICE_ENUMERATED                             = 67;
+  GPU_DEVICE_DISCONNECTED                           = 68;
+  GPU_VK_DEVICE_CREATED                             = 69;
+  GPU_VK_DEVICE_DESTROYED                           = 70;
+  GPU_DMABUF_GRANTED                                = 71;
+  GPU_DMABUF_DENIED                                 = 72;
+  GPU_CAPABILITY_DENIED                             = 73;
+  GPU_VALIDATION_DISABLED_RECOVERY                  = 74;
+  GPU_VALIDATION_ENABLED_NORMAL                     = 75;
+  DRIVER_UNAVAILABLE                                = 76;
+  GPU_BUDGET_EXCEEDED                               = 77;
+  GPU_BUDGET_DOWNGRADED                             = 78;
+  IOMMU_UNAVAILABLE_DEGRADED                        = 79;
+  HOST_CAPABILITY_LIE                               = 80;
+  GPU_BINDING_FORGERY                               = 81;
+  GPU_DEVICE_FORCE_RECLAIMED                        = 82;
+
+  // === Wave 6 additions (§25): 68 entries (IDs 83..150) ===
+  // Note: 4 names that appear in Wave 6 narrative tables already have IDs and are
+  // NOT re-issued: APPROVAL_REQUESTED (=5), APPROVAL_GRANTED (=6), APPROVAL_DENIED (=7)
+  // from S5.3 §25.2; ACTION_RECEIVED (=1) from S10.1 §25.5. The synonym
+  // APPROVAL_BINDING_VOIDED is documented narrative-only (collapses into
+  // BINDING_VOIDED_ACTION_REVISED per §25.7); no enum entry is allocated.
+  // S5.2 Vault Broker (8)
+  VAULT_CAPABILITY_ISSUED                           = 83;
+  VAULT_CAPABILITY_ROTATED                          = 84;
+  VAULT_CAPABILITY_REVOKED                          = 85;
+  VAULT_OPERATION                                   = 86;
+  VAULT_RAW_REVEAL                                  = 87;
+  VAULT_CAPABILITY_FORGERY                          = 88;
+  SUBJECT_KIND_REJECTED_FOR_VAULT                   = 89;
+  VAULT_RECOVERY_SNAPSHOT_LOADED                    = 90;
+  // S5.3 Approval Mechanics (5 new; APPROVAL_REQUESTED/GRANTED/DENIED reuse IDs 5/6/7)
+  APPROVAL_DELIVERED                                = 91;
+  APPROVAL_EXPIRED                                  = 92;
+  APPROVAL_CONSUMED                                 = 93;
+  APPROVAL_REVOKED                                  = 94;
+  APPROVAL_DELIVERY_FAILED                          = 95;
+  // S5.4 Emergency Override (8)
+  OVERRIDE_REQUESTED                                = 96;
+  OVERRIDE_QUORUM_RECEIVED                          = 97;
+  OVERRIDE_GRANTED                                  = 98;
+  OVERRIDE_CONSUMED                                 = 99;
+  OVERRIDE_DENIED                                   = 100;
+  OVERRIDE_EXPIRED                                  = 101;
+  OVERRIDE_REVOKED                                  = 102;
+  OVERRIDE_REVIEW                                   = 103;
+  // S9.1 Recovery Boundary (10)
+  RECOVERY_BOOT_ENTERED                             = 104;
+  RECOVERY_OPERATOR_AUTHENTICATED                   = 105;
+  RECOVERY_OPERATION_PERFORMED                      = 106;
+  RECOVERY_TTL_EXPIRED_AUTO_REBOOT                  = 107;
+  RECOVERY_BOOT_EXITED                              = 108;
+  RECOVERY_L5_START_BLOCKED                         = 109;
+  RECOVERY_NETWORK_LAN_ENABLED                      = 110;
+  RECOVERY_NETWORK_LAN_DISABLED                     = 111;
+  RECOVERY_FORENSIC_ATTACH_PERFORMED                = 112;
+  BOOT_FAILURE_AUTO_RECOVERY_TRIGGERED              = 113;
+  // S10.1 Capability Runtime gRPC (19 new; ACTION_RECEIVED reuses ID 1)
+  ACTION_VALIDATED                                  = 114;
+  ACTION_POLICY_DECISION                            = 115;
+  ACTION_DISPATCHED                                 = 116;
+  EXECUTION_SUCCEEDED                               = 117;
+  EXECUTION_FAILED                                  = 118;
+  EXECUTION_VERIFICATION_FAILED                     = 119;
+  ROLLBACK_ATTEMPTED                                = 120;
+  ROLLBACK_SUCCEEDED                                = 121;
+  ROLLBACK_FAILED_REQUIRES_OPERATOR                 = 122;
+  ADAPTER_REGISTERED                                = 123;
+  ADAPTER_REGISTRATION_REJECTED                     = 124;
+  ADAPTER_DEGRADED                                  = 125;
+  ADAPTER_DEREGISTERED                              = 126;
+  IDEMPOTENCY_KEY_REPLAY_DETECTED                   = 127;
+  BINDING_VOIDED_ACTION_REVISED                     = 128;
+  AI_INTERACTIVE_QUEUE_DOWNGRADE                    = 129;
+  DRY_RUN_SIMULATION_RECORDED                       = 130;
+  EXPERIMENTAL_ADAPTER_LIVE_DISPATCH                = 131;
+  ADAPTER_DEPRECATED_DISPATCH                       = 132;
+  // S8.1 Network Policy (18)
+  NETWORK_POSTURE_CHANGED                           = 133;
+  EXPOSURE_REQUESTED                                = 134;
+  EXPOSURE_GRANTED                                  = 135;
+  EXPOSURE_DENIED                                   = 136;
+  EXPOSURE_REVOKED                                  = 137;
+  EXPOSURE_TERMINATED_TTL_EXPIRED                   = 138;
+  PUBLIC_EXPOSURE_HEARTBEAT                         = 139;
+  OUTBOUND_GRANT_ISSUED                             = 140;
+  OUTBOUND_GRANT_REVOKED                            = 141;
+  OUTBOUND_OUTSIDE_MANIFEST                         = 142;
+  OUTBOUND_DEGRADED_TO_LOOPBACK_AUTO                = 143;
+  ALLOWLIST_FQDN_FANOUT_EXCEEDED                    = 144;
+  LAN_SUBNET_DRIFT_DETECTED                         = 145;
+  LAN_PEER_DRIFT_DETECTED                           = 146;
+  AI_DIRECT_INTERNET_DENIED                         = 147;
+  EXTERNAL_MODEL_CALL_BROKERED                      = 148;
+  BACKEND_DEGRADED_NFTABLES_TO_IPTABLES             = 149;
+  RAW_SOCKET_BYPASS_ATTEMPTED                       = 150;
+
+  // === Wave 7 additions (§26): 46 entries (IDs 151..196) ===
+  // S11.1 Repository Model (19)
+  PACKAGE_FETCH_STARTED                             = 151;
+  PACKAGE_VERIFIED                                  = 152;
+  PACKAGE_VERIFICATION_FAILED                       = 153;
+  PACKAGE_APPROVAL_REQUESTED                        = 154;
+  PACKAGE_INSTALLED                                 = 155;
+  PACKAGE_INSTALL_FAILED                            = 156;
+  PACKAGE_QUARANTINED                               = 157;
+  PACKAGE_UNINSTALLED                               = 158;
+  PACKAGE_DOWNGRADE_BLOCKED                         = 159;
+  CAPABILITY_LIE_DETECTED                           = 160;
+  TRUST_CHAIN_BROKEN                                = 161;
+  TRUST_CHAIN_TOO_DEEP                              = 162;
+  MANIFEST_FORGED                                   = 163;
+  MIRROR_HASH_MISMATCH_BLACKLISTED                  = 164;
+  PUBLISHER_KEY_ROTATED                             = 165;
+  PUBLISHER_DEPLATFORMED                            = 166;
+  EXTERNAL_BRIDGE_PACKAGE_ADMITTED                  = 167;
+  EXTERNAL_BRIDGE_UPSTREAM_SIGNATURE_FAILED         = 168;
+  AIOS_ROOT_KEY_ROTATED                             = 169;
+  // S9.3 Dedicated Kernel Pipeline (13)
+  KERNEL_PIPELINE_STARTED                           = 170;
+  KERNEL_BUILD_COMPLETED                            = 171;
+  KERNEL_GATE_RESULT                                = 172;
+  KERNEL_CONVERGED                                  = 173;
+  KERNEL_DIVERGED_REGRESSION                        = 174;
+  KERNEL_PROMOTED_TO_A                              = 175;
+  KERNEL_PROMOTED_TO_B                              = 176;
+  KERNEL_ROLLBACK_PERFORMED                         = 177;
+  KERNEL_IMAGE_OBSERVED                             = 178;
+  KERNEL_IMAGE_DRIFT_DETECTED                       = 179;
+  KERNEL_REFRESH_SCHEDULED                          = 180;
+  KERNEL_REFRESH_PIPELINE_FAILED                    = 181;
+  PIPELINE_DEFINITION_REPLACED                      = 182;
+  // S12.1 App Runtime Model (14)
+  APP_OBSERVE_STARTED                               = 183;
+  APP_OBSERVE_COMPLETED                             = 184;
+  APP_OBSERVE_TIMEOUT                               = 185;
+  APP_TRANSLATE_MANIFEST_PROPOSED                   = 186;
+  APP_TRANSLATE_MANIFEST_APPROVED                   = 187;
+  APP_TRANSLATE_MANIFEST_REJECTED                   = 188;
+  APP_RECIPE_CONTRIBUTED                            = 189;
+  APP_RECIPE_IMPORTED                               = 190;
+  APP_MANIFEST_DELTA_PROPOSED                       = 191;
+  APP_MANIFEST_DELTA_APPROVED                       = 192;
+  APP_HONESTY_CLASS_VIOLATION                       = 193;
+  APP_ECOSYSTEM_RUNTIME_BREAKOUT_ATTEMPTED          = 194;
+  APP_AI_DIRECT_INSTALL_ATTEMPTED_BLOCKED           = 195;
+  APP_RECIPE_DECEPTIVE_REJECTED_AT_INGEST           = 196;
+
+  // === Wave 8 additions (§27): 191 unique IDs allocated (IDs 197..387) ===
+  // The Wave 8 narrative claims 195 unique additions; row-by-row enumeration shows
+  // 4 of those names duplicate Wave 6 S10.1 §25.5 entries (ADAPTER_REGISTERED,
+  // ADAPTER_REGISTRATION_REJECTED, ADAPTER_DEGRADED, ADAPTER_DEREGISTERED) and reuse
+  // the Wave 6 IDs. The remaining 191 names get fresh IDs here.
+  // S9.2 First-Boot Flow (11)
+  FIRST_BOOT_STARTED                                = 197;
+  FIRST_BOOT_STAGE_COMPLETED                        = 198;
+  FIRST_BOOT_FAILED                                 = 199;
+  VAULT_ROOT_KEY_GENERATED                          = 200;
+  AI_PROVIDER_MODE_SET                              = 201;
+  INITIAL_FIREWALL_POSTURE_SET                      = 202;
+  FIRST_GROUP_REGISTERED                            = 203;
+  FIRST_USER_REGISTERED                             = 204;
+  RECOVERY_OPERATOR_REGISTERED                      = 205;
+  FIRST_BOOT_COMPLETE                               = 206;
+  RESET_TO_FACTORY_INITIATED                        = 207;
+  // S14.1 Failure Handling (10)
+  FAILURE_OBSERVED                                  = 208;
+  DEGRADATION_LEVEL_TRANSITIONED                    = 209;
+  COMPONENT_RESTARTED                               = 210;
+  COMPONENT_RESTART_BUDGET_EXHAUSTED                = 211;
+  CIRCUIT_BREAKER_OPENED                            = 212;
+  CIRCUIT_BREAKER_CLOSED                            = 213;
+  HALTED_PENDING_OPERATOR                           = 214;
+  TIME_DRIFT_DETECTED                               = 215;
+  BACKEND_VERSION_MISMATCH                          = 216;
+  RECOVERY_LOOP_DETECTED                            = 217;
+  // S6.3 Evidence Receipt Schema (4)
+  RECEIPT_REDACTION_FAILED                          = 218;
+  RECEIPT_INTEGRITY_QUARANTINED                     = 219;
+  RECEIPT_LINEAGE_CYCLE_DETECTED                    = 220;
+  RECEIPT_SEQUENCE_OUT_OF_ORDER                     = 221;
+  // S15.1 Unit Manifest (8)
+  UNIT_REGISTERED                                   = 222;
+  UNIT_STARTED                                      = 223;
+  UNIT_HEALTHY                                      = 224;
+  UNIT_DEGRADED                                     = 225;
+  UNIT_FAILED                                       = 226;
+  UNIT_STOPPED                                      = 227;
+  UNIT_ROLLBACK_TRIGGERED                           = 228;
+  UNIT_DEPENDENCY_CYCLE_DETECTED                    = 229;
+  // S15.2 SGR State Transitions (12)
+  GRAPH_EVALUATED                                   = 230;
+  TRANSITION_QUEUED                                 = 231;
+  TRANSITION_STARTED                                = 232;
+  TRANSITION_SUCCEEDED                              = 233;
+  TRANSITION_FAILED                                 = 234;
+  AB_CANARY_PROMOTED                                = 235;
+  AB_ROLLBACK_PERFORMED                             = 236;
+  DEPENDENCY_CYCLE_DETECTED                         = 237;
+  TRANSITION_CONFLICT                               = 238;
+  RESOURCE_BUDGET_DENIED                            = 239;
+  GRAPH_BLOCKED_RESOURCE                            = 240;
+  GRAPH_CONVERGED                                   = 241;
+  // S15.3 SGR Adapter Model (10)
+  // Note: ADAPTER_REGISTRATION_REJECTED, ADAPTER_REGISTERED, ADAPTER_DEGRADED,
+  // ADAPTER_DEREGISTERED appear here AND in Wave 6 (§25.5); the Wave 6 IDs
+  // (124, 123, 125, 126) are authoritative. Only the four S15.3-unique names below
+  // get fresh IDs. The other six §27.6 names are duplicates with Wave 6 IDs and
+  // are NOT re-issued.
+  ADAPTER_REGISTRATION_REQUESTED                    = 242;
+  ADAPTER_HEALTHY                                   = 243;
+  ADAPTER_ACTION_KIND_VIOLATION                     = 244;
+  ADAPTER_CAPABILITY_VIOLATION                      = 245;
+  ADAPTER_HOT_RELOADED                              = 246;
+  ADAPTER_DOWNGRADE_REJECTED                        = 247;
+  // S13.2 Cognitive Model Router (12)
+  MODEL_INVOCATION_STARTED                          = 248;
+  MODEL_INVOCATION_SUCCEEDED                        = 249;
+  MODEL_INVOCATION_FAILED                           = 250;
+  MODEL_BACKEND_DEGRADED                            = 251;
+  MODEL_CIRCUIT_OPENED                              = 252;
+  MODEL_PROMPT_INJECTION_DETECTED                   = 253;
+  MODEL_RESPONSE_SIGNATURE_FAILED                   = 254;
+  MODEL_VAULT_DENY                                  = 255;
+  MODEL_NETWORK_DENY                                = 256;
+  MODEL_RATE_LIMITED                                = 257;
+  MODEL_BACKEND_REGISTERED                          = 258;
+  MODEL_BACKEND_RETIRED                             = 259;
+  // S13.1 Cognitive Core Model (18)
+  AGENT_REGISTERED                                  = 260;
+  AGENT_RETIRED                                     = 261;
+  AGENT_INTERRUPTED_BY_RECOVERY                     = 262;
+  AGENT_PROPOSAL_EMITTED                            = 263;
+  AGENT_PROPOSAL_APPROVED                           = 264;
+  AGENT_PROPOSAL_DENIED                             = 265;
+  AGENT_PLAN_BUNDLED_APPROVED                       = 266;
+  AGENT_PLAN_ABANDONED                              = 267;
+  AGENT_MEMORY_WRITE                                = 268;
+  AGENT_MEMORY_READ                                 = 269;
+  AGENT_MEMORY_CROSS_USER_DENIED                    = 270;
+  AGENT_INTER_MESSAGE_SENT                          = 271;
+  AGENT_INTER_MESSAGE_REJECTED                      = 272;
+  AGENT_SELF_GRADING_BLOCKED                        = 273;
+  AGENT_DIRECT_FS_WRITE_BLOCKED                     = 274;
+  AGENT_CROSS_GROUP_COORDINATION_BLOCKED            = 275;
+  AGENT_BACKEND_DEGRADED                            = 276;
+  AGENT_PROMPT_INJECTION_DETECTED                   = 277;
+  // S12.2 Package Object Model (10)
+  PACKAGE_OBJECT_CREATED                            = 278;
+  PACKAGE_OBJECT_UPDATED                            = 279;
+  PACKAGE_OBJECT_ROLLED_BACK                        = 280;
+  PACKAGE_OBJECT_QUARANTINED                        = 281;
+  PACKAGE_PRIVATE_STATE_INITIALIZED                 = 282;
+  PACKAGE_PRIVATE_STATE_CORRUPT_DETECTED            = 283;
+  PACKAGE_VERSION_DOWNGRADE_BLOCKED                 = 284;
+  PACKAGE_OBJECT_RETIRED                            = 285;
+  PACKAGE_OBJECT_VERIFICATION_FAILED                = 286;
+  PACKAGE_RECOVERY_RESTORE_PERFORMED                = 287;
+  // S12.3 Compatibility Runtime (10)
+  APP_LAUNCH_STARTED                                = 288;
+  APP_LAUNCH_SUCCEEDED                              = 289;
+  APP_LAUNCH_FAILED                                 = 290;
+  WINE_PREFIX_CREATED                               = 291;
+  WINE_PREFIX_BREAKOUT_ATTEMPTED                    = 292;
+  WAYDROID_CONTAINER_STARTED                        = 293;
+  WAYDROID_ESCAPE_ATTEMPTED                         = 294;
+  KVM_VM_BOOTED                                     = 295;
+  KVM_VM_TERMINATED                                 = 296;
+  ORCHESTRATION_KIND_MISMATCH_REJECTED              = 297;
+  // S12.4 Compatibility Knowledge (8)
+  PROFILE_CONTRIBUTED                               = 298;
+  PROFILE_RATING_AGGREGATED                         = 299;
+  PROFILE_OUTLIER_DETECTED                          = 300;
+  PROFILE_RECOMMENDATION_SHOWN                      = 301;
+  PROFILE_IMPORTED_FROM_UPSTREAM                    = 302;
+  PROFILE_REPUTATION_FARM_SUSPECTED                 = 303;
+  PROFILE_VISIBILITY_DOWNGRADED                     = 304;
+  PROFILE_RETIRED                                   = 305;
+  // S7.6 CLI Renderer (10)
+  CLI_RENDER_STARTED                                = 306;
+  CLI_RENDER_FAILED                                 = 307;
+  CLI_NODE_KIND_UNSUPPORTED                         = 308;
+  CLI_RECOVERY_KIND_REJECTED                        = 309;
+  CLI_AUTO_CONFIRM_REJECTED                         = 310;
+  CLI_ANSI_INJECTION_BLOCKED                        = 311;
+  CLI_DEGRADED_NO_TTY                               = 312;
+  CLI_SCRIPTING_MODE_INVOKED                        = 313;
+  CLI_OPERATOR_AUTHENTICATED                        = 314;
+  CLI_TRUST_INDICATOR_REORDERED                     = 315;
+  // S8.3 Hardware Graph (14)
+  HARDWARE_GRAPH_REBUILT                            = 316;
+  DEVICE_DETECTED                                   = 317;
+  DEVICE_DRIVER_BOUND                               = 318;
+  DEVICE_DRIVER_REJECTED                            = 319;
+  DEVICE_QUARANTINED                                = 320;
+  DEVICE_DISCONNECTED                               = 321;
+  REMOVABLE_DEVICE_REQUEST                          = 322;
+  REMOVABLE_DEVICE_APPROVED                         = 323;
+  REMOVABLE_DEVICE_DENIED                           = 324;
+  AI_REMOVABLE_DEVICE_BLOCKED                       = 325;
+  HARDWARE_GRAPH_DRIFT_DETECTED                     = 326;
+  FIRMWARE_VERSION_DOWNGRADE_BLOCKED                = 327;
+  IOMMU_DMA_PROTECTION_DEGRADED                     = 328;
+  OUT_OF_TREE_DRIVER_BLOCKED                        = 329;
+  // S8.4 DNS / VPN Management (12)
+  DNS_QUERY_PERFORMED                               = 330;
+  DNS_RESOLVER_REBINDING_DETECTED                   = 331;
+  DNS_PLAIN_BLOCKED                                 = 332;
+  DNS_RESOLVER_SUBSTITUTION_REJECTED                = 333;
+  VPN_TUNNEL_ESTABLISHED                            = 334;
+  VPN_TUNNEL_FAILED                                 = 335;
+  VPN_PROVIDER_KEY_ROTATED                          = 336;
+  VPN_PROVIDER_KEY_FORGERY_REJECTED                 = 337;
+  MDNS_REQUEST_RECEIVED                             = 338;
+  MDNS_BROADCAST_DENIED                             = 339;
+  MDNS_POISONING_DETECTED                           = 340;
+  RESOLVER_BACKEND_DEGRADED                         = 341;
+  // S8.5 Firmware Trust (12)
+  FIRMWARE_UPDATE_REQUESTED                         = 342;
+  FIRMWARE_VERIFICATION_PASSED                      = 343;
+  FIRMWARE_VERIFICATION_FAILED                      = 344;
+  FIRMWARE_DOWNGRADE_BLOCKED                        = 345;
+  FIRMWARE_UNSIGNED_REJECTED                        = 346;
+  FIRMWARE_VENDOR_DEPLATFORMED                      = 347;
+  FIRMWARE_APPLIED                                  = 348;
+  FIRMWARE_APPLY_FAILED                             = 349;
+  FIRMWARE_ROLLBACK_PERFORMED                       = 350;
+  BIOS_UEFI_UPDATE_DEFERRED                         = 351;
+  FIRMWARE_TAMPER_DETECTED                          = 352;
+  OPERATOR_LOCAL_FIRMWARE_INSTALLED                 = 353;
+  // S14.2 Telemetry Pipeline (10)
+  TELEMETRY_PIPELINE_STARTED                        = 354;
+  TELEMETRY_CARDINALITY_BREACH                      = 355;
+  TELEMETRY_REDACTION_FAILED                        = 356;
+  TELEMETRY_BACKEND_UNAVAILABLE                     = 357;
+  TELEMETRY_BACKEND_DEGRADED                        = 358;
+  TELEMETRY_LOG_INJECTION_DETECTED                  = 359;
+  TELEMETRY_RETENTION_TIER_PROMOTED                 = 360;
+  TELEMETRY_SAMPLING_RATE_ADJUSTED                  = 361;
+  TELEMETRY_EBPF_PROBE_LOADED                       = 362;
+  TELEMETRY_EBPF_PROBE_REJECTED                     = 363;
+  // S11.2 Marketplace (12)
+  PUBLISHER_ONBOARDING_APPLICATION_SUBMITTED        = 364;
+  PUBLISHER_ONBOARDING_IDENTITY_VERIFIED            = 365;
+  PUBLISHER_ONBOARDING_APPROVED                     = 366;
+  PUBLISHER_ONBOARDING_REJECTED                     = 367;
+  PUBLISHER_ONBOARDING_DEPLATFORMED                 = 368;
+  CAPABILITY_REVIEW_REQUESTED                       = 369;
+  CAPABILITY_REVIEW_APPROVED                        = 370;
+  CAPABILITY_REVIEW_DECEPTIVE_REJECTED              = 371;
+  LISTING_PUBLISHED                                 = 372;
+  LISTING_VISIBILITY_DOWNGRADED                     = 373;
+  LISTING_VS_MANIFEST_MISMATCH                      = 374;
+  MARKETPLACE_REVIEW_BYPASS_ATTEMPTED               = 375;
+  // S11.3 External Integrations (12)
+  BRIDGE_FETCH_STARTED                              = 376;
+  BRIDGE_FETCH_COMPLETED                            = 377;
+  BRIDGE_UPSTREAM_SIGNATURE_VERIFIED                = 378;
+  BRIDGE_UPSTREAM_SIGNATURE_FAILED                  = 379;
+  BRIDGE_REPACKAGED_WITH_AIOS_KEY                   = 380;
+  BRIDGE_DECEPTIVE_REJECTED                         = 381;
+  BRIDGE_RATE_LIMIT_EXCEEDED                        = 382;
+  BRIDGE_METADATA_IMPORTED                          = 383;
+  BRIDGE_RECIPE_IMPORTED                            = 384;
+  BRIDGE_BLACKLISTED                                = 385;
+  BRIDGE_DEGRADED_UPSTREAM_UNAVAILABLE              = 386;
+  BRIDGE_TRUST_CLASS_DECEPTION_DETECTED             = 387;
+
+  // === Wave 10 additions (§28): 40 unique IDs allocated (IDs 388..427) ===
+  // S6.1 Status Taxonomy (1)
+  STATUS_TRANSITION                                 = 388;
+  // S6.2 Evidence Grades (7)
+  ARTIFACT_RECORDED                                 = 389;
+  BUILD_PASSED                                      = 390;
+  TEST_PASSED                                       = 391;
+  E2E_PASSED                                        = 392;
+  RECOVERY_REHEARSAL_PASSED                         = 393;
+  RELEASE_GATE_PASSED                               = 394;
+  OPERATIONAL_HEALTHY                               = 395;
+  // S6.4 Invariants (2)
+  INVARIANT_BUNDLE_LOADED                           = 396;
+  WEB_EXPOSURE_GRANTED                              = 397;
+  // S5.1 Identity Model (2)
+  IDENTITY_BUNDLE_LOADED                            = 398;
+  GROUP_REGISTERED                                  = 399;
+  // S6.3 Evidence Receipt Schema orphans (4)
+  RECEIPT_FORGERY_DETECTED                          = 400;
+  RECEIPT_PAYLOAD_DUPLICATE_OBSERVED                = 401;
+  RECEIPT_LINEAGE_DEPTH_EXCEEDED                    = 402;
+  RECEIPT_ORPHAN_ACTION_REF_DETECTED                = 403;
+  // S14.1 Failure Handling (6)
+  INVARIANT_BUNDLE_REJECTED                         = 404;
+  POLICY_BUNDLE_REJECTED                            = 405;
+  IDENTITY_BUNDLE_REJECTED                          = 406;
+  CAPABILITY_BUNDLE_REJECTED                        = 407;
+  SANDBOX_BUNDLE_REJECTED                           = 408;
+  FAILURE_OBSERVED_RATE_LIMITED                     = 409;
+  // S15.2 SGR State Transitions orphans (2)
+  GRAPH_EVALUATION_BUDGET_EXCEEDED                  = 410;
+  TRANSITION_BUDGET_EXCEEDED                        = 411;
+  // S15.3 SGR Adapter Model orphan (1)
+  ADAPTER_LIFECYCLE_ILLEGAL_TRANSITION              = 412;
+  // S11.1 + S11.2 Repository Model + Marketplace (3)
+  PUBLISHER_TRUST_LEVEL_OBSERVED                    = 413;
+  PUBLISHER_KEY_COLLISION                           = 414;
+  MARKETPLACE_REVIEW_BUDGET_EXCEEDED                = 415;
+  // S11.3 External Integrations (4)
+  BRIDGE_OPERATOR_CONSENT_GRANTED                   = 416;
+  BRIDGE_DEFERRED_NEEDS_REVIEW                      = 417;
+  BRIDGE_METADATA_DRIFT_DETECTED                    = 418;
+  BRIDGE_BLACKLIST_LIFTED                           = 419;
+  // Wave 9 W9-A — S2.3 Policy Kernel hard-deny (1)
+  HARDWARE_SUBSTRATE_ACCEPT_OUTSIDE_RECOVERY_BLOCKED = 420;
+  // Wave 9 W9-B — S9.1 + S9.2 first-boot mode (1)
+  FIRST_BOOT_OPERATION                              = 421;
+  // Wave 9 W9-C — S5.2 Vault Broker bootstrap key + rekey (3)
+  VAULT_BOOTSTRAP_KEY_USED                          = 422;
+  BOOTSTRAP_KEY_USE_AFTER_EXHAUST_BLOCKED           = 423;
+  VAULT_REKEYED                                     = 424;
+  // Wave 9 W9-D — S8.3 + S8.5 hardware drift + TPM reseal (2)
+  HARDWARE_GRAPH_DRIFT_ACCEPTED                     = 425;
+  VAULT_TPM_RESEAL_REQUIRED                         = 426;
+  // Cluster 13 — S13.1 Cognitive Lifecycle Positive Emission (1)
+  AGENT_LIFECYCLE_TRANSITIONED                      = 427;
+
+  // Reserved range for future Wave-N additions (proto3 best-practice forward
+  // reservation to prevent accidental ID collisions during subsequent expansions).
+  reserved 1000 to 9999;
 }
 
 // ─────────────────────────────────────────────────────────────────

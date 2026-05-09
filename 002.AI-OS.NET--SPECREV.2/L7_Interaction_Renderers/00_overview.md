@@ -1,6 +1,6 @@
 # L7 — Interaction Renderers
 
-Status: `PARTIAL` (foundation `01_surface_composition.md` is `CONTRACT`; downstream renderers + visual language remain `SHELL` / `DEFERRED`)
+Status: `PARTIAL` (six sub-specs `CONTRACT`; `07_voice_mobile_future.md` deliberately `DEFERRED`)
 
 ## Responsibility
 
@@ -26,7 +26,7 @@ May depend on: L0, L1, L2, L3, L4, L5, L6.
 | `03_visual_language.md`     | Token-level visual language — semantic colors, typography, spacing, distinctive AIOS components, motion principles (stage 2 of three-stage visual plan)                      | `CONTRACT` (S7.3) |
 | `04_kde_renderer.md`        | KWin compositor + Qt/QML widgets + wgpu for Surface nodes; KRunner plugin, Plasma widget, tray, approval prompt, evidence viewer                                             | `CONTRACT` (S7.4) |
 | `05_web_renderer.md`        | DOM + WebGPU canvas hybrid; goal input, plan viewer, approval prompts, action stream, evidence viewer, AIOS-FS browser                                                       | `CONTRACT` (S7.5) |
-| `06_cli_renderer.md`        | CLI command set; piping; scripting integration; recovery-safe subset                                                                                                         | `SHELL`           |
+| `06_cli_renderer.md`        | CLI command set; piping; scripting integration; recovery-safe subset                                                                                                         | `CONTRACT` (S7.6) |
 | `07_voice_mobile_future.md` | Out-of-scope sketch for future renderers                                                                                                                                     | `DEFERRED`        |
 
 ## See also

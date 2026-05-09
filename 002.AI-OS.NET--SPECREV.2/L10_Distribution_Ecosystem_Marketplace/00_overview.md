@@ -1,6 +1,6 @@
 # L10 — Distribution, Ecosystem, Marketplace
 
-Status: `PARTIAL` (`01_repository_model.md` is `CONTRACT`; the marketplace UX and external-integration sub-specs stay `SHELL`)
+Status: `PARTIAL` (all 3 sub-specs `CONTRACT`; layer headline remains PARTIAL until E2+ implementation evidence)
 
 ## Responsibility
 
@@ -21,8 +21,8 @@ May depend on: L0, L1, L2, L3, L4, L5, L6, L7, L8, L9.
 | File                          | Topic                                                         | Status     | Phase |
 | ----------------------------- | ------------------------------------------------------------- | ---------- | ----- |
 | `01_repository_model.md`      | Repository structure; signing; trust roots; mirror semantics  | `CONTRACT` | S11.1 |
-| `02_marketplace.md`           | Publisher onboarding; capability declaration; review workflow | `SHELL`    | —     |
-| `03_external_integrations.md` | Bridges to Flathub, OCI registries, distro repos              | `SHELL`    | —     |
+| `02_marketplace.md`           | Publisher onboarding; capability declaration; review workflow | `CONTRACT` | S11.2 |
+| `03_external_integrations.md` | Bridges to Flathub, OCI registries, distro repos              | `CONTRACT` | S11.3 |
 
 ## See also
 

@@ -27,7 +27,7 @@ May depend on: L0, L1, L2, L3, L4.
 | `01_cognitive_core_model.md`  | Foundational cognitive contract — intent perception + planning + memory model + inter-agent coordination + AI proposing pipeline                       | `CONTRACT` | S13.1 |
 | `02_capability_translator.md` | LLM → typed action mapping at scale (1000s of actions); RAG-over-capabilities                                                                          | `CONTRACT` | S1.1  |
 | `03_latency_tiering.md`       | Direct (no-LLM) path vs cognitive path; routing rules; UX latency budget                                                                               | `CONTRACT` | S1.2  |
-| `05_model_router.md`          | Local default vs powerful local vs external; degradation rules; cost/latency budgets (depth beyond S1.2 tiering; cognitive-backend adapter discipline) | `SHELL`    | —     |
+| `05_model_router.md`          | Local default vs powerful local vs external; degradation rules; cost/latency budgets (depth beyond S1.2 tiering; cognitive-backend adapter discipline) | `CONTRACT` | S13.2 |
 
 ## Cross-cutting contract dependency
 

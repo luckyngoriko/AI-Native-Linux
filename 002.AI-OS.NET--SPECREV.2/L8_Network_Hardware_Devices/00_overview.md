@@ -1,6 +1,6 @@
 # L8 — Network, Hardware, Devices
 
-Status: `PARTIAL` (`02_network_policy.md` and `05_gpu_resource_model.md` are `CONTRACT`; the three remaining sub-specs stay `SHELL`)
+Status: `PARTIAL` (all 5 sub-specs `CONTRACT`; layer headline remains PARTIAL until E2+ implementation evidence)
 
 ## Responsibility
 
@@ -22,10 +22,10 @@ May depend on: L0, L1, L2, L3, L4.
 
 | File                       | Topic                                                                                                                                                      | Status            |
 | -------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------- |
-| `01_hardware_graph.md`     | Device detection, identification, classification, lifecycle                                                                                                | `SHELL`           |
+| `01_hardware_graph.md`     | Device detection, identification, classification, lifecycle                                                                                                | `CONTRACT` (S8.3) |
 | `02_network_policy.md`     | Default-deny posture; per-app outbound; firewall integration                                                                                               | `CONTRACT` (S8.1) |
-| `03_dns_vpn_management.md` | Resolver backend, WireGuard, mDNS/Avahi gating                                                                                                             | `SHELL`           |
-| `04_firmware_trust.md`     | Firmware update classification; signed update paths                                                                                                        | `SHELL`           |
+| `03_dns_vpn_management.md` | Resolver backend, WireGuard, mDNS/Avahi gating                                                                                                             | `CONTRACT` (S8.4) |
+| `04_firmware_trust.md`     | Firmware update classification; signed update paths                                                                                                        | `CONTRACT` (S8.5) |
 | `05_gpu_resource_model.md` | Device topology, VRAM accounting, dmabuf brokering, closed `GpuCapabilityClass` enum, per-group `VkDevice` partitioning, hardware capability-lie detection | `CONTRACT` (S8.2) |
 
 ## Optional capability provider: ProxGuard

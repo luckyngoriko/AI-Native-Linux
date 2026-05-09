@@ -74,6 +74,22 @@ Decision log. Each entry follows ADR (Architecture Decision Record) discipline: 
 
 ---
 
+## DEC-043 — Tier 2 layer-depth closure: 14 sub-specs across 7 layers
+
+- **Context:** After Tier 1 closed the foundational gaps (S9.2 / L9.3 / S6.3 / S0.3) blocking audit-phase completeness, 14 SHELL sub-specs remained across 7 already-PARTIAL layers. The project owner authorized autonomous execution to close them all in one integration cycle. The criterion remained smart vs stupid (no time-frame/feasibility thinking).
+- **Decision:** Dispatch 14 parallel agents — one per SHELL sub-spec — with compact per-prompt charters. Each agent received its source-spec reading list, the closed-enum vocabulary skeleton, the record-type queue list, and explicit non-redefinition boundaries (don't redefine S10.1 manifest, S11.1 trust chain, S12.1 EcosystemRuntime, etc.). All 14 agents returned successful contracts at REAL/E1 status; one (L10.2) had a §13 numbering duplicate that orchestrator fixed; one (L7.6) over-stepped to update L7 overview itself which orchestrator reconciled to convention.
+- **Coverage:** Total ~13,235 lines across 14 contracts. 7 layers reached "all sub-specs CONTRACT": L3, L4, L5, L6, L8, L9, L10. The single non-CONTRACT remainder is `07_voice_mobile_future.md` (deliberately DEFERRED — out of scope for now).
+- **Constitutional shape preserved:** every contract followed the established discipline — closed enums, INV citations bound at enforcement points, record types queued for S3.1 next-Wave consolidation, no open enums, no time-frame/feasibility thinking, no redefinition of upstream concepts. Where source specs already specified an enum or schema (e.g. S10.1 AdapterIOMode, S11.1 PublisherTrustLevel, S12.1 EcosystemRuntime), the new contract cited and bound rather than redefined.
+- **Cumulative effect on the spec:**
+  - All 11 layers now PARTIAL+ with all sub-specs CONTRACT or DEFERRED-by-design
+  - Total record types queued across Tier 1 + Tier 2 for next-Wave S3.1: ~150+ entries (will bring narrative cumulative from 209 to ~360)
+  - 3 candidate L0 invariants (NETWORK_DEFAULT_DENY_OUTBOUND, PACKAGE_TRUST_CHAIN_BOUND, ECOSYSTEM_HONESTY_DISCLOSURE) plus possibly AI_PROPOSAL_PIPELINE_INTACT, HARDWARE_GRAPH_DRIFT_FOREVER (queued by S8.3), PACKAGE_OBJECT_LAYOUT_INTACT (queued by S12.2) — all held for audit-phase L0 sweep
+  - Tier 2 queued items for future Waves: ~7 new typed actions (compat.contribute_profile_observation, compat.import_profile_from_upstream, compat.review_outlier_contribution, kernel.build/refresh, app.observe_in_sandbox/translate_manifest/propose_manifest_delta/contribute_recipe), 1 new S4.1 user-scope path (`USR_APPS = 9` from S12.2), 1+ S2.4 properties
+- **Per-sub-spec rationale**: each contract has its own design rationale within its file's sections; this DEC-043 captures the autonomous-cycle batching decision rather than re-listing each. The full per-sub-spec narrative lives in the [Tier 2 layer-depth closure executive summary entry](01_executive_summary.md).
+- **Status:** `REAL` (applied 2026-05-11). Phase: Tier 2 autonomous closure cycle.
+
+---
+
 ## DEC-042 — S0.3 MVP Golden Path Contract (the executable test of the spec itself)
 
 - **Context:** Rev.1 §22 named the MVP golden path narratively but did not formalize it as a contract. Without a self-validation contract, the AIOS spec had no mechanical answer to "is the spec coherent enough to build from?" Audit-phase action-path simulations needed a canonical scenario to trace.

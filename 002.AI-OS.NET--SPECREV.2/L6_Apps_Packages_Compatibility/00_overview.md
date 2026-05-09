@@ -24,10 +24,10 @@ May depend on: L0, L1, L2, L3, L4, L5.
 | File                            | Topic                                                                                                                                                          | Status     | Phase |
 | ------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------- | ----- |
 | `01_app_runtime_model.md`       | Cross-ecosystem app runtime model (Linux/Windows/Android/macOS/iOS); EcosystemRuntime + AI-assisted manifest mechanism + community recipe registry             | `CONTRACT` | S12.1 |
-| `02_package_model.md`           | Signed bundle, install/verify/rollback plan, package types (app, service, model, policy, UI schema, kernel artifact, compatibility profile, workflow template) | `SHELL`    | —     |
-| `03_compatibility_runtime.md`   | Compatibility compiler flow; Wine/Proton, Waydroid, VM fallback orchestration                                                                                  | `SHELL`    | —     |
+| `02_package_model.md`           | Signed bundle, install/verify/rollback plan, package types (app, service, model, policy, UI schema, kernel artifact, compatibility profile, workflow template) | `CONTRACT` | S12.2 |
+| `03_compatibility_runtime.md`   | Compatibility compiler flow; Wine/Proton, Waydroid, VM fallback orchestration                                                                                  | `CONTRACT` | S12.3 |
 | `04_sandbox_composition.md`     | Sandbox profile language; SELinux/AppArmor/Landlock/seccomp/cgroups composition                                                                                | `CONTRACT` | S3.2  |
-| `05_compatibility_knowledge.md` | Per-app profile database; ProtonDB-equivalent governance                                                                                                       | `SHELL`    | —     |
+| `05_compatibility_knowledge.md` | Per-app profile database; ProtonDB-equivalent governance                                                                                                       | `CONTRACT` | S12.4 |
 
 ## Reference system app: ProxGuard
 

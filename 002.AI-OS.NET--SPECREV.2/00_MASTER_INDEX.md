@@ -92,11 +92,15 @@ Phase 7 (renderer architecture):
 - **S7.3** — Visual Language → `L7_Interaction_Renderers/03_visual_language.md` (`CONTRACT`)
 - **S7.4** — KDE Plasma Renderer → `L7_Interaction_Renderers/04_kde_renderer.md` (`CONTRACT`)
 - **S7.5** — Web Renderer → `L7_Interaction_Renderers/05_web_renderer.md` (`CONTRACT`)
+- **S7.6** — CLI Renderer → `L7_Interaction_Renderers/06_cli_renderer.md` (`CONTRACT`)
 
 Phase 8 (L8 hardware/network):
 
 - **S8.1** — Network Policy → `L8_Network_Hardware_Devices/02_network_policy.md` (`CONTRACT`)
 - **S8.2** — GPU Resource Model → `L8_Network_Hardware_Devices/05_gpu_resource_model.md` (`CONTRACT`)
+- **S8.3** — Hardware Graph → `L8_Network_Hardware_Devices/01_hardware_graph.md` (`CONTRACT`)
+- **S8.4** — DNS / VPN Management → `L8_Network_Hardware_Devices/03_dns_vpn_management.md` (`CONTRACT`)
+- **S8.5** — Firmware Trust → `L8_Network_Hardware_Devices/04_firmware_trust.md` (`CONTRACT`)
 
 Phase 9 (L1 substrate):
 
@@ -111,18 +115,31 @@ Phase 10 (L3 runtime):
 Phase 11 (L10 distribution):
 
 - **S11.1** — Repository Model + Trust Roots → `L10_Distribution_Ecosystem_Marketplace/01_repository_model.md` (`CONTRACT`)
+- **S11.2** — Marketplace UX (publisher onboarding + capability review) → `L10_Distribution_Ecosystem_Marketplace/02_marketplace.md` (`CONTRACT`)
+- **S11.3** — External Integrations (Flathub/OCI/distro bridges) → `L10_Distribution_Ecosystem_Marketplace/03_external_integrations.md` (`CONTRACT`)
 
-Phase 12 (L6 app runtime):
+Phase 12 (L6 app runtime + compatibility):
 
 - **S12.1** — App Runtime Model + Cross-Ecosystem Compatibility → `L6_Apps_Packages_Compatibility/01_app_runtime_model.md` (`CONTRACT`)
+- **S12.2** — Package Object Model → `L6_Apps_Packages_Compatibility/02_package_model.md` (`CONTRACT`)
+- **S12.3** — Compatibility Runtime Orchestration → `L6_Apps_Packages_Compatibility/03_compatibility_runtime.md` (`CONTRACT`)
+- **S12.4** — Compatibility Knowledge (per-app profile database) → `L6_Apps_Packages_Compatibility/05_compatibility_knowledge.md` (`CONTRACT`)
 
 Phase 13 (L5 cognitive core depth):
 
 - **S13.1** — Cognitive Core Model (intent + planning + memory + agent coordination) → `L5_Cognitive_Core/01_cognitive_core_model.md` (`CONTRACT`)
+- **S13.2** — Model Router (cognitive backend adapter discipline) → `L5_Cognitive_Core/05_model_router.md` (`CONTRACT`)
 
-Phase 14 (L9 failure handling):
+Phase 14 (L9 failure handling + telemetry):
 
 - **S14.1** — Failure Handling and Degradation → `L9_Observability_Admin_Operations/03_failure_handling.md` (`CONTRACT`)
+- **S14.2** — Telemetry Pipeline → `L9_Observability_Admin_Operations/04_telemetry_pipeline.md` (`CONTRACT`)
+
+Phase 15 (L3 SGR depth):
+
+- **S15.1** — Unit Manifest → `L3_AIOS_SGR_Service_Graph_Runtime/01_unit_manifest.md` (`CONTRACT`)
+- **S15.2** — State Transitions (graph evaluation + A/B promotion) → `L3_AIOS_SGR_Service_Graph_Runtime/02_state_transitions.md` (`CONTRACT`)
+- **S15.3** — Adapter Model (deepens S10.1 manifest discipline) → `L3_AIOS_SGR_Service_Graph_Runtime/04_adapter_model.md` (`CONTRACT`)
 
 Reference donors:
 

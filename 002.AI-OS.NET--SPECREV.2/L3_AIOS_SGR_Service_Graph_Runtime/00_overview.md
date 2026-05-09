@@ -1,6 +1,6 @@
 # L3 — AIOS-SGR (Service Graph Runtime) and Capability Runtime
 
-Status: `PARTIAL` (`03_capability_runtime_grpc.md` is `CONTRACT`; the other three sub-specs stay `SHELL`)
+Status: `PARTIAL` (all four sub-specs `CONTRACT`; layer headline remains PARTIAL until E2+ implementation evidence)
 
 ## Responsibility
 
@@ -23,10 +23,10 @@ May depend on: L0, L1, L2.
 
 | File                            | Topic                                                                | Status     | Phase |
 | ------------------------------- | -------------------------------------------------------------------- | ---------- | ----- |
-| `01_unit_manifest.md`           | Service unit schema, sandbox profile, verification, rollback pointer | `SHELL`    | —     |
-| `02_state_transitions.md`       | Desired-state graph evaluation, dependency solve, A/B promotion      | `SHELL`    | —     |
+| `01_unit_manifest.md`           | Service unit schema, sandbox profile, verification, rollback pointer | `CONTRACT` | S15.1 |
+| `02_state_transitions.md`       | Desired-state graph evaluation, dependency solve, A/B promotion      | `CONTRACT` | S15.2 |
 | `03_capability_runtime_grpc.md` | gRPC service contract (`ValidateAction`/`ExecuteAction`/...)         | `CONTRACT` | S10.1 |
-| `04_adapter_model.md`           | Adapter manifest, capability registration, fail-closed semantics     | `SHELL`    | —     |
+| `04_adapter_model.md`           | Adapter manifest, capability registration, fail-closed semantics     | `CONTRACT` | S15.3 |
 
 ## Cross-cutting contract dependency
 

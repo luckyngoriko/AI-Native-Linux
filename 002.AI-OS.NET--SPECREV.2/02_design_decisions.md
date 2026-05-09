@@ -74,6 +74,25 @@ Decision log. Each entry follows ADR (Architecture Decision Record) discipline: 
 
 ---
 
+## DEC-034 — S11.1 L10 Repository Model + Trust Roots (initial contract — closes the last SHELL layer)
+
+- **Context:** L10 was the only remaining SHELL layer in the AIOS spec. Marketplace governance was constitutional intent (publishers, signing, capability declaration) but not specified. Until this contract, the supply-chain attack surface was unbounded: there was no mechanical way to prevent forged signatures, mirror tampering, capability lies in package manifests, or takedown evasion. Every other layer cited "package install" abstractly.
+- **Decision:** Write the initial S11.1 contract (1027 lines) defining the three-tier signing chain (AIOS root → publisher root → package signing key, chain depth ≤ 3), the 17-step strictly-ordered install pipeline, and the closed taxonomies for distribution. 9 closed enums covering trust levels, repository kinds, update channels, package kinds, install scopes, install state FSM, verification results, mirror semantics, and takedown reasons.
+- **Constitutional choices and why each:**
+  - **Three-hop trust chain depth limit.** Deeper chains create more attack surface for impersonation; 3 hops is sufficient for AIOS-root-anchored publisher delegation. `TRUST_CHAIN_TOO_DEEP` is FOREVER evidence — supply-chain anomaly worth permanent record.
+  - **AI subjects cannot install directly.** AI subjects can REQUEST package install (typed action) but the install action requires HUMAN_USER subject in approval. This is the package-distribution analog of "AI proposes, never executes" (INV-002). Without this, an AI could install a package that grants itself escalated capabilities and chain-jump privilege.
+  - **Recovery-only package classes.** INVARIANT_BUNDLE, POLICY_BUNDLE, IDENTITY_BUNDLE, KERNEL_CANDIDATE, CAPABILITY_CATALOG_DELTA — these are the system's deepest configuration objects. Modifying them outside recovery mode would break the recovery boundary (INV-004 + INV-012). Recovery-only is mechanical, not policy.
+  - **Mirrors NEVER re-sign.** Mirrors serve the same signed bytes verbatim or fail. Content-hash check on the host detects tampering immediately. This means mirror operators cannot become a third trust authority — the trust chain is signing-key-anchored, not host-anchored.
+  - **First-run capability lie audit (60 s).** Manifest declares capabilities; runtime observes actual capability invocations; mismatch → quarantine + FOREVER evidence. This closes the supply-chain capability-lie surface: the audit is at runtime, not at install time, so a malicious manifest cannot lie its way past static review.
+  - **Deplatform 30-day grace period.** When a publisher is deplatformed (KEY_COMPROMISE etc.), existing installs continue running for 30 days then auto-uninstall. This gives operators time to find replacements without leaving them suddenly app-less.
+  - **External bridges capped at COMMUNITY trust.** Flathub/OCI/distro packages NEVER reach AIOS_ROOT or AIOS_VERIFIED trust levels — they are COMMUNITY at best, with bridge-specific signing. This prevents external supply chains from inheriting AIOS's strongest trust class without going through AIOS publisher review.
+- **Cross-spec follow-up queued:** 19 record types for S3.1 follow-up; 1 candidate L0 invariant `PACKAGE_TRUST_CHAIN_BOUND` queued narrative-only.
+- **Consequences:** L10 reaches PARTIAL with `01_repository_model.md` CONTRACT (the marketplace UX `02_marketplace.md` and external-integrations `03_external_integrations.md` stay SHELL). **Every layer in the AIOS spec is now PARTIAL+ — the last SHELL is closed.** The supply-chain attack surface is bounded: signing chains anchored, mirror tampering detected, capability lies caught at runtime, AI cannot install, deplatform discipline mechanical.
+- **Status:** `REAL` (applied 2026-05-11).
+- **Phase tag:** S11.1.
+
+---
+
 ## DEC-033 — Wave 6: cross-spec consolidation of S5.2+S5.3+S5.4+S9.1+S10.1+S8.1+DEC-026 touch-ups
 
 - **Context:** Across the post-Wave-5 sub-spec landings (DEC-027 vault broker, DEC-028 approval mechanics, DEC-029 emergency override, DEC-030 recovery boundary, DEC-031 capability runtime, DEC-032 network policy) plus the L0 INV-023/024 promotion (DEC-026), each new contract enumerated touch-ups for downstream specs (record types for S3.1, properties and primitives for S2.4, condition fields for S2.3) but did not apply them to the target specs — mirroring the Wave 5 discipline. DEC-033 closes the loop in one additive sweep.

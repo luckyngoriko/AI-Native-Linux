@@ -26,7 +26,7 @@ Dependency rule: a layer may depend on its own layer and lower-numbered layers. 
 | L7    | [L7_Interaction_Renderers](L7_Interaction_Renderers/)                             | KDE, Web, CLI, Voice, Mobile, shared UI schema               | `PARTIAL` |
 | L8    | [L8_Network_Hardware_Devices](L8_Network_Hardware_Devices/)                       | network policy, hardware graph, drivers, firmware            | `PARTIAL` |
 | L9    | [L9_Observability_Admin_Operations](L9_Observability_Admin_Operations/)           | health, logs, metrics, evidence viewer, recovery operations  | `PARTIAL` |
-| L10   | [L10_Distribution_Ecosystem_Marketplace](L10_Distribution_Ecosystem_Marketplace/) | publishing, repositories, marketplace, external integrations | `SHELL`   |
+| L10   | [L10_Distribution_Ecosystem_Marketplace](L10_Distribution_Ecosystem_Marketplace/) | publishing, repositories, marketplace, external integrations | `PARTIAL` |
 
 ## Cross-cutting contracts
 
@@ -103,6 +103,10 @@ Phase 9 (L1 substrate):
 Phase 10 (L3 runtime):
 
 - **S10.1** — Capability Runtime gRPC → `L3_AIOS_SGR_Service_Graph_Runtime/03_capability_runtime_grpc.md` (`CONTRACT`)
+
+Phase 11 (L10 distribution):
+
+- **S11.1** — Repository Model + Trust Roots → `L10_Distribution_Ecosystem_Marketplace/01_repository_model.md` (`CONTRACT`)
 
 Reference donors:
 

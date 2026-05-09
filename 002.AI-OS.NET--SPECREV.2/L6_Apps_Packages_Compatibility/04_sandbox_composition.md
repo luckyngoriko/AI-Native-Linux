@@ -1166,6 +1166,83 @@ System agents (under `/aios/system/agents/<agent_id>/`) use `/aios/system/runtim
 
 `SANDBOX_GROUP_FLOOR_APPLIED` (STANDARD_24M retention) is added to S3.1 RecordType vocabulary and emitted whenever `group_floor` strictness modified the composed profile (i.e., at least one `FieldDecision.winner_source = GROUP_FLOOR` in the composition trace).
 
+## 19. Wave 5 cross-spec touch-up (S7.1+S8.2 + L0 INV-019..022 consolidation)
+
+Applied 2026-05-10. Sources: [S7.1 §13](../L7_Interaction_Renderers/01_surface_composition.md), [S8.2 §11](../L8_Network_Hardware_Devices/05_gpu_resource_model.md). This section adds the queued S3.2 cross-spec touch-up requested by S7.1 and S8.2: the `SandboxProfile.gpu_policy` field and the apply-time defense-in-depth check that ties a sandbox application to the surface group_owner discipline.
+
+### 19.1 New field — `SandboxProfile.gpu_policy`
+
+`SandboxProfile` (§3) gains a typed `GpuPolicy` field. The composition algorithm (§5) treats it as a normal merge participant: the most-restrictive value across the six sources wins, and the runtime safety floor cannot be loosened by any earlier source.
+
+```proto
+message GpuPolicy {
+  string gpu_capability_class = 1;          // closed enum reference to S8.2 GpuCapabilityClass
+  uint64 vram_max_bytes = 2;                 // explicit cap; cannot exceed class default
+  string queue_priority = 3;                  // closed enum reference to S8.2 QueuePriority
+  uint32 frame_rate_cap_fps = 4;
+  repeated string allowed_dmabuf_peers = 5;   // canonical_subject_ids permitted to receive dmabuf
+  bool deny_compute_pipeline = 6;             // override class default; force compute-disabled
+  bool deny_validation_layers = 7;            // recovery-mode default; can be set explicitly
+}
+
+// SandboxProfile gains:
+//   GpuPolicy gpu_policy = N;
+```
+
+Per-field merge rules:
+
+| Field                    | Merge rule                                                                                                                                                              |
+| ------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `gpu_capability_class`   | The strictest class wins (closed-enum ordering: `GPU_NONE` > `GPU_DISPLAY_ONLY` > ... > `GPU_COMPUTE_HEAVY`); a stricter class downgrades a permissive upstream choice. |
+| `vram_max_bytes`         | `min` across all sources; runtime safety floor cannot raise it.                                                                                                         |
+| `queue_priority`         | The lowest priority wins (`BACKGROUND` < `INTERACTIVE` < `REALTIME`).                                                                                                   |
+| `frame_rate_cap_fps`     | `min` across all sources; 0 = "no cap" is treated as the maximum.                                                                                                       |
+| `allowed_dmabuf_peers`   | Set intersection across all sources; empty set = no peers allowed.                                                                                                      |
+| `deny_compute_pipeline`  | OR across all sources (any `true` wins).                                                                                                                                |
+| `deny_validation_layers` | OR across all sources, with one exception: under `recovery_mode = true` the runtime safety floor sets it to `true` regardless of upstream sources.                      |
+
+`gpu_policy` is class-bounded: `vram_max_bytes` and `queue_priority` cannot exceed the per-class defaults declared in S8.2; an out-of-bounds composition is rejected with `CompositionError.code = INVALID_INPUT_SCHEMA` and sub-reason `GpuPolicyExceedsClass`.
+
+### 19.2 Apply-time invariant — surface group ownership
+
+The §11 evidence integration and the §12 adversarial robustness already require strict source provenance per composition. Wave 5 adds a defense-in-depth check at `ApplyProfile`:
+
+```text
+IF action.target.surface_id != "" THEN
+   // resolve the surface from the S7.1 registry
+   LET surface = SurfaceRegistry.get(action.target.surface_id);
+   IF surface.group_owner != subject.primary_group_id
+   THEN fail with CompositionError {
+     code = INVALID_INPUT_SCHEMA,
+     sub_reason = "SurfaceGroupOwnershipMismatch",
+     message = "subject primary_group_id does not match surface group_owner"
+   }
+```
+
+This complements:
+
+- **S2.3 §26** `CrossGroupAccessForbidden` (policy-tier) and **S3.2 §18.3** the agent / action group-ownership check.
+- The check is independent — even if the policy decision is `ALLOW`, the apply-time discipline rejects a mismatched binding. This is the specific defense-in-depth requested by [S7.1 §13](../L7_Interaction_Renderers/01_surface_composition.md).
+
+The mismatch emits a `CROSS_GROUP_ACCESS_DENIED` evidence record (S3.1) with the offending `surface_id` and `group_owner` recorded in the redacted observation.
+
+### 19.3 Source contribution allowance for `gpu_policy`
+
+| Source                 | May contribute `gpu_policy`? | Notes                                                                          |
+| ---------------------- | ---------------------------- | ------------------------------------------------------------------------------ |
+| `adapter_default`      | yes                          | Adapter declares the minimum class it actually needs.                          |
+| `app_manifest`         | yes                          | App manifest declares its requested class within its capability set.           |
+| `user_request`         | yes (downgrade only)         | A user can only further restrict; cannot upgrade beyond the manifest request.  |
+| `policy_required`      | yes                          | Policy can downgrade or restrict (e.g., disable compute outside grant window). |
+| `group_floor`          | yes                          | Group-scoped baseline; can mandate `deny_compute_pipeline` for the group.      |
+| `runtime_safety_floor` | yes                          | Constitutional minimum: `deny_validation_layers = true` under recovery mode.   |
+
+The composition trace records each `FieldDecision` for every `gpu_policy` field per the §11.2 trace discipline.
+
+### 19.4 New evidence integration
+
+This touch-up does not introduce a new RecordType — the existing `GPU_CAPABILITY_DENIED` (added to S3.1 in §24) covers the apply-time GpuPolicy-derived denials, and the existing `CROSS_GROUP_ACCESS_DENIED` covers the §19.2 invariant failures. The composition trace `FieldDecision` entries for `gpu_policy.*` participate in the existing `SANDBOX_GROUP_FLOOR_APPLIED` lineage.
+
 ## See also
 
 - [S0.1 — Action Envelope and Lifecycle](../XX_Cross_Cutting/01_action_envelope_lifecycle.md)
@@ -1173,6 +1250,12 @@ System agents (under `/aios/system/agents/<agent_id>/`) use `/aios/system/runtim
 - [S2.4 — Verification Grammar](../L9_Observability_Admin_Operations/02_verification_grammar.md)
 - [S3.1 — Evidence Log](../L9_Observability_Admin_Operations/01_evidence_log.md)
 - [S4.1 — Namespace Layout](../L2_AIOS_FS/05_namespace_layout.md)
+- [S7.1 Surface Composition](../L7_Interaction_Renderers/01_surface_composition.md)
+- [S7.2 Shared UI Schema](../L7_Interaction_Renderers/02_shared_ui_schema.md)
+- [S7.3 Visual Language](../L7_Interaction_Renderers/03_visual_language.md)
+- [S7.4 KDE Renderer](../L7_Interaction_Renderers/04_kde_renderer.md)
+- [S7.5 Web Renderer](../L7_Interaction_Renderers/05_web_renderer.md)
+- [S8.2 GPU Resource Model](../L8_Network_Hardware_Devices/05_gpu_resource_model.md)
 - [Rev.1 §17 — Application, Package, and Compatibility Model](../../001.AI-OS.NET--SPECREV.1/02_SPECIFICATION.md)
 - [L6 Overview](00_overview.md)
 - [Rev.2 Master Index](../00_MASTER_INDEX.md)

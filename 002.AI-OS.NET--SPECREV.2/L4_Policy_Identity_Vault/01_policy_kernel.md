@@ -870,12 +870,87 @@ Three counters added with bounded labels:
 | `policy_recovery_required_denial_total` | counter | `target_system_reserved` (closed enum) |
 | `policy_ai_system_admin_denial_total`   | counter | `target_system_reserved` (closed enum) |
 
-## 27. See also
+## 27. Wave 5 cross-spec touch-up (S7.1+S7.2+S7.3+S7.4+S7.5+S8.2 + L0 INV-019..022 consolidation)
+
+Applied 2026-05-10. Sources: [S7.1 §13](../L7_Interaction_Renderers/01_surface_composition.md), [S7.3 §10](../L7_Interaction_Renderers/03_visual_language.md), [S8.2 §11](../L8_Network_Hardware_Devices/05_gpu_resource_model.md). This section adds the closed condition fields and constitutional hard-deny candidates required to enforce surface, theme, and GPU resource invariants (L0 INV-019..022) through the Policy Kernel.
+
+### 27.1 Six new closed condition fields
+
+The conditions vocabulary (§9) — which already holds 17 fields after the §26 namespace touch-up (the original 12 plus the five S4.1 additions) — gains six new typed fields. All are closed; bundle load fails on unknown fields.
+
+| Namespace | Field                         | Type                                    | Operators       |
+| --------- | ----------------------------- | --------------------------------------- | --------------- |
+| `target`  | `target.surface_kind`         | `aios.surface.v1alpha1.SurfaceKind`     | `=`, `!=`, `in` |
+| `target`  | `target.composition_zone`     | `aios.surface.v1alpha1.CompositionZone` | `=`, `!=`, `in` |
+| `target`  | `target.gpu_capability_class` | `aios.gpu.v1alpha1.GpuCapabilityClass`  | `=`, `!=`, `in` |
+| `target`  | `target.gpu_device_kind`      | `aios.gpu.v1alpha1.GpuKind`             | `=`, `!=`, `in` |
+| `target`  | `target.theme_kind`           | `aios.visual.v1alpha1.ThemeKind`        | `=`, `!=`, `in` |
+| `target`  | `target.theme_id`             | string                                  | `=`, `!=`       |
+
+The conditions vocabulary now holds **23 fields** (12 base + 5 namespace + 6 Wave 5).
+
+### 27.2 Two new constitutional hard-deny candidates
+
+Both are constitutional in spirit — they bind directly to L0 invariants and cannot be loosened by any policy bundle. They are evaluated alongside the §26 hard-denies, before normal rule evaluation. Promotion of these candidates into the L0 INV catalog as formal invariants is queued for the next L0 INV bundle revision; the current INV catalog remains at 22 entries.
+
+#### 27.2.1 `CompositionZoneForbidden`
+
+```text
+IF (subject.is_ai = true OR target.surface_kind = APP_SURFACE OR target.surface_kind = STREAM_SURFACE)
+   AND target.composition_zone = CHROME
+THEN DENY with code = CompositionZoneForbidden
+```
+
+Binds **L0 INV-020** (trust indicators always visible) and **L0 INV-021** (AI/human visual distinction). AI subjects cannot author CHROME-zone content under any circumstances; APP/STREAM-kind surfaces cannot be promoted into the CHROME zone, regardless of subject. The CHROME zone is reserved exclusively for the renderer-owned trust surface authored by the system identity.
+
+#### 27.2.2 `GpuComputeOutsideAuthorisedClass`
+
+```text
+IF target.gpu_capability_class = GPU_COMPUTE_HEAVY
+   AND subject.has_capability("gpu.compute_heavy") = false
+THEN DENY with code = GpuComputeOutsideAuthorisedClass
+```
+
+Bounds GPGPU compute access per S8.2 §11. The default capability set does not include `gpu.compute_heavy`; explicit grant is required, and the grant flows through the L4 capability catalog (not through generic adapter capability negotiation).
+
+### 27.3 Hard-deny ordering update
+
+The two new hard-denies extend the §26.3 ordering. Full pre-bundle hard-deny chain becomes:
+
+1. `RecoveryRequiredForSystemMutation`
+2. `AISystemAdminBlocked`
+3. `CrossGroupAccessForbidden`
+4. `CompositionZoneForbidden` _(new)_
+5. `GpuComputeOutsideAuthorisedClass` _(new)_
+6. (then bundle rules)
+
+Short-circuit on first match. AI self-approval prevention (§17) is unchanged and still runs at its original constitutional position.
+
+### 27.4 Telemetry additions
+
+Two counters added with bounded labels:
+
+| Metric                                  | Type    | Labels (closed)                             |
+| --------------------------------------- | ------- | ------------------------------------------- |
+| `policy_composition_zone_denial_total`  | counter | `target_composition_zone` (closed enum)     |
+| `policy_gpu_compute_class_denial_total` | counter | `target_gpu_capability_class` (closed enum) |
+
+### 27.5 Promotion to L0 invariants — queued
+
+The L0 invariant catalog currently terminates at INV-018. INV-019..022 are reserved labels in the renderer / GPU work but their promotion into the L0 catalog (with golden-fixture enforcement and §26-style constitutional status) is queued for the next L0 revision. Until then, the §27.2 hard-denies serve as the operational floor.
+
+## 28. See also
 
 - [S0.1 Action Envelope + Lifecycle](../../002.AI-OS.NET--SPECREV.2/XX_Cross_Cutting/01_action_envelope_lifecycle.md)
 - [S1.3 Object Model](../L2_AIOS_FS/01_object_model.md)
 - [S2.1 Query/View Language](../L2_AIOS_FS/02_query_view_language.md)
 - [S4.1 Namespace Layout](../L2_AIOS_FS/05_namespace_layout.md)
+- [S7.1 Surface Composition](../L7_Interaction_Renderers/01_surface_composition.md)
+- [S7.2 Shared UI Schema](../L7_Interaction_Renderers/02_shared_ui_schema.md)
+- [S7.3 Visual Language](../L7_Interaction_Renderers/03_visual_language.md)
+- [S7.4 KDE Renderer](../L7_Interaction_Renderers/04_kde_renderer.md)
+- [S7.5 Web Renderer](../L7_Interaction_Renderers/05_web_renderer.md)
+- [S8.2 GPU Resource Model](../L8_Network_Hardware_Devices/05_gpu_resource_model.md)
 - [L4 overview](00_overview.md)
 - [Rev.1 §11 — Policy Kernel](../../001.AI-OS.NET--SPECREV.1/02_SPECIFICATION.md)
 - [Rev.2 Master Index](../00_MASTER_INDEX.md)

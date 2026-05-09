@@ -631,7 +631,49 @@ Two metrics added with bounded label cardinality:
 | `aiosfs_namespace_query_total`    | counter | `target_scope` (system/group/user), `outcome`          |
 | `aiosfs_cross_group_filter_total` | counter | none — total rows silently excluded across all queries |
 
-## 19. See also
+## 19. Wave 5 cross-spec touch-up (S7.1+S7.2+S7.3+S7.4+S7.5+S8.2 + L0 INV-019..022 consolidation)
+
+Applied 2026-05-10. Sources: [S7.1 Surface Composition](../L7_Interaction_Renderers/01_surface_composition.md), [S7.3 Visual Language](../L7_Interaction_Renderers/03_visual_language.md), [S8.2 GPU Resource Model](../L8_Network_Hardware_Devices/05_gpu_resource_model.md). This section adds closed query fields needed to audit surface lifecycle, theme provenance, and GPU resource bindings through the standard view catalog.
+
+### 19.1 Five new closed query fields
+
+The query field vocabulary (§4) gains five typed fields. All are closed; queries with unknown fields fail validation with `UnknownField`.
+
+| Field                         | Type                                    | Operators       | Notes                                                                 |
+| ----------------------------- | --------------------------------------- | --------------- | --------------------------------------------------------------------- |
+| `target.surface_kind`         | `aios.surface.v1alpha1.SurfaceKind`     | `=`, `!=`, `in` | for queries over surface lifecycle (S7.1 SurfaceKind enum)            |
+| `target.composition_zone`     | `aios.surface.v1alpha1.CompositionZone` | `=`, `!=`, `in` | for zone-scoped queries (CHROME, APP, BACKGROUND, OVERLAY, RECOVERY)  |
+| `target.theme_kind`           | `aios.visual.v1alpha1.ThemeKind`        | `=`, `!=`, `in` | for theme audits (S7.3 ThemeKind enum, distinguishes recovery themes) |
+| `target.theme_id`             | string                                  | `=`, `!=`       | identifier of a loaded theme; for evidence log joins                  |
+| `target.gpu_capability_class` | `aios.gpu.v1alpha1.GpuCapabilityClass`  | `=`, `!=`, `in` | for GPU resource audits (S8.2 GpuCapabilityClass enum)                |
+
+Other operators on these fields (e.g., `LIKE`, `>`) are rejected with `UnsupportedOperator`. The fields participate in the existing privacy ceiling and cross-group filtering disciplines (§5, §9).
+
+### 19.2 Illustrative example queries
+
+```sql
+-- All GPU_COMPUTE_HEAVY bindings active in last 24h, scoped to caller's group
+SELECT receipt_id, action_id, recorded_at FROM evidence
+ WHERE record_type IN (GPU_DMABUF_GRANTED, GPU_VK_DEVICE_CREATED)
+   AND target.gpu_capability_class = GPU_COMPUTE_HEAVY
+   AND recorded_at > now() - INTERVAL '24 hours'
+ ORDER BY recorded_at DESC;
+
+-- All themes loaded by AI subjects this session (must return empty under INV-021 / INV-020 discipline)
+SELECT theme_id, recorded_at FROM evidence
+ WHERE record_type = THEME_LOADED
+   AND subject.is_ai = true
+   AND target.theme_kind = USER_THEME
+ ORDER BY recorded_at DESC;
+```
+
+The second query is also a property-based check candidate: `EVENTUALLY_EMPTY(...)` over this view is equivalent to verifying that AI subjects never authored a non-recovery theme, which is a constitutional invariant per L0 INV-021.
+
+### 19.3 No new operators, no new combinators
+
+The operator vocabulary (§4) is unchanged. The new fields use only the existing `=`, `!=`, `in` operators. Pagination, time-travel, materialization, and view definition rules apply unchanged.
+
+## 20. See also
 
 - [S1.3 Object Model](01_object_model.md)
 - [S1.3 Conflict Resolution](03_conflict_resolution.md)
@@ -639,6 +681,12 @@ Two metrics added with bounded label cardinality:
 - [S1.1 Capability Translator](../L5_Cognitive_Core/02_capability_translator.md)
 - [S1.2 Latency Tiering](../L5_Cognitive_Core/03_latency_tiering.md)
 - [S4.1 Namespace Layout](05_namespace_layout.md)
+- [S7.1 Surface Composition](../L7_Interaction_Renderers/01_surface_composition.md)
+- [S7.2 Shared UI Schema](../L7_Interaction_Renderers/02_shared_ui_schema.md)
+- [S7.3 Visual Language](../L7_Interaction_Renderers/03_visual_language.md)
+- [S7.4 KDE Renderer](../L7_Interaction_Renderers/04_kde_renderer.md)
+- [S7.5 Web Renderer](../L7_Interaction_Renderers/05_web_renderer.md)
+- [S8.2 GPU Resource Model](../L8_Network_Hardware_Devices/05_gpu_resource_model.md)
 - [Rev.2 Master Index](../00_MASTER_INDEX.md)
 
 ## Appendix A: Complete proto IDL

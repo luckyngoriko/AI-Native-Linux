@@ -702,13 +702,139 @@ Two counters added with bounded labels:
 | `evidence_namespace_scope_total`    | counter | `scope` (system/group/user)   |
 | `evidence_cross_group_filter_total` | counter | none (cumulative suppression) |
 
-## 24. See also
+## 24. Wave 5 cross-spec touch-up (S7.1+S7.2+S7.3+S7.4+S7.5+S8.2 + L0 INV-019..022 consolidation)
+
+Applied 2026-05-10. Sources: [S7.1 §11](../L7_Interaction_Renderers/01_surface_composition.md), [S7.2 §10](../L7_Interaction_Renderers/02_shared_ui_schema.md), [S7.3 §9](../L7_Interaction_Renderers/03_visual_language.md), [S7.4 §10](../L7_Interaction_Renderers/04_kde_renderer.md), [S7.5 §11](../L7_Interaction_Renderers/05_web_renderer.md), [S8.2 §10](../L8_Network_Hardware_Devices/05_gpu_resource_model.md). This section consolidates the evidence record types required to observe the renderer, theme, and GPU subsystems and to enforce L0 INV-019..022. After this addition the **`RecordType` vocabulary now totals 87 entries** (29 prior + 58 Wave 5). Most additions are observable lifecycle events at `STANDARD_24M` retention; a smaller set of constitutional and forensic events use `EXTENDED_60M` or `FOREVER` retention.
+
+### 24.1 Fifty-eight new record types
+
+Added to the closed `RecordType` vocabulary. The `RecordPayload` discriminated oneof gains a corresponding payload message per record type; payload schemas follow the existing pattern (action_id back-reference, surface_id / theme_id / binding_id where applicable, decision-relevant subset of S0.1 enrichment, redacted-by-default observed structure).
+
+#### 24.1.1 From S7.1 Surface Composition (7 types)
+
+| Record type                      | Retention class | When emitted                                                                                         |
+| -------------------------------- | --------------- | ---------------------------------------------------------------------------------------------------- |
+| `SURFACE_CREATED`                | `STANDARD_24M`  | A new Surface enters the registry (any kind).                                                        |
+| `SURFACE_DESTROYED`              | `STANDARD_24M`  | A Surface leaves the registry (clean teardown or eviction).                                          |
+| `SURFACE_GPU_BUDGET_EXCEEDED`    | `EXTENDED_60M`  | A Surface tried to exceed its declared GPU budget; carries observed vs allowed.                      |
+| `CROSS_SURFACE_READ_DENIED`      | `FOREVER`       | A Surface attempted to read another Surface's framebuffer / IPC channel; constitutional barrier.     |
+| `CROSS_ZONE_VIOLATION_ATTEMPTED` | `EXTENDED_60M`  | A Surface tried to render into a zone other than its bound CompositionZone.                          |
+| `RECOVERY_KIND_REJECTED`         | `FOREVER`       | A non-recovery surface tried to load while the system is in recovery_mode = true.                    |
+| `SURFACE_NEVER_RENDERED`         | `STANDARD_24M`  | A trust-bearing surface was created but never reached the chrome zone within its lifecycle deadline. |
+
+#### 24.1.2 From S7.2 Shared UI Schema (3 types)
+
+| Record type                           | Retention class | When emitted                                                                              |
+| ------------------------------------- | --------------- | ----------------------------------------------------------------------------------------- |
+| `UI_TREE_VALIDATION_REJECTED`         | `STANDARD_24M`  | A UI tree failed schema validation (closed NodeKind, depth, kind / parent rules).         |
+| `UI_TRUST_BEARING_AUTHORSHIP_REFUSED` | `FOREVER`       | An AI subject attempted to author a node carrying constitutional trust authorship.        |
+| `UI_RECOVERY_NODE_DROPPED`            | `STANDARD_24M`  | A renderer dropped a recovery-only NodeKind because recovery_mode = false at render time. |
+
+#### 24.1.3 From S7.3 Visual Language (4 types)
+
+| Record type                | Retention class | When emitted                                                                            |
+| -------------------------- | --------------- | --------------------------------------------------------------------------------------- |
+| `THEME_LOADED`             | `STANDARD_24M`  | A theme was activated by a subject; carries `theme_id`, `theme_kind`, `subject.is_ai`.  |
+| `THEME_REJECTED`           | `EXTENDED_60M`  | A theme load failed validation (signature, schema, or constitutional invariant).        |
+| `THEME_SWITCHED`           | `STANDARD_24M`  | The active theme changed; carries previous and new `theme_id`.                          |
+| `THEME_INVARIANT_VIOLATED` | `FOREVER`       | A loaded theme failed a scheduled invariant audit (canonical icon hash mismatch, etc.). |
+
+#### 24.1.4 From S7.4 KDE Renderer (11 types)
+
+| Record type                              | Retention class | When emitted                                                                            |
+| ---------------------------------------- | --------------- | --------------------------------------------------------------------------------------- |
+| `KDE_RENDERER_STARTED`                   | `STANDARD_24M`  | Plasma renderer process started.                                                        |
+| `KDE_RENDERER_DEGRADED`                  | `FOREVER`       | Renderer entered a degraded mode (composition fallback, software rasterization).        |
+| `KDE_FRAME_DROPPED`                      | `STANDARD_24M`  | A frame was dropped beyond the budget threshold.                                        |
+| `KDE_LAYER_SHELL_REJECTED`               | `FOREVER`       | A layer-shell client requested a chrome / overlay layer it is not authorised to occupy. |
+| `KDE_KWIN_SCRIPT_LOADED`                 | `STANDARD_24M`  | A kwin script was activated (always evidence-emitting per S7.4).                        |
+| `KDE_KWIN_SCRIPT_REJECTED`               | `FOREVER`       | A kwin script load failed signature, manifest, or invariant check.                      |
+| `KDE_RECOVERY_SHELL_STARTED`             | `FOREVER`       | The recovery KDE shell was started; constitutional boundary event.                      |
+| `KDE_RECOVERY_KIND_REJECTED_AT_RENDERER` | `FOREVER`       | The renderer refused to load a non-recovery surface while recovery_mode = true.         |
+| `KDE_PLASMA_THEME_OVERRIDDEN`            | `STANDARD_24M`  | An end-user theme override took effect; subject `is_ai` is recorded.                    |
+| `KDE_RENDER_FAILED`                      | `EXTENDED_60M`  | Frame composition failed and produced a visible error surface.                          |
+| `KDE_TOKEN_FALLBACK_USED`                | `STANDARD_24M`  | A required design token was missing and a documented fallback path was used.            |
+
+#### 24.1.5 From S7.5 Web Renderer (17 types)
+
+| Record type                                     | Retention class | When emitted                                                                                  |
+| ----------------------------------------------- | --------------- | --------------------------------------------------------------------------------------------- |
+| `WEB_LAN_EXPOSURE_GRANTED`                      | `FOREVER`       | LAN exposure was approved by policy; carries action_id and approver chain.                    |
+| `WEB_PUBLIC_EXPOSURE_GRANTED`                   | `FOREVER`       | Public-internet exposure was approved by policy.                                              |
+| `WEB_RECOVERY_KIND_REJECTED`                    | `FOREVER`       | The Web renderer refused to load a non-recovery page while recovery_mode = true.              |
+| `WEB_PUBLIC_EXPOSURE_FIREWALL_RECORDED`         | `FOREVER`       | The firewall rule corresponding to a public exposure grant was committed; carries rule hash.  |
+| `WEB_RECOVERY_PAGE_LOADED`                      | `EXTENDED_60M`  | A recovery-page surface was loaded.                                                           |
+| `WEB_RECOVERY_PAGE_EXITED`                      | `EXTENDED_60M`  | A recovery-page surface unloaded; pairs with `WEB_RECOVERY_PAGE_LOADED`.                      |
+| `WEB_RENDERER_STARTED`                          | `STANDARD_24M`  | The Web renderer process started.                                                             |
+| `WEB_RENDERER_DEGRADED`                         | `STANDARD_24M`  | The Web renderer entered a degraded mode (no GPU, no service worker, etc.).                   |
+| `WEB_LAN_EXPOSURE_ACTIVE`                       | `STANDARD_24M`  | Periodic heartbeat while LAN exposure is active.                                              |
+| `WEB_EXPOSURE_REVOKED`                          | `STANDARD_24M`  | LAN or public exposure was revoked (policy or operator action).                               |
+| `WEB_EXTENSION_INTERFERENCE`                    | `STANDARD_24M`  | A browser extension attempted to mutate AIOS chrome subtree; rejected by isolated mount.      |
+| `WEB_FULLSCREEN_REQUESTED`                      | `STANDARD_24M`  | Fullscreen API was requested; carries surface_id and grant decision.                          |
+| `WEB_THEME_INJECTION_BLOCKED`                   | `STANDARD_24M`  | A non-system stylesheet attempted to override constitutional theme tokens.                    |
+| `WEB_THEME_FALLBACK_USED`                       | `STANDARD_24M`  | The renderer used a documented theme fallback (missing token, network failure).               |
+| `WEB_CLIENT_STORAGE_QUOTA_BREACH`               | `STANDARD_24M`  | Client storage attempted to exceed its declared quota.                                        |
+| `WEB_RENDERER_CLS_BREACH`                       | `STANDARD_24M`  | Cumulative Layout Shift exceeded the declared budget for a chrome surface.                    |
+| `WEB_CONSTITUTIONAL_ELEMENT_REREGISTER_BLOCKED` | `STANDARD_24M`  | A custom-element re-registration attempted to overwrite an AIOS-owned constitutional element. |
+
+#### 24.1.6 From S8.2 GPU Resource Model (16 types)
+
+| Record type                        | Retention class | When emitted                                                                                        |
+| ---------------------------------- | --------------- | --------------------------------------------------------------------------------------------------- |
+| `GPU_DEVICE_ENUMERATED`            | `STANDARD_24M`  | A GPU device entered the resource model graph.                                                      |
+| `GPU_DEVICE_DISCONNECTED`          | `STANDARD_24M`  | A GPU device left the graph (clean removal).                                                        |
+| `GPU_VK_DEVICE_CREATED`            | `STANDARD_24M`  | A Vulkan logical device was created for an authorised subject.                                      |
+| `GPU_VK_DEVICE_DESTROYED`          | `STANDARD_24M`  | A Vulkan logical device was destroyed.                                                              |
+| `GPU_DMABUF_GRANTED`               | `STANDARD_24M`  | A dmabuf descriptor was issued to a peer subject under explicit policy decision.                    |
+| `GPU_DMABUF_DENIED`                | `STANDARD_24M`  | A dmabuf grant request was denied.                                                                  |
+| `GPU_CAPABILITY_DENIED`            | `STANDARD_24M`  | A GPU capability request was denied (missing capability, class mismatch, budget exceeded).          |
+| `GPU_VALIDATION_DISABLED_RECOVERY` | `STANDARD_24M`  | Validation layers were disabled for the recovery mode boot path.                                    |
+| `GPU_VALIDATION_ENABLED_NORMAL`    | `STANDARD_24M`  | Validation layers were enabled for normal mode (default).                                           |
+| `DRIVER_UNAVAILABLE`               | `STANDARD_24M`  | A required GPU driver was unavailable; fallback path entered.                                       |
+| `GPU_BUDGET_EXCEEDED`              | `EXTENDED_60M`  | A subject exceeded its declared GPU budget; observed vs allowed recorded.                           |
+| `GPU_BUDGET_DOWNGRADED`            | `EXTENDED_60M`  | A subject's GPU budget was downgraded (e.g., contention with higher-priority queue).                |
+| `IOMMU_UNAVAILABLE_DEGRADED`       | `EXTENDED_60M`  | IOMMU isolation was unavailable; the system entered degraded GPU mode.                              |
+| `HOST_CAPABILITY_LIE`              | `FOREVER`       | A guest / sandbox claimed a GPU capability the host does not actually expose; constitutional fault. |
+| `GPU_BINDING_FORGERY`              | `FOREVER`       | A binding-id appeared without a matching grant in the binding catalog; tamper indicator.            |
+| `GPU_DEVICE_FORCE_RECLAIMED`       | `FOREVER`       | A GPU device was force-reclaimed (out-of-policy holdout, hung job, recovery boundary).              |
+
+### 24.2 Retention class summary
+
+Retention class distribution for the 58 additions:
+
+| Retention class | Count | Notes                                                                          |
+| --------------- | ----: | ------------------------------------------------------------------------------ |
+| `STANDARD_24M`  |    37 | Lifecycle and observable-state events.                                         |
+| `EXTENDED_60M`  |     7 | Budget breaches, degradation, theme rejection — operational signals.           |
+| `FOREVER`       |    14 | Constitutional / forensic events: cross-surface read, exposure grants, tamper. |
+
+### 24.3 Append authority
+
+Append authority follows the existing §17 discipline and is policy-gated per record type:
+
+- `SURFACE_*`, `KDE_*`, `WEB_*`, `UI_*`, `THEME_*` → only the corresponding renderer / surface registry process.
+- `GPU_*`, `DRIVER_UNAVAILABLE`, `IOMMU_UNAVAILABLE_DEGRADED` → only the GPU resource manager.
+- `HOST_CAPABILITY_LIE`, `GPU_BINDING_FORGERY`, `GPU_DEVICE_FORCE_RECLAIMED` → only the GPU resource manager and the engine itself (audit pathway).
+
+Forgery from any other subject is hard-denied at the engine surface and emits a `TAMPER_DETECTED` record per §11.
+
+### 24.4 Telemetry note
+
+Per-`record_type` cardinality bound updates from 22 to 87. Existing histogram and counter labels remain valid; the §20 cardinality reservation is bumped accordingly.
+
+## 25. See also
 
 - [S0.1 Action Envelope + Lifecycle](../XX_Cross_Cutting/01_action_envelope_lifecycle.md)
 - [S2.4 Verification Grammar](02_verification_grammar.md)
 - [S2.3 Policy Kernel](../L4_Policy_Identity_Vault/01_policy_kernel.md)
 - [S2.2 AIOS-FS Implementation Space](../L2_AIOS_FS/04_implementation_space.md)
 - [S4.1 Namespace Layout](../L2_AIOS_FS/05_namespace_layout.md)
+- [S7.1 Surface Composition](../L7_Interaction_Renderers/01_surface_composition.md)
+- [S7.2 Shared UI Schema](../L7_Interaction_Renderers/02_shared_ui_schema.md)
+- [S7.3 Visual Language](../L7_Interaction_Renderers/03_visual_language.md)
+- [S7.4 KDE Renderer](../L7_Interaction_Renderers/04_kde_renderer.md)
+- [S7.5 Web Renderer](../L7_Interaction_Renderers/05_web_renderer.md)
+- [S8.2 GPU Resource Model](../L8_Network_Hardware_Devices/05_gpu_resource_model.md)
 - [Rev.2 Master Index](../00_MASTER_INDEX.md)
 
 ## Appendix A: Complete proto IDL

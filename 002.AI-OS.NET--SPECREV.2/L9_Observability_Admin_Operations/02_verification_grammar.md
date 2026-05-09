@@ -613,12 +613,140 @@ This property is a constitutional check against the S1.3 §21.2 invariant. It is
 
 The new primitive obeys all existing execution rules: read-only, no L4 capability invocation, no AIOS-FS writes, no external network without explicit `network_policy` allowance. Resolution is a local, deterministic, in-process call to the namespace resolver.
 
-## 18. See also
+## 18. Wave 5 cross-spec touch-up (S7.1+S7.2+S7.3+S7.4+S7.5+S8.2 + L0 INV-019..022 consolidation)
+
+Applied 2026-05-10. Sources: [S7.1 Surface Composition](../L7_Interaction_Renderers/01_surface_composition.md), [S7.2 Shared UI Schema](../L7_Interaction_Renderers/02_shared_ui_schema.md), [S7.3 Visual Language](../L7_Interaction_Renderers/03_visual_language.md), [S7.4 KDE Renderer](../L7_Interaction_Renderers/04_kde_renderer.md), [S7.5 Web Renderer](../L7_Interaction_Renderers/05_web_renderer.md), [S8.2 GPU Resource Model](../L8_Network_Hardware_Devices/05_gpu_resource_model.md). This section adds the closed primitive and property entries needed to verify L0 INV-019..022 (renderer visual identity, trust indicators, AI/human distinction, recovery distinction).
+
+### 18.1 Four new properties — INV-019..022 enforcement
+
+The closed `PropertyType` enum (§7.1) gains four constitutional invariants. After this addition the enum holds **14 entries** total (the original 9 base + 1 namespace touch-up + 4 Wave 5).
+
+```text
+RENDERER_VISUAL_IDENTITY_PRESERVED
+  → For every active surface, the renderer's authored chrome (zone = CHROME)
+    is byte-identical to the canonical AIOS chrome bundle for the active theme,
+    modulo the locale string table. (L0 INV-019)
+  → Audited: chrome surface bundle hash vs canonical bundle hash for active theme_id.
+  → How: composition trace from S7.1 + canonical hash table from S7.3.
+
+TRUST_INDICATORS_ALWAYS_VISIBLE
+  → For every rendered frame, the trust indicator subtree (S7.2 NodeKind = TRUST_BAR)
+    is present in the chrome zone with z-order at or above the chrome z-floor and is
+    not occluded by any APP_SURFACE / STREAM_SURFACE node. (L0 INV-020)
+  → Audited: per-frame composition tree from S7.1 §6 + occlusion analysis.
+  → How: scheduled audit of frame samples; failure emits CROSS_ZONE_VIOLATION_ATTEMPTED
+    or SURFACE_NEVER_RENDERED evidence record per S3.1.
+
+AI_HUMAN_VISUAL_DISTINCTION
+  → For every UI tree authored by an AI subject, the tree contains the constitutional
+    AI authorship marker NodeKind in a position rendered above any user content
+    contributed by that tree. No human-authored content surface contains an AI marker.
+    (L0 INV-021)
+  → Audited: tree validation per S7.2 §8 + authorship metadata.
+  → How: scheduled audit; failure emits UI_TRUST_BEARING_AUTHORSHIP_REFUSED.
+
+RECOVERY_AESTHETIC_DISTINCT
+  → Recovery-mode surfaces and themes are visually distinguishable from normal-mode
+    surfaces. The active theme MUST satisfy: ThemeKind != USER_THEME when
+    recovery_mode = true; recovery chrome bundle hash MUST NOT match any normal-mode
+    chrome bundle hash; recovery-only NodeKinds (S7.2) are present. (L0 INV-022)
+  → Audited: theme_id resolution + recovery-mode flag + chrome hash comparison.
+  → How: scheduled audit + every recovery boundary transition; failure emits
+    RECOVERY_KIND_REJECTED, KDE_RECOVERY_KIND_REJECTED_AT_RENDERER,
+    or WEB_RECOVERY_KIND_REJECTED per renderer.
+```
+
+These properties are constitutional checks. Each is run as a scheduled audit (per §11) and at every renderer-state transition. A failed run emits a `TAMPER_DETECTED` evidence record per S3.1 with the specific INV reference in `detection_method`.
+
+### 18.2 Eight new primitives — surface, theme, GPU probes
+
+The closed primitive vocabulary (§4) gains eight read-only entries. After this addition the vocabulary holds **21 entries** total (the original 12 + 1 namespace touch-up + 8 Wave 5).
+
+```proto
+// from S7.1 — verifies a surface is rendered in its expected zone
+message SurfaceInZonePrimitive {
+  string surface_id = 1;
+  aios.surface.v1alpha1.CompositionZone expected_zone = 2;
+}
+
+// from S7.2 — verifies a UI tree contains/excludes a kind
+message TreeContainsKindPrimitive {
+  string tree_id = 1;
+  aios.ui.v1alpha1.NodeKind kind = 2;
+  bool must_contain = 3;       // true => PASSED if present; false => PASSED if absent
+}
+
+// from S7.2 — bounds tree depth
+message TreeMaxDepthPrimitive {
+  string tree_id = 1;
+  uint32 max_depth = 2;
+}
+
+// from S7.3 — verifies a theme satisfies all constitutional constraints
+message ThemeSatisfiesInvariantsPrimitive {
+  string theme_id = 1;
+}
+
+// from S7.3 — verifies constitutional icon hashes match canonical table
+message ThemeConstitutionalIconsIntactPrimitive {
+  string theme_id = 1;
+}
+
+// from S8.2 — returns the capability class of a GPU binding
+message GpuBindingClassPrimitive {
+  string binding_id = 1;
+  aios.gpu.v1alpha1.GpuCapabilityClass expected_class = 2;
+}
+
+// from S7.5 — verifies the Web renderer is bound to the expected interface
+message WebRendererBoundToPrimitive {
+  string host = 1;        // e.g. "127.0.0.1"
+  uint32 port = 2;
+}
+
+// from S7.5 — verifies AIOS chrome z-index is at or above a threshold
+message WebChromeZIndexAtLeastPrimitive {
+  uint32 minimum_z_index = 1;
+}
+```
+
+Argument and observed shapes per primitive:
+
+| Primitive                           | Required args                     | Observed data on success                                                 |
+| ----------------------------------- | --------------------------------- | ------------------------------------------------------------------------ |
+| `surface_in_zone`                   | `surface_id`, `expected_zone`     | `{ observed_zone, surface_kind, group_owner }`                           |
+| `tree_contains_kind`                | `tree_id`, `kind`, `must_contain` | `{ matched_count, first_path }` if found; `{ matched_count = 0 }` if not |
+| `tree_max_depth`                    | `tree_id`, `max_depth`            | `{ observed_depth }`                                                     |
+| `theme_satisfies_invariants`        | `theme_id`                        | `{ theme_kind, chrome_bundle_hash, satisfied_invariants[] }`             |
+| `theme_constitutional_icons_intact` | `theme_id`                        | `{ icon_count, all_canonical: bool, deviations[] }`                      |
+| `gpu_binding_class`                 | `binding_id`, `expected_class`    | `{ observed_class, device_kind, vram_bytes }`                            |
+| `web_renderer_bound_to`             | `host`, `port`                    | `{ observed_host, observed_port, lan_exposed: bool }`                    |
+| `web_chrome_z_index_at_least`       | `minimum_z_index`                 | `{ observed_z_index, chrome_bundle_hash }`                               |
+
+Status semantics for all eight primitives:
+
+- `PASSED` — observation matches the expected predicate.
+- `FAILED` — observation succeeds but disagrees with the expected predicate.
+- `PROBE_ERROR` — surface registry / theme catalog / GPU subsystem unavailable, or schema-version mismatch.
+- `TIMEOUT` — observation did not return within the per-primitive timeout (default 5 s, max 30 s).
+- `SKIPPED` — primitive evaluated under a composition that short-circuited before reaching it.
+
+### 18.3 No execution-discipline change
+
+All eight primitives obey existing execution rules: read-only, no L4 capability invocation, no AIOS-FS writes, no external network beyond the local renderer / GPU subsystem queries. None of them performs an HTTP probe — `web_renderer_bound_to` is a local socket / kernel state inspection, not an outbound HTTP request. This avoids feedback loops where a verification probe is itself counted as renderer traffic.
+
+## 19. See also
 
 - [S0.1 Action Envelope + Lifecycle](../XX_Cross_Cutting/01_action_envelope_lifecycle.md)
 - [S3.1 Evidence Log](01_evidence_log.md)
 - [S2.3 Policy Kernel](../L4_Policy_Identity_Vault/01_policy_kernel.md)
 - [S4.1 Namespace Layout](../L2_AIOS_FS/05_namespace_layout.md)
+- [S7.1 Surface Composition](../L7_Interaction_Renderers/01_surface_composition.md)
+- [S7.2 Shared UI Schema](../L7_Interaction_Renderers/02_shared_ui_schema.md)
+- [S7.3 Visual Language](../L7_Interaction_Renderers/03_visual_language.md)
+- [S7.4 KDE Renderer](../L7_Interaction_Renderers/04_kde_renderer.md)
+- [S7.5 Web Renderer](../L7_Interaction_Renderers/05_web_renderer.md)
+- [S8.2 GPU Resource Model](../L8_Network_Hardware_Devices/05_gpu_resource_model.md)
 - [Rev.2 Master Index](../00_MASTER_INDEX.md)
 
 ## Appendix A: Complete proto IDL

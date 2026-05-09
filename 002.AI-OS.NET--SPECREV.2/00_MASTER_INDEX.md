@@ -99,6 +99,7 @@ Phase 8 (L8 hardware/network):
 Phase 9 (L1 substrate):
 
 - **S9.1** — Recovery Boundary → `L1_Kernel_Bootstrap_Recovery/01_recovery_boundary.md` (`CONTRACT`)
+- **S9.3** — Dedicated Kernel Pipeline (smart mechanism) → `L1_Kernel_Bootstrap_Recovery/03_dedicated_kernel_pipeline.md` (`CONTRACT`)
 
 Phase 10 (L3 runtime):
 
@@ -107,6 +108,10 @@ Phase 10 (L3 runtime):
 Phase 11 (L10 distribution):
 
 - **S11.1** — Repository Model + Trust Roots → `L10_Distribution_Ecosystem_Marketplace/01_repository_model.md` (`CONTRACT`)
+
+Phase 12 (L6 app runtime):
+
+- **S12.1** — App Runtime Model + Cross-Ecosystem Compatibility → `L6_Apps_Packages_Compatibility/01_app_runtime_model.md` (`CONTRACT`)
 
 Reference donors:
 

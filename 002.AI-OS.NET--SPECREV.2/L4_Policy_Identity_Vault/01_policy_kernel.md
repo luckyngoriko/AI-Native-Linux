@@ -789,11 +789,93 @@ Cardinality bounds: `decision` = 4, `reason_code` ≤ 30 documented codes, `outc
 - Distributed multi-instance policy consensus → future revision; rev.2 assumes single authoritative engine per host.
 - Policy authoring IDE / linter → tooling, out of scope.
 
-## 26. See also
+## 26. Namespace integration (S4.1 cross-spec touch-up)
+
+Applied 2026-05-09. Source: [S4.1 §12.4](../L2_AIOS_FS/05_namespace_layout.md). This section adds the constitutional hard-denies and condition fields required to enforce the namespace contract through the Policy Kernel.
+
+### 26.1 New closed condition fields
+
+The conditions vocabulary (§4) gains five new fields. All are closed; bundle load fails on unknown fields.
+
+| Namespace | Field                      | Type                                | Operators       |
+| --------- | -------------------------- | ----------------------------------- | --------------- |
+| `subject` | `subject.primary_group_id` | string                              | `=`, `!=`, `in` |
+| `target`  | `target.scope`             | `aios.namespace.v1alpha1.ScopeKind` | `=`, `!=`, `in` |
+| `target`  | `target.group_id`          | string                              | `=`, `!=`, `in` |
+| `target`  | `target.user_id`           | string                              | `=`, `!=`, `in` |
+| `target`  | `target.reserved_name`     | string                              | `=`, `!=`, `in` |
+
+### 26.2 Three new constitutional hard-denies
+
+All three are constitutional invariants — they cannot be loosened by any policy bundle (analogous to S2.3 §17 AI self-approval prevention).
+
+#### 26.2.1 `CrossGroupAccessForbidden`
+
+```text
+IF subject.primary_group_id != "_system"
+   AND target.scope = GROUP OR USER
+   AND target.group_id != subject.primary_group_id
+THEN DENY with code = CrossGroupAccessForbidden
+EXCEPT WHEN
+   subject.scope_kind = SYSTEM
+   AND subject.recovery_mode = true
+   AND subject.has_capability("system_audit_read")
+   AND request.has_human_approver = true
+```
+
+The exception is the only Rev.2 cross-group read path; cross-group writes have no exception.
+
+#### 26.2.2 `RecoveryRequiredForSystemMutation`
+
+```text
+IF target.scope = SYSTEM
+   AND target.system_reserved IN {SYS_POLICY, SYS_CAPABILITIES, SYS_VAULT, SYS_RECOVERY}
+   AND request.action_class = MUTATE
+   AND NOT (subject.recovery_mode = true AND request.has_human_approver = true)
+THEN DENY with code = RecoveryRequiredForSystemMutation
+```
+
+The decision MUST also require a `RECOVERY_EVENT` evidence record per S3.1 (FOREVER retention).
+
+#### 26.2.3 `AISystemAdminBlocked`
+
+```text
+IF subject.is_ai = true
+   AND target.scope = SYSTEM
+   AND target.system_reserved IN {SYS_APPS, SYS_AGENTS, SYS_POLICY, SYS_CAPABILITIES, SYS_VAULT, SYS_RECOVERY}
+   AND request.action_class = MUTATE
+THEN DENY with code = AISystemAdminBlocked
+```
+
+Extends §17 (AI self-approval prevention). An AI subject holding the `system_admin` capability is rejected at this stage — capability does not grant system-scope mutation authority for AI subjects under any circumstances.
+
+### 26.3 Hard-deny ordering
+
+The three new hard-denies are evaluated in this order before the bundle's normal rule evaluation:
+
+1. `RecoveryRequiredForSystemMutation` (most fundamental — the recovery boundary)
+2. `AISystemAdminBlocked` (constitutional invariant on AI subjects)
+3. `CrossGroupAccessForbidden` (default-deny boundary)
+4. (then bundle rules)
+
+If any hard-deny fires, evaluation short-circuits to `DENY` with the matching code. Existing AI self-approval prevention (§17) and existing hard denies remain in their original positions.
+
+### 26.4 Telemetry additions
+
+Three counters added with bounded labels:
+
+| Metric                                  | Type    | Labels (closed)                        |
+| --------------------------------------- | ------- | -------------------------------------- |
+| `policy_cross_group_denial_total`       | counter | `target_scope` (group/user)            |
+| `policy_recovery_required_denial_total` | counter | `target_system_reserved` (closed enum) |
+| `policy_ai_system_admin_denial_total`   | counter | `target_system_reserved` (closed enum) |
+
+## 27. See also
 
 - [S0.1 Action Envelope + Lifecycle](../../002.AI-OS.NET--SPECREV.2/XX_Cross_Cutting/01_action_envelope_lifecycle.md)
 - [S1.3 Object Model](../L2_AIOS_FS/01_object_model.md)
 - [S2.1 Query/View Language](../L2_AIOS_FS/02_query_view_language.md)
+- [S4.1 Namespace Layout](../L2_AIOS_FS/05_namespace_layout.md)
 - [L4 overview](00_overview.md)
 - [Rev.1 §11 — Policy Kernel](../../001.AI-OS.NET--SPECREV.1/02_SPECIFICATION.md)
 - [Rev.2 Master Index](../00_MASTER_INDEX.md)

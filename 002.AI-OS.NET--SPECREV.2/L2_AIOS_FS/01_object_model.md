@@ -576,13 +576,42 @@ Required metrics (Prometheus-style; OpenTelemetry-compatible):
 
 Cardinality bounds: `object_kind` ≤ 11, `outcome` ≤ 5, `consistency` = 3, `reason` ≤ 10. Subject is **never** a metric label.
 
-## 21. See also
+## 21. Namespace integration (S4.1 cross-spec touch-up)
+
+Applied 2026-05-09. Source: [S4.1 §12.2](05_namespace_layout.md).
+
+### 21.1 ScopeBinding on every object
+
+Every AIOS-FS object carries an immutable `ScopeBinding` field set at creation:
+
+```proto
+message ScopeBinding {
+  aios.namespace.v1alpha1.ScopeKind scope_kind = 1;
+  string group_id = 2;       // empty for SYSTEM scope
+  string user_id = 3;        // empty for SYSTEM and GROUP scopes
+}
+```
+
+`ScopeBinding` is derived from the path the object was created at and is part of the canonical encoding for content-address purposes. Mutating `ScopeBinding` is rejected at the storage layer with `InvalidScopeBindingChange`.
+
+### 21.2 Cross-scope pointer moves rejected
+
+The pointer move CAS protocol (§13) gains an additional invariant: a pointer move whose source `ScopeBinding` differs from its destination `ScopeBinding` (e.g., from `groups/A/...` to `groups/B/...`, or `system/...` to any group) is rejected with `ConflictDetected` and a sub-reason `CrossScopeMoveForbidden`. There is no Rev.2 mechanism that makes this exception.
+
+Reads across scopes go through the namespace resolver and are governed by the cross-group invariant in S2.3 (cf. S4.1 §9). A subject cannot dereference a pointer whose `ScopeBinding.group_id` differs from their `primary_group_id` even via direct chunk-id lookup; the gateway enforces this.
+
+### 21.3 Object catalog projection
+
+The S2.1 query language indexes `ScopeBinding.group_id` and `ScopeBinding.user_id` as native filterable fields. Group-scoped queries are O(group's index) regardless of total system object count.
+
+## 22. See also
 
 - [S0.1 Action Envelope + Lifecycle](../XX_Cross_Cutting/01_action_envelope_lifecycle.md)
 - [S1.2 Latency Tiering](../L5_Cognitive_Core/03_latency_tiering.md)
 - [S1.3 Conflict Resolution](03_conflict_resolution.md)
 - [S2.1 Query/View Language](02_query_view_language.md)
 - [S2.2 Implementation Space](04_implementation_space.md)
+- [S4.1 Namespace Layout](05_namespace_layout.md)
 - [Rev.2 Master Index](../00_MASTER_INDEX.md)
 
 ## Appendix A: Complete proto IDL

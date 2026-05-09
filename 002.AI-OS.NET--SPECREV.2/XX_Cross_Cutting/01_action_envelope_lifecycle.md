@@ -1095,6 +1095,47 @@ Items deferred to other sub-specs:
 - [Stripe Idempotency](https://stripe.com/docs/api/idempotent_requests)
 - [Kubernetes API conventions — Resource Versioning](https://github.com/kubernetes/community/blob/master/contributors/devel/sig-architecture/api_conventions.md)
 
+## 13. Namespace integration (S4.1 cross-spec touch-up)
+
+Applied 2026-05-09. Source: [S4.1 §12.1](../L2_AIOS_FS/05_namespace_layout.md). This section augments the action envelope schema with fields derived from namespace resolution.
+
+### 13.1 Target fields populated from resolution
+
+`request.target` is augmented with optional fields, populated by the Capability Translator (S1.1) at envelope construction time from the result of resolving `target.path` through the `aios.namespace.v1alpha1.NamespaceResolver`:
+
+| Field                              | Type                                | Set by     | Notes                                    |
+| ---------------------------------- | ----------------------------------- | ---------- | ---------------------------------------- |
+| `target.scope`                     | `aios.namespace.v1alpha1.ScopeKind` | translator | `SYSTEM` / `GROUP` / `USER`              |
+| `target.group_id`                  | string                              | translator | empty for `SYSTEM` scope                 |
+| `target.user_id`                   | string                              | translator | empty for `SYSTEM` and `GROUP` scopes    |
+| `target.namespace_catalog_version` | string                              | translator | `nscat_<hex>` stamped at resolution time |
+
+These fields duplicate the resolution result so the Policy Kernel (S2.3) can evaluate scope-bound conditions without re-resolving. They are immutable after envelope creation.
+
+### 13.2 Validation discipline
+
+At envelope acceptance (`SubmitAction`), the Capability Runtime MUST:
+
+1. Resolve `target.path` through the active namespace catalog.
+2. If resolution fails → reject with new error code `InvalidTargetPath` (added to the §7 error taxonomy).
+3. If resolution succeeds, compare derived fields against the resolution result. Mismatch (including `namespace_catalog_version` mismatch) → reject with `InvalidTargetPath`.
+
+### 13.3 New error code
+
+```text
+InvalidTargetPath  →  envelope-level error, retryable=false, validation class
+                       Cause: target.path failed namespace resolution OR
+                              derived target.scope/group_id/user_id mismatched
+                              the resolved values OR namespace_catalog_version
+                              did not match the active catalog at acceptance.
+```
+
+Added to the canonical taxonomy in §7. Existing taxonomy semantics (cause chain depth ≤ 8, retryable hint, English message) apply unchanged.
+
+### 13.4 No envelope schema version bump
+
+These additions are additive to `aios.action.v1alpha1`. No version bump; the new fields are optional. Producers on the old schema simply omit them and the runtime resolves the path itself before policy evaluation.
+
 ## Appendix A: Complete proto IDL
 
 ```proto

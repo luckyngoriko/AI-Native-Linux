@@ -571,13 +571,74 @@ expected:
 
 Cardinality bounds: `source` = 6, `outcome` ≤ 5, `materialized` = 2, `strategy` = 4, `budget_kind` ≤ 4. Subject is **never** a metric label.
 
-## 18. See also
+## 18. Namespace integration (S4.1 cross-spec touch-up)
+
+Applied 2026-05-09. Source: [S4.1 §12.3](05_namespace_layout.md).
+
+### 18.1 New closed query fields
+
+The query field vocabulary gains four namespace fields:
+
+| Field                  | Type                                | Notes                                                  |
+| ---------------------- | ----------------------------------- | ------------------------------------------------------ |
+| `target.scope`         | `aios.namespace.v1alpha1.ScopeKind` | enum: `SYSTEM` / `GROUP` / `USER`                      |
+| `target.group_id`      | string                              | regex per S4.1 §7.1                                    |
+| `target.user_id`       | string                              | regex per S4.1 §7.1                                    |
+| `target.reserved_name` | string                              | matches one of the closed enums per scope (S4.1 §3–§6) |
+
+Available operators: `=`, `!=`, `in`, `exists` for `target.reserved_name` and `target.scope`; `=`, `!=` for the id fields. Queries containing other operators on these fields fail validation with `UnsupportedOperator`.
+
+### 18.2 Formal inbox / outbox views
+
+Two named views are added to the standard view catalog:
+
+```sql
+-- Group inbox (one per group)
+VIEW inbox(scope=GROUP, id=<group_id>) AS
+  SELECT * FROM action_envelopes
+  WHERE target.group_id = <group_id>
+    AND lifecycle.phase = PENDING
+    AND <visible to caller under privacy ceiling>
+  ORDER BY created_at DESC;
+
+-- Personal inbox (one per (group, user) pair)
+VIEW inbox(scope=USER, id=<user_id>) AS
+  SELECT * FROM action_envelopes
+  WHERE target.user_id = <user_id>
+    OR <user_id> IN addressed_user_ids
+    AND lifecycle.phase = PENDING
+  ORDER BY created_at DESC;
+
+-- Personal outbox
+VIEW outbox(user_id=<user_id>) AS
+  SELECT * FROM action_envelopes
+  WHERE submitter.user_id = <user_id>
+  ORDER BY created_at DESC;
+```
+
+All three are `materialization = VIRTUAL`, `refresh = ON_DEMAND`, with cardinality bound 10 000 items per query and mandatory cursor pagination beyond that. Mutation through these views is rejected with `VirtualPathNotWritable`.
+
+### 18.3 Cross-group query filtering
+
+Queries that would yield rows from groups other than the caller's `primary_group_id` (without the `_system` audit exception) silently exclude those rows and return `PARTIAL` with a `suppressed_count` field on the `QueryResponse`. This mirrors the privacy ceiling discipline (§9). A query that would yield zero rows after filtering still returns `OK`/`PARTIAL` correctly; it does not leak the existence of foreign-group data.
+
+### 18.4 Telemetry additions
+
+Two metrics added with bounded label cardinality:
+
+| Metric                            | Type    | Labels (closed)                                        |
+| --------------------------------- | ------- | ------------------------------------------------------ |
+| `aiosfs_namespace_query_total`    | counter | `target_scope` (system/group/user), `outcome`          |
+| `aiosfs_cross_group_filter_total` | counter | none — total rows silently excluded across all queries |
+
+## 19. See also
 
 - [S1.3 Object Model](01_object_model.md)
 - [S1.3 Conflict Resolution](03_conflict_resolution.md)
 - [S2.2 Implementation Space](04_implementation_space.md)
 - [S1.1 Capability Translator](../L5_Cognitive_Core/02_capability_translator.md)
 - [S1.2 Latency Tiering](../L5_Cognitive_Core/03_latency_tiering.md)
+- [S4.1 Namespace Layout](05_namespace_layout.md)
 - [Rev.2 Master Index](../00_MASTER_INDEX.md)
 
 ## Appendix A: Complete proto IDL

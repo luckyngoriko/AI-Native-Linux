@@ -568,11 +568,57 @@ Cardinality bounds: `primitive` = 12, `status` = 5, `property_type` = 9, `reason
 - Continuous verification loops (steady-state invariants checked periodically) → future operational sub-spec.
 - Verification result aggregation across multiple actions → analytics layer, not a per-action concern.
 
-## 17. See also
+## 17. Namespace integration (S4.1 cross-spec touch-up)
+
+Applied 2026-05-09. Source: [S4.1 §12.5](../L2_AIOS_FS/05_namespace_layout.md).
+
+### 17.1 New primitive — `aiosfs_path_in_namespace`
+
+Added to the closed primitive vocabulary as a thirteenth entry:
+
+```proto
+message AiosfsPathInNamespacePrimitive {
+  string path = 1;
+  aios.namespace.v1alpha1.ScopeKind expected_scope = 2;
+  string expected_group_id = 3;       // empty if scope = SYSTEM
+  string expected_user_id = 4;        // empty if scope ∈ {SYSTEM, GROUP}
+  string expected_reserved_name = 5;  // optional; closed enum value as string
+}
+```
+
+Verifies that `path` resolves through the active namespace catalog to the expected scope/group/user/reserved-name. Read-only, idempotent, no side effects. Status semantics:
+
+- `PASSED` — resolution matches all populated expected fields.
+- `FAILED` — resolution succeeds but disagrees with at least one expected field.
+- `PROBE_ERROR` — resolver unavailable, catalog signature failure, or `CATALOG_VERSION_MISMATCH` between probe and expectation.
+- `TIMEOUT` — resolution did not return within the per-primitive timeout (default 5 s, max 30 s).
+
+Adding this primitive is a versioned spec change consistent with §3 — no further primitive-vocabulary expansion is implied.
+
+### 17.2 New property — `NAMESPACE_NO_CROSS_GROUP_POINTERS`
+
+Added to the closed `PropertyType` enum as a tenth invariant:
+
+```text
+NAMESPACE_NO_CROSS_GROUP_POINTERS
+  → For every AIOS-FS object pointer P,
+    the source ScopeBinding == destination ScopeBinding.
+  → Pointer moves crossing scope are recorded only as ConflictDetected
+    receipts; no successful cross-scope move exists in the evidence log.
+```
+
+This property is a constitutional check against the S1.3 §21.2 invariant. It is run as a scheduled audit (see §11), not per-action. A failed run emits a `TAMPER_DETECTED` evidence record (S3.1) with the conflicting pointer reference.
+
+### 17.3 No execution-discipline change
+
+The new primitive obeys all existing execution rules: read-only, no L4 capability invocation, no AIOS-FS writes, no external network without explicit `network_policy` allowance. Resolution is a local, deterministic, in-process call to the namespace resolver.
+
+## 18. See also
 
 - [S0.1 Action Envelope + Lifecycle](../XX_Cross_Cutting/01_action_envelope_lifecycle.md)
 - [S3.1 Evidence Log](01_evidence_log.md)
 - [S2.3 Policy Kernel](../L4_Policy_Identity_Vault/01_policy_kernel.md)
+- [S4.1 Namespace Layout](../L2_AIOS_FS/05_namespace_layout.md)
 - [Rev.2 Master Index](../00_MASTER_INDEX.md)
 
 ## Appendix A: Complete proto IDL

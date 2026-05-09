@@ -1096,12 +1096,83 @@ These are intentionally out of scope for S3.2 and tracked elsewhere:
 - **Profile diffing UI** for operators inspecting why a composition produced a given result — deferred to L7 renderer specs.
 - **Hardware-pinned secure enclaves** (TPM-bound profiles, TEE-isolated sandboxes) — deferred to L8 hardware integration.
 
+## 18. Namespace integration (S4.1 cross-spec touch-up)
+
+Applied 2026-05-09. Source: [S4.1 §12.7](../L2_AIOS_FS/05_namespace_layout.md).
+
+### 18.1 New composition source — `GROUP_FLOOR`
+
+The five-source composition algorithm (§5.1) becomes a six-source algorithm. The new source is inserted between `policy_required` and `runtime_safety_floor`:
+
+```text
+1. adapter_default
+2. app_manifest
+3. user_request
+4. policy_required        (S2.3 PolicyDecision.constraints)
+5. group_floor            (NEW — group's policy delta sandbox additions)
+6. runtime_safety_floor   (constitutional minimum)
+```
+
+The `CompositionSource` enum (§3) gains `GROUP_FLOOR = 7`. Strictness ordering and per-field merge rules (§5.3) extend to this source unchanged: a stricter `group_floor` value wins over weaker upstream sources, and the runtime safety floor still wins over `group_floor` if `group_floor` is somehow weaker (defense-in-depth).
+
+`group_floor` is loaded from `/aios/groups/<group_id>/policy/sandbox_floor.aios` if present; absent → empty `SandboxProfile` (no contribution).
+
+### 18.2 New input field
+
+`CompositionInputs` adds:
+
+```proto
+message CompositionInputs {
+  // ... existing fields ...
+  GroupFloor group_floor = 8;
+}
+
+message GroupFloor {
+  string group_id = 1;
+  string floor_id = 2;        // sigfloor_<hex>; signed if group has signing key
+  SandboxProfile floor = 3;
+}
+```
+
+### 18.3 Apply-time group ownership check
+
+At `ApplyProfile`, the composer adds an invariant check:
+
+```text
+IF action.target.group_id != "" AND
+   profile.compatibility.kind != COMPATIBILITY_KIND_UNSPECIFIED AND
+   agent_owner.group_id != action.target.group_id
+THEN fail with CompositionError {
+  code = COMPATIBILITY_KIND_UNSUPPORTED,
+  message = "agent group_owner does not match action target group"
+}
+```
+
+This prevents an agent registered in group A from running an action whose target is in group B even if S2.3's `CrossGroupAccessForbidden` somehow allowed it (defense-in-depth).
+
+### 18.4 Compatibility runtime path discipline
+
+Wine prefix paths, Waydroid container paths, and VM fallback storage shares MUST live under the agent's group namespace:
+
+| Runtime kind  | Required path prefix                                          |
+| ------------- | ------------------------------------------------------------- |
+| `WINE_PROTON` | `/aios/groups/<group_id>/agents/<agent_id>/runtime/wine/`     |
+| `WAYDROID`    | `/aios/groups/<group_id>/agents/<agent_id>/runtime/waydroid/` |
+| `VM_FALLBACK` | `/aios/groups/<group_id>/agents/<agent_id>/runtime/vm/`       |
+
+System agents (under `/aios/system/agents/<agent_id>/`) use `/aios/system/runtime/<runtime_kind>/<agent_id>/` instead. Profiles whose paths violate this discipline are rejected with `CompositionError.code = INVALID_INPUT_SCHEMA` and a sub-reason `RuntimePathOutsideAgentScope`.
+
+### 18.5 New evidence record on group-floor application
+
+`SANDBOX_GROUP_FLOOR_APPLIED` (STANDARD_24M retention) is added to S3.1 RecordType vocabulary and emitted whenever `group_floor` strictness modified the composed profile (i.e., at least one `FieldDecision.winner_source = GROUP_FLOOR` in the composition trace).
+
 ## See also
 
 - [S0.1 — Action Envelope and Lifecycle](../XX_Cross_Cutting/01_action_envelope_lifecycle.md)
 - [S2.3 — Policy Kernel](../L4_Policy_Identity_Vault/01_policy_kernel.md)
 - [S2.4 — Verification Grammar](../L9_Observability_Admin_Operations/02_verification_grammar.md)
 - [S3.1 — Evidence Log](../L9_Observability_Admin_Operations/01_evidence_log.md)
+- [S4.1 — Namespace Layout](../L2_AIOS_FS/05_namespace_layout.md)
 - [Rev.1 §17 — Application, Package, and Compatibility Model](../../001.AI-OS.NET--SPECREV.1/02_SPECIFICATION.md)
 - [L6 Overview](00_overview.md)
 - [Rev.2 Master Index](../00_MASTER_INDEX.md)

@@ -653,12 +653,62 @@ Cardinality bounds: `record_type` = 22, `outcome` ≤ 5, `seal_reason` ≤ 4, `t
 - Encrypted-at-rest evidence (separate from disk encryption) → L4 vault sub-spec.
 - Streaming compaction → future revision; rev.2 uses periodic batch compaction.
 
-## 23. See also
+## 23. Namespace integration (S4.1 cross-spec touch-up)
+
+Applied 2026-05-09. Source: [S4.1 §12.6](../L2_AIOS_FS/05_namespace_layout.md).
+
+### 23.1 Namespace scope on every record
+
+`EvidenceRecord` gains an optional `NamespaceScope` field:
+
+```proto
+message NamespaceScope {
+  aios.namespace.v1alpha1.ScopeKind scope = 1;
+  string group_id = 2;       // empty for SYSTEM scope
+  string user_id = 3;        // empty for SYSTEM and GROUP scopes
+}
+
+// EvidenceRecord adds:
+//   optional NamespaceScope namespace_scope = N;
+```
+
+Population rules:
+
+- For records derived from an action envelope, `namespace_scope` mirrors the envelope's `target.scope`/`target.group_id`/`target.user_id` (S0.1 §13.1).
+- For system-internal records (segment seal, chain checkpoint, capability catalog load), `namespace_scope` is set to `{scope = SYSTEM}` with empty ids.
+- For policy bundle load and recovery events, `namespace_scope = {scope = SYSTEM}`.
+
+### 23.2 Privacy ceiling extends to namespace scope
+
+The Query API privacy ceiling (§10) is extended: a subject with `primary_group_id = A` cannot retrieve records with `namespace_scope.group_id = B` unless the subject is in the `_system` scope under recovery mode with `system_audit_read` capability and a human approver. Excluded records are silently filtered with a `suppressed_count` field (consistent with S2.1 cross-group filtering).
+
+### 23.3 Two new record types
+
+Added to the closed `RecordType` vocabulary:
+
+| Record type                 | Retention class | When emitted                                                                                                                                                            |
+| --------------------------- | --------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `SYSTEM_ADMIN_OPERATION`    | `STANDARD_24M`  | Any mutation of `/aios/system/apps/` or `/aios/system/agents/` by a human-bound `system_admin` capability holder. Carries the action_id and the affected reserved name. |
+| `CROSS_GROUP_ACCESS_DENIED` | `STANDARD_24M`  | Whenever the S2.3 `CrossGroupAccessForbidden` hard-deny fires. Carries source `group_id`, target `group_id`, and the action_id whose target was denied.                 |
+
+Total record types now 24 (up from 22). The discriminated `RecordPayload` oneof gains two corresponding payload messages.
+
+### 23.4 Telemetry additions
+
+Two counters added with bounded labels:
+
+| Metric                              | Type    | Labels (closed)               |
+| ----------------------------------- | ------- | ----------------------------- |
+| `evidence_namespace_scope_total`    | counter | `scope` (system/group/user)   |
+| `evidence_cross_group_filter_total` | counter | none (cumulative suppression) |
+
+## 24. See also
 
 - [S0.1 Action Envelope + Lifecycle](../XX_Cross_Cutting/01_action_envelope_lifecycle.md)
 - [S2.4 Verification Grammar](02_verification_grammar.md)
 - [S2.3 Policy Kernel](../L4_Policy_Identity_Vault/01_policy_kernel.md)
 - [S2.2 AIOS-FS Implementation Space](../L2_AIOS_FS/04_implementation_space.md)
+- [S4.1 Namespace Layout](../L2_AIOS_FS/05_namespace_layout.md)
 - [Rev.2 Master Index](../00_MASTER_INDEX.md)
 
 ## Appendix A: Complete proto IDL

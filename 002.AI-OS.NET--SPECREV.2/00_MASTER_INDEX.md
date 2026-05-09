@@ -113,6 +113,10 @@ Phase 12 (L6 app runtime):
 
 - **S12.1** — App Runtime Model + Cross-Ecosystem Compatibility → `L6_Apps_Packages_Compatibility/01_app_runtime_model.md` (`CONTRACT`)
 
+Phase 13 (L5 cognitive core depth):
+
+- **S13.1** — Cognitive Core Model (intent + planning + memory + agent coordination) → `L5_Cognitive_Core/01_cognitive_core_model.md` (`CONTRACT`)
+
 Reference donors:
 
 - **R1** — ProxGuard control-plane patterns and optional AIOS system app → `XX_Cross_Cutting/02_proxguard_reference_model.md` (`CONTRACT` reference note; E1 artifact inspection only)

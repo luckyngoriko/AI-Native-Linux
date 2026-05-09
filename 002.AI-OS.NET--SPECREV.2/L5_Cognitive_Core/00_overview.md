@@ -22,15 +22,12 @@ May depend on: L0, L1, L2, L3, L4.
 
 ## Planned sub-specs
 
-| File                          | Topic                                                                                | Status  | Phase |
-| ----------------------------- | ------------------------------------------------------------------------------------ | ------- | ----- |
-| `01_intent_engine.md`         | Goal → intent object; risk hint extraction; clarification loops                      | `SHELL` | —     |
-| `02_capability_translator.md` | LLM -> typed action mapping at scale (1000s of actions); RAG-over-capabilities        | `CONTRACT` | S1.1  |
-| `03_latency_tiering.md`       | Direct (no-LLM) path vs cognitive path; routing rules; UX latency budget             | `CONTRACT` | S1.2  |
-| `04_planner.md`               | Plan object schema; multi-step reasoning; replanning; partial failure recovery       | `SHELL` | —     |
-| `05_model_router.md`          | Local default vs powerful local vs external; degradation rules; cost/latency budgets | `SHELL` | —     |
-| `06_persistent_memory.md`     | Project, architectural decision, fix, failure, workflow, preference memories         | `SHELL` | —     |
-| `07_agent_coordinator.md`     | Multi-agent task assignment; shared memory; arbitration                              | `SHELL` | —     |
+| File                          | Topic                                                                                                                                                  | Status     | Phase |
+| ----------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ | ---------- | ----- |
+| `01_cognitive_core_model.md`  | Foundational cognitive contract — intent perception + planning + memory model + inter-agent coordination + AI proposing pipeline                       | `CONTRACT` | S13.1 |
+| `02_capability_translator.md` | LLM → typed action mapping at scale (1000s of actions); RAG-over-capabilities                                                                          | `CONTRACT` | S1.1  |
+| `03_latency_tiering.md`       | Direct (no-LLM) path vs cognitive path; routing rules; UX latency budget                                                                               | `CONTRACT` | S1.2  |
+| `05_model_router.md`          | Local default vs powerful local vs external; degradation rules; cost/latency budgets (depth beyond S1.2 tiering; cognitive-backend adapter discipline) | `SHELL`    | —     |
 
 ## Cross-cutting contract dependency
 

@@ -1243,6 +1243,47 @@ The composition trace records each `FieldDecision` for every `gpu_policy` field 
 
 This touch-up does not introduce a new RecordType — the existing `GPU_CAPABILITY_DENIED` (added to S3.1 in §24) covers the apply-time GpuPolicy-derived denials, and the existing `CROSS_GROUP_ACCESS_DENIED` covers the §19.2 invariant failures. The composition trace `FieldDecision` entries for `gpu_policy.*` participate in the existing `SANDBOX_GROUP_FLOOR_APPLIED` lineage.
 
+## 20. Wave 7 cross-spec touch-up (S12.1 ecosystem_runtime field consolidation)
+
+Applied 2026-05-11. Source: [S12.1 §G](01_app_runtime_model.md). The S12.1 cross-ecosystem app runtime model declared a closed `EcosystemRuntime` enum (12 entries — RUNTIME_LINUX_NATIVE / RUNTIME_FLATPAK / RUNTIME_APPIMAGE / RUNTIME_SNAP / RUNTIME_DISTROBOX / RUNTIME_WINDOWS_PROTON / RUNTIME_WINDOWS_VM / RUNTIME_ANDROID_WAYDROID / RUNTIME_ANDROID_VM_WITH_GMS / RUNTIME_MACOS_DARLING / RUNTIME_MACOS_VM / RUNTIME_REMOTE_APPLE_BRIDGE) and queued a typed field on `SandboxProfile` to carry the runtime selection from app install through to sandbox composition.
+
+### 20.1 New typed field
+
+The `SandboxProfile` shape (§5) gains one new typed field:
+
+```proto
+// In SandboxProfile message:
+aios.appcompat.v1alpha1.EcosystemRuntime ecosystem_runtime = N;  // closed enum from S12.1
+```
+
+The field is **closed-typed** (bundle / manifest load fails on unknown enum value). The unspecified value `RUNTIME_UNSPECIFIED` is forbidden in fully-composed profiles — every applied SandboxProfile must declare an explicit ecosystem runtime. The 5-source composition (§4) merges the field per the existing most-restrictive-wins discipline: if the manifest declares one runtime and the policy floor declares another, the resulting composition fails closed with `EcosystemRuntimeMismatch` rather than silently picking one.
+
+### 20.2 Composition merge semantics
+
+The field merges across the five composition sources with the established discipline:
+
+- **Adapter default:** the EcosystemRuntime of the adapter handling the action (e.g. an Android adapter declares `RUNTIME_ANDROID_WAYDROID` as its default).
+- **App manifest:** the package manifest's declared `ecosystem_runtime` (cite S11.1 PackageManifest field).
+- **User request:** an explicit override at install time (operator chooses VM fallback over Wine, etc.).
+- **Policy required:** the Policy Kernel may pin a specific EcosystemRuntime (e.g. enterprise policy: "all Windows apps go through RUNTIME_WINDOWS_VM, never RUNTIME_WINDOWS_PROTON").
+- **Runtime safety floor:** the recovery-mode floor restricts to `RUNTIME_LINUX_NATIVE` only — no foreign runtimes in recovery (binds S9.1 RecoveryDeniedClass = THIRD_PARTY_BINARY_RUN).
+
+Mismatch resolution: identical values across sources → use the value. Different values across sources → fail closed (`EcosystemRuntimeMismatch`). NEVER silently pick one — the operator must explicitly resolve.
+
+### 20.3 Apply-time invariant
+
+Apply-time defense-in-depth check: when the action target carries an `app_id`, the resolved package's manifest `ecosystem_runtime` MUST match the composed SandboxProfile's `ecosystem_runtime`. Drift (e.g. manifest declares Proton but composition resolves to VM without explicit policy override) fails the action with `EcosystemRuntimeMismatch` and emits FOREVER `APP_ECOSYSTEM_RUNTIME_BREAKOUT_ATTEMPTED` (already added to S3.1 §26.3 by Wave 7).
+
+### 20.4 Cross-references
+
+- [S12.1 EcosystemRuntime enum](01_app_runtime_model.md)
+- [S11.1 PackageManifest.ecosystem_runtime](../L10_Distribution_Ecosystem_Marketplace/01_repository_model.md)
+- [S9.1 RecoveryDeniedClass](../L1_Kernel_Bootstrap_Recovery/01_recovery_boundary.md)
+
+### 20.5 No new RecordType
+
+This Wave 7 touch-up does NOT introduce a new RecordType — `APP_ECOSYSTEM_RUNTIME_BREAKOUT_ATTEMPTED` (queued by S12.1 to S3.1 §26.3 in Wave 7) covers the apply-time invariant failure. The composition trace `FieldDecision` entries for `ecosystem_runtime` participate in the existing `SANDBOX_PROFILE_COMPOSED` lineage.
+
 ## See also
 
 - [S0.1 — Action Envelope and Lifecycle](../XX_Cross_Cutting/01_action_envelope_lifecycle.md)

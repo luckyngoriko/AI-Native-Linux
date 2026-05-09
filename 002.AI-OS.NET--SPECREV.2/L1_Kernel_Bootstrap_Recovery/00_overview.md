@@ -1,6 +1,6 @@
 # L1 — Kernel, Bootstrap, Recovery
 
-Status: `SHELL`
+Status: `PARTIAL` (`01_recovery_boundary.md` is `CONTRACT`; the remaining two sub-specs stay `SHELL`)
 
 ## Responsibility
 
@@ -20,11 +20,11 @@ May depend on: L0.
 
 ## Planned sub-specs
 
-| File                              | Topic                                                                              | Status  |
-| --------------------------------- | ---------------------------------------------------------------------------------- | ------- |
-| `01_recovery_boundary.md`         | `/`, `/root`, `/aios` separation; mount semantics in normal vs recovery mode       | `SHELL` |
-| `02_first_boot_flow.md`           | Installer → bootstrapper → AIOS runtime → AI provider mode → recovery registration | `SHELL` |
-| `03_dedicated_kernel_pipeline.md` | hardware map → trust check → host config → hardening → sandbox build → A/B promote | `SHELL` |
+| File                              | Topic                                                                              | Status     | Phase |
+| --------------------------------- | ---------------------------------------------------------------------------------- | ---------- | ----- |
+| `01_recovery_boundary.md`         | `/`, `/root`, `/aios` separation; mount semantics in normal vs recovery mode       | `CONTRACT` | S9.1  |
+| `02_first_boot_flow.md`           | Installer → bootstrapper → AIOS runtime → AI provider mode → recovery registration | `SHELL`    | —     |
+| `03_dedicated_kernel_pipeline.md` | hardware map → trust check → host config → hardening → sandbox build → A/B promote | `SHELL`    | —     |
 
 ## See also
 

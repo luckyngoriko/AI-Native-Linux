@@ -46,13 +46,33 @@ AI-Native Linux proposes a safer operating model:
 
 This matters for open source because the next generation of developer and operator tooling needs a shared safety architecture: intent, policy, typed execution, verification, recovery, and auditability.
 
+## Distribution Model
+
+AIOS is being built as a real Linux distribution, not a userspace add-on. The distribution components mapped onto the layer model:
+
+| Distribution component       | Where it lives in AIOS                                                                                                                                                           |
+| ---------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Boot + recovery              | [L1 Kernel & Bootstrap](002.AI-OS.NET--SPECREV.2/L1_Kernel_Bootstrap_Recovery/00_overview.md) — fallback kernel, recovery without LLM                                            |
+| Filesystem layout            | [L2 AIOS-FS](002.AI-OS.NET--SPECREV.2/L2_AIOS_FS/00_overview.md) — `/aios` semantic object store + recovery-safe `/` and operator `/root`                                        |
+| Service / package management | [L3 SGR](002.AI-OS.NET--SPECREV.2/L3_AIOS_SGR_Service_Graph_Runtime/00_overview.md) + [L6 Apps/Packages](002.AI-OS.NET--SPECREV.2/L6_Apps_Packages_Compatibility/00_overview.md) |
+| Authentication / identity    | [L4 Policy/Identity/Vault](002.AI-OS.NET--SPECREV.2/L4_Policy_Identity_Vault/00_overview.md)                                                                                     |
+| Default desktop              | [L7 Renderers](002.AI-OS.NET--SPECREV.2/L7_Interaction_Renderers/00_overview.md) — KDE Plasma + Qt/QML; Web/CLI/Voice/Mobile as siblings                                         |
+| Networking + drivers         | [L8 Network/Hardware](002.AI-OS.NET--SPECREV.2/L8_Network_Hardware_Devices/00_overview.md)                                                                                       |
+| Telemetry / admin            | [L9 Observability/Admin/Ops](002.AI-OS.NET--SPECREV.2/L9_Observability_Admin_Operations/00_overview.md)                                                                          |
+| Repos + marketplace          | [L10 Distribution/Ecosystem](002.AI-OS.NET--SPECREV.2/L10_Distribution_Ecosystem_Marketplace/00_overview.md) — signed bundles, three-tier trust chain (S11.1)                    |
+| **Distinguishing AI layer**  | [L5 Cognitive Core](002.AI-OS.NET--SPECREV.2/L5_Cognitive_Core/00_overview.md) + [XX Action Envelope](002.AI-OS.NET--SPECREV.2/XX_Cross_Cutting/01_action_envelope_lifecycle.md) |
+
+What is locked: the distribution exposes a typed action surface over Linux; AI is a first-class subject with mechanically restricted authority (INV-002 at six sites); evidence is append-only; recovery never depends on LLMs.
+
+What is intentionally open at this stage: base distribution lineage (Debian / Arch / Fedora / from-scratch), installer ISO format, packaging format, and dedicated kernel pipeline shape. These are deliberate decisions left for the implementation phase so the constitutional contracts settle first.
+
 ## Current Status
 
 This repository is currently specification-first.
 
-There is no production runtime yet. The active work is the Rev.2 contract pack, which defines the layers, boundaries, safety model, and first implementation targets for an AI-native Linux environment.
+There is no production runtime yet. The active work is the Rev.2 contract pack, which defines the layers, boundaries, safety model, and first implementation targets for the AI-native Linux distribution.
 
-The project is intentionally public early so security engineers, Linux operators, AI agent builders, and open-source maintainers can review the architecture before privileged runtime code exists.
+The project is intentionally public early so security engineers, Linux operators, AI agent builders, and open-source maintainers can review the architecture before privileged distribution code exists.
 
 ## Core Architecture
 

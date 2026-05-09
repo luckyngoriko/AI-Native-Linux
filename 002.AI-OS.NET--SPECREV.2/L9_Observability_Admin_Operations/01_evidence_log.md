@@ -1507,7 +1507,249 @@ This Wave 8 records only the `RecordType` consolidation. Other items queued by t
 - **Candidate L0 invariants** queued narrative-only by these contracts: `NETWORK_DEFAULT_DENY_OUTBOUND` (S8.1, carried forward from Waves 6 and 7 and still pending), `PACKAGE_TRUST_CHAIN_BOUND` (S11.1 §19, carried from Wave 7), `ECOSYSTEM_HONESTY_DISCLOSURE` (S12.1, carried from Wave 7), `HARDWARE_GRAPH_DRIFT_FOREVER` (S8.3 §I6 / §12.2), and the four firmware-update scopes (`CPU_MICROCODE`, `GPU_FIRMWARE`, `TPM_FIRMWARE`, `BIOS_UEFI`) queued for `NonOverridableClass` extension by S8.5 §9. Per L0 §3 I1, invariant catalog mutation is a versioned spec change and recovery-mode invariant-bundle update — these are held for the audit-phase L0 sweep per the project owner's "deliberate single-purpose constitutional act" pattern and are **not** promoted in this Wave.
 - **No-records sources:** all eighteen sources contributed at least one queued `RecordType`. None were skipped; S6.3 is included despite being primarily a receipt-envelope schema because §12 of that contract explicitly queues four FOREVER record types for the L9.1 vocabulary.
 
-## 28. See also
+## 28. Wave 10 cross-spec touch-up (Cluster 5 orphans + Wave 9 records + Cluster 9 hardware drift records + Cluster 13 cognitive lifecycle)
+
+Applied 2026-05-09. Sources: [S6.1 §9.1](../L0_Governance_Evidence_Safety/01_status_taxonomy.md), [S6.2 §8 + §9](../L0_Governance_Evidence_Safety/02_evidence_grades.md), [S6.4 §3 + §6](../L0_Governance_Evidence_Safety/04_invariants.md), [S5.1 §5.2](../L4_Policy_Identity_Vault/03_identity_model.md), [S6.3 §5 + §7.2 + §9.3 + §9.6](../L0_Governance_Evidence_Safety/03_evidence_receipt_schema.md), [S14.1 §4.1 + §9.5](03_failure_handling.md), [S15.2 §8 + §9](../L3_AIOS_SGR_Service_Graph_Runtime/02_state_transitions.md), [S15.3 §3.4](../L3_AIOS_SGR_Service_Graph_Runtime/04_adapter_model.md), [S11.1 §6.4](../L10_Distribution_Ecosystem_Marketplace/01_repository_model.md), [S11.2 §6 + §9](../L10_Distribution_Ecosystem_Marketplace/02_marketplace.md), [S11.3 §5 + §10 + §11](../L10_Distribution_Ecosystem_Marketplace/03_external_integrations.md), [S2.3 §26.7 (Wave 9)](../L4_Policy_Identity_Vault/01_policy_kernel.md), [S9.1 §3.4 (Wave 9)](../L1_Kernel_Bootstrap_Recovery/01_recovery_boundary.md), [S5.2 §3.1 + §14 (Wave 9)](../L4_Policy_Identity_Vault/02_vault_broker.md), [S8.3 §12 (Wave 9 SIM-C-002)](../L8_Network_Hardware_Devices/01_hardware_graph.md), [S8.5 §9.4 (Wave 9 SIM-C-003)](../L8_Network_Hardware_Devices/04_firmware_trust.md), [S13.1 §16 (Wave 10 lifecycle)](../L5_Cognitive_Core/01_cognitive_core_model.md). This Wave consolidates three classes of pending additions into the L9.1 Evidence Log: (1) the Tier 5 audit Cluster 5 **orphan** record types — names referenced by their producing specs but never declared in S3.1's Wave 1..8 vocabulary (~25 missing types across nine source contracts); (2) the Wave 9 record-type contributions queued by W9-A through W9-D (first-boot mode write evidence, hard-deny on substrate-class accept-drift outside recovery, vault one-shot bootstrap key, hardware-graph drift acceptance, vault TPM reseal required, vault rekey resolution); and (3) the Cluster 13 cognitive lifecycle positive-emission record `AGENT_LIFECYCLE_TRANSITIONED` that closes the audit gap previously relying on absence-witness. Each row binds a record name to its retention class (closed enum from §6.4: `STANDARD_24M` / `EXTENDED_60M` / `FOREVER`) and to the source spec section that owns its emission contract. Following the §23 / §24 / §25 / §26 / §27 narrative-only declaration pattern, this addition does **not** modify Appendix A's proto IDL block; full IDL reconciliation (the addition of new payload messages to the discriminated `RecordPayload` oneof) is deferred to a subsequent dedicated Wave. After this addition the **`RecordType` vocabulary now totals 440 entries narratively** (400 prior + 40 Wave 10 unique additions; no exact-name collisions with prior Wave-1..8 names — adjacency notes are recorded in §28.15).
+
+### 28.1 From S6.1 Status Taxonomy (1 type)
+
+Source: [S6.1 §9.1](../L0_Governance_Evidence_Safety/01_status_taxonomy.md). Append authority is restricted to the L0 gate-evaluator service subject (`_system:service:gate-evaluator`) — the `STATUS_TRANSITION` record is signed by the gate evaluator's key per S6.1 §11.1; mismatched signatures are rejected at append. The record is the per-capability per-status-change evidence emitted by every gate `PASS` outcome, and it is the canonical audit trail for status promotion / demotion / freeze / unfreeze across the eight-status taxonomy.
+
+| RecordType          | Retention      | Source spec | Purpose                                                                                                                              |
+| ------------------- | -------------- | ----------- | ------------------------------------------------------------------------------------------------------------------------------------ |
+| `STATUS_TRANSITION` | `STANDARD_24M` | S6.1 §9.1   | Gate `PASS` outcome applied a status transition; carries `from_status`, `to_status`, `capability_id`, gate id, evidence-grade input. |
+
+Subsection retention split: `STANDARD_24M` × 1, `EXTENDED_60M` × 0, `FOREVER` × 0 (one row total).
+
+### 28.2 From S6.2 Evidence Grades (7 types)
+
+Source: [S6.2 §8 + §9](../L0_Governance_Evidence_Safety/02_evidence_grades.md). Append authority is restricted to the artifact-recording service for `ARTIFACT_RECORDED`; to the build / test / e2e / release CI subjects acting on behalf of `HUMAN_USER` operators for `BUILD_PASSED` / `TEST_PASSED` / `E2E_PASSED` / `RELEASE_GATE_PASSED`; to the recovery rehearsal harness subject for `RECOVERY_REHEARSAL_PASSED`; and to the running system's health-probe subject for `OPERATIONAL_HEALTHY`. AI subjects are **not** authorised producers for grade-promotion receipts on artifacts they authored (S6.2 §10) — the L0 governance service rejects such receipts with `ProducerCannotSelfGrade`, complementing INV-016. The two FOREVER entries cover the constitutional release surface — recovery-rehearsal pass and release-gate pass — because, per S6.2 §9, "a recovery rehearsal failure is a load-bearing operational fact that must remain auditable" indefinitely.
+
+| RecordType                  | Retention      | Source spec | Purpose                                                                                                          |
+| --------------------------- | -------------- | ----------- | ---------------------------------------------------------------------------------------------------------------- |
+| `ARTIFACT_RECORDED`         | `STANDARD_24M` | S6.2 §8     | An E1 artifact (file, spec document, manifest) was committed; carries capability_id, ArtifactKind, content hash. |
+| `BUILD_PASSED`              | `STANDARD_24M` | S6.2 §9     | E2 build receipt; carries build-system id (`cargo`, `rustc`, `protoc`, `tsc`, `go build`, …), exit code.         |
+| `TEST_PASSED`               | `STANDARD_24M` | S6.2 §9     | E3 test-execution receipt; carries test-runner id, test-name list, exit code, capability_ids.                    |
+| `E2E_PASSED`                | `EXTENDED_60M` | S6.2 §9     | E4 end-to-end scenario receipt; carries scenario name, actor identity, action chain reference.                   |
+| `RECOVERY_REHEARSAL_PASSED` | `FOREVER`      | S6.2 §9     | E4 recovery-rehearsal receipt; carries recovery scenario id, operator, system snapshot. Constitutional release.  |
+| `RELEASE_GATE_PASSED`       | `FOREVER`      | S6.2 §9     | E4 release-gate receipt; carries release id, gate definition reference, capability ids gated. Constitutional.    |
+| `OPERATIONAL_HEALTHY`       | `STANDARD_24M` | S6.2 §9     | E5 rolling-window health-probe receipt; carries capability_id, health-probe definition, measurements.            |
+
+Subsection retention split: `STANDARD_24M` × 4, `EXTENDED_60M` × 1, `FOREVER` × 2 (seven rows total).
+
+### 28.3 From S6.4 Invariants (2 types)
+
+Source: [S6.4 §3 + §6](../L0_Governance_Evidence_Safety/04_invariants.md). Append authority is restricted to the L0 governance service for `INVARIANT_BUNDLE_LOADED` (per §4 — invariant-bundle update is a recovery-mode `HUMAN_USER` operation; the transition emits the record), and to the policy kernel for `WEB_EXPOSURE_GRANTED` (per INV-006 — Web renderer ports listen on loopback by default; LAN/remote exposure requires both a policy approval and an explicit operator action recorded as this FOREVER record). Both are FOREVER because they record constitutional surface mutations — the invariant catalog itself, and the loosening of the localhost-only Web renderer floor. Note: S6.4 §6 also references a parallel `INVARIANT_RETIRED` FOREVER; that record is **not** consolidated in this Wave (out of scope per the W10 charter) and is queued for a later Wave.
+
+| RecordType                | Retention | Source spec | Purpose                                                                                                         |
+| ------------------------- | --------- | ----------- | --------------------------------------------------------------------------------------------------------------- |
+| `INVARIANT_BUNDLE_LOADED` | `FOREVER` | S6.4 §3     | A new invariant bundle (`invbundle_<hex>`) was activated; carries prior/new bundle ids, signing key id, diff.   |
+| `WEB_EXPOSURE_GRANTED`    | `FOREVER` | S6.4 §3     | INV-006 loosening: Web renderer was exposed beyond loopback; carries operator id, exposure scope, approval ref. |
+
+Subsection retention split: `STANDARD_24M` × 0, `EXTENDED_60M` × 0, `FOREVER` × 2 (two rows total).
+
+### 28.4 From S5.1 Identity Model (2 types)
+
+Source: [S5.1 §5.2](../L4_Policy_Identity_Vault/03_identity_model.md). Append authority is restricted to the L4.3 identity service (`_system:service:identity-init` during first-boot, `_system:service:identity` during normal operation) for both records. The two FOREVER entries cover the constitutional identity-bundle surface: bundle activation (parallels `INVARIANT_BUNDLE_LOADED` for the L4.3 identity-bundle layer) and group registration (which is the only Rev.2 path to group creation, per §5.2 — a recovery-mode HUMAN_USER operation, or the Wave 9 first-boot exception in §5.2.1).
+
+| RecordType               | Retention | Source spec | Purpose                                                                                                          |
+| ------------------------ | --------- | ----------- | ---------------------------------------------------------------------------------------------------------------- |
+| `IDENTITY_BUNDLE_LOADED` | `FOREVER` | S5.1 §5.2   | A new identity bundle (`idbundle_<hex>`) was activated; carries prior/new bundle ids, signing key id, diff.      |
+| `GROUP_REGISTERED`       | `FOREVER` | S5.1 §5.2   | A new group manifest was sealed into the identity bundle; carries `group_id`, `GroupTier`, registering operator. |
+
+Subsection retention split: `STANDARD_24M` × 0, `EXTENDED_60M` × 0, `FOREVER` × 2 (two rows total).
+
+### 28.5 From S6.3 Evidence Receipt Schema (4 types)
+
+Source: [S6.3 §5 + §7.2 + §9.3 + §9.6](../L0_Governance_Evidence_Safety/03_evidence_receipt_schema.md). Append authority for all four is the Evidence Log itself — these records describe the log catching forgery / replay / lineage / orphan-action anomalies in its own append-and-audit pipeline. Emission attempts from any other subject are hard-denied at the engine surface and emit `TAMPER_DETECTED` per §11.5. These four are **distinct from the four S6.3 record types already consolidated in Wave 8 §27.3** (`RECEIPT_REDACTION_FAILED`, `RECEIPT_INTEGRITY_QUARANTINED`, `RECEIPT_LINEAGE_CYCLE_DETECTED`, `RECEIPT_SEQUENCE_OUT_OF_ORDER`) — those four were the explicitly-queued types in S6.3 §13.4; the four below are the **orphan** names referenced in §5 / §7.2 / §9.3 / §9.6 but never landed in the queued catalog. The single FOREVER entry covers the apex constitutional surface — forged subject-id detection at the Ed25519 signature boundary.
+
+| RecordType                           | Retention      | Source spec | Purpose                                                                                                          |
+| ------------------------------------ | -------------- | ----------- | ---------------------------------------------------------------------------------------------------------------- |
+| `RECEIPT_FORGERY_DETECTED`           | `FOREVER`      | S6.3 §5     | Receipt's Ed25519 signature did not verify against vault capability bound to the claimed `subject_canonical_id`. |
+| `RECEIPT_PAYLOAD_DUPLICATE_OBSERVED` | `STANDARD_24M` | S6.3 §9.3   | Audit cross-reference observed a `payload_hash` collision across distant segments; advisory replay flag.         |
+| `RECEIPT_LINEAGE_DEPTH_EXCEEDED`     | `STANDARD_24M` | S6.3 §7.2   | Lineage walk exceeded the depth budget (default 1024 hops); audit truncates with marker.                         |
+| `RECEIPT_ORPHAN_ACTION_REF_DETECTED` | `EXTENDED_60M` | S6.3 §9.6   | Append-time action-id index cross-check rejected a receipt naming a nonexistent `action_id`.                     |
+
+Subsection retention split: `STANDARD_24M` × 2, `EXTENDED_60M` × 1, `FOREVER` × 1 (four rows total).
+
+### 28.6 From S14.1 Failure Handling (6 types)
+
+Source: [S14.1 §4.1 + §9.5](03_failure_handling.md). Append authority for the five `*_BUNDLE_REJECTED` records is restricted per S14.1 §4.1 row 1..5 to the respective bundle-loading service: L0 governance for `INVARIANT_BUNDLE_REJECTED`, L4.1 policy kernel for `POLICY_BUNDLE_REJECTED`, L4.3 identity service for `IDENTITY_BUNDLE_REJECTED`, L1.1 capability-bundle loader for `CAPABILITY_BUNDLE_REJECTED`, and L6.3 sandbox-bundle loader for `SANDBOX_BUNDLE_REJECTED`. Append authority for `FAILURE_OBSERVED_RATE_LIMITED` is restricted to the failure-handling runtime's rate-limiter (per §9.5 — emitted as a single summary record after N per-class events in a minute; FOREVER-retention records are **never** rate-limited, so saturation cannot drop them). The five FOREVER entries cover the constitutional bundle-trust surface — every bundle layer (invariant, policy, identity, capability, sandbox) emits a FOREVER refusal record on signature failure or admission rejection. Per S14.1 §12, these records were **referenced** by S14.1 row-by-row in §4.1 but **declared as queued in their respective producing specs** (L0, S2.3, L4.3, S1.1, S6.3); none were actually consolidated into S3.1 — they are landing here for the first time. Note: this Wave 8 already consolidated `COMPONENT_RESTART_BUDGET_EXHAUSTED`, `HALTED_PENDING_OPERATOR`, `BACKEND_VERSION_MISMATCH`, `RECOVERY_LOOP_DETECTED` from S14.1 §11; the six rows below are **distinct** and complete the S14.1 record-type contribution.
+
+| RecordType                      | Retention      | Source spec | Purpose                                                                                                 |
+| ------------------------------- | -------------- | ----------- | ------------------------------------------------------------------------------------------------------- |
+| `INVARIANT_BUNDLE_REJECTED`     | `FOREVER`      | S14.1 §4.1  | L0 invariant bundle failed signature or admission; system degrades to INV-001 + INV-002 only.           |
+| `POLICY_BUNDLE_REJECTED`        | `FOREVER`      | S14.1 §4.1  | L4.1 policy bundle failed signature; kernel retains previous bundle (or FAIL_CLOSED if none).           |
+| `IDENTITY_BUNDLE_REJECTED`      | `FOREVER`      | S14.1 §4.1  | L4.3 identity bundle failed signature; identity service degrades to known-good.                         |
+| `CAPABILITY_BUNDLE_REJECTED`    | `FOREVER`      | S14.1 §4.1  | L1.1 capability bundle failed signature; loader degrades to known-good.                                 |
+| `SANDBOX_BUNDLE_REJECTED`       | `FOREVER`      | S14.1 §4.1  | L6.3 sandbox bundle failed signature; loader degrades to known-good.                                    |
+| `FAILURE_OBSERVED_RATE_LIMITED` | `STANDARD_24M` | S14.1 §9.5  | Per-(FailureClass, layer) rate-limit cool-down summary; carries suppressed count, window, FailureClass. |
+
+Subsection retention split: `STANDARD_24M` × 1, `EXTENDED_60M` × 0, `FOREVER` × 5 (six rows total).
+
+### 28.7 From S15.2 SGR State Transitions (2 types)
+
+Source: [S15.2 §8 + §9](../L3_AIOS_SGR_Service_Graph_Runtime/02_state_transitions.md). Append authority is restricted to the L3 SGR runtime's evaluator (for `GRAPH_EVALUATION_BUDGET_EXCEEDED` per §8.1 budget enforcement) and dispatcher (for `TRANSITION_BUDGET_EXCEEDED` per §8.2 — this record was self-flagged by S15.2 as queued for "Wave 6 candidate, not enumerated in §9 below to keep the twelve-record set minimal"). Both are EXTENDED_60M because they are advisory deviations of bounded-budget guarantees rather than constitutional faults — the evaluator does not abort; it lets the dispatch finish and reports the deviation as observability data. These two are **distinct** from the twelve S15.2 record types already consolidated in Wave 8 §27.5 and complete the S15.2 record-type contribution.
+
+| RecordType                         | Retention      | Source spec | Purpose                                                                                                                   |
+| ---------------------------------- | -------------- | ----------- | ------------------------------------------------------------------------------------------------------------------------- |
+| `GRAPH_EVALUATION_BUDGET_EXCEEDED` | `EXTENDED_60M` | S15.2 §8.1  | Single evaluation exceeded the configured per-host budget (`[100ms, 1000ms]`, default 200ms); evaluator returns `FAILED`. |
+| `TRANSITION_BUDGET_EXCEEDED`       | `EXTENDED_60M` | S15.2 §8.2  | A `TransitionKind` budget was exceeded; carries transition_id, kind, observed/budget durations.                           |
+
+Subsection retention split: `STANDARD_24M` × 0, `EXTENDED_60M` × 2, `FOREVER` × 0 (two rows total).
+
+### 28.8 From S15.3 SGR Adapter Model (1 type)
+
+Source: [S15.3 §3.4](../L3_AIOS_SGR_Service_Graph_Runtime/04_adapter_model.md). Append authority is restricted to the L3 adapter directory service. Per §3.4, every attempt to drive the adapter FSM through a forbidden runtime-side transition is itself logged as `ADAPTER_LIFECYCLE_ILLEGAL_TRANSITION` and mirrored to the evidence log. The record is FOREVER because it captures runtime-side illegal-transition forensics — distinct from `ADAPTER_REGISTRATION_REJECTED` (Wave 8 §27.6, which fires on admission-side illegal transitions). This record is **distinct** from the ten S15.3 record types already consolidated in Wave 8 §27.6 and completes the S15.3 record-type contribution.
+
+| RecordType                             | Retention | Source spec | Purpose                                                                                                       |
+| -------------------------------------- | --------- | ----------- | ------------------------------------------------------------------------------------------------------------- |
+| `ADAPTER_LIFECYCLE_ILLEGAL_TRANSITION` | `FOREVER` | S15.3 §3.4  | Runtime-side adapter FSM driven through a forbidden transition; carries adapter_id, from/to, attempt subject. |
+
+Subsection retention split: `STANDARD_24M` × 0, `EXTENDED_60M` × 0, `FOREVER` × 1 (one row total).
+
+### 28.9 From S11.1 / S11.2 Repository Model + Marketplace (3 types)
+
+Sources: [S11.1 §6.4](../L10_Distribution_Ecosystem_Marketplace/01_repository_model.md), [S11.2 §6 + §9](../L10_Distribution_Ecosystem_Marketplace/02_marketplace.md). Append authority is restricted to the L10 install pipeline for `PUBLISHER_TRUST_LEVEL_OBSERVED` (per S11.1 §6.4 — emitted at install time recording the trust class the pipeline used, providing the cross-reference for L9 audit of listing-vs-install divergence), to the L10 publisher catalog admission service for `PUBLISHER_KEY_COLLISION` (per S11.2 §6 — proposed publisher root pubkey collided with an active or revoked key in `pubcat_<hex>`), and to the marketplace review-queue scheduler for `MARKETPLACE_REVIEW_BUDGET_EXCEEDED` (per S11.2 §9 — `APPLICATION_SUBMITTED` exceeded its 5-business-day SLA and was auto-routed to a backup reviewer queue). The single FOREVER entry covers the constitutional trust-root-anomaly surface — a publisher key collision is the publisher-catalog equivalent of a forged identity at L4.3, and the catalog must permanently retain the forensic record. These three are **distinct** from the marketplace records already consolidated in Wave 7 (S11.1) and Wave 8 §27.17 (S11.2).
+
+| RecordType                           | Retention      | Source spec | Purpose                                                                                              |
+| ------------------------------------ | -------------- | ----------- | ---------------------------------------------------------------------------------------------------- |
+| `PUBLISHER_TRUST_LEVEL_OBSERVED`     | `STANDARD_24M` | S11.1 §6.4  | Install-time record of the `PublisherTrustLevel` the pipeline consumed; cross-reference for audit.   |
+| `PUBLISHER_KEY_COLLISION`            | `FOREVER`      | S11.2 §6    | Publisher catalog admission rejected proposal whose root pubkey collides with an active/revoked key. |
+| `MARKETPLACE_REVIEW_BUDGET_EXCEEDED` | `STANDARD_24M` | S11.2 §9    | `APPLICATION_SUBMITTED` exceeded 5-business-day SLA; auto-routed to backup reviewer queue.           |
+
+Subsection retention split: `STANDARD_24M` × 2, `EXTENDED_60M` × 0, `FOREVER` × 1 (three rows total).
+
+### 28.10 From S11.3 External Integrations (4 types)
+
+Source: [S11.3 §5 + §10 + §11](../L10_Distribution_Ecosystem_Marketplace/03_external_integrations.md). Append authority is restricted to the L10 external-bridge service for the consent / deferral / drift records, and to the L9 admin surface for `BRIDGE_BLACKLIST_LIFTED` (operator un-blacklisting via `EXACT_ACTION` `STRONG` approval bound to the `BRIDGE_BLACKLISTED` evidence id). The single FOREVER entry covers operator un-blacklisting — a constitutional act, because it reverses a bridge-trust-collapse decision; the catalog must permanently retain both the original blacklist event (Wave 8 §27.18 `BRIDGE_BLACKLISTED`) and the lift event so the audit chain shows both directions of the trust transition. These four are **distinct** from the twelve S11.3 record types already consolidated in Wave 8 §27.18 and complete the S11.3 record-type contribution.
+
+| RecordType                        | Retention      | Source spec | Purpose                                                                                             |
+| --------------------------------- | -------------- | ----------- | --------------------------------------------------------------------------------------------------- |
+| `BRIDGE_OPERATOR_CONSENT_GRANTED` | `STANDARD_24M` | S11.3 §5    | Bridge admission decision `ADMITTED_WITH_OPERATOR_CONSENT`; mirrors S11.1 `PACKAGE_INSTALLED`.      |
+| `BRIDGE_DEFERRED_NEEDS_REVIEW`    | `STANDARD_24M` | S11.3 §5    | Bridge admission decision `DEFERRED_NEEDS_REVIEW`; package does not enter install pipeline.         |
+| `BRIDGE_METADATA_DRIFT_DETECTED`  | `EXTENDED_60M` | S11.3 §10   | Metadata content-hash changed between imports without upstream version bump; weak tampering signal. |
+| `BRIDGE_BLACKLIST_LIFTED`         | `FOREVER`      | S11.3 §11   | Operator un-blacklisted a bridge via STRONG approval; carries operator id and reset reference.      |
+
+Subsection retention split: `STANDARD_24M` × 2, `EXTENDED_60M` × 1, `FOREVER` × 1 (four rows total).
+
+### 28.11 From Wave 9 W9-A — S2.3 Policy Kernel hard-deny (1 type)
+
+Source: [S2.3 §26.7 (Wave 9)](../L4_Policy_Identity_Vault/01_policy_kernel.md). Append authority is restricted to the L4.1 policy kernel — the record fires when the Wave 9 `ConstitutionalSubstrateRequiresRecovery` hard-deny rule rejects a `hardware.accept_drift_substrate` action attempted outside recovery mode. Until this Wave 10 closure, the FOREVER emission was recorded against the generic `POLICY_HARD_DENY` record family with the closed `policy_id = ConstitutionalSubstrateRequiresRecovery` discriminator (per S2.3 §26.7 narrative); this Wave promotes the dedicated record-type binding so the audit chain carries the substrate-class semantic at the record level. The companion proposing-variant rule `AIInstallInitiationBlocked` reuses the existing `APP_AI_DIRECT_INSTALL_ATTEMPTED_BLOCKED` record (already consolidated in Wave 7) — no new record needed.
+
+| RecordType                                           | Retention | Source spec | Purpose                                                                                                          |
+| ---------------------------------------------------- | --------- | ----------- | ---------------------------------------------------------------------------------------------------------------- |
+| `HARDWARE_SUBSTRATE_ACCEPT_OUTSIDE_RECOVERY_BLOCKED` | `FOREVER` | S2.3 §26.7  | `hardware.accept_drift_substrate` attempted with `is_recovery_mode = false`; constitutional INV-012 enforcement. |
+
+Subsection retention split: `STANDARD_24M` × 0, `EXTENDED_60M` × 0, `FOREVER` × 1 (one row total).
+
+### 28.12 From Wave 9 W9-B — S9.1 + S9.2 first-boot mode write evidence (1 type)
+
+Source: [S9.1 §3.4 (Wave 9)](../L1_Kernel_Bootstrap_Recovery/01_recovery_boundary.md). Append authority is restricted to the AIOS-FS write boundary acting on first-boot service subject sessions (`_system:service:firstboot-coordinator`, `_system:service:installer`, `_system:service:vault-init`, `_system:service:identity-init`, `_system:service:policy-compiler`); the record is emitted by the FS write boundary on every constitutional-path write while `is_first_boot = true` is active, providing per-mutation evidence that the W9 `RecoveryMode.FIRST_BOOT` mode-flag actually carried the write. The `MutuallyExclusiveModeFlags` discipline of S9.1 §3.2 (rejecting sessions carrying both `is_first_boot` and `is_recovery_mode`) is enforced by the Policy Kernel as an admission-time rejection code, **not** as a dedicated record type — it surfaces in the standard `POLICY_HARD_DENY` record family and is therefore not added to the L9.1 vocabulary by this Wave.
+
+| RecordType             | Retention | Source spec | Purpose                                                                                                                                         |
+| ---------------------- | --------- | ----------- | ----------------------------------------------------------------------------------------------------------------------------------------------- |
+| `FIRST_BOOT_OPERATION` | `FOREVER` | S9.1 §3.4   | Per-mutation first-boot record; carries `subject_canonical_id`, `target_path`, `target_scope`, `stage`, `firstboot_session_id`, `committed_at`. |
+
+Subsection retention split: `STANDARD_24M` × 0, `EXTENDED_60M` × 0, `FOREVER` × 1 (one row total).
+
+### 28.13 From Wave 9 W9-C — S5.2 Vault Broker bootstrap key + rekey (3 types)
+
+Source: [S5.2 §3.1 + §14 (Wave 9)](../L4_Policy_Identity_Vault/02_vault_broker.md). Append authority is restricted to the first-boot path of the L4.2 vault broker for `VAULT_BOOTSTRAP_KEY_USED` (successful one-shot `BOOTSTRAP_KEY_SIGN` over the firstboot marker, per §3.1 — admitted only when subject = `_system:service:firstboot-coordinator`, `is_first_boot = true`, the firstboot marker does not yet exist, and the per-host counter is not yet exhausted) and `BOOTSTRAP_KEY_USE_AFTER_EXHAUST_BLOCKED` (any attempt to invoke `BOOTSTRAP_KEY_SIGN` on a host whose firstboot marker already exists, rejected with `BootstrapKeyAlreadyExhausted`); and to the recovery-mode rekey path for `VAULT_REKEYED` (per §14 — the broker's `Rekey` RPC retires the previous master key; existing capabilities are re-encrypted under the new master key). All three are FOREVER because they record one-shot constitutional vault-trust mutations: the bootstrap key is single-use (FOREVER on success and FOREVER on attempted reuse — the latter being adversarial-replay forensics), and master-key rekey is a recovery-only constitutional act. Note: per S5.2 §14 narrative, `VAULT_REKEYED` was previously "anticipated but not yet queued formally"; this Wave promotes it to actually queued.
+
+| RecordType                                | Retention | Source spec | Purpose                                                                                                  |
+| ----------------------------------------- | --------- | ----------- | -------------------------------------------------------------------------------------------------------- |
+| `VAULT_BOOTSTRAP_KEY_USED`                | `FOREVER` | S5.2 §3.1   | Successful one-shot `BOOTSTRAP_KEY_SIGN` over the firstboot marker by the firstboot-coordinator subject. |
+| `BOOTSTRAP_KEY_USE_AFTER_EXHAUST_BLOCKED` | `FOREVER` | S5.2 §3.1   | Attempt to invoke `BOOTSTRAP_KEY_SIGN` after the firstboot marker exists; replay-defence forensic.       |
+| `VAULT_REKEYED`                           | `FOREVER` | S5.2 §14    | Recovery-mode `Rekey` RPC succeeded; previous master key retired; capabilities re-encrypted.             |
+
+Subsection retention split: `STANDARD_24M` × 0, `EXTENDED_60M` × 0, `FOREVER` × 3 (three rows total).
+
+### 28.14 From Wave 9 W9-D — S8.3 + S8.5 hardware drift + TPM reseal (2 types)
+
+Sources: [S8.3 §12 (Wave 9 SIM-C-002)](../L8_Network_Hardware_Devices/01_hardware_graph.md), [S8.5 §9.4 (Wave 9 SIM-C-003)](../L8_Network_Hardware_Devices/04_firmware_trust.md). Append authority is restricted to the L8 hardware-device-manager (`_system:service:hardware-manager`) for `HARDWARE_GRAPH_DRIFT_ACCEPTED` — the operator (`hardware.accept_drift_accessory` HUMAN_USER) or recovery-mode operator (`hardware.accept_drift_substrate` RECOVERY_ONLY) accepted a previously-detected hardware-graph drift, pairing with the existing `HARDWARE_GRAPH_DRIFT_DETECTED` (Wave 8 §27.13) so the audit chain shows both detection and resolution; and to the L8 firmware-trust subsystem (`_system:service:firmware-update`) for `VAULT_TPM_RESEAL_REQUIRED` — emitted when `hardware.accept_drift_substrate` accepts a `DeviceClass.TPM_2_0` mutation/replacement/removal (or a `BIOS_UEFI` substitution invalidating UEFI-variable-bound seals, or a `CPU_MICROCODE` replacement invalidating cpuid-bound material), at which point the vault is in `VAULT_RESEAL_PENDING` until the operator runs `vault.reseal` in recovery (S5.2's `Rekey` RPC, whose resolution evidence is the `VAULT_REKEYED` record consolidated in §28.13 above). Both are FOREVER because they record one-shot constitutional substrate-trust mutations. The audit chain is: `HARDWARE_GRAPH_DRIFT_DETECTED` → `HARDWARE_GRAPH_DRIFT_ACCEPTED` (linked via `originating_drift_record_id`) → `VAULT_TPM_RESEAL_REQUIRED` (when drift is in TPM/BIOS/CPU constitutional surface) → `VAULT_REKEYED` (resolution, linked via `originating_required_record_id`).
+
+| RecordType                      | Retention | Source spec | Purpose                                                                                                                                                                                 |
+| ------------------------------- | --------- | ----------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `HARDWARE_GRAPH_DRIFT_ACCEPTED` | `FOREVER` | S8.3 §12    | Operator accepted hardware-graph drift; carries `prior_snapshot_id`, `current_snapshot_id`, `accepted_device_ids[]`, `originating_drift_record_id`, `is_substrate`, `is_recovery_mode`. |
+| `VAULT_TPM_RESEAL_REQUIRED`     | `FOREVER` | S8.5 §9.4   | Substrate accept-drift invalidated TPM-PCR / UEFI-var / CPU-bound seals; vault enters `VAULT_RESEAL_PENDING` until `vault.reseal` runs.                                                 |
+
+Subsection retention split: `STANDARD_24M` × 0, `EXTENDED_60M` × 0, `FOREVER` × 2 (two rows total).
+
+### 28.15 From Cluster 13 — S13.1 Cognitive Lifecycle Positive Emission (1 type)
+
+Source: [S13.1 §16](../L5_Cognitive_Core/01_cognitive_core_model.md). Append authority is restricted to the L5 cognitive runtime — the record fires on every legitimate FSM transition of an `AI_AGENT` subject (per S13.1 §7 proposing-pipeline FSM and §10 agent lifecycle FSM). Per Tier 5 audit Cluster 13 finding, the prior absence of a positive-emission record meant the audit chain relied on **absence-witness** for legitimate transitions (i.e., "no `AGENT_DIRECT_FS_WRITE_BLOCKED` record fired, so the transition must have been legitimate") — which is a structural audit weakness. This Wave 10 record type closes the gap: every legitimate FSM transition is now positively witnessed, so absence of this record (combined with absence of bypass records) becomes a stronger audit signal. The record is `STANDARD_24M` because legitimate-transition volume is high (one record per agent FSM transition) and the constitutional weight rests on the **bypass** records (which are FOREVER in §27.8) rather than on the legitimate-transition stream.
+
+| RecordType                     | Retention      | Source spec | Purpose                                                                                                 |
+| ------------------------------ | -------------- | ----------- | ------------------------------------------------------------------------------------------------------- |
+| `AGENT_LIFECYCLE_TRANSITIONED` | `STANDARD_24M` | S13.1 §16   | Legitimate AI agent FSM transition; carries `agent_id`, `from_state`, `to_state`, transition timestamp. |
+
+Subsection retention split: `STANDARD_24M` × 1, `EXTENDED_60M` × 0, `FOREVER` × 0 (one row total).
+
+### 28.16 Reconciliation note (truthful arithmetic)
+
+Per the §27.19 truthful-arithmetic discipline, this Wave 10 records **40 unique `RecordType` additions** across fifteen subsections covering eleven distinct source contracts (S6.1, S6.2, S6.4, S5.1, S6.3, S14.1, S15.2, S15.3, S11.1+S11.2, S11.3, S2.3, S9.1, S5.2, S8.3+S8.5, S13.1) with no exact-name collisions against the prior Wave-1..8 vocabulary. The retention-class distribution across these 40 additions, counted directly from §28.1 through §28.15, is:
+
+| Subsection                             | `STANDARD_24M` | `EXTENDED_60M` | `FOREVER` |  Total |
+| -------------------------------------- | -------------: | -------------: | --------: | -----: |
+| §28.1 S6.1 status taxonomy             |              1 |              0 |         0 |      1 |
+| §28.2 S6.2 evidence grades             |              4 |              1 |         2 |      7 |
+| §28.3 S6.4 invariants                  |              0 |              0 |         2 |      2 |
+| §28.4 S5.1 identity                    |              0 |              0 |         2 |      2 |
+| §28.5 S6.3 receipt schema (orphans)    |              2 |              1 |         1 |      4 |
+| §28.6 S14.1 failure handling           |              1 |              0 |         5 |      6 |
+| §28.7 S15.2 transitions (orphans)      |              0 |              2 |         0 |      2 |
+| §28.8 S15.3 adapter (orphan)           |              0 |              0 |         1 |      1 |
+| §28.9 S11.1 + S11.2 marketplace        |              2 |              0 |         1 |      3 |
+| §28.10 S11.3 external integrations     |              2 |              1 |         1 |      4 |
+| §28.11 W9-A S2.3 hard-deny             |              0 |              0 |         1 |      1 |
+| §28.12 W9-B S9.1 first-boot mode       |              0 |              0 |         1 |      1 |
+| §28.13 W9-C S5.2 vault bootstrap+rekey |              0 |              0 |         3 |      3 |
+| §28.14 W9-D S8.3 + S8.5 drift+reseal   |              0 |              0 |         2 |      2 |
+| §28.15 Cluster 13 S13.1 lifecycle      |              1 |              0 |         0 |      1 |
+| **Wave 10 totals**                     |         **13** |          **5** |    **22** | **40** |
+
+Total: 13 + 5 + 22 = 40 unique additions. Subsection-by-subsection sum of "Total": 1+7+2+2+4+6+2+1+3+4+1+1+3+2+1 = 40 ✓.
+
+New cumulative narrative total: **400 (post-Wave 8) + 40 (Wave 10) = 440 entries**.
+
+> **Counting note on names found vs. prompt-suggested.** Two prompt-suggested names were not found in the source spec under that exact form and are noted as anomalies rather than added:
+>
+> 1. **`MutuallyExclusiveModeFlagsRejected` / `MODE_FLAGS_MUTUAL_EXCLUSION_VIOLATED`** — the prompt asked to confirm a record name for the S9.1 §3.2 mutual-exclusion invariant. S9.1 specifies `MutuallyExclusiveModeFlags` as a Policy Kernel **rejection code** (admission-time deny), not a dedicated `RecordType`. Per S9.1's own narrative, the rejection surfaces in the standard `POLICY_HARD_DENY` record family with a closed `policy_id` discriminator — no new record-type binding is required. **Skipped from this Wave** (anomaly logged in §28.12).
+> 2. **`INVARIANT_RETIRED`** — S6.4 §6 declares this name alongside `INVARIANT_BUNDLE_LOADED` and `WEB_EXPOSURE_GRANTED`, and it is also missing from S3.1's vocabulary. The prompt charter for W10 did not list it; per the W10 single-purpose discipline it is **not** consolidated here. Queued for a later Wave with the other carried-forward L0 candidates (per §27.21).
+
+Per §23 / §24 / §25 / §26 / §27's narrative-only declaration pattern, this Wave 10 does **not** edit Appendix A. Full IDL reconciliation — addition of the 40 new payload messages to the discriminated `RecordPayload` oneof — is a separate sweep when the spec is next refined.
+
+### 28.17 Telemetry impact
+
+Each new FOREVER record type contributes to the FOREVER retention storage class summarised in §6.4. Wave 10 introduces **22 new FOREVER record types** (per §28.16 column total). Cumulative FOREVER narrative entries through Wave 10: 143 (post-Wave 8) + 22 (Wave 10) = **165 narrative FOREVER entries**. The §20 per-`record_type` cardinality reservation is bumped from **400 to 440 entries narratively**. Existing histogram and counter labels remain valid; subject, group, and channel ids are never labels — they would inflate cardinality unboundedly and would re-introduce subject identity into the metrics surface that §20 forbids.
+
+The new FOREVER surface in Wave 10 is dominated by four constitutional axes:
+
+- **Bundle-trust refusals** (S14.1 × 5) — every bundle-loading layer (invariant, policy, identity, capability, sandbox) emits a FOREVER refusal record on signature failure or admission rejection. Volume is bounded by adversary attempt rate against bundle authoring.
+- **L0 / L4 constitutional surface mutations** (S6.4 × 2, S5.1 × 2, S6.2 × 2 = 6) — invariant bundle activation, identity bundle activation, group registration, Web exposure granting, recovery rehearsal pass, release gate pass. Volume is bounded by operator-driven constitutional acts.
+- **Receipt-chain forgery + adapter / publisher trust faults** (S6.3 × 1, S15.3 × 1, S11.2 × 1, S11.3 × 1 = 4) — the forgery / illegal-transition / trust-root-collision / blacklist-lift surface. Volume is bounded by adversary attack rate.
+- **Wave 9 first-boot + drift + vault** (S2.3 × 1, S9.1 × 1, S5.2 × 3, S8.3 × 1, S8.5 × 1 = 7) — the W9 constitutional bootstrap and substrate-trust surface. Volume is bounded to one set per host first-boot plus per-substrate-replacement events.
+
+These four are the most security-sensitive surfaces opened by Wave 10, so the FOREVER share of Wave 10 (22 / 40 = 55 %) is structural — Wave 10 disproportionately consolidates constitutional-grade events because the orphan and Wave 9 catalogs are themselves constitutional in nature.
+
+### 28.18 Cross-spec impact note (queued for separate consolidations)
+
+This Wave 10 records only the `RecordType` consolidation. Other items queued by the source contracts are **out of scope** for this Wave and are explicitly owned by parallel W10 streams:
+
+- **New typed actions queued for S10.1 W10** — none from this cluster. The W10-C stream owns S10.1 typed-action additions for Wave 10 (e.g. `hardware.accept_drift_substrate` / `hardware.accept_drift_accessory`, `vault.reseal` shape, `firmware.update.request` family) separately.
+- **New properties queued for S2.4 W10** — none from this cluster. The W10-B stream owns S2.4 verification-grammar properties for Wave 10.
+- **New scope paths queued for S4.1 W10** — none from this cluster. The W10-D stream owns `RecoveryMutableScope` expansion (e.g. for `/aios/system/firstboot/marker`, `/aios/system/vault/seal-state`, hardware-graph snapshot path) separately.
+- **S13.1 lifecycle-record source emission text** — owned by W10-E. This Wave only registers the record-type binding in S3.1; the S13.1 §16 narrative addition that names the FSM transitions emitting the record is W10-E's deliverable.
+- **Adjacency notes** (recorded narrative-only here; no name changes proposed):
+  - `STATUS_TRANSITION` (Wave 10 §28.1) is the per-capability evidence emitted by S6.1 gates; its closed-vocabulary peer at the L0 governance layer is `INVARIANT_BUNDLE_LOADED` (Wave 10 §28.3) which records bundle-level mutations. Both retained at distinct semantic layers.
+  - `RECEIPT_FORGERY_DETECTED` (Wave 10 §28.5) and `TAMPER_DETECTED` (pre-existing in S3.1) are semantically adjacent but distinct — the forgery record fires on the per-receipt Ed25519 signature mismatch at the subject-id boundary, while `TAMPER_DETECTED` covers the broader engine-surface adversarial detection. Both retained.
+  - `HARDWARE_GRAPH_DRIFT_ACCEPTED` (Wave 10 §28.14) pairs with `HARDWARE_GRAPH_DRIFT_DETECTED` (Wave 8 §27.13) via the `originating_drift_record_id` link; together they form the audit chain for hardware-graph drift detection-and-resolution. The `VAULT_TPM_RESEAL_REQUIRED` → `VAULT_REKEYED` chain (Wave 10 §28.13 + §28.14) extends this pattern into the vault-seal surface.
+  - `FIRST_BOOT_OPERATION` (Wave 10 §28.12) is per-mutation; it is **distinct** from the lifecycle macros `FIRST_BOOT_STARTED` / `FIRST_BOOT_STAGE_COMPLETED` / `FIRST_BOOT_COMPLETE` (Wave 8 §27.1) which are per-stage. Both layers retained.
+  - `AGENT_LIFECYCLE_TRANSITIONED` (Wave 10 §28.15) is the positive-emission peer to the FOREVER `AGENT_*_BLOCKED` records (Wave 8 §27.8); together they make the AI-subject FSM audit a positive-witness surface rather than an absence-witness surface.
+- **Carried-forward L0 invariant candidates** — as in §27.21, the candidates `NETWORK_DEFAULT_DENY_OUTBOUND`, `PACKAGE_TRUST_CHAIN_BOUND`, `ECOSYSTEM_HONESTY_DISCLOSURE`, `HARDWARE_GRAPH_DRIFT_FOREVER`, the four firmware-update scopes for `NonOverridableClass`, and now `INVARIANT_RETIRED` are **not** promoted in this Wave. They are held for the audit-phase L0 sweep per the project owner's "deliberate single-purpose constitutional act" pattern.
+
+## 29. See also
 
 - [S0.1 Action Envelope + Lifecycle](../XX_Cross_Cutting/01_action_envelope_lifecycle.md)
 - [S2.4 Verification Grammar](02_verification_grammar.md)

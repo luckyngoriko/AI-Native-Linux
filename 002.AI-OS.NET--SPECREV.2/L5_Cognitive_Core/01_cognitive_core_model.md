@@ -7,7 +7,7 @@
 | Layer          | L5 Cognitive Core                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
 | Schema package | `aios.cognitive.v1alpha1`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
 | Consumes       | S0.1 (action envelope + lifecycle), S1.1 (capability translator), S1.2 (latency tiering), S1.3 (AIOS-FS object model + PrivacyClass), S2.3 (policy kernel hard-denies), S3.1 (evidence record vocabulary), S4.1 (namespace layout for agent objects), S5.1 (identity model — `SubjectKind = AI_AGENT`, `is_ai`, capability binding scope), S5.2 (vault broker — AI hard-denied from raw secret get), S8.1 (network policy — `AICrossOriginPosture = AI_VAULT_BROKERED_ONLY`), S10.1 (capability runtime gRPC — `ISOLATED_SANDBOX` dispatch, AI-origin queue cap)                              |
-| Produces       | typed `Agent` (with `AgentKind`, `AgentLifecycleState`, `MemoryStore`, `Plan`); closed enums for cognitive task kind, agent kind, lifecycle state, memory class, memory privacy class, plan state, inter-agent message kind, cognitive error code; the **proposing pipeline** as a closed FSM that mechanically enforces INV-002; bounded-cardinality telemetry contract; 18 evidence record types queued for S3.1; new typed actions consumed by S1.1 (`agent.memory.read`, `agent.memory.write`, `agent.coordinate.send`, `agent.grade.attempt`, `agent.plan.submit`, `agent.plan.abandon`) |
+| Produces       | typed `Agent` (with `AgentKind`, `AgentLifecycleState`, `MemoryStore`, `Plan`); closed enums for cognitive task kind, agent kind, lifecycle state, memory class, memory privacy class, plan state, inter-agent message kind, cognitive error code; the **proposing pipeline** as a closed FSM that mechanically enforces INV-002; bounded-cardinality telemetry contract; 19 evidence record types queued for S3.1; new typed actions consumed by S1.1 (`agent.memory.read`, `agent.memory.write`, `agent.coordinate.send`, `agent.grade.attempt`, `agent.plan.submit`, `agent.plan.abandon`) |
 | Binds          | INV-002 (AI proposes, never executes), INV-010 (AI cannot self-approve), INV-011 (cross-group access forbidden), INV-013 (AI cannot perform system admin operations), INV-016 (AI cannot grade its own work), INV-017 (sandbox floor constitutional), INV-018 (vault never leaks raw secrets)                                                                                                                                                                                                                                                                                                 |
 
 ## 1. Purpose
@@ -31,7 +31,7 @@ This spec defines:
 11. The adapter model for cognitive backends (LangGraph, Anthropic API via vault broker, local Ollama, etc.) — framework-neutral.
 12. Adversarial robustness: every named bypass attempt is mapped to its existing enforcement layer.
 13. The bounded-cardinality telemetry contract — agent identifiers never appear as labels.
-14. The 18 evidence record types queued for S3.1 next-Wave consolidation.
+14. The 19 evidence record types queued for S3.1 next-Wave consolidation (including `AGENT_LIFECYCLE_TRANSITIONED` as positive-witness for FSM traversal — §16.1) and the closed `AgentLifecycleTransitionTrigger` enum (§16.2).
 15. The full `aios.cognitive.v1alpha1` gRPC surface used by renderers, the planner, S1.1, and S1.2.
 
 What this spec does **not** define:
@@ -470,6 +470,8 @@ A reasoning system that "tries to remember not to execute" is a system that will
 3. The agent's `BLOCKED_AWAITING_APPROVAL` state has no self-unblock. The unblock signal comes from a policy-decision event delivered via the evidence stream by L9; the agent reads the event but cannot generate it.
 4. INV-002 enforcement is verified by S2.4 property `POLICY_AI_SELF_APPROVAL_BLOCKED` (existing) plus this spec's queued property `AI_PROPOSAL_PIPELINE_INTACT` (queued for S2.4 next-Wave).
 
+Each transition through the proposing pipeline FSM (and through the broader `AgentLifecycleState` graph in §4.3) emits an `AGENT_LIFECYCLE_TRANSITIONED` evidence record (`STANDARD_24M`, queued for S3.1 next-Wave consolidation per §16.1) carrying `(from_state, to_state, transition_trigger, originating_action_id?)`. This converts the previously-implicit FSM traversal into observable evidence; INV-002 site 5 enforcement at C1 (§3) is now verifiable both **by absence** of `FOREVER` bypass records (e.g., `AGENT_DIRECT_FS_WRITE_BLOCKED`, `AGENT_SELF_GRADING_BLOCKED`) **and by presence** of legitimate `AGENT_LIFECYCLE_TRANSITIONED` records — notably the `ACTIVE → BLOCKED_AWAITING_APPROVAL` transition with `transition_trigger = ENVELOPE_EMITTED` carrying the `originating_action_id` of the just-submitted envelope.
+
 ### 6.3 Per-checkpoint evidence
 
 | Pipeline checkpoint               | Evidence record (queued for S3.1)              | Retention    |
@@ -481,6 +483,7 @@ A reasoning system that "tries to remember not to execute" is a system that will
 | Plan bundled and approved         | `AGENT_PLAN_BUNDLED_APPROVED`                  | STANDARD_24M |
 | Plan abandoned                    | `AGENT_PLAN_ABANDONED`                         | EXTENDED_60M |
 | Verification result reasoned over | (no separate record; agent's MEMORY_WRITE)     | n/a          |
+| Every legitimate FSM transition   | `AGENT_LIFECYCLE_TRANSITIONED` (§16.1)         | STANDARD_24M |
 
 ### 6.4 Pipeline-level error mapping
 
@@ -842,7 +845,7 @@ Total active label tuples per metric ≤ 100.
 
 ## 16. Evidence record types (queue for S3.1 next-Wave consolidation)
 
-This sub-spec queues 18 evidence record types for the next S3.1 consolidation pass. Retention class follows S3.1's vocabulary.
+This sub-spec queues 19 evidence record types for the next S3.1 consolidation pass. Retention class follows S3.1's vocabulary. Distribution: **6 `FOREVER`** (bypass attempts and recovery interruptions — permanent forensic value), **5 `EXTENDED_60M`** (operationally significant denials and degradations), **8 `STANDARD_24M`** (high-volume legitimate-flow records).
 
 | RecordType                               | Retention      | Description                                                                                                                                                                               |
 | ---------------------------------------- | -------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -864,6 +867,61 @@ This sub-spec queues 18 evidence record types for the next S3.1 consolidation pa
 | `AGENT_CROSS_GROUP_COORDINATION_BLOCKED` | `FOREVER`      | An agent attempted cross-group coordination; payload: from_group_id, to_group_id, attempt_at.                                                                                             |
 | `AGENT_BACKEND_DEGRADED`                 | `EXTENDED_60M` | A cognitive backend adapter became unavailable and a fallback was activated; payload: adapter_family, fallback_family, reason.                                                            |
 | `AGENT_PROMPT_INJECTION_DETECTED`        | `FOREVER`      | The adversarial-input filter (S1.1 §17.1) fired on an utterance reaching this agent's INTENT_PERCEPTION; payload: agent_canonical_id, redacted_utterance_digest, signal.                  |
+| `AGENT_LIFECYCLE_TRANSITIONED`           | `STANDARD_24M` | Emitted by the L5 cognitive runtime on every legitimate `AgentLifecycleState` transition; positive-witness for FSM traversal. See §16.1 for the full schema and append-authority rules.   |
+
+### 16.1 `AGENT_LIFECYCLE_TRANSITIONED` — full schema
+
+The cognitive proposing pipeline (§6) and the broader agent FSM (§4.3) transit agents through legitimate states such as `ACTIVE → BLOCKED_AWAITING_APPROVAL` after envelope emission. Without a positive-witness record, an auditor can only verify these transitions by **absence** of a bypass record (e.g., `AGENT_DIRECT_FS_WRITE_BLOCKED`). Negative evidence is brittle. The `AGENT_LIFECYCLE_TRANSITIONED` record converts every legitimate transition into observable evidence so INV-002 (and C1 in particular) is verifiable by **both** the absence of bypass records and the presence of legitimate transition records.
+
+**Payload (closed shape):**
+
+| Field                   | Type                              | Notes                                                                                                                            |
+| ----------------------- | --------------------------------- | -------------------------------------------------------------------------------------------------------------------------------- |
+| `agent_canonical_id`    | string                            | Full canonical id of the transitioning agent.                                                                                    |
+| `from_state`            | `AgentLifecycleState`             | Closed enum (§4.3). The pre-transition state.                                                                                    |
+| `to_state`              | `AgentLifecycleState`             | Closed enum (§4.3). The post-transition state.                                                                                   |
+| `transition_trigger`    | `AgentLifecycleTransitionTrigger` | Closed enum (§16.2). What caused the transition.                                                                                 |
+| `originating_action_id` | string (nullable)                 | Populated when the transition is triggered by a typed action's lifecycle event (e.g., the action_id whose approval just landed). |
+| `timestamp`             | int64 (monotonic ns)              | Monotonic timestamp at the moment of transition.                                                                                 |
+
+**Append authority.** The L5 cognitive runtime is the **only** subject permitted to append `AGENT_LIFECYCLE_TRANSITIONED`. Forgery from any other subject is hard-denied at the evidence engine surface (S3.1) and emits `TAMPER_DETECTED` per S3.1's tamper taxonomy.
+
+**Retention.** `STANDARD_24M`. The record is high-volume — typically dozens per agent session — and is compactable per S3.1 §12 if storage pressure dictates. Compaction must preserve at least the count and (from_state, to_state, transition_trigger) histogram per agent_canonical_id over the compacted window.
+
+**Audit value.** Combined with the existing `FOREVER` bypass-attempt records (`AGENT_DIRECT_FS_WRITE_BLOCKED`, `AGENT_SELF_GRADING_BLOCKED`, `AGENT_CROSS_GROUP_COORDINATION_BLOCKED`, `AGENT_INTERRUPTED_BY_RECOVERY`), this record completes the audit chain. INV-002 enforcement at site 5 (C1 in §3) is now verifiable by the conjunction of:
+
+1. **Absence** of bypass records over the window of interest, AND
+2. **Presence** of `AGENT_LIFECYCLE_TRANSITIONED` records whose `(from_state, to_state, transition_trigger)` triples cover the proposing-pipeline path (notably `ACTIVE → BLOCKED_AWAITING_APPROVAL` with `transition_trigger = ENVELOPE_EMITTED`, and `BLOCKED_AWAITING_APPROVAL → ACTIVE` with `transition_trigger ∈ { APPROVAL_RECEIVED, APPROVAL_DENIED, APPROVAL_TIMEOUT }`).
+
+### 16.2 `AgentLifecycleTransitionTrigger`
+
+Closed enum, defined here so §16.1 has a stable referent. New triggers require a sub-spec revision; the cognitive runtime hard-rejects emission of `AGENT_LIFECYCLE_TRANSITIONED` with an unrecognized trigger.
+
+```proto
+enum AgentLifecycleTransitionTrigger {
+  AGENT_LIFECYCLE_TRANSITION_TRIGGER_UNSPECIFIED  = 0;
+  INITIALIZATION_COMPLETE                         = 1;  // INITIALIZING → ACTIVE: capability bindings verified, memory store mounted
+  INTENT_RECEIVED                                 = 2;  // IDLE → ACTIVE on input arrival; or ACTIVE re-entry on a new intent
+  PLAN_DRAFTED                                    = 3;  // internal step; PLANNING completed, ACTION_PROPOSAL_DRAFTING begins
+  ENVELOPE_EMITTED                                = 4;  // ACTIVE → BLOCKED_AWAITING_APPROVAL: SubmitAction call returned to L3
+  APPROVAL_RECEIVED                               = 5;  // BLOCKED_AWAITING_APPROVAL → ACTIVE: policy decision = approved
+  APPROVAL_DENIED                                 = 6;  // BLOCKED_AWAITING_APPROVAL → ACTIVE: policy decision = denied
+  APPROVAL_TIMEOUT                                = 7;  // BLOCKED_AWAITING_APPROVAL → ACTIVE: timeout fired (no auto-resubmit)
+  RESULT_RECEIVED                                 = 8;  // ACTIVE re-entry after VERIFICATION_REASONING completes
+  DEPENDENCY_BLOCKED                              = 9;  // ACTIVE → BLOCKED_AWAITING_DEPENDENCY: waiting on peer agent
+  DEPENDENCY_RESOLVED                             = 10; // BLOCKED_AWAITING_DEPENDENCY → ACTIVE: peer responded
+  VAULT_BLOCKED                                   = 11; // ACTIVE → BLOCKED_AWAITING_VAULT: capability binding pending
+  VAULT_RESOLVED                                  = 12; // BLOCKED_AWAITING_VAULT → ACTIVE: binding issued
+  BACKEND_DEGRADED                                = 13; // any → DEGRADED: primary cognitive backend unreachable, fallback active
+  BACKEND_RECOVERED                               = 14; // DEGRADED → ACTIVE: primary backend reachable again
+  IDLE_INPUT_AWAITED                              = 15; // ACTIVE → IDLE: no further work; awaiting input
+  ABANDONED                                       = 16; // any non-terminal → RETIRING: operator stopped the agent's plan
+  RECOVERY_INTERRUPTED                            = 17; // any non-terminal → RETIRING: recovery_mode = true entered (C10)
+  RETIREMENT_COMPLETE                             = 18; // RETIRING → RETIRED: final memory writes flushed; terminal
+}
+```
+
+A transition emitted with `(from_state, to_state, transition_trigger)` outside the legitimate set defined by §4.3's transition graph is itself a constitutional defect — the runtime must refuse to emit such a record and must instead emit a `TAMPER_DETECTED` per S3.1.
 
 ## 17. Cross-spec dependencies
 
@@ -874,7 +932,7 @@ This sub-spec queues 18 evidence record types for the next S3.1 consolidation pa
 | **S1.2** Latency Tiering          | consumer          | Step 6 of the pipeline; `LATENCY_ROUTING` cognitive task. The router's `REFUSED` outcome maps to a per-task error per §6.4.                                                                                                                                                                                                                |
 | **S1.3** AIOS-FS Object Model     | consumer          | Memory entries are AIOS-FS objects with PrivacyClass; `MemoryPrivacyClass → PrivacyClass` mapping in §4.5.                                                                                                                                                                                                                                 |
 | **S2.3** Policy Kernel            | consumer          | Every typed action in this spec is policy-decided. C2/C3/C4/C5/C6/C7 all bind to existing S2.3 hard-denies.                                                                                                                                                                                                                                |
-| **S3.1** Evidence Log             | producer          | 18 record types queued for next-Wave consolidation (§16). The current `RecordType` total grows by 18 on consolidation.                                                                                                                                                                                                                     |
+| **S3.1** Evidence Log             | producer          | 19 record types queued for next-Wave consolidation (§16), including `AGENT_LIFECYCLE_TRANSITIONED` (§16.1) as positive-witness for FSM traversal. The current `RecordType` total grows by 19 on consolidation.                                                                                                                             |
 | **S4.1** Namespace Layout         | consumer          | Agent objects under `/aios/groups/<g>/agents/<a>/...` and `/aios/groups/<g>/users/<u>/agents/<a>/...`; system agents under `/aios/system/agents/`.                                                                                                                                                                                         |
 | **S5.1** Identity Model           | consumer          | `SubjectKind = AI_AGENT`; `is_ai = true` signed at registration; capability binding scope `(agent_subject_id, home_group_id, identity_bundle_version)`; primary group constraint per S5.1 §6.                                                                                                                                              |
 | **S5.2** Vault Broker             | consumer          | AI subjects hard-denied from `SECRET_GET` regardless of binding (S5.2 I1); use-without-reveal path for external model API keys.                                                                                                                                                                                                            |
@@ -1247,7 +1305,8 @@ This sub-spec is satisfied when an implementation can demonstrate:
 - An attempt by an agent to write directly to AIOS-FS outside the proposing pipeline fails closed with `AGENT_DIRECT_FS_WRITE_BLOCKED` FOREVER evidence.
 - A plan with bundled approval is rejected by `PLAN_BUNDLED_APPROVAL_INELIGIBLE` if any step is hard-denied; per-action approval is allowed for the same plan.
 - Recovery-mode entry transitions all running agents to `RETIRING` and emits `AGENT_INTERRUPTED_BY_RECOVERY` FOREVER for each; post-recovery, agents do not auto-resume.
-- All 18 evidence record types from §16 are emitted under their declared retention classes.
+- All 19 evidence record types from §16 are emitted under their declared retention classes; `AGENT_LIFECYCLE_TRANSITIONED` records cover every legitimate `AgentLifecycleState` transition with a closed `AgentLifecycleTransitionTrigger` (§16.2).
+- C1 / INV-002 site 5 is verifiable by both **absence** of `FOREVER` bypass records and **presence** of `AGENT_LIFECYCLE_TRANSITIONED` records covering the proposing-pipeline path (§16.1).
 - Telemetry from §15 is emitted with bounded label cardinality (≤ 100 active label tuples per metric).
 - All three worked examples from §18 produce the specified outcomes.
 - The proposing pipeline FSM has **no transition** that bypasses `SubmitAction` (verified by static analysis of the cognitive core's transition table).

@@ -1397,6 +1397,115 @@ A new closed-vocabulary RecordType is queued for S3.1 W10:
 
 W9.1 does not modify the L3 lifecycle FSM, the gRPC service surface, the eight-step pre-dispatch, verification, rollback, queue, or AI-share cap. It is a vocabulary delta on the typed-action catalog plus the queued S2.3 + S3.1 cross-spec touch-ups described above.
 
+> **Forward reference (W10):** the W8.3 cumulative narrative total of **32** is superseded by W10 below, which consolidates 9 additional typed actions explicitly queued for S10.1 by Tier 2 sources S15.1 (Unit Manifest) and S15.3 (Adapter Model). The post-W10 cumulative total is **41**. The W8.4.3 "no contribution" list omitted S15.1 and S15.3; that omission is also closed by W10.
+
+## Wave 10 cross-spec touch-up (Cluster 7 — S15.1 + S15.3 missing actions)
+
+Applied 2026-05-11. Sources: [S15.1 §13 cross-spec dependencies row for S10.1](./01_unit_manifest.md), [S15.3 §3.2 / §6.2 / §7 / §8 adapter lifecycle](./04_adapter_model.md). This Wave consolidates the typed action_kinds explicitly declared by S15.1 and S15.3 as **producers to S10.1** that were missed by Wave 8's first-pass cross-spec sweep (Cluster 7 findings CONS-S10-001 from S15.1 line 732 and CONS-S10-002 from S15.3 §6.2 / §7 / §8). It is **additive**: no existing §3 enum, §4 lifecycle, §5 gRPC surface, §10 manifest contract, or §11 queue discipline is redefined. Every action below binds to the existing closed `ActionDispatchKind`, `AdapterIOMode`, and `AdapterStability` vocabulary.
+
+### W10.1 From S15.1 Unit Manifest (5 typed actions — finding CONS-S10-001)
+
+Queued by [S15.1 §13](./01_unit_manifest.md) (the cross-spec dependencies row for S10.1: "unit-level action kinds (`unit.start`, `unit.stop`, `unit.restart`, `unit.health_probe`, `unit.rollback`) referenced by name; full per-action target schemas live in `04_adapter_model.md`"). The five actions form the per-unit dispatch surface used by the SGR-side state machine in S15.1 §4 and the rollback discipline in S15.1 §9. The SGR is itself a system-service subject (`_system:service:sgr`, `is_ai = false`), but the canonical _author_ of `unit.start` / `unit.stop` / `unit.restart` / `unit.rollback` is the operator submitting a desired-state mutation; `unit.health_probe` is internally dispatched by the SGR as a read-only observation under standing approval, hence `AI_SUBJECT_OK` (system-service class — not AI-origin in the INV-002 sense, but admitted under the same propose-only / standing-approval discipline).
+
+| action_kind         | AdapterIOMode           | Permission      | RecordType emissions (S15.1 §10)                                                | Source spec           | Purpose                                                                                                                                                                                                                                                                                                                                                          |
+| ------------------- | ----------------------- | --------------- | ------------------------------------------------------------------------------- | --------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `unit.start`        | `TYPED_PARAMETERS_ONLY` | `HUMAN_USER`    | `UNIT_STARTED` (STANDARD_24M); `UNIT_FAILED` (EXTENDED_60M) on adapter failure  | S15.1 §4.2 + §13      | Operator-initiated SGR unit start; adapter performs the unit's start protocol; transition `STARTING → RUNNING` (S15.1 §4 AT for `STARTING`); failure transitions `STARTING → FAILED` with `ExecutionFailureReason` carried per S10.1 §3.6.                                                                                                                       |
+| `unit.stop`         | `TYPED_PARAMETERS_ONLY` | `HUMAN_USER`    | `UNIT_STOPPED` (STANDARD_24M); `UNIT_FAILED` (EXTENDED_60M) on adapter failure  | S15.1 §4.2 + §13      | Operator-initiated graceful shutdown; transition `STOPPING → STOPPED` on success, `STOPPING → FAILED` on adapter error; carries closed `stop_reason ∈ {OPERATOR, DEPENDENCY_STOP, ROLLBACK, RETIREMENT}`.                                                                                                                                                        |
+| `unit.restart`      | `TYPED_PARAMETERS_ONLY` | `HUMAN_USER`    | `UNIT_STOPPED` then `UNIT_STARTED` (or `UNIT_FAILED` on either leg)             | S15.1 §4.2 + §6 + §13 | Operator-initiated restart; sequenced as `unit.stop` then `unit.start` against the same adapter snapshot; restart-policy-driven internal restarts use the same adapter contract but are SGR-authored and dispatched under the standing restart-policy approval.                                                                                                  |
+| `unit.health_probe` | `TYPED_PARAMETERS_ONLY` | `AI_SUBJECT_OK` | `UNIT_HEALTHY` (STANDARD_24M); `UNIT_DEGRADED` (EXTENDED_60M) on probe warning  | S15.1 §6 + §13        | Read-only health observation dispatched by the SGR under the closed `HealthCheckKind` (HTTP_OK / TCP_PORT / UNIX_SOCKET / FILE_PRESENT / COMMAND_EXIT_ZERO); no state mutation other than the health-state transition; subject is `_system:service:sgr`.                                                                                                         |
+| `unit.rollback`     | `TYPED_PARAMETERS_ONLY` | `HUMAN_USER`    | `UNIT_ROLLBACK_TRIGGERED` (EXTENDED_60M); `UNIT_FAILED` if CAS or adapter fails | S15.1 §9 + §13        | Operator-initiated (or `RollbackTrigger`-driven, internally dispatched by the SGR) S1.3 `PromotePointer` CAS that rolls a unit's `rollback_pointer` back to `expected_current_version_id`; CAS failure emits `UNIT_ROLLBACK_TRIGGERED` with `RollbackOutcome = CAS_FAILED` (S10.1 §3.7). Operator-authored variant requires explicit S5.3 EXACT_ACTION approval. |
+
+All five actions dispatch as `ISOLATED_SANDBOX` per §3.2 (system-service authorship targeting `/aios/...` units). Default `AdapterStability` is the operating stability of the unit's bound adapter — manifest-declared maximum subject to operator promotion via `runtime.adapter.set_stability` (W10.2 below).
+
+### W10.2 From S15.3 Adapter Model (4 typed actions — finding CONS-S10-002)
+
+Queued by [S15.3 §6.2 / §7 / §8](./04_adapter_model.md) (registration discipline at §6.2.5, deregistration at §7.3, retirement at §7.5, stability promotion at §3.2 and §8). All four are operator-class typed actions; AI subjects are hard-denied at envelope validation by the existing S2.3 hard-deny `AISystemAdminBlocked` (INV-013 — adapter-directory mutation is constitutional admin surface).
+
+The fourth row, `runtime.adapter.set_stability`, is **already referenced in S10.1 §3.4 (line 165)** as the operator-only mechanism by which `AdapterStability` transitions occur. Wave 8 did not catalog it because §3.4 declared the mechanism narratively; W10.2 now consolidates it into the explicit cross-spec typed-action catalog so the closed-vocabulary discipline (§3 of this sub-spec) holds end-to-end. **No double-add** — §3.4 retains its narrative reference; this catalog row is the canonical action_kind entry.
+
+| action_kind                     | AdapterIOMode           | Permission   | RecordType emissions (S15.3 §9)                                                                                                                                     | Source spec                  | Purpose                                                                                                                                                                                                                                                                                              |
+| ------------------------------- | ----------------------- | ------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `runtime.adapter.register`      | `TYPED_PARAMETERS_ONLY` | `HUMAN_USER` | `ADAPTER_REGISTRATION_REQUESTED` (STANDARD_24M); `ADAPTER_REGISTERED` on success or `ADAPTER_REGISTRATION_REJECTED` (FOREVER) on any §6.2.1–§6.2.6 failure          | S15.3 §3.2 + §6.2 + §9       | Operator-class registration of a new adapter manifest into the directory. AI-origin attempts hard-denied at envelope validation per S15.3 §6.2 (INV-013). Idempotent on `(adapter_id, adapter_version, manifest_digest)`; same-version different-digest rejected with `MANIFEST_DIGEST_MISMATCH`.    |
+| `runtime.adapter.deregister`    | `TYPED_PARAMETERS_ONLY` | `HUMAN_USER` | `ADAPTER_DEREGISTERED` (EXTENDED_60M) with `reason ∈ {VOLUNTARY, OPERATOR}`                                                                                         | S15.3 §7.3 + §7.4 + §9       | Operator-class voluntary or incident-response withdrawal of an adapter; transition `REGISTERED → DEREGISTERED` (AT9). In-flight actions drain per §7.1.                                                                                                                                              |
+| `runtime.adapter.retire`        | `TYPED_PARAMETERS_ONLY` | `HUMAN_USER` | `ADAPTER_DEREGISTERED` (EXTENDED_60M) with `reason = OPERATOR_RETIRE`; cascades `ADAPTER_REGISTRATION_REJECTED` retroactively if linked to constitutional violation | S15.3 §7.5 + §9              | Operator-class graceful retirement (terminal `RETIRED` state, AT12); typically used as a security-incident response or constitutional-violation forced retirement; refuses all subsequent dispatches.                                                                                                |
+| `runtime.adapter.set_stability` | `TYPED_PARAMETERS_ONLY` | `HUMAN_USER` | (No new RecordType in S15.3 §9; the stability transition is recorded as part of the action lifecycle records ACTION_REGISTERED/EXECUTION_OBSERVED on this kind)     | S10.1 §3.4 + S15.3 §3.2 + §8 | Operator-class promotion or demotion across the closed `AdapterStability` enum (`REGISTERED` ↔ `EXPERIMENTAL` ↔ `STABLE` ↔ `DEPRECATED`; `RETIRED` is terminal and reachable only via `runtime.adapter.retire` or AT12). Already referenced in S10.1 §3.4; W10.2 catalogs it as a typed action_kind. |
+
+All four actions dispatch as `ISOLATED_SANDBOX` per §3.2 (operator authorship targeting `/aios/system/runtime/adapters/...`). The composer floor for the adapter-directory surface is the runtime safety floor per S3.2 §5.4.
+
+### W10.3 Reconciliation (truthful arithmetic)
+
+| Anchor                                    | Count  |
+| ----------------------------------------- | ------ |
+| W8 cumulative (post-W9 split)             | **32** |
+| W10.1 additions (S15.1 unit lifecycle)    | **+5** |
+| W10.2 additions (S15.3 adapter lifecycle) | **+4** |
+| **W10 cumulative**                        | **41** |
+
+Updated permission-class distribution (cumulative across W8 + W9 + W10):
+
+| Subsection                      | HUMAN_USER | AI_SUBJECT_OK | RECOVERY_ONLY | Subtotal |
+| ------------------------------- | ---------- | ------------- | ------------- | -------- |
+| W8.1.1 (S12.1)                  | 1          | 3             | 0             | 4        |
+| W8.1.2 (S9.3)                   | 0          | 2             | 0             | 2        |
+| W8.1.3 (S12.4)                  | 3          | 0             | 0             | 3        |
+| W8.1.4 (S8.3, post-W9)          | 5          | 0             | 1             | 6        |
+| W8.1.5 (S8.4)                   | 7          | 0             | 1             | 8        |
+| W8.1.6 (S8.5)                   | 1          | 0             | 0             | 1        |
+| W8.1.7 (S11.3)                  | 1          | 4             | 0             | 5        |
+| W8.1.8 (S13.2)                  | 2          | 0             | 0             | 2        |
+| W8.1.9 (S9.2)                   | 0          | 0             | 1             | 1        |
+| W10.1 (S15.1 unit lifecycle)    | 4          | 1             | 0             | 5        |
+| W10.2 (S15.3 adapter lifecycle) | 4          | 0             | 0             | 4        |
+| **Totals (post-W10)**           | **28**     | **10**        | **3**         | **41**   |
+
+`HUMAN_USER`: **28 actions** (was 20 post-W9; +8 from W10 — 4 unit-lifecycle operator actions + 4 adapter-lifecycle operator actions).
+`AI_SUBJECT_OK`: **10 actions** (was 9 post-W9; +1 from W10 — `unit.health_probe` system-service dispatch).
+`RECOVERY_ONLY`: **3 actions** (unchanged — W10 introduces no new recovery-mode-only actions).
+
+#### W10.3.1 INV-002 enforcement check
+
+Every W10 action that AI subjects could attempt to author MUST trigger an existing closed-enum reject at the envelope FSM boundary:
+
+| action_kind                                                   | INV-002 / INV-013 enforcement                                                                         | Reject code (closed)                          | Citation                   |
+| ------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------- | --------------------------------------------- | -------------------------- |
+| `unit.start` / `unit.stop` / `unit.restart` / `unit.rollback` | S2.3 hard-deny `AISystemAdminBlocked` for AI-origin authorship attempting unit-state mutation         | `AISystemAdminBlocked` (S2.3 hard-deny class) | S15.1 §13 (L0 row INV-002) |
+| `unit.health_probe`                                           | Read-only; dispatched only by `_system:service:sgr` system-service subject under standing approval    | (n/a — read-only system-service)              | S15.1 §6                   |
+| `runtime.adapter.register` / `deregister` / `retire`          | S2.3 hard-deny `AISystemAdminBlocked` for AI subjects (S15.3 §6.2.5 — registration is operator-class) | `AISystemAdminBlocked`                        | S15.3 §6.2 + §7            |
+| `runtime.adapter.set_stability`                               | Same envelope-FSM rejection — adapter-directory mutation is constitutional admin surface              | `AISystemAdminBlocked`                        | S10.1 §3.4 + S15.3 §3.2    |
+
+Observation: every HUMAN_USER action introduced by W10 is covered by the existing INV-013 hard-deny `AISystemAdminBlocked` at S2.3 envelope validation. No new closed-enum reject code is introduced. The single `AI_SUBJECT_OK` action (`unit.health_probe`) is read-only and authored by the SGR system-service subject — it is not an AI-origin action in the INV-002 sense.
+
+### W10.4 Closing W8.4 audit candidates and "no contribution" omissions
+
+#### W10.4.1 W8.4.4 audit candidate B6 — status
+
+Audit candidate B6 (the `hardware.accept_drift` constitutional-substrate split) was **resolved by Wave 9** (see §W9.1). W10 has no further action on this finding; it is recorded here only to confirm closure for the cross-spec audit trail.
+
+#### W10.4.2 W8.4.3 "no contribution" omission — closure
+
+Wave 8's §W8.4.3 enumerated Tier 2 specs that "queued no typed action for Wave 8" and listed S12.2, S12.3, S7.6, S11.2, S14.1, S14.2. **It omitted S15.1 and S15.3.** That omission was the root cause of Cluster 7 findings CONS-S10-001 (S15.1 — 5 actions) and CONS-S10-002 (S15.3 — 4 actions). W10.1 + W10.2 close the omission by consolidating both source specs into the explicit catalog. The corrected reading of §W8.4.3 is: of the seven Tier 2 specs reachable from this sub-spec's cross-spec footprint, S15.1 and S15.3 **did** queue typed actions for S10.1 — they are now consolidated in W10.
+
+### W10.5 Cross-spec impact
+
+#### W10.5.1 RecordTypes referenced
+
+The eight S15.1 evidence record types (`UNIT_REGISTERED`, `UNIT_STARTED`, `UNIT_HEALTHY`, `UNIT_DEGRADED`, `UNIT_FAILED`, `UNIT_STOPPED`, `UNIT_ROLLBACK_TRIGGERED`, `UNIT_DEPENDENCY_CYCLE_DETECTED`) and the ten S15.3 evidence record types (`ADAPTER_REGISTRATION_REQUESTED`, `ADAPTER_REGISTRATION_REJECTED`, `ADAPTER_REGISTERED`, `ADAPTER_HEALTHY`, `ADAPTER_DEGRADED`, `ADAPTER_ACTION_KIND_VIOLATION`, `ADAPTER_CAPABILITY_VIOLATION`, `ADAPTER_HOT_RELOADED`, `ADAPTER_DOWNGRADE_REJECTED`, `ADAPTER_DEREGISTERED`) referenced by the W10 typed-action catalog rows are either already present in S3.1's closed `RecordType` enum or are queued for absorption by S3.1 W10 (handled separately by Wave 10-A). This sub-spec does not redefine RecordType vocabulary.
+
+#### W10.5.2 S2.4 verification properties
+
+S2.4 property assertions for the W10 actions (e.g. `UNIT_DISPATCH_KIND_INTACT`, `ADAPTER_LIFECYCLE_PERMISSION_INTACT`) are out of scope here — they belong to the W8.4.2 deferred S2.4 property-vocabulary extension, which is owned by Wave 10-B (the S2.4 refinement track). W10 makes no S2.4 commitment beyond what W8 already deferred.
+
+#### W10.5.3 No execution-discipline change
+
+Identically to W8 and W9, this Wave is purely additive against §3 (vocabulary) and the L5 capability catalog. It does not modify §4 (lifecycle FSM), §5 (gRPC service surface), §6 (eight-step pre-dispatch), §7 (verification and rollback), §8 (emergency override), §10 (adapter manifest contract), or §11 (queueing and AI-share cap). Every W10 action is dispatched under the existing FSM and the existing `ISOLATED_SANDBOX` discipline; no new dispatch kind, no new failure reason, no new error code, no new queue class is introduced.
+
+#### W10.5.4 Out of scope (handled by other Wave 10 work tracks)
+
+- **S3.1 RecordType absorption** — owned by Wave 10-A. The S15.1 eight-record set, the S15.3 ten-record set, the W9-queued `HARDWARE_SUBSTRATE_ACCEPT_OUTSIDE_RECOVERY_BLOCKED`, and the W9-queued `HARDWARE_GRAPH_DRIFT_ACCEPTED` are all consolidated there.
+- **S2.4 property extensions** — owned by Wave 10-B.
+- **S9.1 enum touch-ups** — owned by Wave 10-D.
+- **S13.1 cross-references** — owned by Wave 10-E.
+
 ## See also
 
 - [L3 Overview](./00_overview.md)

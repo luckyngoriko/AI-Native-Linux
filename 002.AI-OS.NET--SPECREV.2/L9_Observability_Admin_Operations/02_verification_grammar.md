@@ -877,9 +877,9 @@ Subsection count after S6.3: **4 properties** added in 20.1.1.
 
 #### 20.1.2 From S13.1 (Cognitive Core Model) — one property
 
-| Property name                 | What it asserts                                                                                                                                                                                                                                                                                                                                                                                          | Where measured                                                                                                                                                                                                                   | Severity       | Source spec      |
-| ----------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------- | ---------------- |
-| `AI_PROPOSAL_PIPELINE_INTACT` | For every action whose `subject.is_ai = true`, the lifecycle trace contains exactly one `SubmitAction` envelope edge into L3 and zero direct-execution edges; the agent FSM has no transition that bypasses `SubmitAction`; INV-002 is not merely behaviorally honoured but structurally unreachable to violate. Composes with the existing `POLICY_AI_SELF_APPROVAL_BLOCKED` for full INV-002 coverage. | Scheduled audit + every cognitive-core agent FSM transition. The probe walks the agent's emitted action trace from S3.1 `AGENT_PROPOSAL_EMITTED` chain and asserts no execution-side adapter was reached without `SubmitAction`. | constitutional | S13.1 §6.2 / §11 |
+| Property name                 | What it asserts                                                                                                                                                                                                                                                                                                                                                                                                                                        | Where measured                                                                                                                                                                                                                   | Severity       | Source spec      |
+| ----------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------- | ---------------- |
+| `AI_PROPOSAL_PIPELINE_INTACT` | For every action whose `subject.is_ai = true`, the lifecycle trace contains exactly one `SubmitAction` envelope edge into L3 and zero direct-execution edges; the agent FSM has no transition that bypasses `SubmitAction`; INV-002 is not merely behaviorally honoured but structurally unreachable to violate. Composes with `POLICY_AI_SELF_APPROVAL_BLOCKED` (promoted in Wave 10 §21.1; binds INV-010, S6.4) for full INV-002 + INV-010 coverage. | Scheduled audit + every cognitive-core agent FSM transition. The probe walks the agent's emitted action trace from S3.1 `AGENT_PROPOSAL_EMITTED` chain and asserts no execution-side adapter was reached without `SubmitAction`. | constitutional | S13.1 §6.2 / §11 |
 
 Subsection count after S13.1: **1 property** added in 20.1.2.
 
@@ -984,13 +984,158 @@ Severity distribution of the 6 new properties: **constitutional 5** (`RECEIPT_SI
 - **New L0 invariants (audit-phase):** none promoted in Wave 8. Six candidates queued narrative-only — see §20.5.
 - **New typed actions (S10.1 Wave 8):** none from this S2.4 sweep. The 6 typed actions queued by Wave 7 (S9.3's `kernel.build` / `kernel.refresh` and S12.1's four `app.*` actions) plus the Tier 2 typed-action surfaces (e.g. S15.x SGR transitions, S8.4 DNS/VPN actions, S8.5 firmware actions, S11.2 marketplace, S11.3 external integrations) remain queued for the next S10.1 catalog roll-up — out of scope for this contract.
 - **Sources scanned with NO queued S2.4 contributions:** S9.2 (queues only S3.1 record types and the marker contract; no verification property), S14.1 (consumes S2.4's probe-error/verification-fail distinction; queues no new property), S0.3 (consumes existing S2.4 primitives; queues no new property), S15.1 / S15.2 / S15.3 (consume S2.4 primitive vocabulary for SGR health probes; queue no new property — S15.2 explicitly notes existing primitive names suffice), S13.2 (model router consumes S5.2 / S8.1 / S11.1; no S2.4 production), S12.3 (compatibility runtime consumes named primitives `process_alive` / `port_listening` / `unix_socket_listening` / `dbus_name_acquired` / `wayland_surface_visible` / `manifest_health_endpoint` from S2.4's existing closed catalog; no new property), S12.4 (compatibility knowledge; consumes S3.1 only), S7.6 (CLI renderer; consumes S7.2 + S7.3; no S2.4 production), S8.3 (hardware graph; queues only the L0 invariant candidate `HARDWARE_GRAPH_DRIFT_FOREVER` — caught at §20.5 — and S2.3 condition fields), S8.5 (firmware trust; queues a hardware-drift property via S8.3 and S5.4 NonOverridableClass review; no S2.4 property), S14.2 (telemetry pipeline; consumes S2.4's distinction; queues no S2.4 production), S11.2 (marketplace; consumes S5.3 / S5.4; no S2.4 production), S11.3 (external integrations; consumes S11.1 trust chain; no S2.4 production).
-- **Composition note.** The receipt-integrity properties (20.1.1) compose naturally with the existing `EVIDENCE_LOG_APPEND_ONLY`, `EVIDENCE_HASH_CHAIN_INTACT`, and `STATUS_GRADE_CONSISTENT` properties (§7.1 base 9): a sealed receipt that passes the chain-intact predicate but fails `RECEIPT_SIGNATURE_VERIFIED` is a forgery surface that prior properties did not catch.
+- **Composition note.** The receipt-integrity properties (20.1.1) compose naturally with the existing `EVIDENCE_LOG_APPEND_ONLY` and `EVIDENCE_HASH_CHAIN_INTACT` properties (§7.1 base 9): a sealed receipt that passes the chain-intact predicate but fails `RECEIPT_SIGNATURE_VERIFIED` is a forgery surface that prior properties did not catch. (A previous draft cited `STATUS_GRADE_CONSISTENT` here; that name was a phantom — never defined in §7.1's closed enum — and the reference was deleted in Wave 10 §21.1.)
 
 ### 20.8 IDL reconciliation note
 
 This section is a narrative declaration of the new closed enum entries and primitive messages. Full reconciliation against Appendix A (the consolidated proto IDL) is deferred to the next IDL roll-up, mirroring §17.1 / §18.7 / §19.6. No existing field number is changed; the additions are strictly additive.
 
-## 21. See also
+## 21. Wave 10 cross-spec touch-up (Cluster 6 phantom cleanup + Cluster 7 namespace properties + Wave 9 substrate verification)
+
+Applied 2026-05-11. Sources: [S6.4 Identity & Subject Sessions](../L4_Policy_Identity_Vault/04_identity_subject_sessions.md) (INV-010), [S4.1 W8.4 Namespace Layout](../L2_AIOS_FS/05_namespace_layout.md), [S2.3 Policy Kernel W9](../L4_Policy_Identity_Vault/01_policy_kernel.md), [S9.1 Recovery W9](../L1_Kernel_Bootstrap_Recovery/03_recovery.md), [S5.2 Vault Broker W9](../L4_Policy_Identity_Vault/02_vault_broker.md), [S8.3 Hardware Graph W9](../L8_Network_Hardware_Devices/04_hardware_graph.md), [S8.5 Firmware Trust W9](../L8_Network_Hardware_Devices/06_firmware_trust.md), [S13.1 Cognitive Core Model](../L5_Cognitive_Core/01_cognitive_core_model.md). This section consolidates the Tier 5 audit cleanups (phantom PropertyType references), the S4.1 W8.4 namespace properties delegated to S2.4 but never picked up, and the Wave 9 substrate / first-boot verification properties. It is additive: §17 / §18 / §19 / §20 are not edited beyond the §20.1.2 / §20.7 phantom-citation cleanups described in §21.1. As with prior waves, this is a narrative declaration; full Appendix A IDL reconciliation is deferred to the next IDL roll-up (mirrors §17.1 / §18.7 / §19.6 / §20.8 pattern).
+
+Per L0.4 §3 I1, **invariant catalog mutation is a versioned spec change**: no L0 invariant entries are promoted in Wave 10. The six candidates queued at §20.5 remain queued; Wave 10 adds none new.
+
+### 21.1 Phantom PropertyType cleanup (Cluster 6)
+
+The Tier 5 audit identified two `PropertyType` names cited as "existing" in prior wave sections that were never defined in the closed enum at §7.1. Plus two further citations that name properties not in the enum. Each is resolved either by **PROMOTE** (define formally) or **DELETE** (remove the citation).
+
+| Citation site (pre-Wave-10)                              | Cited name                        | Disposition | Resolution                                                                                              |
+| -------------------------------------------------------- | --------------------------------- | ----------- | ------------------------------------------------------------------------------------------------------- |
+| §20.1.2 line 882 (`AI_PROPOSAL_PIPELINE_INTACT` row)     | `POLICY_AI_SELF_APPROVAL_BLOCKED` | **PROMOTE** | Defined in §21.1.1 below; binds INV-010 (S6.4); Wave 10 closed-enum addition.                           |
+| §20.7 line 987 (Composition note bullet)                 | `STATUS_GRADE_CONSISTENT`         | **DELETE**  | Citation removed; phantom name was not doing semantic work in §20.7.                                    |
+| INV-001 narrative (Wave 9 substrate refs / S9.1 traffic) | `RECOVERY_PATH_INDEPENDENT_OF_L5` | **PROMOTE** | Defined in §21.1.2; distinct from existing `RECOVERY_PATH_BOOTABLE` (bootable ≠ cognition-independent). |
+| INV-018 narrative (S5.2 vault broker traffic)            | `VAULT_NO_RAW_SECRET_LEAK`        | **PROMOTE** | Defined in §21.1.3; binds INV-018 (S5.2 secrets-as-capabilities).                                       |
+
+**Edits applied to prior wave sections:**
+
+- **§20.1.2** (line ~882, `AI_PROPOSAL_PIPELINE_INTACT` row): "Composes with the existing `POLICY_AI_SELF_APPROVAL_BLOCKED` for full INV-002 coverage." → "Composes with `POLICY_AI_SELF_APPROVAL_BLOCKED` (promoted in Wave 10 §21.1; binds INV-010, S6.4) for full INV-002 + INV-010 coverage." The `(existing)` claim is replaced with an explicit Wave-10 promotion citation.
+- **§20.7** (line ~987, Composition note): the three-element list `EVIDENCE_LOG_APPEND_ONLY, EVIDENCE_HASH_CHAIN_INTACT, STATUS_GRADE_CONSISTENT` is reduced to the two-element list `EVIDENCE_LOG_APPEND_ONLY, EVIDENCE_HASH_CHAIN_INTACT`. A trailing parenthetical records that the third name was a phantom and has been deleted in Wave 10 §21.1.
+
+#### 21.1.1 `POLICY_AI_SELF_APPROVAL_BLOCKED` (PROMOTE — binds INV-010, S6.4)
+
+**Statement.** No subject with `is_ai = true` MAY appear in the approval set of an action whose proposing subject equals that same AI subject. Self-approval by an AI subject is structurally impossible: the policy decision MUST be `DENY` with `reason_code = AiSelfApprovalAttempted`.
+
+**What is audited.** For every action receipt in scope: if `proposing_subject.is_ai = true`, assert that `approval_set` does not contain `proposing_subject.subject_canonical_id`; assert that the policy decision trace contains no `APPROVE` edge whose authorizing subject equals the proposing AI subject. Failure emits `TAMPER_DETECTED` (S3.1) with `invariant_id = INV_010_AI_SELF_APPROVAL_BLOCKED`.
+
+**Primitive composition.** Composes the existing `policy.decision` primitive (§4) with `expected_decision = DENY` and `reason_code = AiSelfApprovalAttempted` for the canonical "AI proposes + AI approves" probe action; plus a read-side scan over recent AI-proposed action receipts asserting the structural condition above.
+
+**Severity.** constitutional. **Cadence.** scheduled audit + every AI-proposed action.
+
+#### 21.1.2 `RECOVERY_PATH_INDEPENDENT_OF_L5` (PROMOTE — binds INV-001 cognition-independence)
+
+**Statement.** During recovery boot, the L5 cognitive plane (Cognitive Core service set per S13.1) MUST be `OFFLINE` for the entire recovery window: no agent process running, no model runtime active, no `ai_origin = true` action accepted. This is distinct from the existing `RECOVERY_PATH_BOOTABLE` property (§7.1 entry 7), which asserts that `/aios/recovery` presents a valid recovery image; bootability does not by itself prove cognition-independence.
+
+**What is audited.** For every recovery boundary transition (entry into recovery + exit from recovery): assert `cognitive_core_state = OFFLINE` for every L5 service named in S13.1; assert no action receipt in the recovery window has `proposing_subject.is_ai = true`; assert no model-runtime process is enumerated by S13.1's `CognitiveCoreService.ListAgents`.
+
+**Primitive composition.** Composes `service.inactive` (§4) over each L5 cognitive-core service name (closed list per S13.1) plus a read-side scan of action receipts in the recovery window with the `is_ai` predicate. Failure emits `TAMPER_DETECTED` (S3.1) with `invariant_id = INV_001_RECOVERY_INDEPENDENT_OF_L5`.
+
+**Severity.** constitutional. **Cadence.** every recovery boundary transition + scheduled audit of recovery-window receipts.
+
+#### 21.1.3 `VAULT_NO_RAW_SECRET_LEAK` (PROMOTE — binds INV-018 secrets-as-capabilities)
+
+**Statement.** Every `RAW_REVEAL` request to the L5.2 vault broker MUST be rejected unless ALL three conditions hold simultaneously: (1) the host is in `recovery_mode = true`; (2) a co-signer subject distinct from the requesting subject has signed the reveal request; (3) the policy decision attached to the request carries a `STRONG` approval grade per S2.3. Any reveal that does not satisfy all three is a constitutional violation.
+
+**What is audited.** Read-side audit over the broker's reveal-request log (S5.2): for every `RAW_REVEAL` request, assert the conjunction (recovery_mode ∧ co-signer ∧ STRONG approval) holds; for every successful reveal, assert the same conjunction. Any reveal-success without one of the three conditions emits `TAMPER_DETECTED` (S3.1) with `invariant_id = INV_018_VAULT_NO_RAW_SECRET_LEAK`. The probe MUST NOT request the secret material itself; it inspects only request metadata + decision evidence.
+
+**Primitive composition.** Composes `policy.decision` (§4) for the approval-grade check + `evidence.exists` (§4) for the co-signer signature receipt + a recovery-mode predicate read from S9.1 boot-state evidence.
+
+**Severity.** constitutional. **Cadence.** scheduled audit + every `RAW_REVEAL` request.
+
+### 21.2 Namespace integrity properties (from S4.1 W8.4 delegation)
+
+S4.1 Wave 8.4 delegated three namespace integrity properties to S2.4 (per [S4.1 §12.5](../L2_AIOS_FS/05_namespace_layout.md) refinement note). They were not picked up in Wave 8 of this spec. Wave 10 consolidates them into the closed `PropertyType` enum.
+
+| Property                              | Asserts                                                                                                                                                                                                                                                                                              | Primitive                                      | Severity      |
+| ------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------- | ------------- |
+| `NAMESPACE_NEW_PATHS_ALL_OWNED`       | Every scope path enumerated in S4.1's closed scope-path enum has a declared owner subject in the active namespace catalog; no scope path resolves with `owner_subject_id = NULL`. Run as a scheduled audit + every namespace catalog adoption.                                                       | `aiosfs_path_owner_resolved` (S4.1 §12.5; new) | operational   |
+| `RECOVERY_TREATMENT_BINDING_COMPLETE` | Every scope path enumerated in S4.1's closed scope-path enum has an explicit recovery treatment per [S9.1 RecoveryMutableScope](../L1_Kernel_Bootstrap_Recovery/03_recovery.md); no path resolves with `recovery_treatment = UNDECLARED`. Run on every namespace adoption + every recovery boundary. | `aiosfs_path_recovery_treatment_set` (new)     | operational   |
+| `CATALOG_VERSION_BUMPED_ON_ADOPTION`  | The namespace catalog version label `nscat_<v>` is monotonically bumped on every Wave-N adoption that mutates the closed scope-path enum; a Wave-N adoption with no version bump is a hygiene violation. Run on every catalog adoption event.                                                        | `namespace_catalog_version` (new)              | informational |
+
+The three new primitives (`aiosfs_path_owner_resolved`, `aiosfs_path_recovery_treatment_set`, `namespace_catalog_version`) are queued for the same closed primitive vocabulary as the rest; full IDL roll-up is deferred (mirrors §20.8 pattern). Each binds to a deterministic in-process query against the active namespace catalog (no L4 capability invocation, no AIOS-FS write, no external network).
+
+### 21.3 Wave 9 substrate verification
+
+For W9-A's hardware-substrate condition (S8.3 / S2.3 W9) and W9-D's drift-acceptance wiring (S5.2 W9 vault reseal):
+
+| Property                                 | Asserts                                                                                                                                                                                                                                                                                                   | Primitive                                                                                                                   | Severity       |
+| ---------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------- | -------------- |
+| `HARDWARE_SUBSTRATE_DRIFT_RECOVERY_ONLY` | Any action that accepts a hardware-substrate drift (i.e. `target.is_constitutional_substrate = true`) MUST have `subject.is_recovery_mode = true` at policy-evaluation time; otherwise the policy decision MUST be `RECOVERY_REQUIRED`. Substrate accepts outside recovery are constitutional violations. | `policy.decision` (§4) with `expected_decision = RECOVERY_REQUIRED` for `target.is_constitutional_substrate = true` actions | constitutional |
+| `VAULT_RESEAL_OUTSTANDING_REPORTED`      | If a `VAULT_TPM_RESEAL_REQUIRED` evidence record was emitted by S5.2 (W9 reseal-required signal), then an L9.1 status indicator surfaces `VAULT_RESEAL_PENDING` in the operator console until a matching `VAULT_TPM_RESEAL_COMPLETED` record is sealed. No silent drift.                                  | `status_indicator_visible` (new; queued S9.1.x admin surface)                                                               | operational    |
+
+**Probe procedure for `HARDWARE_SUBSTRATE_DRIFT_RECOVERY_ONLY`.** The verifier scans recent action receipts (window per §11) for actions where the policy-evaluation context shows `target.is_constitutional_substrate = true`; for each, asserts the policy decision trace contains a `RECOVERY_REQUIRED` decision when `subject.is_recovery_mode = false`. A receipt showing `ACCEPT` outside recovery emits `TAMPER_DETECTED` (S3.1) with `invariant_id = INV_HARDWARE_SUBSTRATE_DRIFT_RECOVERY_ONLY` (candidate; not yet promoted to L0).
+
+**Probe procedure for `VAULT_RESEAL_OUTSTANDING_REPORTED`.** The verifier joins S3.1 receipts of type `VAULT_TPM_RESEAL_REQUIRED` (from S5.2 W9) against S3.1 receipts of type `VAULT_TPM_RESEAL_COMPLETED`; for every unmatched `_REQUIRED` receipt, asserts the L9.1 admin status surface (queried via `status_indicator_visible(VAULT_RESEAL_PENDING)`) is currently visible. Failure emits the regular S9.1 status-drift record.
+
+### 21.4 Wave 9 first-boot verification
+
+For W9-B's `RecoveryMode.FIRST_BOOT` (S9.1 W9 + S9.2 §3.2.8):
+
+| Property                                           | Asserts                                                                                                                                                                                                                                                                                                                                                   | Primitive                                                                                                                   | Severity       |
+| -------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------- | -------------- |
+| `FIRST_BOOT_MODE_BOUNDED`                          | `subject.is_first_boot = true` is set ONLY for the canonical first-boot service subjects enumerated in S9.2 §3.2.8 (closed list); ONLY during the `FIRST_BOOT` recovery-mode window (between recovery-image first mount and first-boot-marker write); and self-extinguishes at marker write — no subject session has `is_first_boot = true` after marker. | `subject_session_flag_state` (new) with `(subject_id, flag_name = is_first_boot, expected_state)` predicate                 | operational    |
+| `FIRST_BOOT_MODE_MUTUALLY_EXCLUSIVE_WITH_RECOVERY` | No subject session has both `is_first_boot = true` AND `is_recovery_mode = true` simultaneously; the two recovery-mode flavours are mutually exclusive states by S9.1 W9 design. A session showing both is a constitutional violation.                                                                                                                    | `subject_session_flag_state` (new) with conjunction-predicate `(is_first_boot = true) ∧ (is_recovery_mode = true) → FAILED` | constitutional |
+
+**Probe procedure for `FIRST_BOOT_MODE_BOUNDED`.** The verifier reads the active subject-session table from S6.4 (identity service); for each session with `is_first_boot = true`, asserts `subject_canonical_id ∈ S9.2 §3.2.8 closed first-boot service set` and asserts the marker file (S9.1 first-boot marker path) is absent. After marker write, scans for any lingering `is_first_boot = true` session — any match emits `TAMPER_DETECTED` (S3.1) with `invariant_id = INV_FIRST_BOOT_MODE_BOUNDED` (candidate; not yet promoted to L0).
+
+**Probe procedure for `FIRST_BOOT_MODE_MUTUALLY_EXCLUSIVE_WITH_RECOVERY`.** The verifier scans the active subject-session table for any session with both flags set; any match is an immediate `FAILED` and emits `TAMPER_DETECTED` (S3.1) with `invariant_id = INV_FIRST_BOOT_RECOVERY_MUTEX` (candidate; not yet promoted to L0).
+
+The new primitive `subject_session_flag_state` is queued for the closed primitive vocabulary; full IDL roll-up is deferred (mirrors §20.8 pattern). It binds to a deterministic in-process read of the S6.4 subject-session table; no L4 capability invocation, no AIOS-FS write, no external network.
+
+### 21.5 No execution-discipline change
+
+All Wave 10 additions obey existing execution rules: read-only, no L4 capability invocation (the `VAULT_NO_RAW_SECRET_LEAK` probe inspects request metadata + decision evidence only — it never requests the secret material), no AIOS-FS writes, no outbound network traffic generated by the probe itself. The substrate-drift verifier reads sealed action receipts; the first-boot verifiers read the S6.4 subject-session table; the namespace integrity verifiers query the active namespace catalog in-process.
+
+### 21.6 Reconciliation (truthful arithmetic)
+
+Total properties added in Wave 10:
+
+- §21.1 promotions: `POLICY_AI_SELF_APPROVAL_BLOCKED`, `RECOVERY_PATH_INDEPENDENT_OF_L5`, `VAULT_NO_RAW_SECRET_LEAK` = **3**
+- §21.2 namespace integrity: `NAMESPACE_NEW_PATHS_ALL_OWNED`, `RECOVERY_TREATMENT_BINDING_COMPLETE`, `CATALOG_VERSION_BUMPED_ON_ADOPTION` = **3**
+- §21.3 substrate: `HARDWARE_SUBSTRATE_DRIFT_RECOVERY_ONLY`, `VAULT_RESEAL_OUTSTANDING_REPORTED` = **2**
+- §21.4 first-boot: `FIRST_BOOT_MODE_BOUNDED`, `FIRST_BOOT_MODE_MUTUALLY_EXCLUSIVE_WITH_RECOVERY` = **2**
+- **Wave 10 property additions: 10**
+
+Phantom citation deletions in Wave 10:
+
+- §20.1.2 `POLICY_AI_SELF_APPROVAL_BLOCKED (existing)` reference replaced with explicit Wave-10 promotion citation.
+- §20.7 `STATUS_GRADE_CONSISTENT` citation deleted from Composition note bullet.
+- **Phantom citation cleanups: 2 (1 replace + 1 delete).**
+
+New cumulative `PropertyType` enum count: 22 (post-Wave 8) + 10 (Wave 10) = **32 entries**.
+
+Severity distribution of the 10 new properties:
+
+- **constitutional 5:** `POLICY_AI_SELF_APPROVAL_BLOCKED`, `RECOVERY_PATH_INDEPENDENT_OF_L5`, `VAULT_NO_RAW_SECRET_LEAK`, `HARDWARE_SUBSTRATE_DRIFT_RECOVERY_ONLY`, `FIRST_BOOT_MODE_MUTUALLY_EXCLUSIVE_WITH_RECOVERY`.
+- **operational 4:** `NAMESPACE_NEW_PATHS_ALL_OWNED`, `RECOVERY_TREATMENT_BINDING_COMPLETE`, `VAULT_RESEAL_OUTSTANDING_REPORTED`, `FIRST_BOOT_MODE_BOUNDED`.
+- **informational 1:** `CATALOG_VERSION_BUMPED_ON_ADOPTION`.
+
+Total primitives queued by Wave 10 (narrative-only, IDL roll-up deferred):
+
+- §21.2: `aiosfs_path_owner_resolved`, `aiosfs_path_recovery_treatment_set`, `namespace_catalog_version` = **3**
+- §21.3: `status_indicator_visible` = **1**
+- §21.4: `subject_session_flag_state` = **1**
+- **Wave 10 primitive additions: 5** (queued for IDL roll-up).
+
+New cumulative primitive vocabulary count after Wave 10: 27 (post-Wave 8) + 5 (Wave 10) = **32 entries**.
+
+### 21.7 Cross-spec impact
+
+- **New L0 invariants candidate from this Wave:** none new. The six candidates queued at §20.5 still queued for the audit-phase L0 sweep. Three Wave 10 properties (`POLICY_AI_SELF_APPROVAL_BLOCKED`, `RECOVERY_PATH_INDEPENDENT_OF_L5`, `VAULT_NO_RAW_SECRET_LEAK`) verify L0 invariants that already exist in the L0.4 catalog (INV-010, INV-001, INV-018 respectively); they are new verifiers, not new invariants. The two Wave 9 substrate / first-boot verifiers and the first-boot mutex carry candidate `invariant_id` labels (`INV_HARDWARE_SUBSTRATE_DRIFT_RECOVERY_ONLY`, `INV_FIRST_BOOT_MODE_BOUNDED`, `INV_FIRST_BOOT_RECOVERY_MUTEX`) that are NOT promoted in Wave 10 and are eligible for the audit-phase L0 sweep alongside the §20.5 set.
+- **New typed actions:** handled by S10.1 W10 (out of scope here).
+- **New RecordTypes for verification failures:** handled by S3.1 W10 (out of scope here). Wave 10 verifiers reuse the existing `TAMPER_DETECTED` S3.1 record type for constitutional-severity failures.
+- **S9.1 RecoveryMutableScope:** handled by S9.1 W10 (out of scope here). The `RECOVERY_TREATMENT_BINDING_COMPLETE` property reads the S9.1 recovery-treatment table once defined.
+- **S13.1 emission code:** handled by S13.1 W10 (out of scope here). The `AI_PROPOSAL_PIPELINE_INTACT` property (already in §20.1.2) composes with `POLICY_AI_SELF_APPROVAL_BLOCKED` per the Wave 10 §21.1 cleanup.
+
+### 21.8 Telemetry impact
+
+The 10 new property entries contribute closed enum labels to `verification_property_audit_total{property_type}`; the closed enum is now **32 entries** — within the cardinality budget declared in §14. The 5 new primitive entries contribute closed labels to `verification_total{primitive}` and `verification_latency_seconds{primitive}`; the closed primitive set is now **32 entries** — within budget. No new telemetry metric is introduced.
+
+### 21.9 IDL reconciliation note
+
+This section is a narrative declaration of the new closed enum entries and primitive messages. Full reconciliation against Appendix A (the consolidated proto IDL) is deferred to the next IDL roll-up, mirroring §17.1 / §18.7 / §19.6 / §20.8. No existing field number is changed; the additions are strictly additive. Wave 10 queues 10 PropertyType enum entries and 5 primitive messages for the IDL roll-up.
+
+## 22. See also
 
 - [S0.1 Action Envelope + Lifecycle](../XX_Cross_Cutting/01_action_envelope_lifecycle.md)
 - [S3.1 Evidence Log](01_evidence_log.md)

@@ -939,7 +939,96 @@ Two counters added with bounded labels:
 
 The L0 invariant catalog currently terminates at INV-018. INV-019..022 are reserved labels in the renderer / GPU work but their promotion into the L0 catalog (with golden-fixture enforcement and §26-style constitutional status) is queued for the next L0 revision. Until then, the §27.2 hard-denies serve as the operational floor.
 
-## 28. See also
+## 28. Wave 6 cross-spec touch-up (S8.1 network policy condition consolidation)
+
+Applied 2026-05-11. Source: [S8.1 §4.2 `OutboundDirective`, §4.3 `InboundExposureClass`, §4.9 `AICrossOriginPosture`](../L8_Network_Hardware_Devices/02_network_policy.md), [S8.1 §11.1 cross-spec follow-up queue](../L8_Network_Hardware_Devices/02_network_policy.md). This section consolidates the three closed condition fields raised by S8.1 (network policy) into the Policy Kernel conditions vocabulary so that bundle authors can author rules that reason about the active outbound directive, the AI cross-origin posture, and the inbound exposure class declared in an action's target. Wave 6 is condition-field-only; no new constitutional hard-deny is introduced here.
+
+### 28.1 Three new closed condition fields
+
+The conditions vocabulary (§9) — which holds **23 fields** after the §27 Wave 5 touch-up — gains three new typed fields. All are closed; bundle load fails on unknown fields.
+
+| Namespace | Field                                | Type                                         | Operators       |
+| --------- | ------------------------------------ | -------------------------------------------- | --------------- |
+| `subject` | `subject.network_outbound_directive` | `aios.network.v1alpha1.OutboundDirective`    | `=`, `!=`, `in` |
+| `subject` | `subject.ai_external_posture`        | `aios.network.v1alpha1.AICrossOriginPosture` | `=`, `!=`, `in` |
+| `target`  | `target.exposure_class`              | `aios.network.v1alpha1.InboundExposureClass` | `=`, `!=`, `in` |
+
+The conditions vocabulary now holds **26 fields** (12 base + 5 namespace + 6 Wave 5 + 3 Wave 6).
+
+### 28.2 Per-field semantics and example rule snippets
+
+#### 28.2.1 `subject.network_outbound_directive`
+
+Exposes the active `OutboundDirective` (per [S8.1 §4.2](../L8_Network_Hardware_Devices/02_network_policy.md)) bound to the subject's session at evaluation time. The value reflects the **effective** directive after most-restrictive-wins composition with the host posture (S8.1 §3.1) and the sandbox `NetworkMode` (S8.1 §5.2), not the raw subject-level grant. Bundle authors can use it to gate actions whose semantics depend on the subject's outbound reach.
+
+Illustrative rule snippet:
+
+```text
+IF request.action = "external_model_call"
+   AND subject.network_outbound_directive = "DENY_ALL"
+THEN DENY with code = OutboundDirectiveContradictsAction
+```
+
+This catches a misconfigured agent attempting an external call without a corresponding outbound grant — the action is denied at the policy layer before L8 ever evaluates the connection.
+
+#### 28.2.2 `subject.ai_external_posture`
+
+Exposes the closed `AICrossOriginPosture` (per [S8.1 §4.9](../L8_Network_Hardware_Devices/02_network_policy.md)) for AI subjects. Bundle authors can use it to author rules whose effect varies with the subject's AI network discipline. The field is only meaningful when `subject.is_ai = true`; for non-AI subjects the field is unset and predicates against it evaluate to `false`.
+
+Illustrative rule snippet:
+
+```text
+IF subject.is_ai = true
+   AND subject.ai_external_posture = "AI_NO_EXTERNAL"
+   AND target.host != "loopback"
+THEN DENY with code = AINoExternalContradictsTarget
+```
+
+A complementary rule captures the brokered-only posture: when `subject.ai_external_posture = "AI_VAULT_BROKERED_ONLY"`, the action's target must reference a vault capability handle (per S8.1 §5.7); a target naming a free destination is denied.
+
+#### 28.2.3 `target.exposure_class`
+
+Exposes the closed `InboundExposureClass` (per [S8.1 §4.3](../L8_Network_Hardware_Devices/02_network_policy.md)) declared in the action's target when the action is an exposure-grant request (e.g., `network.request_exposure`). The field is only populated for exposure-grant action families; for other actions predicates against it evaluate to `false`. Bundle authors use it to express the constitutional discipline that LAN and PUBLIC grants demand stronger approval gates than LOOPBACK.
+
+Illustrative rule snippets:
+
+```text
+IF request.action = "network.request_exposure"
+   AND target.exposure_class = "PUBLIC"
+THEN REQUIRE_APPROVAL
+WITH approval.strength = "DUAL"
+   AND approval.recovery_mode = true
+   AND approval.require_human_co_signer = true
+```
+
+```text
+IF request.action = "network.request_exposure"
+   AND target.exposure_class = "LAN"
+THEN REQUIRE_APPROVAL
+WITH approval.strength = "STRONG"
+```
+
+LOOPBACK exposure-grants are the constitutional default and require no scoped REQUIRE_APPROVAL rule (they pass §5 step 5 with default constraints).
+
+### 28.3 Cross-spec dependency table addition (narrative-only)
+
+S2.3 gains S8.1 as an upstream type producer for Wave 6: S8.1 owns the `OutboundDirective`, `AICrossOriginPosture`, and `InboundExposureClass` enum definitions, and S2.3 is the consumer that references them in its conditions vocabulary. Downstream, S5.3 (approval mechanics, deferred) is already a consumer of `target.exposure_class` for the LAN/PUBLIC-grant approval-strength path described in §28.2.3 — Wave 6 closes the loop between the policy-rule side and the approval-delivery side. Cross-cutting, S2.1 (query/view language) already gained equivalent query-side fields in Wave 5; the policy-kernel side now matches the query side, so audit queries written in S2.1 syntax and policy rules written in S2.3 syntax can both reason about the same triple of network-posture fields without translation.
+
+The §24 cross-spec dependency table is updated narratively here; the IDL block in Appendix A is **not** modified in this wave (IDL reconciliation is deferred per the §27 pattern).
+
+### 28.4 Adversarial robustness note
+
+A policy bundle whose rules reference these three new fields with operator/type mismatches fails bundle compilation per §17 — for example, comparing `OutboundDirective` with a string literal that is not a member of the enum (`subject.network_outbound_directive = "OPEN"`) produces `InvalidPolicyBundle` with `reason = "enum_value_not_in_closed_set"`; comparing `target.exposure_class` with a numeric literal produces `InvalidPolicyBundle` with `reason = "type_mismatch"`. The closed-vocabulary contract holds: a bundle author cannot smuggle an unbounded string into the enum slot, and the engine will not run a bundle whose rules cannot be statically type-checked against the §28.1 schema.
+
+### 28.5 Hard-deny ordering note
+
+The §26.3 / §27.3 hard-deny chain ordering is **unchanged**. The three new fields are condition fields, NOT new hard-denies. Bundle rules are free to use them in regular ALLOW / DENY / REQUIRE_APPROVAL clauses, but no new constitutional hard-deny is introduced in Wave 6. This binds to the discipline established in DEC-025 and DEC-026: each L0 INV addition is a deliberate, single-purpose act with explicit promotion criteria; Wave 6 does not piggyback an L0 invariant on a vocabulary expansion. The L0 invariant candidate `NETWORK_DEFAULT_DENY_OUTBOUND` queued by S8.1 §3.4 is a separate L0 sweep and is **out of scope** here.
+
+### 28.6 Telemetry impact note
+
+The §27.4 telemetry counters' label sets are unchanged. The three new fields are condition fields, not decision codes — they affect rule matching but do not introduce new `reason_code` values, new `policy_id` hard-deny labels, or new bounded label dimensions on existing counters. The bundle compilation result counter `policy_bundle_load_total{result}` is unchanged: a Wave 6 bundle that uses the new fields correctly loads with `result = "loaded"`; a Wave 6 bundle with the §28.4 type mismatches loads with `result = "rejected"` against the existing label set.
+
+## 29. See also
 
 - [S0.1 Action Envelope + Lifecycle](../../002.AI-OS.NET--SPECREV.2/XX_Cross_Cutting/01_action_envelope_lifecycle.md)
 - [S1.3 Object Model](../L2_AIOS_FS/01_object_model.md)

@@ -735,7 +735,126 @@ Status semantics for all eight primitives:
 
 All eight primitives obey existing execution rules: read-only, no L4 capability invocation, no AIOS-FS writes, no external network beyond the local renderer / GPU subsystem queries. None of them performs an HTTP probe — `web_renderer_bound_to` is a local socket / kernel state inspection, not an outbound HTTP request. This avoids feedback loops where a verification probe is itself counted as renderer traffic.
 
-## 19. See also
+## 19. Wave 6 cross-spec touch-up (L0 INV-023/024 + S8.1 network primitive consolidation)
+
+Applied 2026-05-11. Sources: [L0.4 INV-023 / INV-024](../L0_Governance_Evidence_Safety/04_invariants.md), [S8.1 Network Policy](../L8_Network_Hardware_Devices/02_network_policy.md). This section consolidates the two L0-promoted invariants from DEC-026 (`CHROME_ZONE_RESERVED`, `GPU_COMPUTE_GATED`) and the three S8.1 network primitives queued at §11.1 of S8.1, into the closed S2.4 vocabulary. It is additive: §17 and §18 are not edited.
+
+### 19.1 Two new properties — INV-023 + INV-024 enforcement
+
+The closed `PropertyType` enum (§7.1) gains two further constitutional invariants. After this addition the enum holds **16 entries** total (the original 9 base + 1 namespace touch-up + 4 Wave 5 + 2 Wave 6).
+
+| Property               | Verifies                                                        | Cadence                                            |
+| ---------------------- | --------------------------------------------------------------- | -------------------------------------------------- |
+| `CHROME_ZONE_RESERVED` | [L0 INV-023](../L0_Governance_Evidence_Safety/04_invariants.md) | scheduled audit + every surface composition commit |
+| `GPU_COMPUTE_GATED`    | [L0 INV-024](../L0_Governance_Evidence_Safety/04_invariants.md) | scheduled audit + every GPU compute submission     |
+
+#### `CHROME_ZONE_RESERVED`
+
+**Statement.** Every active surface assigned to `CompositionZone = CHROME` is authored by the AIOS chrome system identity (`subject_id = aios_chrome`) and has `surface_kind = AIOS_SURFACE`; no AI subject appears as author for any CHROME-zone node.
+
+**What is audited.**
+
+- Active surface set from [S7.1 SurfaceService.ListSurfaces](../L7_Interaction_Renderers/01_surface_composition.md): for every surface with `zone = CHROME`, assert `surface_kind = AIOS_SURFACE`.
+- L7.2 schema-tree author chain: for every node positioned in CHROME, assert `is_ai_origin = false` and the signing identity equals `aios_chrome`.
+- Any active `APP_SURFACE` or `STREAM_SURFACE` resolved to `zone = CHROME` is an immediate fail.
+
+**How.**
+
+- Composes the existing `surface_in_zone` primitive (Wave 5, §18.2) with a new audit query against the active surface set; the property iterates surfaces and applies the predicate per node.
+- Author chain is read from the L7.2 composition trace; signer identity is matched against the L4 system-identity registry.
+- A failed run emits `TAMPER_DETECTED` evidence (S3.1) with `invariant_id = INV_023_CHROME_ZONE_RESERVED` and the offending `(surface_id, subject_id, zone, surface_kind)` tuple in `detection_method`.
+
+#### `GPU_COMPUTE_GATED`
+
+**Statement.** Every active GPU submission with `GpuCapabilityClass = GPU_COMPUTE_HEAVY` has a live `gpu.compute_heavy` capability binding for the submitting subject; absence is a violation.
+
+**What is audited.**
+
+- Active GPU bindings from [S8.2 GpuResourceService.ListBindings](../L8_Network_Hardware_Devices/05_gpu_resource_model.md): for every binding with `capability_class = GPU_COMPUTE_HEAVY`, assert there exists an L4 capability binding with `capability_id = gpu.compute_heavy` on the same `(subject_id, group_id)` and `state = ACTIVE`.
+- Active compute submissions: each must map to one of the asserted bindings.
+- Any unbacked submission (binding present, capability absent or expired) is an immediate fail.
+
+**How.**
+
+- Composes the existing `gpu_binding_class` primitive (Wave 5, §18.2) with a new query against the L4 capability catalog; cite [L4.3 IssueCapabilityBinding](../L4_Policy_Identity_Vault/01_policy_kernel.md) for the binding lifecycle.
+- The cross-check is `(submission.subject, submission.group)` ⋈ L4 `capability_id = gpu.compute_heavy` on `state = ACTIVE`.
+- A failed run emits `TAMPER_DETECTED` evidence (S3.1) with `invariant_id = INV_024_GPU_COMPUTE_GATED` and the offending `(binding_id, subject_id, capability_state)` tuple in `detection_method`.
+
+Both properties are constitutional checks. Each is run as a scheduled audit (per §11) and at every constitutional event (CHROME composition commit / GPU compute submission). Neither performs a mutation; both read-only.
+
+### 19.2 Three new primitives — S8.1 network probes
+
+The closed primitive vocabulary (§4) gains three further read-only entries. After this addition the vocabulary holds **24 entries** total (the original 12 + 1 namespace touch-up + 8 Wave 5 + 3 Wave 6). Field numbers below continue the §3 oneof numbering; this is a narrative declaration — full IDL reconciliation deferred (mirrors §18.7 / §17.1 pattern).
+
+```proto
+// from S8.1 — returns the active outbound directive + AI cross-origin posture for a subject
+message NetworkSubjectOutboundClassPrimitive {
+  string subject_id = 1;
+  aios.network.v1alpha1.OutboundDirective expected_directive = 2;       // optional
+  aios.network.v1alpha1.AICrossOriginPosture expected_ai_posture = 3;   // optional, AI subjects only
+}
+
+// from S8.1 — returns the active inbound exposure class for a surface (NONE if no exposure)
+message NetworkActiveExposureClassPrimitive {
+  string surface_id = 1;
+  aios.network.v1alpha1.InboundExposureClass expected_class = 2;
+}
+
+// from S8.1 — guardrail: every external-model call by subject is broker-mediated
+message NetworkExternalModelCallBrokeredOnlyPrimitive {
+  string subject_id = 1;
+}
+```
+
+| Primitive                                   | Field | Required args                                                               | Observed data on success                                                                         |
+| ------------------------------------------- | ----- | --------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------ |
+| `network_subject_outbound_class`            | 23    | `subject_id`, optional `expected_directive`, optional `expected_ai_posture` | `{ observed_directive, observed_ai_posture, host_posture, is_ai }`                               |
+| `network_active_exposure_class`             | 24    | `surface_id`, `expected_class`                                              | `{ observed_class, exposure_grant_id, ttl_remaining, web_exposure_state, drift_detected: bool }` |
+| `network_external_model_call_brokered_only` | 25    | `subject_id`                                                                | `{ brokered_calls, direct_attempts, denied_evidence_receipt_ids[] }`                             |
+
+**Statements and backend probe procedures.**
+
+- **`network_subject_outbound_class(subject_id)`** — returns the active `OutboundDirective` (closed enum, [S8.1 §4.2](../L8_Network_Hardware_Devices/02_network_policy.md)) and `AICrossOriginPosture` (closed enum, [S8.1 §4.9](../L8_Network_Hardware_Devices/02_network_policy.md)) for a given subject. The probe queries L8.1 `NetworkPolicyService.ListActiveOutbound` filtered by subject and correlates with the subject's `is_ai` flag from L4.3 identity. Composes with S2.3 condition fields `subject.network_outbound_directive` and `subject.ai_external_posture`.
+
+- **`network_active_exposure_class(surface_id)`** — returns the active `InboundExposureClass` (closed enum, [S8.1 §4.3](../L8_Network_Hardware_Devices/02_network_policy.md)) for the surface, or `NONE` if no exposure is active. The probe queries L8.1 `NetworkPolicyService.ListActiveExposures` filtered by `surface_id`, then cross-references with L7.5 `WebExposureState` (closed enum, [S7.5](../L7_Interaction_Renderers/05_web_renderer.md)). Drift between renderer-side and network-side state is reported as `PROBE_ERROR` with a reconciliation hint in `reason_message`.
+
+- **`network_external_model_call_brokered_only(subject_id)`** — returns true iff every external-model call observed by L8.1 for the subject is mediated through the [L4.2 vault broker](../L4_Policy_Identity_Vault/01_policy_kernel.md); false if ANY direct outbound to an external-model endpoint (matching the closed `provider` label list, [S8.1 §L](../L8_Network_Hardware_Devices/02_network_policy.md)) is observed for the subject. The probe correlates `EXTERNAL_MODEL_CALL_BROKERED` and `AI_DIRECT_INTERNET_DENIED` evidence receipts for the subject; any direct attempt evidences a violation. This is a guardrail-class primitive enforcing the AI external-call canonical pattern from S8.1 §J + INV-002 (the network analog of "AI proposes, never executes").
+
+**Status semantics for all three primitives:**
+
+- `PASSED` — observation matches the expected predicate (or the guardrail predicate evaluates to `true`).
+- `FAILED` — observation succeeds but disagrees with the expected predicate (or the guardrail predicate is `false`).
+- `PROBE_ERROR` — `NetworkPolicyService` unavailable, schema-version mismatch, or renderer/network-state drift detected for `network_active_exposure_class`.
+- `TIMEOUT` — observation did not return within the per-primitive timeout (default 1 s, max 5 s — these are local socket / kernel state queries; the broker-only primitive's default is 2 s, max 10 s as it scans recent evidence).
+- `SKIPPED` — primitive evaluated under a composition that short-circuited before reaching it.
+
+### 19.3 No execution-discipline change
+
+All three primitives obey existing execution rules: read-only, no L4 capability invocation, no AIOS-FS writes, no outbound network traffic generated by the probe itself. None opens a new connection — `network_subject_outbound_class` and `network_active_exposure_class` read L8.1 service state; `network_external_model_call_brokered_only` reads sealed evidence segments. This avoids feedback loops where a verification probe is itself counted as subject network traffic.
+
+### 19.4 Wave 6 dependency note
+
+Adds to the §15 cross-spec dependency surface (no edit to §15):
+
+| Spec       | Direction | Wave 6 contribution                                                                                                                           |
+| ---------- | --------- | --------------------------------------------------------------------------------------------------------------------------------------------- |
+| L0 INV-023 | consumer  | `CHROME_ZONE_RESERVED` property produced (verifier of INV-023)                                                                                |
+| L0 INV-024 | consumer  | `GPU_COMPUTE_GATED` property produced (verifier of INV-024)                                                                                   |
+| S8.1       | consumer  | Three new primitives produced: `network_subject_outbound_class`, `network_active_exposure_class`, `network_external_model_call_brokered_only` |
+| S7.1       | consumer  | `surface_in_zone` (Wave 5, §18.2) is composed into `CHROME_ZONE_RESERVED`; no new primitive                                                   |
+| S8.2       | consumer  | `gpu_binding_class` (Wave 5, §18.2) is composed into `GPU_COMPUTE_GATED`; no new primitive                                                    |
+| L4.3       | consumer  | `GPU_COMPUTE_GATED` reads the L4 capability binding state for `gpu.compute_heavy`; no mutation                                                |
+| L4.2       | consumer  | `network_external_model_call_brokered_only` reads vault-broker mediation evidence; no broker invocation                                       |
+
+### 19.5 Telemetry impact
+
+The two new property entries contribute closed enum labels to `verification_property_audit_total{property_type}`; the closed enum is now **16 entries** — within the cardinality budget declared in §14. The three new primitive entries contribute closed labels to `verification_total{primitive}` and `verification_latency_seconds{primitive}`; the closed primitive set is now **24 entries** — within budget. No new telemetry metric is introduced.
+
+### 19.6 IDL reconciliation note
+
+This section is a narrative declaration of the new closed enum entries and primitive messages. Full reconciliation against Appendix A (the consolidated proto IDL) is deferred to the next IDL roll-up, mirroring §18.7 and §17. No existing field number is changed; the additions are strictly additive.
+
+## 20. See also
 
 - [S0.1 Action Envelope + Lifecycle](../XX_Cross_Cutting/01_action_envelope_lifecycle.md)
 - [S3.1 Evidence Log](01_evidence_log.md)

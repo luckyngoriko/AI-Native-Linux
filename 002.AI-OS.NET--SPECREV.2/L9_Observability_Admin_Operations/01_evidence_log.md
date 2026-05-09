@@ -822,19 +822,182 @@ Forgery from any other subject is hard-denied at the engine surface and emits a 
 
 Per-`record_type` cardinality bound updates from 22 to 87. Existing histogram and counter labels remain valid; the §20 cardinality reservation is bumped accordingly.
 
-## 25. See also
+## 25. Wave 6 cross-spec touch-up (S5.2+S5.3+S5.4+S9.1+S10.1+S8.1 record-type consolidation)
+
+Applied 2026-05-11. Sources: [S5.2 §14](../L4_Policy_Identity_Vault/02_vault_broker.md), [S5.3 §10](../L4_Policy_Identity_Vault/04_approval_mechanics.md), [S5.4 §13](../L4_Policy_Identity_Vault/05_emergency_override.md), [S9.1 §12](../L1_Kernel_Bootstrap_Recovery/01_recovery_boundary.md), [S10.1 §13](../L3_AIOS_SGR_Service_Graph_Runtime/03_capability_runtime_grpc.md), [S8.1 §10](../L8_Network_Hardware_Devices/02_network_policy.md). This section adds the closed `RecordType` narrative entries required to record evidence for these six sub-specs through the L9.1 Evidence Log. Each row binds a record name to its retention class (closed enum from §6.4: `STANDARD_24M` / `EXTENDED_60M` / `FOREVER`) and to the source spec that owns its emission contract. Following the §23 / §24 narrative-only declaration pattern, this addition does **not** modify Appendix A's proto IDL block; full IDL reconciliation is deferred to a subsequent refinement sweep. After this addition the **`RecordType` vocabulary now totals 159 entries narratively** (87 prior + 72 Wave 6 unique additions; one reconciliation collapses an S5.3 binding-lifecycle name into an S10.1 runtime-detector name — see §25.7).
+
+### 25.1 From S5.2 Vault Broker (8 types)
+
+Source: [S5.2 §14](../L4_Policy_Identity_Vault/02_vault_broker.md). Append authority is restricted to the Vault Broker process; forgery from any other subject is hard-denied at the engine surface per §11.
+
+| RecordType                        | Retention      | Source spec | Purpose                                                                                                         |
+| --------------------------------- | -------------- | ----------- | --------------------------------------------------------------------------------------------------------------- |
+| `VAULT_CAPABILITY_ISSUED`         | `STANDARD_24M` | S5.2 §14    | Issuance of a vault capability binding (DRAFT → ACTIVE).                                                        |
+| `VAULT_CAPABILITY_ROTATED`        | `STANDARD_24M` | S5.2 §14    | Rotation event; underlying material changes while the binding remains usable.                                   |
+| `VAULT_CAPABILITY_REVOKED`        | `EXTENDED_60M` | S5.2 §14    | Explicit revocation of a binding (operator action, bundle rollover, material loss).                             |
+| `VAULT_OPERATION`                 | `STANDARD_24M` | S5.2 §14    | Every Sign / Verify / Encrypt / Decrypt / MAC / Random call. Redacted projection — no payload, no key material. |
+| `VAULT_RAW_REVEAL`                | `FOREVER`      | S5.2 §14    | The human-only `RevealSecret` escape hatch (recovery + STRONG session + co-signer + one-shot capability).       |
+| `VAULT_CAPABILITY_FORGERY`        | `FOREVER`      | S5.2 §14    | Ed25519 signature failure on a presented capability; constitutional tamper indicator.                           |
+| `SUBJECT_KIND_REJECTED_FOR_VAULT` | `FOREVER`      | S5.2 §14    | AI subject hard-denied from `SECRET_GET` at request entry per S5.2 invariant I1.                                |
+| `VAULT_RECOVERY_SNAPSHOT_LOADED`  | `FOREVER`      | S5.2 §14    | Recovery-mode broker startup with master-key unlock (S5.2 §10.1).                                               |
+
+### 25.2 From S5.3 Approval Mechanics (9 types, LONG retention floor)
+
+Source: [S5.3 §10](../L4_Policy_Identity_Vault/04_approval_mechanics.md). S5.3 §10.3 sets a `LONG` retention floor (≥ `STANDARD_24M`); a policy bundle MAY upgrade specific records to `FOREVER` for destructive actions on financial-tier groups but MUST NOT downgrade. Default mappings below honour the floor at `STANDARD_24M` for benign lifecycle transitions and at `EXTENDED_60M` for denials and revocations that retain operational signal value. Append authority is restricted to the Approval Manager service.
+
+| RecordType                 | Retention      | Source spec | Purpose                                                                                                                                                       |
+| -------------------------- | -------------- | ----------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `APPROVAL_REQUESTED`       | `STANDARD_24M` | S5.3 §10    | Policy Kernel emitted `request_approval`; `ApprovalRequest` created (`created → DRAFT`).                                                                      |
+| `APPROVAL_DELIVERED`       | `STANDARD_24M` | S5.3 §10    | Surface delivered to a channel (`DRAFT → AWAITING_OPERATOR`).                                                                                                 |
+| `APPROVAL_GRANTED`         | `STANDARD_24M` | S5.3 §10    | Operator granted; binding active (`AWAITING_OPERATOR → GRANTED`).                                                                                             |
+| `APPROVAL_DENIED`          | `EXTENDED_60M` | S5.3 §10    | Operator denied or scope/TTL drift (`AWAITING_OPERATOR → DENIED`).                                                                                            |
+| `APPROVAL_EXPIRED`         | `STANDARD_24M` | S5.3 §10    | TTL elapsed before operator response (`AWAITING_OPERATOR → EXPIRED`).                                                                                         |
+| `APPROVAL_CONSUMED`        | `STANDARD_24M` | S5.3 §10    | Binding spent on the bound action (`GRANTED → CONSUMED`); terminal success.                                                                                   |
+| `APPROVAL_REVOKED`         | `EXTENDED_60M` | S5.3 §10    | Operator-initiated revocation of an active GRANTED binding (`GRANTED → REVOKED`).                                                                             |
+| `APPROVAL_DELIVERY_FAILED` | `EXTENDED_60M` | S5.3 §10    | Surface could not be delivered to any approval channel (`DRAFT → FAILED_DELIVERY`).                                                                           |
+| `APPROVAL_BINDING_VOIDED`  | `FOREVER`      | S5.3 §10    | Action canonical-hash mismatch at execute time (action revision). See §25.7 reconciliation — synonym narrative reference for `BINDING_VOIDED_ACTION_REVISED`. |
+
+### 25.3 From S5.4 Emergency Override (8 types, all FOREVER)
+
+Source: [S5.4 §13](../L4_Policy_Identity_Vault/05_emergency_override.md). Every transition — including denials, expirations, and post-hoc reviews — is permanent forensic evidence because emergency override is the **only** mechanism that can rescue a hard-denied action; revisability of the audit trail would defeat the constitutional premise. Append authority is restricted to the Override Manager service and the Capability Runtime (only for `OVERRIDE_CONSUMED`).
+
+| RecordType                 | Retention | Source spec | Purpose                                                                                                                                           |
+| -------------------------- | --------- | ----------- | ------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `OVERRIDE_REQUESTED`       | `FOREVER` | S5.4 §13    | OverrideRequest entered `OS_REQUESTED`.                                                                                                           |
+| `OVERRIDE_QUORUM_RECEIVED` | `FOREVER` | S5.4 §13    | Confirming signature arrived but quorum not yet met (`OS_AWAITING_DUAL_CONFIRM` step).                                                            |
+| `OVERRIDE_GRANTED`         | `FOREVER` | S5.4 §13    | FSM transitioned to `OS_ACTIVE` and a binding was issued. Rev.2 successor of the rev.1-era `EMERGENCY_OVERRIDE_GRANT` name in §4.                 |
+| `OVERRIDE_CONSUMED`        | `FOREVER` | S5.4 §13    | The Capability Runtime executed the bound action under the override.                                                                              |
+| `OVERRIDE_DENIED`          | `FOREVER` | S5.4 §13    | Any of the S5.4 §3.5 `OverrideDenialReason` codes fired.                                                                                          |
+| `OVERRIDE_EXPIRED`         | `FOREVER` | S5.4 §13    | TTL elapsed without consumption.                                                                                                                  |
+| `OVERRIDE_REVOKED`         | `FOREVER` | S5.4 §13    | An ACTIVE binding was revoked before consumption.                                                                                                 |
+| `OVERRIDE_REVIEW`          | `FOREVER` | S5.4 §13    | Post-hoc forensic review or attestation referencing one or more prior override records (the only after-the-fact augmentation; INV-005 preserved). |
+
+### 25.4 From S9.1 Recovery Boundary (10 types, all FOREVER)
+
+Source: [S9.1 §12](../L1_Kernel_Bootstrap_Recovery/01_recovery_boundary.md). All recovery-boundary records are FOREVER-retained, never compactable (the FOREVER retention class is exempt from compaction per §12), and replicated across all S3.1 segments so recovery activity is visible in the operational record indefinitely. Append authority is restricted to the recovery-mode supervisor and the L1 boot sequencer.
+
+| RecordType                             | Retention | Source spec | Purpose                                                                                                                             |
+| -------------------------------------- | --------- | ----------- | ----------------------------------------------------------------------------------------------------------------------------------- |
+| `RECOVERY_BOOT_ENTERED`                | `FOREVER` | S9.1 §12    | Recovery mode entered; carries `RecoveryEntryReason`, kernel slot (dedicated/generic), fallback flag, identity bundle version.      |
+| `RECOVERY_OPERATOR_AUTHENTICATED`      | `FOREVER` | S9.1 §12    | Operator authenticated for the recovery session; carries auth factor (HARDWARE_KEY / TOTP / PASSPHRASE) and risk flags.             |
+| `RECOVERY_OPERATION_PERFORMED`         | `FOREVER` | S9.1 §12    | A recovery-time mutation occurred; carries `RecoveryMutableScope`, target path, request hash, bundle version.                       |
+| `RECOVERY_TTL_EXPIRED_AUTO_REBOOT`     | `FOREVER` | S9.1 §12    | The 8-hour hard cap (S9.1 §8) elapsed; the system auto-rebooted out of recovery.                                                    |
+| `RECOVERY_BOOT_EXITED`                 | `FOREVER` | S9.1 §12    | Recovery boot exited; carries `RecoveryExitReason` and session duration.                                                            |
+| `RECOVERY_L5_START_BLOCKED`            | `FOREVER` | S9.1 §12    | A start attempt for any L5 service was blocked while `recovery_mode = true`; carries the `L5StartProhibitedInRecovery` reason code. |
+| `RECOVERY_NETWORK_LAN_ENABLED`         | `FOREVER` | S9.1 §12    | Operator opened the LAN-for-provisioning window (`window_seconds ≤ 1800`) with justification.                                       |
+| `RECOVERY_NETWORK_LAN_DISABLED`        | `FOREVER` | S9.1 §12    | The provisioning window closed (operator action or watchdog).                                                                       |
+| `RECOVERY_FORENSIC_ATTACH_PERFORMED`   | `FOREVER` | S9.1 §12    | A forensic mount of another group's namespace occurred during recovery; carries attached group id, mount point, justification.      |
+| `BOOT_FAILURE_AUTO_RECOVERY_TRIGGERED` | `FOREVER` | S9.1 §12    | Consecutive normal-boot failures triggered automatic entry into recovery mode.                                                      |
+
+S9.1 §12 also names three deferred record types that are **narrative only** in this Wave 6 and not yet contract-grade: `HEAVY_AUTH_FALLBACK_USED`, `RECOVERY_SHELL_FAILED`, `BOOT_FALLBACK_TRIGGERED`. These will be queued into a future S9 refinement sweep and are not counted in the cumulative total above.
+
+### 25.5 From S10.1 Capability Runtime gRPC (20 types)
+
+Source: [S10.1 §13](../L3_AIOS_SGR_Service_Graph_Runtime/03_capability_runtime_grpc.md). The Capability Runtime is the **only** authorised emitter for these twenty record types; emission attempts from any other subject are hard-denied and themselves emit `TAMPER_DETECTED` per §11.5. `ACTION_POLICY_DECISION` is the runtime's mirror of L9.1 `POLICY_DECISION` — both are emitted; the runtime mirror carries the decision-against-action linkage.
+
+| RecordType                           | Retention      | Source spec | Purpose                                                                                                                |
+| ------------------------------------ | -------------- | ----------- | ---------------------------------------------------------------------------------------------------------------------- |
+| `ACTION_RECEIVED`                    | `STANDARD_24M` | S10.1 §13   | `ValidateAction` accepted the envelope; `CREATED` lifecycle state recorded.                                            |
+| `ACTION_VALIDATED`                   | `STANDARD_24M` | S10.1 §13   | Schema, target, sandbox, and verification grammar checks completed.                                                    |
+| `ACTION_POLICY_DECISION`             | `STANDARD_24M` | S10.1 §13   | `EvaluatePolicyForAction` recorded the policy decision against the action (mirrors L9.1 `POLICY_DECISION`).            |
+| `ACTION_DISPATCHED`                  | `STANDARD_24M` | S10.1 §13   | The eight-step pre-dispatch (§6.1 of S10.1) succeeded and the adapter was invoked.                                     |
+| `EXECUTION_SUCCEEDED`                | `STANDARD_24M` | S10.1 §13   | Adapter returned `ADAPTER_OK` and verification returned `VERIFICATION_PASSED` for all intents.                         |
+| `EXECUTION_FAILED`                   | `EXTENDED_60M` | S10.1 §13   | Lifecycle transitioned to `FAILED`; payload carries `ExecutionFailureReason` and `current_canonical_hash`.             |
+| `EXECUTION_VERIFICATION_FAILED`      | `EXTENDED_60M` | S10.1 §13   | Verification returned a non-`PASSED` status; payload carries the failing intent and observed state (redacted).         |
+| `ROLLBACK_ATTEMPTED`                 | `STANDARD_24M` | S10.1 §13   | `RollbackAction` invoked the adapter's rollback; payload carries `RollbackStrategy` and pre-state hash.                |
+| `ROLLBACK_SUCCEEDED`                 | `STANDARD_24M` | S10.1 §13   | Rollback returned `RollbackOutcome.SUCCEEDED`; lifecycle transitioned to `ROLLED_BACK`.                                |
+| `ROLLBACK_FAILED_REQUIRES_OPERATOR`  | `FOREVER`      | S10.1 §13   | Rollback returned `RollbackOutcome.FAILED`; lifecycle transitioned to `ROLLBACK_FAILED`; affected resources listed.    |
+| `ADAPTER_REGISTERED`                 | `STANDARD_24M` | S10.1 §13   | Adapter manifest accepted at registration; lifecycle starts at `REGISTERED` stability.                                 |
+| `ADAPTER_REGISTRATION_REJECTED`      | `FOREVER`      | S10.1 §13   | Manifest signature failed, publisher unrecognised, or expired; constitutional forensic event.                          |
+| `ADAPTER_DEGRADED`                   | `STANDARD_24M` | S10.1 §13   | Adapter health transitioned to `ADAPTER_DEGRADED` (rate of timeout / panic / kind-overrun).                            |
+| `ADAPTER_DEREGISTERED`               | `EXTENDED_60M` | S10.1 §13   | Adapter de-registered (manifest expired, kind-overrun voided, operator action).                                        |
+| `IDEMPOTENCY_KEY_REPLAY_DETECTED`    | `EXTENDED_60M` | S10.1 §13   | Same `idempotency_key` with different `request_hash` observed at `ValidateAction`.                                     |
+| `BINDING_VOIDED_ACTION_REVISED`      | `FOREVER`      | S10.1 §13   | Eight-step step 1 detected canonical-hash drift; binding voided per S5.3 §13 / S5.4 §5. **Canonical name**; see §25.7. |
+| `AI_INTERACTIVE_QUEUE_DOWNGRADE`     | `STANDARD_24M` | S10.1 §13   | AI subject silently downgraded from `INTERACTIVE` to `AGENT_PROPOSAL`.                                                 |
+| `DRY_RUN_SIMULATION_RECORDED`        | `STANDARD_24M` | S10.1 §13   | `SIMULATE` action terminated with a simulation transcript; segregated from production evidence stream.                 |
+| `EXPERIMENTAL_ADAPTER_LIVE_DISPATCH` | `EXTENDED_60M` | S10.1 §13   | Action against an `EXPERIMENTAL` adapter dispatched live (not `DRY_RUN`); operator clearance required.                 |
+| `ADAPTER_DEPRECATED_DISPATCH`        | `STANDARD_24M` | S10.1 §13   | Action against a `DEPRECATED` adapter dispatched; operational signal that the adapter should be retired.               |
+
+### 25.6 From S8.1 Network Policy (18 types)
+
+Source: [S8.1 §10](../L8_Network_Hardware_Devices/02_network_policy.md). Append authority is restricted to the L8 `NetworkPolicyService` process; forgery from any other subject is hard-denied at the engine surface and emits `TAMPER_DETECTED` per §11. Retention class distribution for the 18 additions: `FOREVER` × 7, `EXTENDED_60M` × 5, `STANDARD_24M` × 6.
+
+| RecordType                              | Retention      | Source spec | Purpose                                                                                           |
+| --------------------------------------- | -------------- | ----------- | ------------------------------------------------------------------------------------------------- |
+| `NETWORK_POSTURE_CHANGED`               | `FOREVER`      | S8.1 §10    | Host `NetworkPosture` changes; carries `from`, `to`, setter subject, action_id.                   |
+| `EXPOSURE_REQUESTED`                    | `STANDARD_24M` | S8.1 §10    | `RequestExposure` accepted into `AWAITING_OPERATOR`.                                              |
+| `EXPOSURE_GRANTED`                      | `FOREVER`      | S8.1 §10    | LAN or PUBLIC `ExposureGrant` reaches `ACTIVE`; carries class, CIDR allow-list, approver chain.   |
+| `EXPOSURE_DENIED`                       | `EXTENDED_60M` | S8.1 §10    | `RequestExposure` denied by policy or invariant.                                                  |
+| `EXPOSURE_REVOKED`                      | `EXTENDED_60M` | S8.1 §10    | `RevokeExposure` succeeded; carries elapsed teardown time.                                        |
+| `EXPOSURE_TERMINATED_TTL_EXPIRED`       | `EXTENDED_60M` | S8.1 §10    | `ExposureGrant` reached `expires_at` while `ACTIVE` and was auto-terminated.                      |
+| `PUBLIC_EXPOSURE_HEARTBEAT`             | `STANDARD_24M` | S8.1 §10    | 5-minute heartbeat while `class = PUBLIC` and state `ACTIVE`.                                     |
+| `OUTBOUND_GRANT_ISSUED`                 | `STANDARD_24M` | S8.1 §10    | `GrantOutbound` succeeded; carries directive and manifest hash.                                   |
+| `OUTBOUND_GRANT_REVOKED`                | `EXTENDED_60M` | S8.1 §10    | `RevokeOutbound` or auto-revoke after manifest breach.                                            |
+| `OUTBOUND_OUTSIDE_MANIFEST`             | `FOREVER`      | S8.1 §10    | A subject's connection attempt was outside its declared outbound manifest.                        |
+| `OUTBOUND_DEGRADED_TO_LOOPBACK_AUTO`    | `FOREVER`      | S8.1 §10    | A subject's `OutboundDirective` was auto-degraded to loopback after repeated breaches.            |
+| `ALLOWLIST_FQDN_FANOUT_EXCEEDED`        | `EXTENDED_60M` | S8.1 §10    | A `HOST_FQDN` resolved to > 16 IPs at evaluation time.                                            |
+| `LAN_SUBNET_DRIFT_DETECTED`             | `STANDARD_24M` | S8.1 §10    | A `LAN_SUBNET`-pinned grant's CIDR drifted; grant transitioned to `AWAITING_OPERATOR`.            |
+| `LAN_PEER_DRIFT_DETECTED`               | `EXTENDED_60M` | S8.1 §10    | A pinned `(MAC, IP)` peer's MAC changed; possible ARP spoofing.                                   |
+| `AI_DIRECT_INTERNET_DENIED`             | `FOREVER`      | S8.1 §10    | An AI subject attempted a direct external connection without vault broker mediation.              |
+| `EXTERNAL_MODEL_CALL_BROKERED`          | `STANDARD_24M` | S8.1 §10    | A vault-brokered external model call succeeded; carries provider, action_id, vault capability id. |
+| `BACKEND_DEGRADED_NFTABLES_TO_IPTABLES` | `FOREVER`      | S8.1 §10    | nftables unavailable; iptables fallback chosen.                                                   |
+| `RAW_SOCKET_BYPASS_ATTEMPTED`           | `FOREVER`      | S8.1 §10    | A subject attempted to open a raw / packet socket outside policy.                                 |
+
+### 25.7 Reconciliation note (synonym → canonical)
+
+S5.3 §10 names `APPROVAL_BINDING_VOIDED` for the binding-lifecycle transition `GRANTED → DENIED(reason = ACTION_REVISED | SCOPE_DRIFT | signature)`. S10.1 §13 names `BINDING_VOIDED_ACTION_REVISED` for the runtime detection of canonical-hash drift in eight-step step 1 of the execute path. Both names refer to the **same** underlying event observed at two contract surfaces:
+
+- The **runtime detects** the canonical-hash mismatch at the `EXECUTING` lifecycle transition.
+- The **approval-side narrative** refers to the same event by the binding-lifecycle name when describing how a `GRANTED` binding leaves its FSM.
+
+Per §24's narrative-total counting pattern, the L9.1 `RecordType` vocabulary records this event under the **canonical name `BINDING_VOIDED_ACTION_REVISED`** (owned by S10.1, FOREVER retention). `APPROVAL_BINDING_VOIDED` is documented as a **synonym narrative reference** carried forward from S5.3 §10 for binding-lifecycle prose; it is **not** a separate enum entry. The reconciliation collapses one row in the Wave 6 unique-additions count.
+
+Truthful Wave 6 arithmetic:
+
+- S5.2 contributes 8 unique entries.
+- S5.3 contributes 9 narrative entries → 8 unique after the §25.7 reconciliation collapses `APPROVAL_BINDING_VOIDED` into `BINDING_VOIDED_ACTION_REVISED`.
+- S5.4 contributes 8 unique entries.
+- S9.1 contributes 10 unique entries (3 deferred names recorded in §25.4 narrative are not counted).
+- S10.1 contributes 20 unique entries (including the canonical `BINDING_VOIDED_ACTION_REVISED`).
+- S8.1 contributes 18 unique entries.
+- **Wave 6 unique additions: 8 + 8 + 8 + 10 + 20 + 18 = 72.**
+- **New cumulative narrative total: 87 (post-Wave 5) + 72 (Wave 6) = 159 entries.**
+
+Per §23 / §24's narrative-only declaration pattern, this Wave 6 does **not** edit Appendix A. Full IDL reconciliation — including the addition of the 72 new payload messages to the discriminated `RecordPayload` oneof, the encoding of `BINDING_VOIDED_ACTION_REVISED` as the canonical enum value, and the documentation of `APPROVAL_BINDING_VOIDED` as a synonym in proto comments — is a separate sweep when the spec is next refined.
+
+### 25.8 Telemetry impact
+
+Each new FOREVER record type contributes to the FOREVER retention storage class summarised in §6.4. Wave 6 introduces **33 new FOREVER record types** (S5.2 × 4, S5.4 × 8, S9.1 × 10, S10.1 × 4, S8.1 × 7), **8 new EXTENDED_60M record types** (S5.2 × 1, S5.3 × 3, S10.1 × 5 — note one S5.3 EXTENDED_60M label has been counted under EXTENDED in this Wave 6 default mapping; the actual count is S5.2 × 1, S5.3 × 3, S10.1 × 5, S8.1 × 5 = 14), and the remainder at `STANDARD_24M`. Truthful per-class delta arithmetic for storage planning:
+
+| Retention class | Wave 6 additions | Notes                                                                                   |
+| --------------- | ---------------: | --------------------------------------------------------------------------------------- |
+| `STANDARD_24M`  |               25 | S5.2 × 3, S5.3 × 5, S10.1 × 11, S8.1 × 6.                                               |
+| `EXTENDED_60M`  |               14 | S5.2 × 1, S5.3 × 3, S10.1 × 5, S8.1 × 5.                                                |
+| `FOREVER`       |               33 | S5.2 × 4, S5.4 × 8, S9.1 × 10, S10.1 × 4, S8.1 × 7. Constitutional and forensic events. |
+
+Total: 25 + 14 + 33 = 72 unique additions, matching the §25.7 arithmetic. The §20 per-`record_type` cardinality reservation is bumped from 87 to 159 entries narratively. Existing histogram and counter labels remain valid; subject, group, and channel ids are never labels — they would inflate cardinality unboundedly and would re-introduce subject identity into the metrics surface that §20 forbids.
+
+The L0 invariant candidate `NETWORK_DEFAULT_DENY_OUTBOUND` queued by S8.1 is **out of scope** for this Wave 6; it requires a separate L0 sweep.
+
+## 26. See also
 
 - [S0.1 Action Envelope + Lifecycle](../XX_Cross_Cutting/01_action_envelope_lifecycle.md)
 - [S2.4 Verification Grammar](02_verification_grammar.md)
 - [S2.3 Policy Kernel](../L4_Policy_Identity_Vault/01_policy_kernel.md)
 - [S2.2 AIOS-FS Implementation Space](../L2_AIOS_FS/04_implementation_space.md)
 - [S4.1 Namespace Layout](../L2_AIOS_FS/05_namespace_layout.md)
+- [S5.2 Vault Broker](../L4_Policy_Identity_Vault/02_vault_broker.md)
+- [S5.3 Approval Mechanics](../L4_Policy_Identity_Vault/04_approval_mechanics.md)
+- [S5.4 Emergency Override](../L4_Policy_Identity_Vault/05_emergency_override.md)
 - [S7.1 Surface Composition](../L7_Interaction_Renderers/01_surface_composition.md)
 - [S7.2 Shared UI Schema](../L7_Interaction_Renderers/02_shared_ui_schema.md)
 - [S7.3 Visual Language](../L7_Interaction_Renderers/03_visual_language.md)
 - [S7.4 KDE Renderer](../L7_Interaction_Renderers/04_kde_renderer.md)
 - [S7.5 Web Renderer](../L7_Interaction_Renderers/05_web_renderer.md)
+- [S8.1 Network Policy](../L8_Network_Hardware_Devices/02_network_policy.md)
 - [S8.2 GPU Resource Model](../L8_Network_Hardware_Devices/05_gpu_resource_model.md)
+- [S9.1 Recovery Boundary](../L1_Kernel_Bootstrap_Recovery/01_recovery_boundary.md)
+- [S10.1 Capability Runtime gRPC](../L3_AIOS_SGR_Service_Graph_Runtime/03_capability_runtime_grpc.md)
 - [Rev.2 Master Index](../00_MASTER_INDEX.md)
 
 ## Appendix A: Complete proto IDL

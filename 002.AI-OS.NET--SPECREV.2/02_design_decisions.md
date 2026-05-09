@@ -74,6 +74,39 @@ Decision log. Each entry follows ADR (Architecture Decision Record) discipline: 
 
 ---
 
+## DEC-033 — Wave 6: cross-spec consolidation of S5.2+S5.3+S5.4+S9.1+S10.1+S8.1+DEC-026 touch-ups
+
+- **Context:** Across the post-Wave-5 sub-spec landings (DEC-027 vault broker, DEC-028 approval mechanics, DEC-029 emergency override, DEC-030 recovery boundary, DEC-031 capability runtime, DEC-032 network policy) plus the L0 INV-023/024 promotion (DEC-026), each new contract enumerated touch-ups for downstream specs (record types for S3.1, properties and primitives for S2.4, condition fields for S2.3) but did not apply them to the target specs — mirroring the Wave 5 discipline. DEC-033 closes the loop in one additive sweep.
+- **Decision:** Append a "Wave 6 cross-spec touch-up" section to each of three existing contracts. Existing numbered sections are not edited in place — same additive discipline as Wave 5 + the L0 INV-023/024 promotion. Per-file additions:
+  - **S3.1 Evidence Log §25** (+163 lines): **72 new unique RecordType narrative entries** distributed by source:
+    - 8 from S5.2 vault (4 STANDARD_24M, 1 EXTENDED_60M, 4 FOREVER — VAULT_RAW_REVEAL/VAULT_CAPABILITY_FORGERY/SUBJECT_KIND_REJECTED_FOR_VAULT/VAULT_RECOVERY_SNAPSHOT_LOADED FOREVER)
+    - 8 unique from S5.3 approval (reconciliation note: S5.3's APPROVAL_BINDING_VOIDED collapses into S10.1's BINDING_VOIDED_ACTION_REVISED — one canonical record name owned by L9.1; the runtime detects the canonical-hash mismatch at the EXECUTING transition; the approval-side narrative refers to the same event by the binding-lifecycle name)
+    - 8 FOREVER from S5.4 emergency override (every override transition is permanent forensic evidence — even denials and reviews)
+    - 10 FOREVER from S9.1 recovery (every recovery boot/exit/operation is permanent) plus 3 deferred narrative names (HEAVY_AUTH_FALLBACK_USED, RECOVERY_SHELL_FAILED, BOOT_FALLBACK_TRIGGERED) recorded for future
+    - 20 from S10.1 capability runtime (most STANDARD_24M for normal lifecycle; 4 FOREVER: ROLLBACK_FAILED_REQUIRES_OPERATOR, ADAPTER_REGISTRATION_REJECTED, BINDING_VOIDED_ACTION_REVISED, EXPERIMENTAL_ADAPTER_LIVE_DISPATCH narrative when policy-approved)
+    - 18 from S8.1 network (7 FOREVER including AI_DIRECT_INTERNET_DENIED, RAW_SOCKET_BYPASS_ATTEMPTED, OUTBOUND_OUTSIDE_MANIFEST, BACKEND_DEGRADED_NFTABLES_TO_IPTABLES, OUTBOUND_DEGRADED_TO_LOOPBACK_AUTO, NETWORK_POSTURE_CHANGED, EXPOSURE_GRANTED)
+    - Retention distribution across the 72: 25 STANDARD_24M + 14 EXTENDED_60M + 33 FOREVER
+    - Cumulative narrative total: 87 (Wave 5 baseline) + 72 = **159 RecordType entries**
+    - Honors §24's narrative-only declaration pattern: Appendix A IDL block is NOT updated in this Wave — full IDL reconciliation is deferred to a separate sweep
+  - **S2.4 Verification Grammar §19** (+118 lines):
+    - 2 new closed `PropertyType` entries verifying the L0 invariants promoted by DEC-026: `CHROME_ZONE_RESERVED` (verifies INV-023 — composes the existing `surface_in_zone` primitive plus an audit query against the active surface set; on fail emits TAMPER_DETECTED with `invariant_id = INV_023_CHROME_ZONE_RESERVED`); `GPU_COMPUTE_GATED` (verifies INV-024 — composes the existing `gpu_binding_class` primitive plus a query against L4 capability catalog; on fail emits TAMPER_DETECTED with `invariant_id = INV_024_GPU_COMPUTE_GATED`)
+    - Closed `PropertyType` enum: 14 (Wave 5) → **16 entries**
+    - 3 new closed primitives from S8.1: `network_subject_outbound_class(subject_id) → AICrossOriginPosture | OutboundDirective` (returns active outbound directive and AI cross-origin posture); `network_active_exposure_class(surface_id) → InboundExposureClass` (with renderer-side / network-side drift detection — drift → PROBE_ERROR with reconciliation hint); `network_external_model_call_brokered_only(subject_id) → bool` (guardrail-class primitive enforcing AI external-call canonical pattern from S8.1 §J + INV-002)
+    - Closed primitive vocabulary: 21 (Wave 5) → **24 entries**
+  - **S2.3 Policy Kernel §28** (+88 lines):
+    - 3 new closed condition fields from S8.1: `subject.network_outbound_directive` (closed `OutboundDirective` enum), `subject.ai_external_posture` (closed `AICrossOriginPosture` enum), `target.exposure_class` (closed `InboundExposureClass` enum)
+    - Conditions vocabulary: 23 (post-Wave-5) → **26 fields** (12 base + 5 namespace + 6 Wave 5 + 3 Wave 6)
+    - **No new hard-denies added** in this Wave (binds to the discipline established in DEC-025 + DEC-026: each L0 INV addition is a deliberate single-purpose act; condition fields are condition fields, not constitutional rules)
+    - The S8.1-queued candidate L0 invariant `NETWORK_DEFAULT_DENY_OUTBOUND` stays deferred for a separate L0 sweep — it is constitutional in spirit but each constitutional addition is its own deliberate act
+- **Reconciliations honored from agent execution:**
+  - The S3.1 §25 reconciliation note acknowledges that S5.3's `APPROVAL_BINDING_VOIDED` and S10.1's `BINDING_VOIDED_ACTION_REVISED` describe the same canonical-hash-mismatch event; one canonical record name (`BINDING_VOIDED_ACTION_REVISED`) is owned by L9.1, with `APPROVAL_BINDING_VOIDED` documented as a synonym narrative reference. This is a clean reconciliation, not a workaround.
+  - The S2.4 §19 follow-up confirms the new `CHROME_ZONE_RESERVED` property composes Wave-5's `surface_in_zone` primitive and the new `GPU_COMPUTE_GATED` property composes Wave-5's `gpu_binding_class` primitive — confirming Wave 5's primitives were correctly anticipated for these constitutional invariants.
+- **Consequences:** Every queued touch-up from the post-Wave-5 sub-spec landings is now applied in the target contract, not just enumerated in the originating queue. 369 lines added across three existing contracts. The post-L7-and-L4-trio rendering, identity, vault, recovery, runtime, and network architecture is closed-loop in S3.1 / S2.4 / S2.3. Cumulative spec-evolution wave count: 6 sweeps (Wave 1–4 were per-spec refinement deltas; Wave 5 was rendering-architecture consolidation; Wave 6 is post-L7 + L4 + L1 + L3 + L8 consolidation). The remaining `NETWORK_DEFAULT_DENY_OUTBOUND` candidate L0 invariant is now the single deferred constitutional addition; promotion can be done in a future single-purpose L0 sweep when the next architectural wave lands.
+- **Status:** `REAL` (applied 2026-05-11).
+- **Phase tag:** Wave 6 cross-spec touch-up consolidation.
+
+---
+
 ## DEC-032 — S8.1 L8 Network Policy (initial contract — default-deny, AI-vault-brokered-only outbound, public-exposure recovery-mode-gated)
 
 - **Context:** Network is the single biggest exposure surface in AIOS. INV-006 (web UI localhost-only by default) and INV-011 (cross-group access forbidden by default) were constitutional intent but had no L8 enforcement contract. S3.2 SandboxProfile.network used a closed `NetworkMode` enum but its semantics in a network-policy plane were not formalised. S7.5 web renderer's `WebExposureState` (LOOPBACK / LAN / PUBLIC / RECOVERY) had no L8-side enforcer. Per-app outbound discipline was named in Rev.1 §18 but never specified mechanically. The L8 overview reserved `02_network_policy.md` (SHELL); without this contract, the network defenses were unimplementable.

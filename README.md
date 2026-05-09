@@ -1,10 +1,10 @@
-# AI-Native Linux
+# AI-Native Linux Distribution
 
 [![License: Apache-2.0](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](LICENSE)
 [![Specification: Rev.2](https://img.shields.io/badge/specification-Rev.2-ce2867.svg)](002.AI-OS.NET--SPECREV.2/00_MASTER_INDEX.md)
 [![Status: Specification First](https://img.shields.io/badge/status-specification--first-111111.svg)](002.AI-OS.NET--SPECREV.2/00_MASTER_INDEX.md)
 [![Layers: 11](https://img.shields.io/badge/layers-11-111111.svg)](002.AI-OS.NET--SPECREV.2/00_MASTER_INDEX.md)
-[![Sub-specs: 53](https://img.shields.io/badge/sub--specs-53-111111.svg)](002.AI-OS.NET--SPECREV.2/00_MASTER_INDEX.md)
+[![Sub-specs: 52](https://img.shields.io/badge/sub--specs-52-111111.svg)](002.AI-OS.NET--SPECREV.2/00_MASTER_INDEX.md)
 [![Invariants: 24](https://img.shields.io/badge/invariants-24-ce2867.svg)](002.AI-OS.NET--SPECREV.2/L0_Governance_Evidence_Safety/04_invariants.md)
 [![Record Types: 427](https://img.shields.io/badge/record--types-427-111111.svg)](002.AI-OS.NET--SPECREV.2/L9_Observability_Admin_Operations/01_evidence_log.md)
 
@@ -23,7 +23,7 @@ GitHub organization: https://github.com/ai-os-dot-net
 | Metric                    | Value                               | Where it lives                                                                                                   |
 | ------------------------- | ----------------------------------- | ---------------------------------------------------------------------------------------------------------------- |
 | Architectural layers      | 11 (L0–L10 + XX cross-cutting)      | [Rev.2 master index](002.AI-OS.NET--SPECREV.2/00_MASTER_INDEX.md)                                                |
-| Contract sub-specs        | 53                                  | one folder per layer                                                                                             |
+| Contract sub-specs        | 52                                  | one folder per layer                                                                                             |
 | Constitutional invariants | 24                                  | [L0 invariants](002.AI-OS.NET--SPECREV.2/L0_Governance_Evidence_Safety/04_invariants.md)                         |
 | Typed Record types        | 427 (closed enum)                   | [L9 evidence log master enum](002.AI-OS.NET--SPECREV.2/L9_Observability_Admin_Operations/01_evidence_log.md)     |
 | Verification properties   | 32 (closed enum)                    | [L9 verification grammar](002.AI-OS.NET--SPECREV.2/L9_Observability_Admin_Operations/02_verification_grammar.md) |
@@ -79,17 +79,19 @@ The project is intentionally public early so security engineers, Linux operators
 ```text
 Human Goal
    |
-Unified Cognitive Shell
+   v
+┌──── AIOS distribution layer ─────────────┐
+│   Cognitive Core         (L5)            │
+│   Policy Kernel          (L4)            │
+│   Capability Runtime     (L3)            │
+│   AIOS-FS                (L2)            │
+└──────────────────────────────────────────┘
    |
-Cognitive Core
+   v
+Linux substrate  (kernel, drivers, scheduler, syscalls — L1)
    |
-Policy Kernel
-   |
-Capability Runtime
-   |
-Linux / Containers / Network / Devices
-   |
-Verified Evidence
+   v
+Verified Evidence  (append-only, L9)
 ```
 
 Correct execution model:
@@ -112,6 +114,7 @@ AI -> sudo bash
 ├── 002.AI-OS.NET--SPECREV.2/      # Active Rev.2 layered contract pack
 ├── 003.GRANT_APPLICATIONS/         # Public grant application records
 ├── site/                           # Public Astro site for ai-os.net
+├── CODE_OF_CONDUCT.md              # Community standards
 ├── CONTRIBUTING.md                 # Contribution guide
 ├── GOVERNANCE.md                   # Decision process and project rules
 ├── MAINTAINERS.md                  # Maintainer ownership
@@ -124,7 +127,7 @@ AI -> sudo bash
 ## Specification Revisions
 
 - [Rev.1 frozen](001.AI-OS.NET--SPECREV.1/00_MASTER_INDEX.md) — initial architecture vision (do not edit).
-- [Rev.2 active](002.AI-OS.NET--SPECREV.2/00_MASTER_INDEX.md) — layered, agent-readable operating system contract.
+- [Rev.2 active](002.AI-OS.NET--SPECREV.2/00_MASTER_INDEX.md) — layered, agent-readable distribution contract.
 
 Rev.2 is organized as L0–L10. A layer may depend on its own layer and lower-numbered layers; it must not require a higher-numbered layer for correctness.
 

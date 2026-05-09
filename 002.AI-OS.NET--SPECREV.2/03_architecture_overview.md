@@ -123,7 +123,7 @@ The table below maps each contract-grade sub-spec to whether its `Consumes` head
 
 ## Contract map
 
-Active contract-grade sub-specs (~30 across 11 layers + cross-cutting). All carry `CONTRACT` status; promotion to `REAL` is per-layer and blocks on E2+ implementation evidence.
+Active contract-grade sub-specs (52 across 11 layers + cross-cutting). All carry `CONTRACT` status; promotion to `REAL` is per-layer and blocks on E2+ implementation evidence.
 
 ### Cross-cutting (XX)
 

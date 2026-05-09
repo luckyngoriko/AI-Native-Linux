@@ -11,7 +11,7 @@
 
 ## §1 Purpose
 
-The AIOS specification has matured to ~30 contract-grade sub-specs spanning all 11 layers. Reading the spec from the bottom up reveals **three structural patterns that recur throughout but are never named**. This contract names them. Each pattern is constitutional in spirit — the spec depends on it being true — and naming it makes audits possible.
+The AIOS specification has matured to 52 contract-grade sub-specs spanning all 11 layers. Reading the spec from the bottom up reveals **three structural patterns that recur throughout but are never named**. This contract names them. Each pattern is constitutional in spirit — the spec depends on it being true — and naming it makes audits possible.
 
 The three patterns:
 
@@ -25,7 +25,7 @@ The three patterns:
 
 AIOS specifies bounded AI agency at runtime: every AI proposal flows through the typed-action pipeline, every execution decision is operator-approved, every secret use is vault-brokered, every external network call is routed through L8.1's vault-brokered pattern. INV-002 — "AI proposes, never executes" — is the headline constitutional rule.
 
-The construction of the AIOS specification itself, however, has been an unbounded AI assistance process. Background agents have written ~30 sub-specs totalling tens of thousands of lines of contract-grade prose. Each agent received a charter and produced output; the project owner reviewed and approved at integration boundaries. There is no INV-002-equivalent on the meta-process; the meta-process is human-supervised AI agency without the constitutional discipline that the resulting artefact specifies for runtime AI.
+The construction of the AIOS specification itself, however, has been an unbounded AI assistance process. Background agents have written 52 sub-specs totalling tens of thousands of lines of contract-grade prose. Each agent received a charter and produced output; the project owner reviewed and approved at integration boundaries. There is no INV-002-equivalent on the meta-process; the meta-process is human-supervised AI agency without the constitutional discipline that the resulting artefact specifies for runtime AI.
 
 This asymmetry is **not a contradiction** — specification and runtime are different regimes — but it is worth naming explicitly so that future readers can interpret the spec's authorship correctly.
 

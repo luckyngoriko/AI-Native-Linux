@@ -661,7 +661,7 @@ Cardinality budget: ≤ 200 active label tuples per metric.
 - [S1.3 — AIOS-FS Object Model](../L2_AIOS_FS/01_object_model.md)
 - [S2.1 — Query/View Language](../L2_AIOS_FS/02_query_view_language.md)
 - [S2.3 — Policy Kernel](../L4_Policy_Identity_Vault/01_policy_kernel.md)
-- [S2.4 — Verification Grammar](../XX_Cross_Cutting/02_verification_grammar.md)
+- [S2.4 — Verification Grammar](../L9_Observability_Admin_Operations/02_verification_grammar.md)
 - [S3.1 — Evidence Log](../L9_Observability_Admin_Operations/01_evidence_log.md)
 - [S4.1 — Namespace Layout](../L2_AIOS_FS/05_namespace_layout.md)
 - [S5.1 — Identity Model](../L4_Policy_Identity_Vault/03_identity_model.md)

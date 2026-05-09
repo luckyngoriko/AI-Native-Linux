@@ -11,7 +11,7 @@
 
 ## 1. Purpose
 
-AIOS ships above the Linux kernel as a unified cognitive shell, and the operator does not care which ecosystem an application originated in. The operator wants to install a Steam game, an Android note-taker, a macOS CLI, a Linux-native IDE, and (sometimes) something that was only ever shipped for iPhone. The operator wants every one of those installs to be a typed action, gated by policy, sandboxed identically, audited identically, recoverable identically.
+AIOS ships as an AI-native Linux distribution (Linux kernel below, AIOS distribution layer above), and the operator does not care which ecosystem an application originated in. The operator wants to install a Steam game, an Android note-taker, a macOS CLI, a Linux-native IDE, and (sometimes) something that was only ever shipped for iPhone. The operator wants every one of those installs to be a typed action, gated by policy, sandboxed identically, audited identically, recoverable identically.
 
 This sub-spec is the **app runtime model** that makes that uniformity real, and the **cross-ecosystem compatibility contract** that says, honestly and mechanically, what AIOS can and cannot do for foreign-ecosystem apps. Nothing in this contract reinvents distribution (S11.1 owns trust roots and admission), composition (S3.2 owns the sandbox), policy (S2.3 owns the decision), or execution dispatch (S10.1 owns the typed action runtime). What this contract adds is the layer **above** S3.2 that:
 

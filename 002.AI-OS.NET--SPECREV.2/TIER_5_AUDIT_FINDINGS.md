@@ -5,7 +5,7 @@
 | Date       | 2026-05-11                                                                                   |
 | Phase      | Tier 5 (audit + simulation cycle 1)                                                          |
 | Method     | 5 audit dimensions + 4 action-path simulations, run in parallel as 9 read-only agents        |
-| Scope      | All ~30 contract-grade sub-specs across L0–L10 + XX_Cross_Cutting + 4 top-level docs         |
+| Scope      | All 52 contract-grade sub-specs across L0–L10 + XX_Cross_Cutting + 4 top-level docs          |
 | Discipline | READ-ONLY agents, structured findings format with severity, source citation, recommended fix |
 
 ## Executive summary

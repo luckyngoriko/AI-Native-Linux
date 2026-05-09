@@ -24,10 +24,10 @@ May depend on: L0, L1, L2, L3.
 | File                       | Topic                                                                           | Status     | Phase |
 | -------------------------- | ------------------------------------------------------------------------------- | ---------- | ----- |
 | `01_policy_kernel.md`      | Decision engine — own DSL vs OPA/Rego vs CEL; rule precedence; simulation       | `CONTRACT` | S2.3  |
-| `02_vault_broker.md`       | Secret classes, capability grants, use-without-reveal API, rotation, revocation | `SHELL`    | —     |
+| `02_vault_broker.md`       | Secret classes, capability grants, use-without-reveal API, rotation, revocation | `CONTRACT` | S5.2  |
 | `03_identity_model.md`     | Subject canonical format, capability binding, scope, TTL                        | `CONTRACT` | S5.1  |
-| `04_approval_mechanics.md` | How approvals are requested, granted, bound, expired, recorded                  | `SHELL`    | —     |
-| `05_emergency_override.md` | Scope, expiry, audit, what cannot be overridden                                 | `SHELL`    | —     |
+| `04_approval_mechanics.md` | How approvals are requested, granted, bound, expired, recorded                  | `CONTRACT` | S5.3  |
+| `05_emergency_override.md` | Scope, expiry, audit, what cannot be overridden                                 | `CONTRACT` | S5.4  |
 
 ## Open questions
 

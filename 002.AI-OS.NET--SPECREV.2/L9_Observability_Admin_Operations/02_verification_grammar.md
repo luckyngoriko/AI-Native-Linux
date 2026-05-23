@@ -1178,11 +1178,11 @@ The primitive vocabulary in this spec is shaped as **individual proto3 messages 
 
 Field ID 30 (`Composition composition = 30;`) and field 22 (`PropertyCheckIntent property_check = 22;`) are preserved unchanged.
 
-### 22.4 What remains deferred to Wave 15+
+### 22.4 What remains deferred to Wave 16+
 
-(Section header refreshed post-Wave-14: Wave 14 §23 promoted seven additional `PropertyType` entries and four new primitives with inline IDL bodies but did NOT address the items below — they remain deferred to Wave 15+.)
+(Section header refreshed post-Wave-15: Wave 14 §23 promoted seven additional `PropertyType` entries and four new primitives with inline IDL bodies; Wave 15 §24 closed the first bullet below — the five Wave-10 SHELL stubs now carry full proto3 bodies. Two items remain deferred to Wave 16+.)
 
-- **Full proto3 message bodies for the five Wave 10 SHELL stubs.** Wave 10 declared the primitive **names** (`aiosfs_path_owner_resolved`, `aiosfs_path_recovery_treatment_set`, `namespace_catalog_version`, `status_indicator_visible`, `subject_session_flag_state`) and their semantic predicates without proto3 message definitions. Wave 13 commits the message names + field IDs (49..53) into the `oneof`; the message bodies are SHELL (`/* W15+: fields per §21.x */`). Wave 14 chose to ship its four new primitives (IDs 54..57) with inline bodies rather than fold in these Wave-10 stubs, since the Wave-10 stubs' bodies depend on S4.1 W8.4 namespace catalog finalisation and S6.4 subject-session table finalisation which are not yet in scope. Wave 15+ will author the field-level proto3 contracts when those upstream sources finalise their schemas.
+- **~~Full proto3 message bodies for the five Wave 10 SHELL stubs.~~** **CLOSED by Wave 15 §24.** All five primitive bodies at field IDs 49..53 (`aiosfs_path_owner_resolved`, `aiosfs_path_recovery_treatment_set`, `namespace_catalog_version`, `status_indicator_visible`, `subject_session_flag_state`) are now full proto3 messages with explicit closed-enum arg types (`AiosfsRecoveryTreatment`, `StatusIndicatorName`, `SubjectSessionFlag`). See §24.1–§24.5 for per-primitive body decisions and §24.6 for the reconciliation arithmetic. SHELL-stub subtotal drops from 5 to 0.
 - **External imports.** The Wave 4/5/6/8 message bodies reference closed enums declared in other specs (`aios.namespace.v1alpha1.ScopeKind`, `aios.surface.v1alpha1.CompositionZone`, `aios.ui.v1alpha1.NodeKind`, `aios.gpu.v1alpha1.GpuCapabilityClass`, `aios.network.v1alpha1.OutboundDirective` etc.). The Appendix A IDL declares them as `uint32` placeholders with the canonical type carried in a comment, pending a cross-spec import-graph pass (Wave 15+). This preserves wire compatibility with the eventual import — `uint32` matches proto3 enum wire encoding. Wave 14's own primitives (§23.3) use enums declared inside `aios.verification.v1alpha1` itself (`FilesystemConstitutionalRoot`, `ConsumesDependencyDirection`) and therefore do not contribute new pending imports.
 - **§3 oneof body.** §3 (the in-narrative oneof) still lists only the base 12 + property_check + composition. Wave 13's roll-up and Wave 14's additions both live in Appendix A, the consolidated IDL surface, per scope guard. A future cleanup Wave may unify §3 and Appendix A presentations.
 
@@ -1401,9 +1401,85 @@ message SecretPatternMatchPrimitive {
 
 Field IDs 58..99 remain natural-fill expansion budget; the existing `reserved 100 to 999;` budget for PropertyType further additions is preserved.
 
-**No existing field number or enum ID is changed.** No body of any prior-Wave primitive message is mutated. The Wave 10 SHELL stubs at IDs 49..53 remain `/* W15+: fields per §21.x */` (renamed from `W14+` in their inline comments since Wave 14 chose to roll up its own bodies inline rather than fold in Wave 10's stub bodies; Wave 10's bodies depend on namespace catalog finalisation in S4.1 not in scope here).
+**No existing field number or enum ID is changed.** No body of any prior-Wave primitive message is mutated. At Wave 14 authoring time the Wave 10 SHELL stubs at IDs 49..53 remained `/* W15+: fields per §21.x */` (renamed from `W14+` in their inline comments since Wave 14 chose to roll up its own bodies inline rather than fold in Wave 10's stub bodies, whose bodies depended on namespace catalog finalisation in S4.1 not in scope at that time). Subsequently, **Wave 15 §24 closed those five SHELL stubs** with full proto3 bodies; the `/* W15+: ... */` placeholders are no longer present in Appendix A.
 
-## 24. See also
+## 24. Wave 15 IDL body close-out (Wave 10 SHELL stubs)
+
+Applied 2026-05-23. Sources: [S4.1 namespace layout §13 catalog version](../L2_AIOS_FS/05_namespace_layout.md), [S6.4 identity §10 `NormalizedSubject` shape](../L4_Policy_Identity_Vault/03_identity_model.md), [S9.1 recovery boundary §3.6 `RecoveryMutableScope` / §3.7 `RecoveryReadOnlyScope` / §4.1 `RecoveryDeniedClass`](../L1_Kernel_Bootstrap_Recovery/01_recovery_boundary.md). Wave 13 (§22) committed Wave 10's five primitive names + field IDs (49..53) into Appendix A as **SHELL stubs** (`/* W14: fields per §21.x */` later refreshed to `/* W15+: ... */`). Wave 14 (§23) chose to inline-roll-up its own four new primitives (IDs 54..57) rather than fold in Wave 10's stubs. Wave 15 closes the SHELL stubs with full proto3 message bodies, now that the upstream sources are finalised.
+
+This is a **body-close-out Wave** — same pattern as Wave 13 §22 was a roll-up Wave. No new `PropertyType` entries, no new primitive **names**, no constitutional rule changes. Cumulative counts after Wave 15:
+
+- `PropertyType` enum: **39 entries** (unchanged from Wave 14 §23.4).
+- Primitive vocabulary: **36 entries** (unchanged from Wave 14 §23.4); five of those now move from SHELL-stub to full-body, raising the full-body subtotal from 31 (post-Wave-14) to **36** (post-Wave-15) and dropping the SHELL-stub subtotal from 5 to **0**.
+
+### 24.1 `AiosfsPathOwnerResolvedPrimitive` (Wave 10 §21.2)
+
+**Body decision:** three closed fields — `path` (canonical aiosfs path string), `expected_owner_subject_id` (canonical subject id per S6.4 §3; empty string is the "any non-NULL owner" sentinel that maps to the §21.2 `NAMESPACE_NEW_PATHS_ALL_OWNED` property's positive condition), `namespace_catalog_id` (canonical `nscat_<hex>` per S4.1 §13 to pin the resolution against a deterministic catalog snapshot).
+
+**Why these fields.** §21.2's property `NAMESPACE_NEW_PATHS_ALL_OWNED` asserts "no scope path resolves with `owner_subject_id = NULL`". The probe needs the path under test and the catalog version to read against (catalog version-pinning is required by S4.1 §I7 determinism invariant). The expected-owner field lets the property be reused for "owner is a specific subject" tests as well as the universal "owner is any non-NULL subject" test (empty-string sentinel for the latter); both are deterministic, in-process queries against the active namespace catalog.
+
+### 24.2 `AiosfsPathRecoveryTreatmentSetPrimitive` (Wave 10 §21.2)
+
+**Body decision:** three closed fields — `path` (canonical aiosfs path string), `expected_treatment` (new closed enum `AiosfsRecoveryTreatment` with 5 values: UNSPECIFIED / UNDECLARED / MUTABLE / READ_ONLY / FORBIDDEN), `namespace_catalog_id` (catalog version-pinning per S4.1 §13).
+
+**Closed enum `AiosfsRecoveryTreatment`.** Mirrors the structural distinction across S9.1's three closed enums:
+
+- `MUTABLE` ↔ S9.1 §3.6 `RecoveryMutableScope` (mutable in recovery).
+- `READ_ONLY` ↔ S9.1 §3.7 `RecoveryReadOnlyScope` (read-only in recovery).
+- `FORBIDDEN` ↔ S9.1 §4.1 `RecoveryDeniedClass` (forbidden even in recovery).
+- `UNDECLARED` is the sentinel that causes `RECOVERY_TREATMENT_BINDING_COMPLETE` (Wave 10 §21.2) to fail — a path whose recovery treatment is UNDECLARED is exactly the violation the property is designed to detect.
+
+**Why a new enum rather than reusing S9.1's three closed enums.** Reuse would require importing all three plus an explicit "none of the above" sentinel; one consolidated 5-value enum is structurally simpler and explicit about the "UNDECLARED is the violation" semantic. The new enum's values bind to the S9.1 closed enums by description, not by proto import — pending the cross-spec import-graph pass deferred in §22.4 to Wave 16+, the binding lives in narrative.
+
+### 24.3 `NamespaceCatalogVersionPrimitive` (Wave 10 §21.2)
+
+**Body decision:** two closed fields — `expected_catalog_id` (canonical `nscat_<hex>` per S4.1 §13), `require_exact_match` (bool flag — when true FAIL on any mismatch; when false PASS on exact or strict-superset).
+
+**Why two fields.** §21.2's `CATALOG_VERSION_BUMPED_ON_ADOPTION` property asserts the catalog version label was monotonically bumped on each Wave-N adoption. In the strict-bump-check mode, the property runs against expected-current vs observed-current and demands exact match. In the post-Wave-N adoption acceptance window, the property accepts a "did at least bump from prior to current" check — that's the `require_exact_match = false` mode. Both modes are deterministic single-shot queries against the resolver's active catalog reference.
+
+### 24.4 `StatusIndicatorVisiblePrimitive` (Wave 10 §21.3)
+
+**Body decision:** two closed fields — `indicator` (new closed enum `StatusIndicatorName` with 7 values: UNSPECIFIED + 6 named indicators), `require_chrome_zone` (bool flag binding INV-020 — when true the property also asserts the indicator renders in the S7.1 CHROME composition zone).
+
+**Closed enum `StatusIndicatorName`.** Six named indicators cover the call sites that emerged across Waves 9–14:
+
+- `VAULT_RESEAL_PENDING` (Wave 10 §21.3 `VAULT_RESEAL_OUTSTANDING_REPORTED`),
+- `RECOVERY_MODE_ACTIVE` (INV-022 recovery aesthetic),
+- `FIRST_BOOT_ACTIVE` (S9.2 first-boot operator marker),
+- `DEGRADED_BUNDLE` (S6.4 §7 fixture-1 invariant bundle degraded mode),
+- `NETWORK_LOCKDOWN_ACTIVE` (S8.1 outbound-deny operator marker),
+- `APPROVAL_PENDING` (S5.3 pending-approval queue surface).
+
+The set is closed — additions require an additive enum bump per §4.2. No "OTHER" sentinel is provided; an unknown indicator is a spec error, not a runtime case. The `require_chrome_zone` flag is the optional INV-020 binding — most operator indicators MUST be CHROME-zone-resident, but the property is reused for off-chrome status surfaces (e.g. CLI status row) where the assertion would over-constrain.
+
+### 24.5 `SubjectSessionFlagStatePrimitive` (Wave 10 §21.4)
+
+**Body decision:** four closed fields — `subject_canonical_id` (canonical subject id per S6.4 §3), `session_id` (canonical `sess_<ulid>` form per S6.4 §4), `flag` (new closed enum `SubjectSessionFlag` with 4 values: UNSPECIFIED + IS_AI + IS_FIRST_BOOT + IS_RECOVERY_MODE), `expected_state` (bool — when true assert flag==true, when false assert flag==false).
+
+**Closed enum `SubjectSessionFlag`.** Three constitutional session flags from S6.4 §10.1 (`is_ai`) and S9.1 W9 (`is_first_boot`, `is_recovery_mode`). The set is closed; subject sessions carry no other constitutional flags. The `expected_state` boolean lets the property assert positive (flag is set) or negative (flag is unset) conditions deterministically.
+
+**Conjunction predicates** (e.g. the §21.4 mutex check that no session has both `is_first_boot = true` AND `is_recovery_mode = true`) are expressed by composing two `SubjectSessionFlagStatePrimitive` intents under the `all` combinator (§5) — no new primitive shape needed. The composition is short-circuit-safe (§5.5): one false in `all` returns FAIL immediately without probing the second.
+
+### 24.6 Reconciliation (truthful arithmetic)
+
+| Quantity                                              | Pre-Wave-15 | Post-Wave-15                                                               | Delta             |
+| ----------------------------------------------------- | ----------- | -------------------------------------------------------------------------- | ----------------- |
+| `PropertyType` enum entries                           | 39          | 39                                                                         | 0 (no new)        |
+| Primitive `oneof` field count                         | 36          | 36                                                                         | 0 (no new)        |
+| Full-body primitive messages                          | 31          | 36                                                                         | +5 (SHELL → full) |
+| SHELL-stub primitive messages                         | 5           | 0                                                                          | −5                |
+| New closed enums introduced by Wave 15 message bodies | n/a         | 3 (`AiosfsRecoveryTreatment`, `StatusIndicatorName`, `SubjectSessionFlag`) | +3                |
+
+**No existing field number, enum ID, or message name is changed.** All five Wave-10 primitive names and field IDs at 49..53 remain stable; only the message bodies transition from `/* W15+: ... */` SHELL stubs to full proto3 definitions.
+
+### 24.7 What remains deferred to Wave 16+
+
+- **External imports.** Same item as §22.4 first bullet (post-refresh). The Wave 4/5/6/8 message bodies still declare cross-spec enum references as `uint32` placeholders pending the cross-spec import-graph pass. Wave 15's three new closed enums (`AiosfsRecoveryTreatment`, `StatusIndicatorName`, `SubjectSessionFlag`) are declared inside `aios.verification.v1alpha1` itself — they contribute no new external imports.
+- **§3 oneof body unification.** Same item as §22.4 second bullet. Wave 15 does not unify the §3 narrative oneof with Appendix A; both Wave-14 and Wave-15 additions live in Appendix A, the canonical IDL surface.
+
+§22.4's first bullet ("Full proto3 message bodies for the five Wave 10 SHELL stubs") is **CLOSED** by this Wave; the remaining two items in §22.4 carry forward to Wave 16+ unchanged.
+
+## 25. See also
 
 - [S0.1 Action Envelope + Lifecycle](../XX_Cross_Cutting/01_action_envelope_lifecycle.md)
 - [S3.1 Evidence Log](01_evidence_log.md)
@@ -1632,14 +1708,70 @@ message MdnsPosturePrimitive {
 
 // ─────────────────────────────────────────────────────────────────
 // Wave 10 (§21) — namespace integrity + substrate + first-boot
-// SHELL stubs: full message bodies queued for Wave 14+ IDL roll-up
+// Wave 15 (§24) closed the SHELL stubs below with full proto3 bodies.
 // ─────────────────────────────────────────────────────────────────
 
-message AiosfsPathOwnerResolvedPrimitive        { /* W15+: fields per §21.2 */ }
-message AiosfsPathRecoveryTreatmentSetPrimitive { /* W15+: fields per §21.2 */ }
-message NamespaceCatalogVersionPrimitive        { /* W15+: fields per §21.2 */ }
-message StatusIndicatorVisiblePrimitive         { /* W15+: fields per §21.3 */ }
-message SubjectSessionFlagStatePrimitive        { /* W15+: fields per §21.4 */ }
+// Wave 15 (§24.1) — body for Wave 10 §21.2 AiosfsPathOwnerResolvedPrimitive
+message AiosfsPathOwnerResolvedPrimitive {
+  string path = 1;                              // canonical aiosfs path under any constitutional root
+  string expected_owner_subject_id = 2;         // canonical subject id; empty string means "any non-NULL owner"
+  string namespace_catalog_id = 3;              // canonical "nscat_<hex>" form per S4.1 §13
+}
+
+// Wave 15 (§24.2) — body for Wave 10 §21.2 AiosfsPathRecoveryTreatmentSetPrimitive
+enum AiosfsRecoveryTreatment {
+  AIOSFS_RECOVERY_TREATMENT_UNSPECIFIED = 0;
+  AIOSFS_RECOVERY_TREATMENT_UNDECLARED  = 1;    // path has no explicit treatment — INVALID (the property fails on this)
+  AIOSFS_RECOVERY_TREATMENT_MUTABLE     = 2;    // covered by S9.1 RecoveryMutableScope; mutable in recovery
+  AIOSFS_RECOVERY_TREATMENT_READ_ONLY   = 3;    // covered by S9.1 RecoveryReadOnlyScope; read-only in recovery
+  AIOSFS_RECOVERY_TREATMENT_FORBIDDEN   = 4;    // covered by S9.1 RecoveryDeniedClass; forbidden even in recovery
+}
+
+message AiosfsPathRecoveryTreatmentSetPrimitive {
+  string path = 1;                              // canonical aiosfs path under any constitutional root
+  AiosfsRecoveryTreatment expected_treatment = 2;  // closed-enum expected per S9.1 §3.6 / §3.7 / §4.1
+  string namespace_catalog_id = 3;              // canonical "nscat_<hex>" form per S4.1 §13
+}
+
+// Wave 15 (§24.3) — body for Wave 10 §21.2 NamespaceCatalogVersionPrimitive
+message NamespaceCatalogVersionPrimitive {
+  string expected_catalog_id = 1;               // canonical "nscat_<hex>" form per S4.1 §13
+  bool require_exact_match = 2;                 // when true, FAIL on any mismatch; when false, PASS on either exact or strict-superset
+}
+
+// Wave 15 (§24.4) — body for Wave 10 §21.3 StatusIndicatorVisiblePrimitive
+enum StatusIndicatorName {
+  STATUS_INDICATOR_NAME_UNSPECIFIED        = 0;
+  STATUS_INDICATOR_VAULT_RESEAL_PENDING    = 1;  // S5.2 W9 reseal-required signal
+  STATUS_INDICATOR_RECOVERY_MODE_ACTIVE    = 2;  // INV-022 recovery aesthetic surface
+  STATUS_INDICATOR_FIRST_BOOT_ACTIVE       = 3;  // S9.2 first-boot operator marker
+  STATUS_INDICATOR_DEGRADED_BUNDLE         = 4;  // S6.4 §7 fixture-1 invariant bundle degraded mode
+  STATUS_INDICATOR_NETWORK_LOCKDOWN_ACTIVE = 5;  // S8.1 outbound-deny operator marker
+  STATUS_INDICATOR_APPROVAL_PENDING        = 6;  // S5.3 pending-approval queue surface
+  // Closed; additions are an additive enum bump per §4.2.
+}
+
+message StatusIndicatorVisiblePrimitive {
+  StatusIndicatorName indicator = 1;
+  bool require_chrome_zone = 2;                 // when true, also assert the indicator renders in S7.1 CHROME zone per INV-020
+}
+
+// Wave 15 (§24.5) — body for Wave 10 §21.4 SubjectSessionFlagStatePrimitive
+enum SubjectSessionFlag {
+  SUBJECT_SESSION_FLAG_UNSPECIFIED   = 0;
+  SUBJECT_SESSION_FLAG_IS_AI         = 1;       // S6.4 §10.1 — constitutional, identity-service-signed
+  SUBJECT_SESSION_FLAG_IS_FIRST_BOOT = 2;       // S9.1 W9 — bounded to first-boot service subjects per S9.2 §4.2.1
+  SUBJECT_SESSION_FLAG_IS_RECOVERY_MODE = 3;    // S9.1 — bounded to recovery boundary entry/exit per S9.1 §4
+}
+
+message SubjectSessionFlagStatePrimitive {
+  string subject_canonical_id = 1;              // S6.4 §3 canonical form
+  string session_id = 2;                        // canonical "sess_<ulid>" form per S6.4 §4
+  SubjectSessionFlag flag = 3;
+  bool expected_state = 4;                      // when true, assert flag==true; when false, assert flag==false
+  // Conjunction predicates (e.g. is_first_boot=true AND is_recovery_mode=true mutex check from §21.4)
+  // are expressed by composing two SubjectSessionFlagStatePrimitive intents under `all` combinator.
+}
 
 // ─────────────────────────────────────────────────────────────────
 // Wave 14 (§23.3) — S6.4 §9 producer-table closure + W11-C verifier

@@ -27,3 +27,4 @@ dist/
 build/
 __pycache__/
 *.pyc
+.ai/scratch/

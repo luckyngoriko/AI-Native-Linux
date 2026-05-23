@@ -20,6 +20,11 @@ thiserror   = { workspace = true }
 blake3      = { workspace = true }
 tracing     = { workspace = true }
 chrono      = { workspace = true }
+# T-008: closed `RecordType` covers 427 variants; strum derives provide
+# compile-time `EnumIter` + `EnumCount` so coverage tests run without
+# hand-maintaining a parallel variant table.
+strum        = { workspace = true }
+strum_macros = { workspace = true }
 
 [lints]
 workspace = true

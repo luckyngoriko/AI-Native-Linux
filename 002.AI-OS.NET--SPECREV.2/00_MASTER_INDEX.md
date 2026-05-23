@@ -125,6 +125,7 @@ Phase 12 (L6 app runtime + compatibility):
 - **S12.2** — Package Object Model → `L6_Apps_Packages_Compatibility/02_package_model.md` (`CONTRACT`)
 - **S12.3** — Compatibility Runtime Orchestration → `L6_Apps_Packages_Compatibility/03_compatibility_runtime.md` (`CONTRACT`)
 - **S12.4** — Compatibility Knowledge (per-app profile database) → `L6_Apps_Packages_Compatibility/05_compatibility_knowledge.md` (`CONTRACT`)
+- **S6.5** — Session Container Model (per-group containerized KDE sessions streamed to browser) → `L6_Apps_Packages_Compatibility/06_session_container_model.md` (`CONTRACT`)
 
 Phase 13 (L5 cognitive core depth):
 

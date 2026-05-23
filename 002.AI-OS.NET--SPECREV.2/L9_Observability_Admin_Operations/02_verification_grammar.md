@@ -1180,7 +1180,7 @@ Field ID 30 (`Composition composition = 30;`) and field 22 (`PropertyCheckIntent
 
 ### 22.4 What remains deferred to Wave 14+
 
-- **Full proto3 message bodies for the five Wave 10 SHELL stubs.** Wave 10 declared the primitive **names** (`aiosfs_path_owner_resolved`, `aiosfs_path_recovery_treatment_set`, `namespace_catalog_version`, `status_indicator_visible`, `subject_session_flag_state`) and their semantic predicates without proto3 message definitions. Wave 13 commits the message names + field IDs (49..53) into the `oneof`; the message bodies are SHELL (`/* W14: fields per §21.x */`). Wave 14+ will author the field-level proto3 contracts when the upstream sources (S4.1 W8.4, S9.1, S6.4 subject-session table) finalize their schemas.
+- **Full proto3 message bodies for the five Wave 10 SHELL stubs.** Wave 10 declared the primitive **names** (`aiosfs_path_owner_resolved`, `aiosfs_path_recovery_treatment_set`, `namespace_catalog_version`, `status_indicator_visible`, `subject_session_flag_state`) and their semantic predicates without proto3 message definitions. Wave 13 commits the message names + field IDs (49..53) into the `oneof`; the message bodies are SHELL (`/* W15+: fields per §21.x */`). Wave 14+ will author the field-level proto3 contracts when the upstream sources (S4.1 W8.4, S9.1, S6.4 subject-session table) finalize their schemas.
 - **External imports.** The Wave 4/5/6/8 message bodies reference closed enums declared in other specs (`aios.namespace.v1alpha1.ScopeKind`, `aios.surface.v1alpha1.CompositionZone`, `aios.ui.v1alpha1.NodeKind`, `aios.gpu.v1alpha1.GpuCapabilityClass`, `aios.network.v1alpha1.OutboundDirective` etc.). The Appendix A IDL declares them as `uint32` placeholders with the canonical type carried in a comment, pending a cross-spec import-graph pass (Wave 14+). This preserves wire compatibility with the eventual import — `uint32` matches proto3 enum wire encoding.
 - **§3 oneof body.** §3 (the in-narrative oneof) still lists only the base 12 + property_check + composition. Wave 13's roll-up lives in Appendix A, the consolidated IDL surface, per scope guard. A future cleanup Wave may unify §3 and Appendix A presentations.
 
@@ -1208,12 +1208,208 @@ A future Wave (14 or later) MAY:
 
 Wave 13 itself does not anticipate further additions; it is a roll-up, not an additive Wave.
 
-## 23. See also
+## 23. Wave 14 cross-spec touch-up (S6.4 §9 producer-table closure + W11-C INV-007 verifier promotion)
+
+Applied 2026-05-23. Sources: [S6.4 Constitutional Invariants §9 producer table](../L0_Governance_Evidence_Safety/04_invariants.md), [DEC-049 Wave 11 architecture refinement](../02_design_decisions.md). S6.4 §9 declared twelve verification properties as "queued for S2.4 consolidation". Six landed in Wave 5 §18.1 (the visual-identity properties — `RENDERER_VISUAL_IDENTITY_PRESERVED`, `TRUST_INDICATORS_ALWAYS_VISIBLE`, `AI_HUMAN_VISUAL_DISTINCTION`, `RECOVERY_AESTHETIC_DISTINCT`, `CHROME_ZONE_RESERVED`, `GPU_COMPUTE_GATED`). Six did not land in Waves 5/6/8/10 — they verify the constitutional invariants whose narratives cite a not-yet-promoted property. Wave 13's IDL roll-up reconciled the 32 properties present but did not catch the six unpromoted verifiers; this Wave 14 closes that latent gap. Additionally, Wave 11 §11-C queued one further verifier for INV-007 (`LAYER_DOWNWARD_DEPENDENCY_HOLDS`, per [DEC-049](../02_design_decisions.md)) — promoted in this Wave.
+
+Per L0.4 §3 I1, **invariant catalog mutation is a versioned spec change**: no L0 invariant entries are promoted in Wave 14. Wave 14's seven properties verify existing L0 invariants (INV-004, INV-006, INV-007, INV-009, INV-012, INV-013, INV-015); they are new verifiers, not new invariants. The six candidates queued at §20.5 remain queued; Wave 14 adds none new.
+
+### 23.1 S6.4 §9 producer-table closure — six constitutional verifiers
+
+The six properties below are formal promotions of S6.4 §9 producer-queue entries. Each binds an existing L0 invariant whose "Verified by" narrative names the property by name.
+
+#### 23.1.1 `FILESYSTEM_BOUNDARY_INTACT` (PROMOTE — binds INV-004 recovery boundary)
+
+**Statement.** The three constitutional filesystem roots remain in their structural states: `/` immutable + recovery-safe (read-only on running system; mutable only under recovery mode), `/root` operator island (RW for `_system:local:operator-*` only; never AI-readable), `/aios` AI-native root (RW per per-path namespace policy from S4.1). The boundary between them MUST be a closed-vocabulary mount-level partition; any normal-mode write into `/`, AI-readable mount over `/root`, or cross-root pointer from `/aios` paths into `/root` paths is a constitutional violation.
+
+**What is audited.** For each constitutional root (canonical list `/`, `/root`, `/aios`): assert that the active mount table records the expected mount opts (read-only flag for `/`; `_system:local:operator-*` ACL constraint for `/root`; per-S4.1 namespace policy in effect for `/aios`); assert that no AIOS-FS pointer under any `/aios/...` path resolves into `/` or `/root` (S4.1 namespace catalog scan); assert that no `RECOVERY_MUTABLE_SCOPE` mutation has been emitted against `/` or `/root` in normal mode (closed scan over recent receipts). Failure emits `TAMPER_DETECTED` (S3.1) with `invariant_id = INV_004_FILESYSTEM_BOUNDARY_INTACT`.
+
+**Primitive composition.** Composes the existing `aiosfs_path_in_namespace` primitive (§17.1) for path-scope assertions over canary paths (`/aios/system`, `/aios/groups`, `/`, `/root`) with the new primitive `filesystem_root_intact(root)` (declared in §23.3 below) which returns the closed-enum state of each root's mount and ACL surface, and with the existing `evidence_exists` (§4) scan for absence of normal-mode `SYSTEM_TREE_MUTATION` (S3.1) outside the recovery window.
+
+**Severity.** constitutional. **Cadence.** every boot, every recovery boundary transition (entry + exit), every mount/remount operation, plus scheduled audit (closed periodic cadence, no operational override).
+
+#### 23.1.2 `WEB_UI_LOCALHOST_BOUND` (PROMOTE — binds INV-006 web UI localhost default)
+
+**Statement.** Every web renderer port from S7.5 listens on `127.0.0.1` and `::1` by default. LAN exposure requires policy approval AND a paired `WEB_LAN_EXPOSURE_GRANTED` FOREVER evidence record; public exposure requires recovery-mode approval AND a paired `WEB_PUBLIC_EXPOSURE_GRANTED` FOREVER evidence record. A web port listening on any non-loopback address without the matching FOREVER grant record is a constitutional violation.
+
+**What is audited.** For each active web renderer port (closed enum via S7.5 service registry): assert the bound socket address is `127.0.0.1` or `::1` (loopback) unless a matching FOREVER `WEB_LAN_EXPOSURE_GRANTED` (LAN exposure window) or `WEB_PUBLIC_EXPOSURE_GRANTED` (recovery-approved public window) record is sealed and current. Where loopback-only is asserted, also probe that the same port is NOT open on `0.0.0.0` / `::` (closed condition: external bind absent). Failure emits `TAMPER_DETECTED` (S3.1) with `invariant_id = INV_006_WEB_UI_LOCALHOST_BOUND`.
+
+**Primitive composition.** Composes the existing `web_renderer_bound_to(host, port)` primitive (Wave 5 §18.2) for the positive bind assertion, the existing `port.closed(host="0.0.0.0", port, protocol)` primitive (§4) for the external-bind absence assertion (and the `::` IPv6 variant), and the existing `evidence_exists(receipt_id)` primitive (§4) to verify the FOREVER exposure grant record when a non-loopback bind is intentional.
+
+**Severity.** constitutional. **Cadence.** every web renderer service start, every exposure-grant state transition, plus scheduled audit (closed periodic cadence).
+
+#### 23.1.3 `APPROVAL_BOUND_AND_EXPIRING` (PROMOTE — binds INV-009 approvals bind to one request and expire)
+
+**Statement.** Every approval issued by the S5.3 approval mechanics binds to exactly one `request_hash` (S0.1 §4 canonical request hash), names exactly one approver subject, and carries an explicit expiration timestamp consistent with the channel TTL contract (default INTERACTIVE 5 min, BATCH 24 h, RECOVERY 1 h). Reuse of an approval across distinct `request_hash` values is rejected at the policy kernel; an evidence record claiming a different binding shape is a constitutional violation.
+
+**What is audited.** For every approval receipt in scope: assert `approval.request_hash` is non-empty and matches the cited action's `request_hash`; assert `approval.approver_subject_id` is exactly one subject (no co-approver inflation); assert `approval.expires_at` is set and is `≤ approval.issued_at + channel_ttl_max` per the channel kind; for every consumed approval in policy decisions, assert it was consumed before `expires_at`. Failure emits `TAMPER_DETECTED` (S3.1) with `invariant_id = INV_009_APPROVAL_BOUND_AND_EXPIRING`.
+
+**Primitive composition.** Composes the existing `evidence_exists(receipt_id)` primitive (§4) to fetch each approval receipt, with the new primitive `approval_binding_state(approval_id)` (declared in §23.3 below) which returns the closed-enum binding shape (`request_hash`, `approver_subject_id`, `issued_at`, `expires_at`, `consumed_at_or_null`, `channel_kind`) for the approval; closed-enum predicates over the returned shape produce PASS/FAIL deterministically.
+
+**Severity.** constitutional. **Cadence.** every approval issuance, every approval consumption (policy decision referencing an approval), every approval expiration boundary, plus scheduled audit.
+
+#### 23.1.4 `RECOVERY_GATED_SYSTEM_MUTATIONS` (PROMOTE — binds INV-012 recovery required for system mutation)
+
+**Statement.** Every mutation whose target path falls under the closed set of system-reserved namespaces (`/aios/system/policy/`, `/aios/system/capabilities/`, `/aios/system/vault/`, `/aios/system/recovery/`, per INV-012 narrative) requires `subject.is_recovery_mode = true` at policy evaluation time AND a `HUMAN_USER` approver in the approval set AND a `RECOVERY_EVENT` FOREVER evidence record paired to the action. Substrate mutations (`target.is_constitutional_substrate = true` per S2.3 W9-A) are a stricter sibling per Wave 10 §21.3 `HARDWARE_SUBSTRATE_DRIFT_RECOVERY_ONLY`; this property covers the broader system-tree case. First-boot mutations under `subject.is_first_boot = true` (per S2.3 W9-B) emit `FIRST_BOOT_OPERATION` instead of `RECOVERY_EVENT` (W9 escape clause); the property treats first-boot as a constitutionally-bounded sibling, not a violation.
+
+**What is audited.** For every action receipt where `target.path` matches the system-reserved namespace set (closed enum via S4.1): assert the policy decision contains the `RecoveryRequiredForSystemMutation` admission record (escape clause via `is_recovery_mode = true` OR `is_first_boot = true`); assert the approval set contains at least one `HUMAN_USER` subject (or the first-boot exception applies); assert a paired FOREVER `RECOVERY_EVENT` or `FIRST_BOOT_OPERATION` record is sealed in S3.1 within the action's evidence chain. Failure emits `TAMPER_DETECTED` (S3.1) with `invariant_id = INV_012_RECOVERY_GATED_SYSTEM_MUTATIONS`.
+
+**Primitive composition.** Composes the existing `policy.decision(policy_decision_id, expected_decision)` primitive (§4) with `expected_decision = ALLOW` AND the admission marker `RecoveryRequiredForSystemMutation` present in the decision trace; with the existing `evidence_exists(receipt_id)` primitive for the `RECOVERY_EVENT` / `FIRST_BOOT_OPERATION` FOREVER record assertion. The system-reserved namespace closed-enum membership is read from S4.1's `SystemReservedName` enum and joined against `target.path`.
+
+**Severity.** constitutional. **Cadence.** every system-reserved-path mutation receipt, plus scheduled audit over a rolling window per §11.
+
+#### 23.1.5 `AI_NEVER_SYSTEM_ADMIN` (PROMOTE — binds INV-013 AI cannot perform system admin operations)
+
+**Statement.** No subject with `is_ai = true` MAY successfully mutate `/aios/system/apps/` or `/aios/system/agents/`, even when holding a `system_admin` capability binding. The capability is human-only authorization per INV-013; an AI subject reaching `succeeded` lifecycle phase on a `target.path` under those two trees is a constitutional violation. The constitutional hard-deny `AISystemAdminBlocked` (S2.3 §26.2.3) is the primary mechanical floor; this property is the read-side audit that verifies the floor's effect.
+
+**What is audited.** For every action receipt where `target.path` matches `/aios/system/apps/...` or `/aios/system/agents/...`: assert that `proposing_subject.is_ai = false` OR the lifecycle terminal state is `failed` with reason `AISystemAdminBlocked`; assert no `succeeded` lifecycle phase exists for any AI-subject action under either tree. Composes with the existing Wave 10 `POLICY_AI_SELF_APPROVAL_BLOCKED` (ID 23) per INV-013 narrative for joint INV-002 + INV-013 coverage. Failure emits `TAMPER_DETECTED` (S3.1) with `invariant_id = INV_013_AI_NEVER_SYSTEM_ADMIN`.
+
+**Primitive composition.** Composes the existing `evidence_exists(receipt_id)` primitive (§4) to scan recent action receipts with target-path predicate matching the system-admin subtree set, with the existing `policy.decision(policy_decision_id, expected_decision)` primitive (§4) for the per-receipt decision trace inspection (looking for `AISystemAdminBlocked` reject codes on any AI-subject attempt). No new primitive required; the audit logic is composed from existing closed-enum predicates over evidence + policy traces.
+
+**Severity.** constitutional. **Cadence.** every system-admin-subtree mutation attempt (including denied attempts — denied attempts MUST surface the `AISystemAdminBlocked` reject code), plus scheduled audit.
+
+#### 23.1.6 `EVIDENCE_NO_SECRET_LEAK` (PROMOTE — binds INV-015 evidence never contains secrets)
+
+**Statement.** No record sealed into the S3.1 evidence log contains a literal secret value in its payload — neither in structurally-typed fields (caught at schema validation, INV-015 narrative), nor in free-text fields, message bodies, or audit narratives. The closed set of secret-pattern classes — PEM-encoded private key blocks, password regex patterns, API key prefix patterns per a versioned catalog — MUST NOT match any sealed payload. A match is a constitutional violation; the offending record is quarantined and `TAMPER_DETECTED` (S3.1) is emitted with `invariant_id = INV_015_EVIDENCE_NO_SECRET_LEAK`.
+
+**What is audited.** Sampling scan over recent S3.1 sealed segments (within a rolling window per §11; cardinality bounded by sampling rate, not by total segment size): for each sampled record, run the closed secret-pattern catalog against the record's payload bytes (post-JCS canonical form, S6.3); any pattern hit emits the tamper record. The probe MUST NOT request raw secret material from any source — it inspects only sealed evidence payloads.
+
+**Primitive composition.** Composes the existing `evidence_exists(receipt_id)` primitive (§4) for record retrieval, with the new primitive `secret_pattern_match(record_id)` (declared in §23.3 below) which runs the versioned closed-enum secret-pattern catalog against the record's canonical payload form and returns the closed-enum match result (`{pattern_class, match_count, sampled_at}`). The pattern catalog itself is signed (`spcat_<hex>`, mirrors `sigfloor_<hex>` discipline from S3.2 §5.4); pattern-catalog rotation is a versioned spec change.
+
+**Severity.** constitutional. **Cadence.** scheduled rolling-window audit (closed sampling rate); also runs on demand for forensic inspection by an audit subject under recovery mode.
+
+### 23.2 W11-C INV-007 verifier promotion
+
+#### 23.2.1 `LAYER_DOWNWARD_DEPENDENCY_HOLDS` (PROMOTE — binds INV-007 layer downward dependency)
+
+**Statement.** Every sub-spec under L0..L10 declares a `Consumes` header table per the discipline refined in [03_architecture_overview.md Wave 11 layer-dependency discipline section](../03_architecture_overview.md). Each row marks the dependency direction (`requires-for-correctness` vs `imports-vocabulary-from`). For any row marked `requires-for-correctness`, the target layer's numeric index MUST be less than or equal to the source layer's numeric index. A spec whose Consumes table contains any `requires-for-correctness` row pointing at a higher-numbered layer is in architectural violation of INV-007.
+
+**What is audited.** Closed scheduled audit over the rev.2 spec tree: for each sub-spec file (closed list per `00_MASTER_INDEX.md`), parse the Consumes header table; for each row, assert `dependency_direction = requires-for-correctness ⇒ target_layer_index ≤ source_layer_index`. Any violation emits `TAMPER_DETECTED` (S3.1) with `invariant_id = INV_007_LAYER_DOWNWARD_DEPENDENCY_HOLDS`. This is a static-doc audit (closed input: the spec tree at the audited revision) rather than a runtime probe; the verifier reads the spec tree exactly as a build-time conformance gate would.
+
+**Primitive composition.** Composes the new primitive `spec_consumes_table(spec_id)` (declared in §23.3 below) which returns the closed-enum Consumes-row representation for a named sub-spec (`{source_spec_id, target_layer, target_spec_id, dependency_direction, justification}`); a closed predicate over the returned rows produces PASS/FAIL. Sub-spec identity is by canonical id (`s_<layer_index>_<index>` form, e.g. `s_2_3` for S2.3); the scan walks the closed list per `00_MASTER_INDEX.md`.
+
+**Severity.** constitutional. **Cadence.** scheduled audit (closed cadence — daily during active spec authoring, weekly post-stabilisation); also runs as a build-time gate before any spec-tree release tag (closes the manual architectural audit step into a mechanical check, per DEC-049 W11-A intent).
+
+### 23.3 New primitives (narrative-declared; Wave 14 IDL roll-up)
+
+Four new primitives are introduced in Wave 14. Each is read-only per §6.1, runs under the privacy-class restrictions of §6.2, and obeys the per-primitive timeout discipline of §6.3.
+
+| Primitive                | Required args                                            | Observed data on success                                                                                                                                |
+| ------------------------ | -------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `filesystem_root_intact` | `root` (closed enum: `/`, `/root`, `/aios`)              | `{ mount_opts, acl_summary, declared_namespace_policy_id, mount_state }` (closed-enum `mount_state ∈ {READONLY, RW_OPERATOR_ONLY, RW_NAMESPACE_GATED}`) |
+| `spec_consumes_table`    | `spec_id` (closed canonical form `s_<layer>_<index>`)    | `{ rows: repeated ConsumesRow }` where `ConsumesRow = { target_layer, target_spec_id, dependency_direction (enum), justification }`                     |
+| `approval_binding_state` | `approval_id`                                            | `{ request_hash, approver_subject_id, issued_at, expires_at, consumed_at_or_null, channel_kind (enum) }`                                                |
+| `secret_pattern_match`   | `record_id`, `pattern_catalog_id` (signed `spcat_<hex>`) | `{ patterns_matched: repeated PatternClass, total_hits, sampled_at, catalog_version_id }`                                                               |
+
+All four primitives are queued for the closed primitive vocabulary; full IDL roll-up is **inline** in §23.7 below (does not defer body to Wave 15+ — Wave 14 commits full proto3 message bodies for these four since the upstream sources are already finalised). Each binds to a deterministic in-process or read-only-IO query (no L4 capability invocation beyond signed pattern-catalog read, no AIOS-FS writes, no outbound network traffic generated by the probe itself).
+
+### 23.4 Reconciliation (truthful arithmetic)
+
+Total properties added in Wave 14:
+
+- §23.1 S6.4 §9 producer-table closure: `FILESYSTEM_BOUNDARY_INTACT`, `WEB_UI_LOCALHOST_BOUND`, `APPROVAL_BOUND_AND_EXPIRING`, `RECOVERY_GATED_SYSTEM_MUTATIONS`, `AI_NEVER_SYSTEM_ADMIN`, `EVIDENCE_NO_SECRET_LEAK` = **6**
+- §23.2 W11-C INV-007 verifier: `LAYER_DOWNWARD_DEPENDENCY_HOLDS` = **1**
+- **Wave 14 property additions: 7**
+
+New cumulative `PropertyType` enum count: 32 (post-Wave 13 IDL roll-up) + 7 (Wave 14) = **39 entries**.
+
+Severity distribution of the 7 new properties:
+
+- **constitutional 7:** all of `FILESYSTEM_BOUNDARY_INTACT`, `WEB_UI_LOCALHOST_BOUND`, `LAYER_DOWNWARD_DEPENDENCY_HOLDS`, `APPROVAL_BOUND_AND_EXPIRING`, `RECOVERY_GATED_SYSTEM_MUTATIONS`, `AI_NEVER_SYSTEM_ADMIN`, `EVIDENCE_NO_SECRET_LEAK`. Each binds an L0 invariant; failure emits `TAMPER_DETECTED` with `invariant_id` per binding.
+
+Total primitives added in Wave 14:
+
+- §23.3 narrative-declared (with inline IDL roll-up): `filesystem_root_intact`, `spec_consumes_table`, `approval_binding_state`, `secret_pattern_match` = **4**
+
+New cumulative primitive vocabulary count after Wave 14: 32 (post-Wave 13) + 4 (Wave 14) = **36 entries**.
+
+### 23.5 Cross-spec impact
+
+- **New L0 invariants candidate from this Wave:** none. All seven Wave 14 properties verify existing L0 invariants (INV-004, INV-006, INV-007, INV-009, INV-012, INV-013, INV-015). They are new verifiers, not new invariants. Per DEC-025/DEC-026 deliberate-act discipline, no constitutional invariant is promoted.
+- **L0 INV catalog touch-up:** [`L0_Governance_Evidence_Safety/04_invariants.md`](../L0_Governance_Evidence_Safety/04_invariants.md) "Verified by" lines for INV-004, INV-006, INV-007, INV-009, INV-012, INV-013, INV-015 updated to cite Wave 14 promotion sites (`§23.1.1`, `§23.1.2`, `§23.2.1`, `§23.1.3`, `§23.1.4`, `§23.1.5`, `§23.1.6` respectively). §9 producer-table row for S2.4 updated from "queued for S2.4 consolidation" to "promoted in S2.4 Wave 14".
+- **Executive summary touch-up:** [`01_executive_summary.md`](../01_executive_summary.md) S6.4 narrative line corrected — the six S6.4 producer-queue properties cited as "added to S2.4 closed `PropertyType` enum — total now 16" were not yet in S2.4 at the time of writing. Wave 14 promotes them; the cumulative S2.4 PropertyType count after Wave 14 is **39** (not 16, which reflected a not-yet-applied pre-Wave-8 projection).
+- **New typed actions:** none in this Wave.
+- **New RecordTypes for verification failures:** none new; all seven verifiers reuse the existing `TAMPER_DETECTED` (S3.1) record type for constitutional-severity failures with the `invariant_id` field naming the bound INV.
+- **S3.1, S2.3, S5.3, S6.4, S9.1, S4.1, S5.2, S13.1, 03_architecture_overview:** no edits required to consumer specs — Wave 14 only closes the verification surface that consumer specs already cite by name.
+
+### 23.6 Telemetry impact
+
+The 7 new property entries contribute closed enum labels to `verification_property_audit_total{property_type}`; the closed enum is now **39 entries** — within the cardinality budget declared in §14 (the §14 budget of 50 includes Wave-14 growth room; remaining headroom 11 properties). The 4 new primitive entries contribute closed labels to `verification_total{primitive}` and `verification_latency_seconds{primitive}`; the closed primitive set is now **36 entries** — within budget (50-entry budget; headroom 14 primitives). No new telemetry metric is introduced.
+
+### 23.7 IDL reconciliation (inline)
+
+Unlike Wave 10 which deferred its IDL roll-up to Wave 13 (§22), Wave 14 commits its IDL surface **inline** since the upstream sources for all seven properties and all four new primitives are already finalised (no SHELL stubs needed). Appendix A is extended additively:
+
+**PropertyType enum — 7 new entries at IDs 33..39:**
+
+```proto
+// ── Wave 14 (§23) — S6.4 §9 producer-table closure + W11-C INV-007 verifier — IDs 33..39
+FILESYSTEM_BOUNDARY_INTACT       = 33;  // §23.1.1; binds INV-004
+WEB_UI_LOCALHOST_BOUND           = 34;  // §23.1.2; binds INV-006
+LAYER_DOWNWARD_DEPENDENCY_HOLDS  = 35;  // §23.2.1; binds INV-007
+APPROVAL_BOUND_AND_EXPIRING      = 36;  // §23.1.3; binds INV-009
+RECOVERY_GATED_SYSTEM_MUTATIONS  = 37;  // §23.1.4; binds INV-012
+AI_NEVER_SYSTEM_ADMIN            = 38;  // §23.1.5; binds INV-013
+EVIDENCE_NO_SECRET_LEAK          = 39;  // §23.1.6; binds INV-015
+```
+
+**Primitive `oneof` — 4 new fields at IDs 54..57 with full proto3 message bodies:**
+
+```proto
+// Wave 14 (§23.3) — full bodies inline (no SHELL stubs)
+FilesystemRootIntactPrimitive   filesystem_root_intact   = 54;
+SpecConsumesTablePrimitive      spec_consumes_table      = 55;
+ApprovalBindingStatePrimitive   approval_binding_state   = 56;
+SecretPatternMatchPrimitive     secret_pattern_match     = 57;
+```
+
+```proto
+// ─── Wave 14 (§23) — primitive message bodies ───────────────────
+
+enum FilesystemConstitutionalRoot {
+  FILESYSTEM_CONSTITUTIONAL_ROOT_UNSPECIFIED = 0;
+  FILESYSTEM_ROOT_SYSTEM_IMMUTABLE = 1;   // "/"
+  FILESYSTEM_ROOT_OPERATOR_ISLAND  = 2;   // "/root"
+  FILESYSTEM_ROOT_AIOS             = 3;   // "/aios"
+}
+
+message FilesystemRootIntactPrimitive {
+  FilesystemConstitutionalRoot root = 1;
+}
+
+enum ConsumesDependencyDirection {
+  CONSUMES_DEPENDENCY_DIRECTION_UNSPECIFIED = 0;
+  REQUIRES_FOR_CORRECTNESS = 1;
+  IMPORTS_VOCABULARY_FROM  = 2;
+}
+
+message SpecConsumesTablePrimitive {
+  string spec_id = 1;                     // canonical "s_<layer>_<index>", e.g. "s_2_3"
+}
+
+message ApprovalBindingStatePrimitive {
+  string approval_id = 1;                 // canonical "apprq_<ulid>" or "appb_<ulid>" per S5.3 prefix discipline
+}
+
+message SecretPatternMatchPrimitive {
+  string record_id = 1;                   // S3.1 receipt id
+  string pattern_catalog_id = 2;          // canonical "spcat_<hex>" — signed catalog version
+}
+```
+
+Field IDs 58..99 remain natural-fill expansion budget; the existing `reserved 100 to 999;` budget for PropertyType further additions is preserved.
+
+**No existing field number or enum ID is changed.** No body of any prior-Wave primitive message is mutated. The Wave 10 SHELL stubs at IDs 49..53 remain `/* W15+: fields per §21.x */` (renamed from `W14+` in their inline comments since Wave 14 chose to roll up its own bodies inline rather than fold in Wave 10's stub bodies; Wave 10's bodies depend on namespace catalog finalisation in S4.1 not in scope here).
+
+## 24. See also
 
 - [S0.1 Action Envelope + Lifecycle](../XX_Cross_Cutting/01_action_envelope_lifecycle.md)
 - [S3.1 Evidence Log](01_evidence_log.md)
 - [S2.3 Policy Kernel](../L4_Policy_Identity_Vault/01_policy_kernel.md)
 - [S4.1 Namespace Layout](../L2_AIOS_FS/05_namespace_layout.md)
+- [S6.4 Constitutional Invariants](../L0_Governance_Evidence_Safety/04_invariants.md)
+- [S7.5 Web Renderer](../L7_Interaction_Renderers/05_web_renderer.md) (web port bind state — consumed by §23.1.2)
+- [S5.3 Approval Mechanics](../L4_Policy_Identity_Vault/04_approval_mechanics.md) (approval binding shape — consumed by §23.1.3)
 - [S7.1 Surface Composition](../L7_Interaction_Renderers/01_surface_composition.md)
 - [S7.2 Shared UI Schema](../L7_Interaction_Renderers/02_shared_ui_schema.md)
 - [S7.3 Visual Language](../L7_Interaction_Renderers/03_visual_language.md)
@@ -1290,7 +1486,14 @@ message VerificationIntent {
     StatusIndicatorVisiblePrimitive         status_indicator_visible           = 52;
     SubjectSessionFlagStatePrimitive        subject_session_flag_state         = 53;
 
-    // Reserved for future expansion. Wave 14+ may extend further.
+    // Wave 14 (§23.3) — S6.4 §9 producer-table closure + W11-C INV-007 verifier — IDs 54..57
+    // Full proto3 bodies inline (no SHELL stubs); see message declarations below.
+    FilesystemRootIntactPrimitive           filesystem_root_intact             = 54;
+    SpecConsumesTablePrimitive              spec_consumes_table                = 55;
+    ApprovalBindingStatePrimitive           approval_binding_state             = 56;
+    SecretPatternMatchPrimitive             secret_pattern_match               = 57;
+
+    // Reserved for future expansion. Wave 15+ may extend further.
   }
 
   // reserved 100 to 999;
@@ -1430,11 +1633,46 @@ message MdnsPosturePrimitive {
 // SHELL stubs: full message bodies queued for Wave 14+ IDL roll-up
 // ─────────────────────────────────────────────────────────────────
 
-message AiosfsPathOwnerResolvedPrimitive        { /* W14: fields per §21.2 */ }
-message AiosfsPathRecoveryTreatmentSetPrimitive { /* W14: fields per §21.2 */ }
-message NamespaceCatalogVersionPrimitive        { /* W14: fields per §21.2 */ }
-message StatusIndicatorVisiblePrimitive         { /* W14: fields per §21.3 */ }
-message SubjectSessionFlagStatePrimitive        { /* W14: fields per §21.4 */ }
+message AiosfsPathOwnerResolvedPrimitive        { /* W15+: fields per §21.2 */ }
+message AiosfsPathRecoveryTreatmentSetPrimitive { /* W15+: fields per §21.2 */ }
+message NamespaceCatalogVersionPrimitive        { /* W15+: fields per §21.2 */ }
+message StatusIndicatorVisiblePrimitive         { /* W15+: fields per §21.3 */ }
+message SubjectSessionFlagStatePrimitive        { /* W15+: fields per §21.4 */ }
+
+// ─────────────────────────────────────────────────────────────────
+// Wave 14 (§23.3) — S6.4 §9 producer-table closure + W11-C verifier
+// Full proto3 bodies inline. Field IDs 54..57 in oneof above.
+// ─────────────────────────────────────────────────────────────────
+
+enum FilesystemConstitutionalRoot {
+  FILESYSTEM_CONSTITUTIONAL_ROOT_UNSPECIFIED = 0;
+  FILESYSTEM_ROOT_SYSTEM_IMMUTABLE = 1;   // "/"
+  FILESYSTEM_ROOT_OPERATOR_ISLAND  = 2;   // "/root"
+  FILESYSTEM_ROOT_AIOS             = 3;   // "/aios"
+}
+
+message FilesystemRootIntactPrimitive {
+  FilesystemConstitutionalRoot root = 1;
+}
+
+enum ConsumesDependencyDirection {
+  CONSUMES_DEPENDENCY_DIRECTION_UNSPECIFIED = 0;
+  REQUIRES_FOR_CORRECTNESS = 1;
+  IMPORTS_VOCABULARY_FROM  = 2;
+}
+
+message SpecConsumesTablePrimitive {
+  string spec_id = 1;                     // canonical "s_<layer>_<index>", e.g. "s_2_3"
+}
+
+message ApprovalBindingStatePrimitive {
+  string approval_id = 1;                 // canonical "apprq_<ulid>" or "appb_<ulid>" per S5.3 prefix discipline
+}
+
+message SecretPatternMatchPrimitive {
+  string record_id = 1;                   // S3.1 receipt id
+  string pattern_catalog_id = 2;          // canonical "spcat_<hex>" — signed catalog version
+}
 
 message PropertyCheckIntent {
   PropertyType type = 1;
@@ -1489,7 +1727,16 @@ enum PropertyType {
   FIRST_BOOT_MODE_BOUNDED                      = 31;  // §21.4
   FIRST_BOOT_MODE_MUTUALLY_EXCLUSIVE_WITH_RECOVERY = 32;  // §21.4
 
-  // Reserved for future expansion. Wave 14+ may extend further.
+  // ── Wave 14 (§23) — S6.4 §9 producer-table closure + W11-C INV-007 verifier — IDs 33..39
+  FILESYSTEM_BOUNDARY_INTACT                       = 33;  // §23.1.1; binds INV-004
+  WEB_UI_LOCALHOST_BOUND                           = 34;  // §23.1.2; binds INV-006
+  LAYER_DOWNWARD_DEPENDENCY_HOLDS                  = 35;  // §23.2.1; binds INV-007
+  APPROVAL_BOUND_AND_EXPIRING                      = 36;  // §23.1.3; binds INV-009
+  RECOVERY_GATED_SYSTEM_MUTATIONS                  = 37;  // §23.1.4; binds INV-012
+  AI_NEVER_SYSTEM_ADMIN                            = 38;  // §23.1.5; binds INV-013
+  EVIDENCE_NO_SECRET_LEAK                          = 39;  // §23.1.6; binds INV-015
+
+  // Reserved for future expansion. Wave 15+ may extend further within IDs 40..99 or the reserved 100..999 budget.
   reserved 100 to 999;
 }
 

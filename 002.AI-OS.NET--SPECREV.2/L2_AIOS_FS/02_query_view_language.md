@@ -673,7 +673,64 @@ The second query is also a property-based check candidate: `EVENTUALLY_EMPTY(...
 
 The operator vocabulary (§4) is unchanged. The new fields use only the existing `=`, `!=`, `in` operators. Pagination, time-travel, materialization, and view definition rules apply unchanged.
 
-## 20. See also
+## 20. Wave 17 cross-spec touch-up (S8.1 network triple — query-side closure of GAP-004)
+
+Applied 2026-05-23. Sources: [S8.1 §4.2 `OutboundDirective`, §4.3 `InboundExposureClass`, §4.9 `AICrossOriginPosture`](../L8_Network_Hardware_Devices/02_network_policy.md), [S2.3 §28 Wave 6 policy-side consolidation](../L4_Policy_Identity_Vault/01_policy_kernel.md), [Tier 6 audit GAP-004](../02_design_decisions.md). S2.3 Wave 6 §28 added the network triple (`subject.network_outbound_directive`, `subject.ai_external_posture`, `target.exposure_class`) as policy condition fields, and S2.3 §28.3 narrative claimed S2.1 had "already gained equivalent query-side fields in Wave 5". The claim was incorrect — Wave 5 added the surface/theme/GPU quintet, not the network triple. Tier 6 audit GAP-004 surfaced this asymmetry between policy-side and query-side audit surfaces. Wave 17 closes the loop: the network triple is now queryable for audit purposes via the same closed-enum types S2.3 uses.
+
+### 20.1 Three new closed query fields
+
+The query field vocabulary (§4) gains three typed fields. All are closed; queries with unknown fields fail validation with `UnknownField`.
+
+| Field                                | Type                                         | Operators       | Notes                                                                                                                                                                                                                                              |
+| ------------------------------------ | -------------------------------------------- | --------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `subject.network_outbound_directive` | `aios.network.v1alpha1.OutboundDirective`    | `=`, `!=`, `in` | the effective outbound directive bound to the subject's session at the time the receipt was sealed; values per [S8.1 §4.2](../L8_Network_Hardware_Devices/02_network_policy.md). Mirrors S2.3 §28.1 / §28.2.1 policy-side field.                   |
+| `subject.ai_external_posture`        | `aios.network.v1alpha1.AICrossOriginPosture` | `=`, `!=`, `in` | the closed AI cross-origin posture for AI subjects; only meaningful when `subject.is_ai = true`; values per [S8.1 §4.9](../L8_Network_Hardware_Devices/02_network_policy.md). Mirrors S2.3 §28.1 / §28.2.2 policy-side field.                      |
+| `target.exposure_class`              | `aios.network.v1alpha1.InboundExposureClass` | `=`, `!=`, `in` | the inbound exposure class declared in the receipt's target when the originating action was an exposure-grant family; values per [S8.1 §4.3](../L8_Network_Hardware_Devices/02_network_policy.md). Mirrors S2.3 §28.1 / §28.2.3 policy-side field. |
+
+Other operators (e.g., `LIKE`, `>`) are rejected with `UnsupportedOperator`. The fields participate in the existing privacy ceiling and cross-group filtering disciplines (§5, §9).
+
+The query-field vocabulary now holds **N+3 fields** (N being the pre-Wave-17 count of namespace + surface/theme/GPU + base fields; Wave 17 itself is purely additive and does not renumber prior Wave sections).
+
+### 20.2 Illustrative example queries
+
+```sql
+-- All actions by AI subjects whose effective outbound directive was DENY_ALL (audit for blocked-direct-call attempts)
+SELECT receipt_id, action_id, recorded_at FROM evidence
+ WHERE subject.is_ai = true
+   AND subject.network_outbound_directive = DENY_ALL
+   AND record_type IN (AI_DIRECT_INTERNET_DENIED, NETWORK_OUTBOUND_REJECTED)
+   AND recorded_at > now() - INTERVAL '7 days'
+ ORDER BY recorded_at DESC;
+
+-- All PUBLIC inbound exposure grants in last 30 days (constitutional audit per INV-006)
+SELECT receipt_id, action_id, recorded_at, target.exposure_class FROM evidence
+ WHERE record_type = WEB_PUBLIC_EXPOSURE_GRANTED
+   AND target.exposure_class = PUBLIC
+   AND recorded_at > now() - INTERVAL '30 days'
+ ORDER BY recorded_at DESC;
+
+-- AI subjects whose external posture is AI_VAULT_BROKERED_ONLY but who attempted unbrokered model calls (negative-witness audit)
+SELECT receipt_id, action_id, recorded_at FROM evidence
+ WHERE subject.is_ai = true
+   AND subject.ai_external_posture = AI_VAULT_BROKERED_ONLY
+   AND record_type = MODEL_CALL_BROKERED_BYPASS_ATTEMPTED;
+```
+
+Each query is also a candidate input to S2.4 `EVENTUALLY_EMPTY(...)` property checks: an audit query that returns empty over a deterministic snapshot is structurally equivalent to a verification probe — `EVENTUALLY_EMPTY` over the third query above verifies INV-002 site 3 (`AI_DIRECT_INTERNET_DENIED` discipline). Wave 17 closes the symmetry: policy-side rules (S2.3 §28) and query-side audits (S2.1 §20) now share the same closed-vocabulary triple, so an auditor writing in S2.1 syntax and a bundle author writing in S2.3 syntax both reason about the identical fields without translation.
+
+### 20.3 Cross-spec dependency table addition (narrative-only)
+
+S2.1 gains S8.1 as an upstream type producer for Wave 17 (matching the S2.3 §28.3 producer relationship): S8.1 owns the `OutboundDirective`, `AICrossOriginPosture`, and `InboundExposureClass` enum definitions, and S2.1 is the consumer for query-side audit reasoning. The §17 cross-spec dependency narrative is updated here in-line; the Appendix A IDL block is **not** modified in this wave (IDL reconciliation deferred per the §19 Wave 5 pattern; see also S2.4 §22 for the parallel Wave 13 reconciliation discipline).
+
+### 20.4 No new operators, no new combinators
+
+The operator vocabulary (§4) is unchanged. The three new fields use only the existing `=`, `!=`, `in` operators. Pagination, time-travel, materialization, and view definition rules apply unchanged.
+
+### 20.5 Correction to S2.3 §28.3 narrative
+
+S2.3 §28.3 (Wave 6, 2026-05-11) claimed that "S2.1 (query/view language) already gained equivalent query-side fields in Wave 5". The claim was incorrect — S2.1 Wave 5 added five surface/theme/GPU fields, not the network triple. Tier 6 audit GAP-004 identified the asymmetry on 2026-05-23. Wave 17 makes the claim true retroactively: the network triple is now queryable. A separate one-line correction to the S2.3 §28.3 narrative will be applied in the Wave 17 commit alongside this section's addition.
+
+## 21. See also
 
 - [S1.3 Object Model](01_object_model.md)
 - [S1.3 Conflict Resolution](03_conflict_resolution.md)

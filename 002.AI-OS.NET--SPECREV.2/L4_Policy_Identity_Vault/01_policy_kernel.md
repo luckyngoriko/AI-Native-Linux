@@ -1114,7 +1114,7 @@ LOOPBACK exposure-grants are the constitutional default and require no scoped RE
 
 ### 28.3 Cross-spec dependency table addition (narrative-only)
 
-S2.3 gains S8.1 as an upstream type producer for Wave 6: S8.1 owns the `OutboundDirective`, `AICrossOriginPosture`, and `InboundExposureClass` enum definitions, and S2.3 is the consumer that references them in its conditions vocabulary. Downstream, S5.3 (approval mechanics, deferred) is already a consumer of `target.exposure_class` for the LAN/PUBLIC-grant approval-strength path described in §28.2.3 — Wave 6 closes the loop between the policy-rule side and the approval-delivery side. Cross-cutting, S2.1 (query/view language) already gained equivalent query-side fields in Wave 5; the policy-kernel side now matches the query side, so audit queries written in S2.1 syntax and policy rules written in S2.3 syntax can both reason about the same triple of network-posture fields without translation.
+S2.3 gains S8.1 as an upstream type producer for Wave 6: S8.1 owns the `OutboundDirective`, `AICrossOriginPosture`, and `InboundExposureClass` enum definitions, and S2.3 is the consumer that references them in its conditions vocabulary. Downstream, S5.3 (approval mechanics, deferred) is already a consumer of `target.exposure_class` for the LAN/PUBLIC-grant approval-strength path described in §28.2.3 — Wave 6 closes the loop between the policy-rule side and the approval-delivery side. Cross-cutting, S2.1 (query/view language) gained the equivalent query-side fields in **S2.1 Wave 17 §20** (applied 2026-05-23 to close Tier 6 audit GAP-004; the pre-Wave-17 claim in this paragraph that S2.1 had "already gained" them in its Wave 5 was incorrect — S2.1 Wave 5 added surface/theme/GPU fields, not the network triple). With Wave 17 the symmetry holds: the policy-kernel side now matches the query side, so audit queries written in S2.1 syntax and policy rules written in S2.3 syntax can both reason about the same triple of network-posture fields without translation.
 
 The §24 cross-spec dependency table is updated narratively here; the IDL block in Appendix A is **not** modified in this wave (IDL reconciliation is deferred per the §27 pattern).
 
@@ -1130,7 +1130,122 @@ The §26.3 / §27.3 hard-deny chain ordering is **unchanged**. The three new fie
 
 The §27.4 telemetry counters' label sets are unchanged. The three new fields are condition fields, not decision codes — they affect rule matching but do not introduce new `reason_code` values, new `policy_id` hard-deny labels, or new bounded label dimensions on existing counters. The bundle compilation result counter `policy_bundle_load_total{result}` is unchanged: a Wave 6 bundle that uses the new fields correctly loads with `result = "loaded"`; a Wave 6 bundle with the §28.4 type mismatches loads with `result = "rejected"` against the existing label set.
 
-## 29. See also
+## 29. Wave 17 cross-spec touch-up (S8.3 hardware condition consolidation — GAP-003 closure)
+
+Applied 2026-05-23. Sources: [S8.3 §3.1 `DeviceClass`, §3.2 `DeviceTrustClass`, §3.6 `DriverProvenance`](../L8_Network_Hardware_Devices/01_hardware_graph.md), [S8.3 §11.1 cross-spec touch-up queue](../L8_Network_Hardware_Devices/01_hardware_graph.md), [Tier 6 audit GAP-003](../02_design_decisions.md). S8.3 (Hardware Graph) queued five closed condition fields for the Policy Kernel conditions vocabulary so that bundle authors can author rules that reason about a device's class, trust posture, removable status, driver provenance, and firmware trust verdict on the same closed-vocabulary basis the HardwareGraph itself uses. The Wave 9 hard-deny `ConstitutionalSubstrateRequiresRecovery` (§26.2.5) already cites `target.device_class` in its illustrative rule snippet (`target.device_class IN { CPU, TPM_2_0, BIOS_UEFI, GPU_DISCRETE_FIRMWARE_BOUND }`, per §26.6 derivation) and the §26.6 `target.is_constitutional_substrate` derivation depends on the same field; Wave 17 formalises the underlying vocabulary so the cite is backed by a registered field rather than an implicit one. Wave 17 is condition-field-only; no new constitutional hard-deny is introduced here.
+
+### 29.1 Five new closed condition fields
+
+The conditions vocabulary (§9) — which holds **26 fields** after the §28 Wave 6 touch-up plus one further field added by Wave 9 in §26.6 (`target.is_constitutional_substrate`), totaling **27 published fields** prior to Wave 17 — gains five new typed fields. All are closed; bundle load fails on unknown fields.
+
+| Namespace | Field                       | Type                                      | Operators       |
+| --------- | --------------------------- | ----------------------------------------- | --------------- |
+| `target`  | `target.device_class`       | `aios.hardware.v1alpha1.DeviceClass`      | `=`, `!=`, `in` |
+| `target`  | `target.device_trust_class` | `aios.hardware.v1alpha1.DeviceTrustClass` | `=`, `!=`, `in` |
+| `target`  | `target.removable`          | bool                                      | `=`, `!=`       |
+| `target`  | `target.driver_provenance`  | `aios.hardware.v1alpha1.DriverProvenance` | `=`, `!=`, `in` |
+| `target`  | `target.firmware_trusted`   | bool                                      | `=`, `!=`       |
+
+The conditions vocabulary now holds **32 fields** (12 base + 5 namespace + 6 Wave 5 + 3 Wave 6 + 1 Wave 9 §26.6 + 5 Wave 17). The two bool fields (`target.removable`, `target.firmware_trusted`) are primitive types, not enum types, because the HardwareGraph models them as scalar booleans on `Device` (per S8.3 §4.1 message shape); the closed enums for trust posture and provenance carry the categorical taxonomy.
+
+### 29.2 Per-field semantics and example rule snippets
+
+#### 29.2.1 `target.device_class`
+
+Exposes the closed `DeviceClass` (per [S8.3 §3.1](../L8_Network_Hardware_Devices/01_hardware_graph.md)) of the device referenced in the action's target. The field is populated when the action's target identifies a hardware device (e.g., `target.device_id` resolves to a `Device` in the active `HardwareGraph` snapshot); otherwise predicates against it evaluate to `false`. The value is the device's registered class at evaluation time, not a caller-supplied claim — capability-lie discipline (S8.3 §8) ensures the field cannot be spoofed by an action envelope author.
+
+This field was already cited by the Wave 9 §26.2.5 hard-deny illustrative rule snippet (`target.device_class IN { CPU, TPM_2_0, ... }`) and underpins the §26.6 `target.is_constitutional_substrate` derivation. With Wave 17, the cite is formally backed by a registered closed-vocabulary entry; bundle authors can author rules at finer granularity than the substrate boolean permits.
+
+Illustrative rule snippet:
+
+```text
+IF request.action = "device.bind"
+   AND target.device_class = NETWORK_WIFI
+   AND subject.is_ai = true
+THEN DENY with code = AIWifiBindForbidden
+```
+
+This catches an AI subject attempting to bind a Wi-Fi adapter — distinct from the §26.2.3 `AISystemAdminBlocked` rule because the action target is the device plane, not the `_system` filesystem scope.
+
+#### 29.2.2 `target.device_trust_class`
+
+Exposes the closed `DeviceTrustClass` (per [S8.3 §3.2](../L8_Network_Hardware_Devices/01_hardware_graph.md)) of the device referenced in the action's target. The value is the trust posture computed by the HDM at the time of driver bind; bundle authors can require a minimum trust class for high-privilege actions.
+
+Illustrative rule snippet:
+
+```text
+IF request.action = "device.expose_to_sandbox"
+   AND target.device_trust_class IN { OUT_OF_TREE_BLACKLISTED }
+THEN DENY with code = UntrustedDeviceExposureForbidden
+```
+
+A complementary rule can require `AIOS_VERIFIED_DRIVER` for actions that operate on sensitive device classes (e.g., a TPM mutation requires the TPM driver to be in the verified registry).
+
+#### 29.2.3 `target.removable`
+
+Exposes the boolean removable-status of the device referenced in the action's target. The value is sourced from the HDM device record (per [S8.3 §4.1](../L8_Network_Hardware_Devices/01_hardware_graph.md) `Device.removable` field). Bundle authors can gate actions on removable-device discipline (S8.3 I12) without having to enumerate every removable `DeviceClass`.
+
+Illustrative rule snippet:
+
+```text
+IF request.action = "filesystem.mount_device"
+   AND target.removable = true
+   AND subject.recovery_mode = false
+THEN REQUIRE_APPROVAL
+WITH approval.strength = "STRONG"
+   AND approval.require_human_co_signer = true
+```
+
+This complements the constitutional I8 binding (AI subjects already hard-denied removable mounts under §26.2.3) by adding an approval gate for HUMAN_USER subjects outside recovery.
+
+#### 29.2.4 `target.driver_provenance`
+
+Exposes the closed `DriverProvenance` (per [S8.3 §3.6](../L8_Network_Hardware_Devices/01_hardware_graph.md)) of the driver bound to the device referenced in the action's target. Cross-references `DeviceTrustClass` but at finer granularity for forensic and policy purposes — e.g., distinguishing `AIOS_REGISTRY` from `KERNEL_MAINLINE` even though both are trusted.
+
+Illustrative rule snippet:
+
+```text
+IF request.action = "device.elevate_capabilities"
+   AND target.driver_provenance = OUT_OF_TREE_REJECTED
+THEN DENY with code = OutOfTreeDriverElevationForbidden
+```
+
+#### 29.2.5 `target.firmware_trusted`
+
+Exposes the boolean firmware-trust verdict for the device referenced in the action's target, computed by S8.4 (firmware trust plane) and reflected in the HDM device record (per [S8.3 §4.1](../L8_Network_Hardware_Devices/01_hardware_graph.md) `Device.firmware_trusted` field). The HDM does **not** independently verify firmware; it consumes S8.4's verdict (S8.3 §10). Bundle authors can require firmware trust as a precondition for high-privilege actions.
+
+Illustrative rule snippet:
+
+```text
+IF request.action = "device.crypto_attest"
+   AND target.device_class = TPM_2_0
+   AND target.firmware_trusted = false
+THEN DENY with code = UntrustedFirmwareAttestationForbidden
+```
+
+This binds the constitutional discipline that a TPM with untrusted firmware cannot serve as an attestation root.
+
+### 29.3 Cross-spec dependency table addition (narrative-only)
+
+S2.3 gains S8.3 as an upstream type producer for Wave 17: S8.3 owns the `DeviceClass`, `DeviceTrustClass`, and `DriverProvenance` enum definitions (plus the `Device.removable` and `Device.firmware_trusted` scalar bool fields on the device record), and S2.3 is the consumer that references them in its conditions vocabulary. The S8.3 §11.1 producer-side claim ("Five closed condition fields queued for S2.3") is now closed by this section — the queue note in S8.3 §11.1 is left in place as the historical promise but its `(promoted in S2.3 Wave 17 §29)` resolution is annotated at the source. Cross-cutting, S2.1 (query/view language) does **not** gain parallel query-side fields in this Wave; query-side audit of the device plane uses the S3.1 evidence-log record types directly (`DEVICE_DRIVER_BOUND`, `DEVICE_QUARANTINED`, etc.) which already carry the same fields per S8.3 §12. If a future audit pattern needs query-side device-fact filtering, it can be added in a later S2.1 consolidation following the §28/§29 pattern.
+
+The §24 cross-spec dependency table is updated narratively here; the IDL block in Appendix A is **not** modified in this wave (IDL reconciliation is deferred per the §27 / §28 pattern).
+
+### 29.4 Adversarial robustness note
+
+A policy bundle whose rules reference these five new fields with operator/type mismatches fails bundle compilation per §17 — for example, comparing `DeviceClass` with a string literal that is not a member of the enum (`target.device_class = "BLUETOOTH"` instead of `NETWORK_BLUETOOTH`) produces `InvalidPolicyBundle` with `reason = "enum_value_not_in_closed_set"`; comparing `target.removable` with a numeric literal produces `InvalidPolicyBundle` with `reason = "type_mismatch"`. The closed-vocabulary contract holds: a bundle author cannot smuggle a per-host "custom" device class into the enum slot (which would defeat S8.3 I1's closed-vocabulary discipline), and the engine will not run a bundle whose rules cannot be statically type-checked against the §29.1 schema. Additionally, because the fields are sourced from the HDM (a `_system:service:hardware-manager` signed snapshot), an AI subject cannot author an action envelope that claims false device facts — the policy enricher (§8) reads from the active HardwareGraph snapshot, not from caller-supplied fields.
+
+### 29.5 Hard-deny ordering note
+
+The §26.3 / §27.3 / §28.5 hard-deny chain ordering is **unchanged**. The five new fields are condition fields, NOT new hard-denies. Bundle rules are free to use them in regular ALLOW / DENY / REQUIRE_APPROVAL clauses, but no new constitutional hard-deny is introduced in Wave 17. This binds to the discipline established in DEC-025 and DEC-026: each L0 INV addition is a deliberate, single-purpose act with explicit promotion criteria; Wave 17 does not piggyback an L0 invariant on a vocabulary expansion. The L0 invariant candidate `HARDWARE_GRAPH_DRIFT_FOREVER` queued by S8.3 §11.1 is a separate L0 sweep and is **out of scope** here.
+
+Note on §26.2.5 `ConstitutionalSubstrateRequiresRecovery`: this Wave 9 hard-deny was previously authored against `target.device_class` (in its illustrative rule snippet and in the §26.6 `target.is_constitutional_substrate` derivation) without that field being a formally-registered conditions-vocabulary entry. The rule was constitutionally well-formed because the underlying `Device.class` field exists in S8.3, but bundle authors writing parallel rules could not reference the field through the documented §9 vocabulary. Wave 17 closes that gap: `target.device_class` is now a registered closed condition field, and §26.2.5's cite is backed by the §29.1 schema. The hard-deny's runtime behavior is **unchanged**; only the vocabulary registration moves from implicit to explicit.
+
+### 29.6 Telemetry impact note
+
+The §27.4 telemetry counters' label sets are unchanged. The five new fields are condition fields, not decision codes — they affect rule matching but do not introduce new `reason_code` values, new `policy_id` hard-deny labels, or new bounded label dimensions on existing counters. The bundle compilation result counter `policy_bundle_load_total{result}` is unchanged: a Wave 17 bundle that uses the new fields correctly loads with `result = "loaded"`; a Wave 17 bundle with the §29.4 type mismatches loads with `result = "rejected"` against the existing label set.
+
+## 30. See also
 
 - [S0.1 Action Envelope + Lifecycle](../../002.AI-OS.NET--SPECREV.2/XX_Cross_Cutting/01_action_envelope_lifecycle.md)
 - [S1.3 Object Model](../L2_AIOS_FS/01_object_model.md)
@@ -1142,6 +1257,7 @@ The §27.4 telemetry counters' label sets are unchanged. The three new fields ar
 - [S7.4 KDE Renderer](../L7_Interaction_Renderers/04_kde_renderer.md)
 - [S7.5 Web Renderer](../L7_Interaction_Renderers/05_web_renderer.md)
 - [S8.2 GPU Resource Model](../L8_Network_Hardware_Devices/05_gpu_resource_model.md)
+- [S8.3 Hardware Graph](../L8_Network_Hardware_Devices/01_hardware_graph.md)
 - [L4 overview](00_overview.md)
 - [Rev.1 §11 — Policy Kernel](../../001.AI-OS.NET--SPECREV.1/02_SPECIFICATION.md)
 - [Rev.2 Master Index](../00_MASTER_INDEX.md)

@@ -48,9 +48,13 @@ pub mod error;
 pub mod receipt;
 pub mod record;
 pub mod sealed;
+pub mod segment;
+pub mod segment_chain;
 
 pub use chain::ReceiptChain;
 pub use error::EvidenceError;
 pub use receipt::{EvidenceReceipt, ReceiptBuilder};
 pub use record::{RecordType, RetentionClass};
 pub use sealed::Sealed;
+pub use segment::{SealedSegment, Segment, SegmentId};
+pub use segment_chain::SegmentChain;

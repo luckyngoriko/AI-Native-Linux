@@ -139,6 +139,67 @@ pub enum EvidenceError {
     /// claimed `subject_canonical_id`.
     #[error("evidence signature verification failed (Ed25519 reject)")]
     SignatureMismatch,
+
+    /// `Segment::append` was called on a segment that has already been sealed.
+    ///
+    /// After [`crate::segment::Segment::seal`] returns a [`crate::segment::SealedSegment`],
+    /// the original segment is consumed and no further receipts may be added —
+    /// constitutional INV-005 extends from individual receipts to segment
+    /// boundaries (T-010, S3.1 §7).
+    #[error("segment is already sealed; cannot append further receipts")]
+    SegmentAlreadySealed,
+
+    /// `Segment::seal` was called on a segment containing zero receipts.
+    ///
+    /// S3.1 §7.1 derives the segment id from `<genesis_receipt_id> +
+    /// <sealed_at_timestamp>` — an empty segment has no genesis receipt and
+    /// therefore no well-defined identity. The engine seals on size or age
+    /// thresholds (§7.3); both require at least one receipt to fire.
+    #[error("evidence segment has no receipts; cannot seal an empty segment")]
+    EmptySegment,
+
+    /// Cross-segment hash chain is broken: the appended segment's
+    /// `previous_segment_seal_hash` does not match the prior segment's
+    /// `segment_seal_hash` (S3.1 §5.2 line 193).
+    ///
+    /// Distinguished from [`Self::ChainBroken`], which fires on per-receipt
+    /// links inside a single segment.
+    #[error(
+        "segment chain broken at segment index {index}: previous_segment_seal_hash `{actual}` \
+         does not match expected `{expected}`"
+    )]
+    SegmentChainBroken {
+        /// 0-based index of the offending segment within the segment chain.
+        index: usize,
+        /// The hash the appended segment claims to link to.
+        actual: String,
+        /// The seal hash computed from the prior segment.
+        expected: String,
+    },
+
+    /// Recomputed `segment_seal_hash` differs from the stored value on the
+    /// [`crate::segment::SealedSegment`].
+    ///
+    /// Indicates tampering with one of the sealed segment's receipts (which
+    /// would change the canonical-all-receipts hash) or with the segment
+    /// metadata (receipt count, previous-seal hash). T-010 / S3.1 §5.2.
+    #[error("segment seal hash mismatch: expected `{expected}`, computed `{computed}`")]
+    SegmentSealMismatch {
+        /// The seal hash recorded on the [`crate::segment::SealedSegment`].
+        expected: String,
+        /// The seal hash recomputed during verification.
+        computed: String,
+    },
+
+    /// Ed25519 verification rejected the segment-level signature against the
+    /// supplied verifying key.
+    ///
+    /// Distinct from [`Self::SignatureMismatch`], which covers per-receipt
+    /// signatures. Constitutional tamper indicator at the segment boundary
+    /// (T-010 / S3.1 §11.3) — production maps this to a tamper response per
+    /// §11.5 and the engine enters degraded mode.
+    #[error("segment signature verification failed (Ed25519 reject)")]
+    SegmentSignatureMismatch,
 }
 
 impl From<aios_action::CanonicalError> for EvidenceError {

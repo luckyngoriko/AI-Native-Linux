@@ -1,19 +1,12 @@
 {
   "backlog": [
     {
-      "id": "T-008",
-      "title": "aios-evidence full Wave-13 RecordType vocabulary + Ed25519 signature path",
+      "id": "T-011",
+      "title": "aios-evidence — next step TBD by Governor (candidate: WAL / RocksDB persistence per S3.1 §7.2, OR gRPC EvidenceLog surface per §9 / §17, OR subscription/streaming/query per §9 / §10, OR redaction profiles per §14)",
       "status": "queued",
       "priority": "P1",
-      "dependencies": ["T-007"],
-      "acceptance_criteria": [
-        "RecordType extended from 39 variants to the full 427-entry Wave-13 reconciled vocabulary per S3.1 Appendix A (plus RecordTypeUnspecified = 0 if needed for proto compatibility)",
-        "Variants assigned in declaration order matching Appendix A IDs 1..427",
-        "All variants reject silently on unknown serde input (closed-enum discipline preserved)",
-        "Ed25519 signature integration path scaffolded (or explicitly punted to T-009) — at minimum a signed_with_key() builder method that consumes the Vault Broker capability handle",
-        "Per-RecordType payload schemas remain deferred to Wave 14+ per S3.1 §29.6",
-        "cargo build/test/clippy/fmt all PASS"
-      ],
+      "dependencies": ["T-010"],
+      "acceptance_criteria": ["Pending Governor selection"],
       "blockers": []
     }
   ],
@@ -59,6 +52,24 @@
       "title": "aios-evidence crate skeleton (S3.1 evidence log foundation)",
       "completed_at": "2026-05-23",
       "evidence": "cargo build/test/clippy --workspace --all-targets -D warnings all PASS + cargo fmt --check PASS; 133 tests green (29 new unit + 2 new integration = +31 over M1's 102); crates/aios-evidence registered as workspace member; 5 modules (error/record/receipt/chain/sealed); EvidenceReceipt envelope with ALL fields private and ONLY &self accessors — INV-005 (append-only) enforced at type level; ReceiptBuilder consuming-builder seals via BLAKE3-256(JCS(payload)) for content_hash + BLAKE3-truncated-32(JCS(prior)) for link; ReceiptChain append-only Vec with verify_integrity() walking windows(2); RetentionClass closed 3-variant enum; RecordType closed 39-variant subset (action lifecycle 11 + namespace 2 + vault/recovery/tamper 7 + AI-barriers 4 + build/test 7 + FSM extras 8) with TODO(T-008) for full 428; Sealed marker trait with private super-trait blocks downstream impl; EvidenceError 8-variant closed enum; first cross-crate workspace dependency exercising aios-action's public re-exports"
+    },
+    {
+      "id": "T-008",
+      "title": "aios-evidence RecordType expanded to full 427-entry Wave-13 vocabulary",
+      "completed_at": "2026-05-23",
+      "evidence": "commit 9185413; cargo build/test/clippy/fmt all PASS; 158 tests green (+25 over T-007); strum 0.26 + strum_macros 0.26 added to workspace deps for EnumIter + EnumCount; closed 427-variant RecordType matching S3.1 Appendix A Wave 13 IDL declaration order; LEN = 427 compile-time invariant"
+    },
+    {
+      "id": "T-009",
+      "title": "aios-evidence Ed25519 signature path (S3.1 §5.2 / §11.3 / §28.5)",
+      "completed_at": "2026-05-23",
+      "evidence": "commit 6ee436d; cargo build/test/clippy --all-targets -D warnings/fmt --check all PASS; 176 tests green (+18 over T-008); ed25519-dalek 2.1 (BSD-3-Clause) + rand_core 0.6 added to workspace deps; ReceiptBuilder::seal_signed + EvidenceReceipt::verify_signature/is_signed/signing_digest + ReceiptChain::verify_integrity_signed; private ReceiptForSigning<'a> serde view omits signature field to avoid sign-the-signature cycle; encode/decode_signature_hex enforce 128 lowercase hex chars (uppercase rejected); 3 new EvidenceError variants (SignatureMalformed/Missing/Mismatch — Mismatch maps to RECEIPT_FORGERY_DETECTED per §28.5); production key path documented as deferred to S5.2 Vault Broker for subject _system:service:evidence-segment-signer; signature field on EvidenceReceipt is now populated for signed receipts (was placeholder None in T-007)"
+    },
+    {
+      "id": "T-010",
+      "title": "aios-evidence segment sealing + cross-segment linkage (S3.1 §5.2 / §7)",
+      "completed_at": "2026-05-23",
+      "evidence": "cargo build/test/clippy --workspace --all-targets -D warnings/fmt --check all PASS; 204 tests green (+28 over T-009's 176). Two new modules: segment.rs (1022 LoC) + segment_chain.rs (415 LoC) + tests/segment_lifecycle.rs (204 LoC). SegmentId is `seg_<32hex>` content-addressed via BLAKE3(genesis_receipt_id + RFC3339 sealed_at), no random new() (TransitionPlanId pattern). Segment::seal consumes self, emits a terminal SEGMENT_SEALED receipt (RecordType::SegmentSealed, RetentionClass::Forever, subject _system:service:evidence-segment-signer) per-receipt-signed by the same key, computes BLAKE3 over canonical SegmentSealMetadata (segment_id + retention_class + receipt_count + previous_segment_seal_hash + all_receipts_canonical_hash), Ed25519-signs the hex digest. SealedSegment has all fields private, only &self accessors (INV-005 at segment boundary). verify_seal recomputes hash + verifies Ed25519; verify_full adds per-receipt signature pass. SegmentChain is the append-only cross-segment list with verify_chain / verify_chain_signed / verify_full. 5 new EvidenceError variants: SegmentAlreadySealed / EmptySegment / SegmentChainBroken / SegmentSealMismatch / SegmentSignatureMismatch. GENESIS_PREVIOUS_SEGMENT_SEAL_HASH constant carries the 64-zero hex per S3.1 §5.2 line 193. No new workspace deps."
     }
   ],
   "blocked": [],
@@ -73,7 +84,7 @@
       "status": "active",
       "title": "Evidence Log skeleton (S3.1 aios-evidence crate)",
       "started_at": "2026-05-23",
-      "tasks": ["T-007", "T-008"]
+      "tasks": ["T-007", "T-008", "T-009", "T-010", "T-011"]
     }
   }
 }

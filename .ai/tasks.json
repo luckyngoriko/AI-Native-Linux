@@ -1,0 +1,54 @@
+{
+  "backlog": [
+    {
+      "id": "T-001",
+      "title": "aios-action crate skeleton + S0.1 core types",
+      "status": "in_progress",
+      "priority": "P0",
+      "dependencies": [],
+      "acceptance_criteria": [
+        "crates/aios-action/Cargo.toml created with workspace-inherited package settings",
+        "crates/aios-action/src/lib.rs with module declarations: envelope, id, phase, identity, request, execution, trace, error",
+        "Core types implemented per S0.1: ActionEnvelope, ActionId, ActionPhase, Identity, Request, Execution, Trace, ActionError",
+        "Closed-enum ActionPhase: Pending, Running, Succeeded, Failed, RolledBack",
+        "Closed-enum DryRunMode: Live, Validate, Simulate",
+        "serde Serialize+Deserialize derived for all public types",
+        "Minimum 5 unit tests passing",
+        "cargo build --workspace passes",
+        "cargo test --workspace passes",
+        "cargo clippy --workspace -- -D warnings passes",
+        "One logical commit with structured commit message"
+      ],
+      "blockers": []
+    },
+    {
+      "id": "T-002",
+      "title": "aios-action canonical encoding + BLAKE3 hashing",
+      "status": "pending",
+      "priority": "P0",
+      "dependencies": ["T-001"],
+      "acceptance_criteria": [
+        "Canonical encoding via proto3 deterministic serialization OR JCS (RFC 8785) per S0.1 §8",
+        "BLAKE3 hashing helpers for request_hash, idempotency_hash",
+        "Tests verifying hash determinism across re-encodes"
+      ],
+      "blockers": []
+    },
+    {
+      "id": "T-003",
+      "title": "aios-action ULID-based ID generation per S0.1 §3.2",
+      "status": "pending",
+      "priority": "P0",
+      "dependencies": ["T-001"],
+      "acceptance_criteria": [
+        "ULID generation for act_<ulid>, intent_<ulid>, etc. (closed prefix set per S0.1 §3.2)",
+        "Truncation [:32] discipline for joins (W11-B normalization)",
+        "Prefix-namespace validation: reject colon-separated forms (W11-B constitutional rule)",
+        "Tests for round-trip, validation"
+      ],
+      "blockers": []
+    }
+  ],
+  "completed": [],
+  "blocked": []
+}

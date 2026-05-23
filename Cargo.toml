@@ -1,0 +1,59 @@
+[workspace]
+resolver = "2"
+members = [
+    "crates/aios-action",
+]
+
+# Crates added later (per §22 MVP golden path order):
+# - crates/aios-evidence    (S3.1 evidence log client)
+# - crates/aios-policy      (S2.3 policy kernel client)
+# - crates/aios-capability-runtime  (S10.1 typed action dispatch)
+# - crates/aios-fs          (S1.3 AIOS-FS object model)
+# - crates/aios-session     (S6.5 session container manager — Podman adapter)
+
+[workspace.package]
+edition = "2021"
+rust-version = "1.94"
+version = "0.0.1"
+license = "Apache-2.0"
+repository = "https://github.com/luckyngoriko/055.AI-OS.NET--LINUX-AI"
+authors = ["AIOS Maintainers"]
+
+[workspace.lints.rust]
+unsafe_code = "forbid"
+unused_must_use = "deny"
+missing_docs = "warn"
+
+[workspace.lints.clippy]
+all = { level = "deny", priority = -1 }
+pedantic = { level = "warn", priority = -1 }
+nursery = { level = "warn", priority = -1 }
+unwrap_used = "deny"
+expect_used = "deny"
+panic = "deny"
+todo = "deny"
+unimplemented = "deny"
+
+[workspace.dependencies]
+# Pinned per §21 stack lock (Rev.1 §21):
+# Rust + Tokio + tonic gRPC + serde + tracing
+serde       = { version = "1.0", features = ["derive"] }
+serde_json  = "1.0"
+thiserror   = "2.0"
+ulid        = { version = "1.1", features = ["serde"] }
+blake3      = "1.5"
+tracing     = "0.1"
+
+[profile.dev]
+opt-level = 0
+debug = true
+
+[profile.release]
+opt-level = 3
+lto = "thin"
+codegen-units = 1
+strip = "symbols"
+
+[profile.test]
+opt-level = 0
+debug = true

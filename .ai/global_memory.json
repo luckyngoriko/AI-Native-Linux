@@ -1,0 +1,57 @@
+{
+  "architecture_rules": {
+    "workspace_layout": "All Rust crates under crates/<name>/. Workspace root Cargo.toml owns lints + dependency pins. No crate adds its own lints — inherit from workspace.lints.",
+    "crate_naming": "All AIOS crates prefixed with aios- (aios-action, aios-evidence, aios-policy, aios-capability-runtime, aios-fs, aios-session).",
+    "schema_first": "Each crate that exposes a wire surface MUST have a corresponding proto3 schema in its proto/ subdirectory, matching the rev.2 sub-spec's Appendix A IDL. Code generation via tonic-build at compile time.",
+    "no_unwrap": "Workspace lint forbids .unwrap(), .expect(), panic!(), todo!(), unimplemented!(). Use Result<T, E> + thiserror for all error paths.",
+    "no_unsafe": "Workspace lint forbids unsafe code. Exceptions require explicit DEC entry."
+  },
+  "spec_references": {
+    "rev2_root": "002.AI-OS.NET--SPECREV.2/",
+    "design_decisions": "002.AI-OS.NET--SPECREV.2/02_design_decisions.md (DEC log, newest at top of post-foundation block — DEC-056 currently)",
+    "master_index": "002.AI-OS.NET--SPECREV.2/00_MASTER_INDEX.md",
+    "executive_summary": "002.AI-OS.NET--SPECREV.2/01_executive_summary.md",
+    "mvp_golden_path": "002.AI-OS.NET--SPECREV.2/XX_Cross_Cutting/03_mvp_golden_path.md",
+    "rev1_canonical": "001.AI-OS.NET--SPECREV.1/02_SPECIFICATION.md (frozen reference)"
+  },
+  "constitutional_invariants_to_uphold": [
+    "INV-001 Recovery without L5 cognition",
+    "INV-002 AI proposes, never executes",
+    "INV-003 Secrets are capabilities",
+    "INV-004 Recovery boundary preserved",
+    "INV-005 Evidence append-only",
+    "INV-006 Web UI localhost-only by default",
+    "INV-007 Layer downward dependency",
+    "INV-008 Default deny in policy",
+    "INV-009 Approvals bound to one request and expire",
+    "INV-010 AI cannot self-approve",
+    "INV-011 Cross-group access forbidden by default",
+    "INV-012 Recovery required for system mutation",
+    "INV-013 AI cannot perform system admin",
+    "INV-014 No proof, no completion",
+    "INV-015 Evidence never contains secrets",
+    "INV-016 AI cannot grade its own work",
+    "INV-017 Sandbox floor constitutional",
+    "INV-018 Vault never leaks raw secrets",
+    "INV-019..024 Visual identity / chrome / GPU constitutional"
+  ],
+  "implementation_status_taxonomy": {
+    "code_status": ["SHELL", "PARTIAL", "REAL", "RETIRED"],
+    "evidence_grades": [
+      "E0",
+      "E1 (artifact exists)",
+      "E2 (build/typecheck)",
+      "E3 (unit/integration test)",
+      "E4 (e2e/recovery/release-gate)",
+      "E5 (live operational)"
+    ],
+    "rule": "Never claim REAL without explicit evidence at the required grade per S6.1 §10 / S6.2 §6"
+  },
+  "known_blockers": [],
+  "proven_commands": {
+    "build_all": "cargo build --workspace",
+    "test_all": "cargo test --workspace",
+    "lint_all": "cargo clippy --workspace --all-targets -- -D warnings",
+    "fmt_check": "cargo fmt --all -- --check"
+  }
+}

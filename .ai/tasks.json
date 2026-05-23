@@ -1,20 +1,6 @@
 {
   "backlog": [
     {
-      "id": "T-004",
-      "title": "aios-action lifecycle FSM with conditions consistency",
-      "status": "pending",
-      "priority": "P0",
-      "dependencies": ["T-001"],
-      "acceptance_criteria": [
-        "Condition vocabulary enum (PolicyEvaluated, PolicyAccepted, ApprovalRequired, ApprovalGranted, ApprovalExpired, Sandboxed, Executed, Verified, RollbackPossible, RolledBack, Idempotent, Simulated, DeprecatedFieldUsed)",
-        "ActionEnvelope::transition_to(phase) method enforcing S0.1 §6.2 valid transitions",
-        "S0.1 §6.6 phase ↔ conditions canonicalization function",
-        "Monotonicity invariants enforced (phase_changed_at non-decreasing, conditions never removed)"
-      ],
-      "blockers": []
-    },
-    {
       "id": "T-005",
       "title": "aios-action full error taxonomy (~30 PascalCase codes)",
       "status": "pending",
@@ -59,6 +45,12 @@
       "title": "aios-action extended ULID prefix registry (S5.3/S5.4/S10.1/S15.2 namespaces)",
       "completed_at": "2026-05-23",
       "evidence": "cargo build/test/clippy --workspace --all-targets -D warnings all PASS; 32 unit tests green (+8 new); 5 ULID-bodied newtypes (ApprovalRequestId/ApprovalBindingId/OverrideRequestId/OverrideBindingId/ActionRuntimeRequestId) + 1 content-addressed newtype (TransitionPlanId, body = blake3_truncated bytes, no random new() constructor); IdError::InvalidHexBody variant added; all 6 reject Wave-11 colon-separator form; tplan_ body shape pinned to blake3_truncated helper"
+    },
+    {
+      "id": "T-004",
+      "title": "aios-action lifecycle FSM with conditions consistency (S0.1 §6.2 + §6.6 + §6.7)",
+      "completed_at": "2026-05-23",
+      "evidence": "cargo build/test/clippy --workspace --all-targets -D warnings all PASS; 57 unit tests green (+25 new, target was +16); ConditionType closed enum (13 variants) + Condition.condition_type refactor; ActionEnvelope::transition_to / add_condition / canonical_conditions_for_phase / validate_phase_conditions; TransitionError enum (IllegalTransition / TerminalPhase / MonotonicityViolation / PhaseConditionMismatch); Execution.phase_changed_at field added; monotonicity (timestamp non-decreasing, True->False flip rejected, terminal-once) enforced; phase ↔ conditions canonicalization per S0.1 §6.6 (Pending=∅, Running={PolicyEvaluated,Sandboxed}, Succeeded={PolicyEvaluated,Sandboxed,Executed,Verified}, Failed={PolicyEvaluated}, RolledBack={PolicyEvaluated,Sandboxed,Executed,RolledBack}); full Pending→Running→Succeeded JSON round-trip with replay validation green"
     }
   ],
   "blocked": []

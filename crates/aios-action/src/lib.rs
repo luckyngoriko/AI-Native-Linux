@@ -38,8 +38,8 @@ pub mod trace;
 
 pub use canonical::{blake3_hash, blake3_truncated, jcs_canonicalize, CanonicalError};
 pub use envelope::{ActionEnvelope, SCHEMA_VERSION};
-pub use error::{ActionError, IdError};
-pub use execution::{Condition, ConditionStatus, Execution};
+pub use error::{ActionError, IdError, TransitionError};
+pub use execution::{Condition, ConditionStatus, ConditionType, Execution};
 pub use id::{
     ActionId, ActionRuntimeRequestId, ApprovalBindingId, ApprovalId, ApprovalRequestId,
     CorrelationId, EvidenceReceiptId, IntentId, OverrideBindingId, OverrideRequestId, PlanId,

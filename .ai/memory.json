@@ -1,19 +1,19 @@
 {
   "project_goal": "AIOS — AI-native Linux distribution. Implement the spec contracts from rev.2 (53 sub-specs CONTRACT-grade) into working Rust + Python + KDE code, following §22 MVP golden path discipline.",
   "current_milestone": "M1 — Action Envelope skeleton (S0.1 implementation, foundation for all action dispatch)",
-  "current_task_id": "T-004",
-  "current_task_title": "aios-action lifecycle FSM with conditions consistency",
-  "current_step": "T-003 complete; T-004 queued — implement transition_to(phase), condition vocabulary, and §6.6 phase ↔ conditions canonicalization, with monotonicity invariants",
+  "current_task_id": "T-005",
+  "current_task_title": "aios-action full error taxonomy (~30 PascalCase codes)",
+  "current_step": "T-004 complete; T-005 queued — expand ActionError to the full ~30-variant taxonomy from S0.1 §7.3 with retryable hints (§7.4) and cause-chain bounded at depth 8 (§7.5)",
   "completed_steps": [
     "Workspace root Cargo.toml created with §21 stack lock pins (serde, tokio-ready, tonic-ready, tracing)",
     "crates/ directory created",
     ".ai/ memory directory created",
     "T-001: aios-action crate skeleton + 8 prefix-namespaced ID types + 5-phase FSM + 4-section envelope + 11-variant error subset; 10 unit tests; cargo build/test/clippy all pass",
     "T-002: canonical.rs (jcs_canonicalize + blake3_hash + blake3_truncated + CanonicalError); Request::request_hash; ActionEnvelope::idempotency_hash; 14 new tests (10 → 24); no new deps added; ECMA-262 number normalization deferred to T-006 with documented limitation",
-    "T-003: extended prefix-namespace registry — 5 ULID-bodied newtypes (apprq_, appb_, ovrq_, ovr_, actrq_) reuse define_prefixed_id macro; TransitionPlanId (tplan_) is content-addressed with from_content(bytes)/parse(s) and intentionally exposes NO random new() constructor (S15.2 §5.3 byte-identical-replay invariant); IdError::InvalidHexBody added; 8 new tests (24 → 32); clippy clean after splitting macro doc first paragraphs and renaming single-char test bindings"
+    "T-003: extended prefix-namespace registry — 5 ULID-bodied newtypes (apprq_, appb_, ovrq_, ovr_, actrq_) reuse define_prefixed_id macro; TransitionPlanId (tplan_) is content-addressed with from_content(bytes)/parse(s) and intentionally exposes NO random new() constructor (S15.2 §5.3 byte-identical-replay invariant); IdError::InvalidHexBody added; 8 new tests (24 → 32); clippy clean after splitting macro doc first paragraphs and renaming single-char test bindings",
+    "T-004: lifecycle FSM behaviour layer — ConditionType closed enum (13 variants per S0.1 §5.3); Condition.condition_type refactor (was String); ActionEnvelope::transition_to enforces S0.1 §6.2 six edges + §6.3 terminality + §6.7 phase_changed_at monotonicity; ActionEnvelope::add_condition enforces append-only conditions list (no timestamp regression, no True→False flip on same condition_type); canonical_conditions_for_phase mirrors §6.6 mapping; validate_phase_conditions checks the actual list against the canonical required set; TransitionError enum (IllegalTransition/TerminalPhase/MonotonicityViolation/PhaseConditionMismatch) in error.rs; 25 new tests (32 → 57); full JSON round-trip with replay validation green; clippy clean"
   ],
   "remaining_steps_M1": [
-    "T-004: aios-action lifecycle FSM with conditions update logic (S0.1 §6.6 phase ↔ conditions consistency)",
     "T-005: aios-action error taxonomy full (~30 PascalCase codes from S0.1 §7)",
     "T-006: aios-action integration tests + golden fixtures (and approved RFC 8785 dep for full JCS number normalization)"
   ],
@@ -45,11 +45,14 @@
     "Full RFC 8785 ECMA-262 number formatting NOT implemented (serde_json default used); fine for Request's current surface (target: Value rarely contains floats outside integers); golden-fixture work in T-006 will need a vetted serde_jcs-equivalent dep added with Governor approval",
     "clippy::too_long_first_doc_paragraph fires when a macro-emitted doc comment's first paragraph spans multiple sentences; split into one-sentence summary + blank doc line + body",
     "clippy::many_single_char_names fires at 5+ single-char locals in one scope (multi-namespace round-trip tests) — use descriptive names like apprq/appb/ovrq/ovr/actrq",
-    "TransitionPlanId has NO random new() constructor by design — content addressing is the invariant (S15.2 §5.3 invariant 5: byte-identical replay); adding new() would silently violate this"
+    "TransitionPlanId has NO random new() constructor by design — content addressing is the invariant (S15.2 §5.3 invariant 5: byte-identical replay); adding new() would silently violate this",
+    "clippy::doc_markdown flags bare PascalCase identifiers in docs — wrap policy/condition vocabulary words like Allow/Deny/RequireApproval/PascalCase/RolledBack in backticks",
+    "clippy::panic denies panic! in non-test code; for tests, extend the test mod's #[allow(...)] to include clippy::panic when destructuring assertions need a panic-on-mismatch arm",
+    "Execution::pending() was `const fn` in T-001 but had to drop `const` in T-004 because chrono::Utc::now() is not const — initial phase_changed_at stamp must be a wall-clock now"
   ],
   "discovered_dependencies": [
     "chrono 0.4 (std + clock + serde features, default-features = false)"
   ],
   "last_errors": [],
-  "last_verification_result": "T-003: cargo build PASS; cargo test PASS (32/32); cargo clippy --workspace --all-targets -D warnings PASS"
+  "last_verification_result": "T-004: cargo build --workspace PASS; cargo test --workspace PASS (57/57, +25 new); cargo clippy --workspace --all-targets -D warnings PASS"
 }

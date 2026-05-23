@@ -9,6 +9,9 @@
 
 use thiserror::Error;
 
+use crate::execution::ConditionType;
+use crate::phase::ActionPhase;
+
 /// Failure modes for parsing prefix-namespaced ULID identifiers.
 ///
 /// Every variant maps to a concrete violation of S0.1 §3.2:
@@ -111,4 +114,49 @@ pub enum ActionError {
     /// Rollback was attempted but failed — the most dangerous code in S0.1 §7.3 / §7.7.
     #[error("rollback failed (system in degraded state): {0}")]
     RollbackFailed(String),
+}
+
+/// Failure modes for the lifecycle FSM transitions and monotonicity invariants
+/// (S0.1 §6.2 + §6.6 + §6.7).
+///
+/// Returned by `ActionEnvelope::transition_to`, `ActionEnvelope::add_condition`, and
+/// `ActionEnvelope::validate_phase_conditions`. Distinct from [`ActionError`] because
+/// these are programmer-facing invariant violations inside the in-process state
+/// machine, not the canonical `PascalCase` error envelope codes that travel on the wire.
+#[derive(Debug, Error, Clone, PartialEq, Eq)]
+pub enum TransitionError {
+    /// The requested phase transition is not one of the six edges enumerated in S0.1 §6.2.
+    ///
+    /// In particular, `Succeeded -> RolledBack`, `Pending -> Succeeded`, and every
+    /// `terminal -> *` transition is rejected here.
+    #[error("illegal phase transition: {from:?} -> {to:?} (S0.1 §6.2)")]
+    IllegalTransition {
+        /// Source phase.
+        from: ActionPhase,
+        /// Attempted destination phase.
+        to: ActionPhase,
+    },
+
+    /// The envelope is already in a terminal phase; no further transitions are allowed
+    /// (S0.1 §6.3 terminality invariant).
+    #[error("envelope is already in a terminal phase; no further transitions allowed (S0.1 §6.3)")]
+    TerminalPhase,
+
+    /// A monotonicity invariant from S0.1 §6.7 was violated — typically a timestamp
+    /// regression (`observed_at` earlier than the previous condition's `observed_at`)
+    /// or an attempt to flip a `True` condition to `False` for the same `ConditionType`.
+    #[error("monotonicity violation: {0}")]
+    MonotonicityViolation(String),
+
+    /// The condition set on the envelope does not match the canonical set required by
+    /// its current phase (S0.1 §6.6 phase ↔ conditions consistency).
+    #[error(
+        "phase ↔ conditions mismatch: phase {phase:?} requires conditions {missing:?} to be True"
+    )]
+    PhaseConditionMismatch {
+        /// The phase whose required conditions were not all satisfied.
+        phase: ActionPhase,
+        /// The conditions that must be `True` but are missing or not `True`.
+        missing: Vec<ConditionType>,
+    },
 }

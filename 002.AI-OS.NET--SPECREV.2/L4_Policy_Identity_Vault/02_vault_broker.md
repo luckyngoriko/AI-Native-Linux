@@ -96,8 +96,8 @@ At S9.2 first-boot, none of these exist: the vault has just been bootstrapped, n
 
 **Discipline (mandatory preconditions, all checked atomically).** The broker permits a `BOOTSTRAP_KEY_SIGN` operation **only** when **all** of these hold simultaneously:
 
-1. The invoking subject's canonical id equals `_system:service:firstboot-coordinator` (the constitutional first-boot orchestrator service per S9.2 §4.2.1 — forthcoming under W9-B).
-2. The session carries `is_first_boot = true` (per S9.1 W9 `RecoveryMode.FIRST_BOOT` — forthcoming under W9-A).
+1. The invoking subject's canonical id equals `_system:service:firstboot-coordinator` (the constitutional first-boot orchestrator service per S9.2 §4.2.1 — applied in W9-B).
+2. The session carries `is_first_boot = true` (per S9.1 W9 `RecoveryMode.FIRST_BOOT` — applied in W9-A).
 3. The firstboot marker file at the well-known path (`/aios/system/firstboot/marker.signed`, fixed by S9.2) does **not** exist yet on disk.
 4. The per-host `BOOTSTRAP_KEY_SIGN` counter (held in vault broker memory and persisted into the master-key envelope on first-boot completion) has not yet been incremented; **exactly one** call per first-boot session is permitted.
 5. The target material is the vault root key generated during first-boot vault bootstrap (`material_kind = ED25519_PRIVATE_KEY`, fingerprint matching the just-bootstrapped vault root).
@@ -133,7 +133,7 @@ BOOTSTRAP_KEY_USE_AFTER_EXHAUST_BLOCKED  (FOREVER, queued for S3.1 Wave 10 conso
 
 **No AI access.** Like `SECRET_GET`, `BOOTSTRAP_KEY_SIGN` is hard-denied for any subject with `is_ai = true`. The only permitted subject is the constitutional service `_system:service:firstboot-coordinator`, which carries `is_ai = false` per S5.1 §3.
 
-**Cross-reference.** S9.2 §5.4 step 2 (forthcoming under W9-B) is the sole emission point of `BOOTSTRAP_KEY_SIGN` requests. No other spec, service, or path is permitted to invoke this class.
+**Cross-reference.** S9.2 §5.4 step 2 (applied in W9-B) is the sole emission point of `BOOTSTRAP_KEY_SIGN` requests. No other spec, service, or path is permitted to invoke this class.
 
 ## 4. Material kind taxonomy
 

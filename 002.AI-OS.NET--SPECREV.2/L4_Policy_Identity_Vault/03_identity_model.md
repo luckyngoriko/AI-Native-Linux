@@ -177,13 +177,13 @@ Group deletion is not in Rev.2. Groups are retired (`GroupTier` is augmented wit
 
 **Rule.** During S9.2 stage `STAGE_FIRST_GROUP_REGISTRATION`, the bootstrap group is registered by `_system:service:identity-init` (a `SERVICE`-kind subject) acting under `is_first_boot = true` (set by the firstboot-coordinator per S9.1 W9 `RecoveryMode.FIRST_BOOT`). The operator's hardware-key signature on the typed action substitutes for the missing `HUMAN_USER` subject id at this stage — the operator is physically present at the first-boot console (`_system:local:operator-1` per §4.1, with kind `LOCAL_OPERATOR`), but no `HUMAN_USER` exists yet, because group registration is precisely what enables provisioning the first user. The action is bound to `is_first_boot = true` on the calling session.
 
-**Why this is mechanical, not an ad-hoc bypass.** The constitutional hard-deny `RecoveryRequiredForSystemMutation` (S2.3 §26.2.2 Wave 9 update — forthcoming under W9-A) admits both `is_recovery_mode = true` AND `is_first_boot = true`. The closed-enum `RecoveryMode` taxonomy (S9.1 W9) names `FIRST_BOOT` as a distinct mode alongside `RECOVERY` and `NONE`. The first-boot exception is therefore expressible inside the existing closed-enum constitutional surface; no new policy class, no override, no special-case branching at the policy kernel.
+**Why this is mechanical, not an ad-hoc bypass.** The constitutional hard-deny `RecoveryRequiredForSystemMutation` (S2.3 §26.2.2 Wave 9 update — applied in W9-A) admits both `is_recovery_mode = true` AND `is_first_boot = true`. The closed-enum `RecoveryMode` taxonomy (S9.1 W9) names `FIRST_BOOT` as a distinct mode alongside `RECOVERY` and `NONE`. The first-boot exception is therefore expressible inside the existing closed-enum constitutional surface; no new policy class, no override, no special-case branching at the policy kernel.
 
 **Lifetime of the exception.** After `STAGE_FIRST_USER_REGISTRATION` completes (the first `HUMAN_USER` is registered into the just-created bootstrap group), subsequent group registrations revert to the normal rule above (HUMAN_USER subject in `_system` scope under recovery mode). The first-boot session is terminated at S9.2 stage exit; `is_first_boot = true` cannot be re-asserted on any subsequent session without rebooting into recovery and re-running first-boot from a wiped state.
 
 #### 5.2.2 Subject identity at first-boot (informative)
 
-For reference, the closed set of `_system` subjects active during S9.2 first-boot is (per S9.2 §4.2.1 service subject set, forthcoming under W9-B):
+For reference, the closed set of `_system` subjects active during S9.2 first-boot is (per S9.2 §4.2.1 service subject set, applied in W9-B):
 
 ```text
 _system:service:firstboot-coordinator   # orchestrates the first-boot stages

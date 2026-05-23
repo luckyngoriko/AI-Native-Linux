@@ -1,20 +1,6 @@
 {
   "backlog": [
     {
-      "id": "T-002",
-      "title": "aios-action canonical encoding + BLAKE3 hashing",
-      "status": "pending",
-      "priority": "P0",
-      "dependencies": ["T-001"],
-      "acceptance_criteria": [
-        "Canonical encoding via JCS (RFC 8785) per S0.1 §8.5",
-        "BLAKE3 hashing helpers for request_hash, idempotency_hash",
-        "Tests verifying hash determinism across re-encodes",
-        "Tests verifying field-order independence"
-      ],
-      "blockers": []
-    },
-    {
       "id": "T-003",
       "title": "aios-action extended ULID prefix registry (S5.3/S5.4/S10.1/S15.2 namespaces)",
       "status": "pending",
@@ -74,6 +60,12 @@
       "title": "aios-action crate skeleton + S0.1 core types",
       "completed_at": "2026-05-23",
       "evidence": "cargo build/test/clippy --all-targets -D warnings all PASS; 10 unit tests green; 8 prefix-namespaced ID types + 5-phase FSM + 4-section envelope + 11-variant error subset"
+    },
+    {
+      "id": "T-002",
+      "title": "aios-action canonical encoding + BLAKE3 hashing per S0.1 §8.5",
+      "completed_at": "2026-05-23",
+      "evidence": "cargo build/test/clippy --workspace --all-targets -D warnings all PASS; 24 unit tests green (+14 new); canonical.rs (jcs_canonicalize + blake3_hash + blake3_truncated + CanonicalError); Request::request_hash; ActionEnvelope::idempotency_hash; no new workspace deps; JCS subset documented (lex key sort + no whitespace + array order preserved); ECMA-262 number normalization explicitly deferred to T-006"
     }
   ],
   "blocked": []

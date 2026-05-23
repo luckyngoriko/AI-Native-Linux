@@ -1,21 +1,21 @@
 {
   "project_goal": "AIOS — AI-native Linux distribution. Implement the spec contracts from rev.2 (53 sub-specs CONTRACT-grade) into working Rust + Python + KDE code, following §22 MVP golden path discipline.",
   "current_milestone": "M1 — Action Envelope skeleton (S0.1 implementation, foundation for all action dispatch)",
-  "current_task_id": "T-002",
-  "current_task_title": "aios-action canonical encoding + BLAKE3 hashing (S0.1 §8)",
-  "current_step": "T-001 complete; T-002 queued — implement canonical encoding + BLAKE3 request hash helpers per S0.1 §8.5",
+  "current_task_id": "T-003",
+  "current_task_title": "aios-action extended ULID prefix registry (S5.3/S5.4/S10.1/S15.2 namespaces)",
+  "current_step": "T-002 complete; T-003 queued — extend id.rs with apprq_/appb_/ovrq_/ovr_/actrq_/tplan_ namespaces; tplan_ uses BLAKE3-truncated 32-hex body (helper already exists in canonical.rs)",
   "completed_steps": [
     "Workspace root Cargo.toml created with §21 stack lock pins (serde, tokio-ready, tonic-ready, tracing)",
     "crates/ directory created",
     ".ai/ memory directory created",
-    "T-001: aios-action crate skeleton + 8 prefix-namespaced ID types + 5-phase FSM + 4-section envelope + 11-variant error subset; 10 unit tests; cargo build/test/clippy all pass"
+    "T-001: aios-action crate skeleton + 8 prefix-namespaced ID types + 5-phase FSM + 4-section envelope + 11-variant error subset; 10 unit tests; cargo build/test/clippy all pass",
+    "T-002: canonical.rs (jcs_canonicalize + blake3_hash + blake3_truncated + CanonicalError); Request::request_hash; ActionEnvelope::idempotency_hash; 14 new tests (10 → 24); no new deps added; ECMA-262 number normalization deferred to T-006 with documented limitation"
   ],
   "remaining_steps_M1": [
-    "T-002: aios-action serialization (BLAKE3 canonical hashing per S0.1 §8)",
     "T-003: aios-action ULID-based ID generation per S0.1 §3.2 prefix registry (extended namespaces: apprq_, appb_, ovrq_, ovr_, actrq_, tplan_)",
     "T-004: aios-action lifecycle FSM with conditions update logic (S0.1 §6.6 phase ↔ conditions consistency)",
     "T-005: aios-action error taxonomy full (~30 PascalCase codes from S0.1 §7)",
-    "T-006: aios-action integration tests + golden fixtures"
+    "T-006: aios-action integration tests + golden fixtures (and approved RFC 8785 dep for full JCS number normalization)"
   ],
   "files_touched": [
     "Cargo.toml",
@@ -29,6 +29,7 @@
     "crates/aios-action/src/trace.rs",
     "crates/aios-action/src/envelope.rs",
     "crates/aios-action/src/error.rs",
+    "crates/aios-action/src/canonical.rs",
     ".ai/memory.json",
     ".ai/tasks.json",
     ".ai/progress.log"
@@ -39,11 +40,13 @@
     "§21 stack lock: serde + tokio + tonic + serde + tracing pinned at workspace level",
     "chrono added to workspace deps (needed by S0.1 §5.1 Condition.last_transition_time and Execution timestamps)",
     "thiserror auto-source: a field named `source: String` collides with the AsDynError trait — use `detail: String` for stringified non-error contexts",
-    "Tests need `#[allow(clippy::expect_used)]` since workspace denies expect/unwrap globally — applied at test mod level"
+    "Tests need `#[allow(clippy::expect_used)]` since workspace denies expect/unwrap globally — applied at test mod level",
+    "serde_json::Map defaults to BTreeMap (preserve_order feature disabled at workspace level), giving lex-sorted keys for free — but we still rebuild maps explicitly during canonicalization to defend against future workspace config drift",
+    "Full RFC 8785 ECMA-262 number formatting NOT implemented (serde_json default used); fine for Request's current surface (target: Value rarely contains floats outside integers); golden-fixture work in T-006 will need a vetted serde_jcs-equivalent dep added with Governor approval"
   ],
   "discovered_dependencies": [
     "chrono 0.4 (std + clock + serde features, default-features = false)"
   ],
   "last_errors": [],
-  "last_verification_result": "T-001: cargo build PASS; cargo test PASS (10/10); cargo clippy --all-targets -D warnings PASS"
+  "last_verification_result": "T-002: cargo build PASS; cargo test PASS (24/24); cargo clippy --workspace --all-targets -D warnings PASS"
 }

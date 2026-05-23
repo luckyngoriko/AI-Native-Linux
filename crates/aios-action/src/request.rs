@@ -7,6 +7,7 @@
 
 use serde::{Deserialize, Serialize};
 
+use crate::canonical::{blake3_hash, jcs_canonicalize, CanonicalError};
 use crate::id::ActionId;
 
 /// Dry-run mode — closed enum, `Live` is the default per S0.1 §6 / §4.10.
@@ -66,15 +67,86 @@ impl Request {
             dry_run: DryRunMode::Live,
         }
     }
+
+    /// Compute `hash(request)` per S0.1 §3.3 / §8.5 — `BLAKE3(JCS(self))`.
+    ///
+    /// Returns a 64-character lowercase hex BLAKE3-256 digest. The Capability Runtime
+    /// uses this value to detect [`Request`] drift across retries that reuse the same
+    /// `idempotency_key` (S0.1 §3.3 rule 2: same key + different `hash(request)` →
+    /// `IdempotencyConflict`).
+    ///
+    /// # Errors
+    ///
+    /// Propagates [`CanonicalError`] from the underlying JCS canonicalizer. In practice
+    /// this only fails if a custom `Serialize` impl errors; the fields on this type
+    /// never trigger it.
+    pub fn request_hash(&self) -> Result<String, CanonicalError> {
+        let canonical = jcs_canonicalize(self)?;
+        Ok(blake3_hash(canonical.as_bytes()))
+    }
 }
 
 #[cfg(test)]
+#[allow(
+    clippy::expect_used,
+    reason = "panic-on-failure is the idiomatic test signal"
+)]
 mod tests {
-    use super::DryRunMode;
+    use super::{DryRunMode, Request};
 
     #[test]
     fn dry_run_default_is_live_per_s01_section_6() {
         // S0.1 §6 / §4.10: "LIVE if unset". This is a constitutional default.
         assert_eq!(DryRunMode::default(), DryRunMode::Live);
+    }
+
+    #[test]
+    fn request_hash_is_deterministic_across_logically_equal_construction() {
+        // Build two `Request` values with logically identical content. They must hash
+        // to the same value regardless of how the target Value was constructed (literal
+        // vs explicit insertion order vs map type).
+        let a = Request::new(
+            "service.restart",
+            serde_json::json!({
+                "service": "nginx",
+                "force":   true,
+                "timeout": 30,
+            }),
+        );
+
+        // Construct the same target with a different literal key order.
+        let b = Request::new(
+            "service.restart",
+            serde_json::json!({
+                "timeout": 30,
+                "force":   true,
+                "service": "nginx",
+            }),
+        );
+
+        let ha = a.request_hash().expect("hash a must succeed");
+        let hb = b.request_hash().expect("hash b must succeed");
+
+        assert_eq!(
+            ha, hb,
+            "request_hash must be independent of target key ordering"
+        );
+        assert_eq!(ha.len(), 64, "request_hash must be 64 hex chars");
+    }
+
+    #[test]
+    fn request_hash_changes_when_payload_changes() {
+        // Same action, slightly different target → different hash. This is what makes
+        // the IdempotencyConflict rule (S0.1 §3.3) detectable.
+        let a = Request::new("service.restart", serde_json::json!({"service": "nginx"}));
+        let b = Request::new("service.restart", serde_json::json!({"service": "apache"}));
+
+        let ha = a.request_hash().expect("hash a must succeed");
+        let hb = b.request_hash().expect("hash b must succeed");
+
+        assert_ne!(
+            ha, hb,
+            "request_hash must change when any payload field changes"
+        );
     }
 }

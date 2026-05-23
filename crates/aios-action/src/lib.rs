@@ -26,6 +26,7 @@
 
 #![forbid(unsafe_code)]
 
+pub mod canonical;
 pub mod envelope;
 pub mod error;
 pub mod execution;
@@ -35,6 +36,7 @@ pub mod phase;
 pub mod request;
 pub mod trace;
 
+pub use canonical::{blake3_hash, blake3_truncated, jcs_canonicalize, CanonicalError};
 pub use envelope::{ActionEnvelope, SCHEMA_VERSION};
 pub use error::{ActionError, IdError};
 pub use execution::{Condition, ConditionStatus, Execution};

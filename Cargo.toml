@@ -66,6 +66,27 @@ ed25519-dalek = { version = "2.1", features = ["std", "rand_core"] }
 # 2.1's `rand_core` feature; `getrandom` backend is the OS CSPRNG used by tests
 # to mint ephemeral keypairs. Production never calls this path.
 rand_core    = { version = "0.6", features = ["getrandom"] }
+# T-011: gRPC stack per §21 lock — Rust + Tokio + tonic. tonic 0.12 is the
+# current stable line; pairs with prost 0.13 (proto3 codegen) and tokio 1
+# (async runtime). `tls` feature on tonic enables transport encryption for
+# non-loopback bindings; the in-memory test backend uses plaintext over
+# `127.0.0.1`. tonic-build is the proc-macro/codegen crate consumed by the
+# evidence crate's `build.rs` — it requires `protoc` on PATH at build time.
+tonic        = { version = "0.12", features = ["transport", "tls"] }
+tonic-build  = "0.12"
+# Vendored `protoc` binary used by `tonic-build` at build time. Without this,
+# the build script fails on hosts that do not have `protoc` on PATH (the
+# canonical AIOS dev box is one of them). The crate ships pre-built Linux /
+# macOS / Windows binaries under the Apache-2.0 + BSD-3-Clause + MIT license
+# combination of the original Google protobuf project; using it adds **zero**
+# runtime cost (build-only) and removes a system dependency for every future
+# AIOS gRPC crate.
+protoc-bin-vendored = "3.0"
+prost        = "0.13"
+prost-types  = "0.13"
+tokio        = { version = "1", features = ["full"] }
+tokio-stream = { version = "0.1", features = ["sync"] }
+async-trait  = "0.1"
 
 [profile.dev]
 opt-level = 0

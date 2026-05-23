@@ -216,6 +216,53 @@ impl From<aios_action::IdError> for EvidenceError {
     }
 }
 
+/// Translate [`EvidenceError`] into a tonic `Status` so the gRPC handlers in
+/// `crate::service::impl_inmemory` can use `?` directly (T-011, S3.1 §17).
+///
+/// Status-code policy:
+///
+/// - `DataLoss` — the chain or a signature failed integrity verification.
+///   Production maps these into `CHAIN_INCONSISTENCY_DETECTED` /
+///   `RECEIPT_FORGERY_DETECTED` receipts (§28.5) and the engine enters
+///   degraded mode (§11.5). Clients must NOT retry blindly.
+/// - `InvalidArgument` — caller submitted a malformed value (bad subject,
+///   non-`evr_<ULID>` id, malformed signature blob). Idempotent; client
+///   may retry after fixing the input.
+/// - `FailedPrecondition` — the server's current state forbids the
+///   operation (unsigned receipt verified, segment already sealed, empty
+///   chain). Client must change state before retrying.
+/// - `Internal` — encoding error or a chain content-hash mismatch indicating
+///   a bug in the encoder.
+/// - `Unknown` — kept as a catch-all but every variant above is enumerated
+///   so future additions to [`EvidenceError`] force a compile-time review
+///   of the mapping (the explicit match arms below).
+impl From<EvidenceError> for tonic::Status {
+    fn from(err: EvidenceError) -> Self {
+        use tonic::Code;
+        let code = match &err {
+            EvidenceError::SignatureMismatch
+            | EvidenceError::SegmentSignatureMismatch
+            | EvidenceError::ChainBroken { .. }
+            | EvidenceError::SegmentChainBroken { .. }
+            | EvidenceError::SegmentSealMismatch { .. } => Code::DataLoss,
+
+            EvidenceError::SignatureMalformed { .. }
+            | EvidenceError::InvalidReceiptId { .. }
+            | EvidenceError::InvalidSubject { .. } => Code::InvalidArgument,
+
+            EvidenceError::SignatureMissing
+            | EvidenceError::GenesisMissing
+            | EvidenceError::DuplicateGenesis
+            | EvidenceError::EmptyChain
+            | EvidenceError::SegmentAlreadySealed
+            | EvidenceError::EmptySegment => Code::FailedPrecondition,
+
+            EvidenceError::EncodingFailed(_) | EvidenceError::HashMismatch { .. } => Code::Internal,
+        };
+        Self::new(code, err.to_string())
+    }
+}
+
 #[cfg(test)]
 #[allow(
     clippy::expect_used,

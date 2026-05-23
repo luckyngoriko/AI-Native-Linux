@@ -50,6 +50,7 @@ pub mod record;
 pub mod sealed;
 pub mod segment;
 pub mod segment_chain;
+pub mod service;
 
 pub use chain::ReceiptChain;
 pub use error::EvidenceError;

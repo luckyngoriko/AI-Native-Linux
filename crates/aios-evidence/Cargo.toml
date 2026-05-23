@@ -31,11 +31,37 @@ strum_macros = { workspace = true }
 # service a capability that performs the sign operation. The dependency here
 # carries the verifier surface and the test-only ephemeral keygen path.
 ed25519-dalek = { workspace = true }
+# T-011: gRPC service surface (S3.1 §9 / §17). tonic provides the runtime
+# server/client transports; prost is the generated-code dependency (proto3
+# message types); tokio is the async runtime (mandatory for tonic). The
+# in-memory backend uses tokio_stream to bridge the server-streaming RPCs
+# (`Subscribe`, `Query`) onto its internal channel state. async-trait is
+# required because tonic 0.12 still emits trait methods that return `impl
+# Future` via macro expansion; downstream impls must declare `#[async_trait]`.
+tonic        = { workspace = true }
+prost        = { workspace = true }
+prost-types  = { workspace = true }
+tokio        = { workspace = true }
+tokio-stream = { workspace = true }
+async-trait  = { workspace = true }
+
+[build-dependencies]
+# T-011: tonic-build invokes `protoc` and emits the Rust server stubs
+# (`evidence_log_server::*`) + client stubs (`evidence_log_client::*`) into
+# `OUT_DIR`. See `build.rs` for the invocation; see `src/service/mod.rs` for
+# the `include_proto!` glue. The `protoc-bin-vendored` crate provides a
+# pre-built protoc binary so the build does not require a system install.
+tonic-build         = { workspace = true }
+protoc-bin-vendored = { workspace = true }
 
 [dev-dependencies]
 # Tests mint ephemeral Ed25519 keypairs via the OS CSPRNG. Production never
 # does — keys come from S5.2 (see receipt.rs module-level doc).
 rand_core = { workspace = true }
+# Integration tests for the gRPC roundtrip need the async runtime macros
+# (`#[tokio::test]`) and the client transport channel.
+tokio = { workspace = true }
+tokio-stream = { workspace = true }
 
 [lints]
 workspace = true

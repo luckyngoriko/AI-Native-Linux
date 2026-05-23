@@ -1,0 +1,21 @@
+[package]
+name = "aios-action"
+description = "AIOS S0.1 — Action Envelope core types (rev.2 aios.action.v1alpha1)."
+edition.workspace = true
+rust-version.workspace = true
+version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+
+[dependencies]
+serde       = { workspace = true }
+serde_json  = { workspace = true }
+thiserror   = { workspace = true }
+ulid        = { workspace = true }
+blake3      = { workspace = true }
+tracing     = { workspace = true }
+chrono      = { workspace = true }
+
+[lints]
+workspace = true

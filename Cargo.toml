@@ -43,6 +43,7 @@ thiserror   = "2.0"
 ulid        = { version = "1.1", features = ["serde"] }
 blake3      = "1.5"
 tracing     = "0.1"
+chrono      = { version = "0.4", default-features = false, features = ["std", "clock", "serde"] }
 
 [profile.dev]
 opt-level = 0

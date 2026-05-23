@@ -1,9 +1,9 @@
 {
   "project_goal": "AIOS — AI-native Linux distribution. Implement the spec contracts from rev.2 (53 sub-specs CONTRACT-grade) into working Rust + Python + KDE code, following §22 MVP golden path discipline.",
   "current_milestone": "M2 — Evidence Log skeleton (S3.1 aios-evidence crate)",
-  "current_task_id": "T-007",
-  "current_task_title": "aios-evidence crate skeleton (S3.1 evidence log client)",
-  "current_step": "M1 closed; queued T-007 — bootstrap aios-evidence crate with EvidenceReceipt envelope, append-only log invariant (INV-005), and the wire-format that the Capability Runtime will use to write evidence at every lifecycle edge",
+  "current_task_id": "T-008",
+  "current_task_title": "(queued) aios-evidence full RecordType vocabulary + Wave-13 IDL reconciliation + Ed25519 signature path",
+  "current_step": "T-007 landed; M2 advancing — aios-evidence crate now exists with EvidenceReceipt envelope, ReceiptBuilder, ReceiptChain, 39-variant RecordType subset, 3-variant RetentionClass, type-level INV-005 enforcement via Sealed marker trait + private fields + no &mut self accessors",
   "completed_steps_M1": [
     "T-001: aios-action crate skeleton + 8 prefix-namespaced ID types + 5-phase FSM + 4-section envelope + 11-variant error subset; 10 unit tests; cargo build/test/clippy all pass",
     "T-002: canonical.rs (jcs_canonicalize + blake3_hash + blake3_truncated + CanonicalError); Request::request_hash; ActionEnvelope::idempotency_hash; 14 new tests (10 → 24); no new deps added; ECMA-262 number normalization deferred to T-006 with documented limitation",
@@ -11,6 +11,9 @@
     "T-004: lifecycle FSM behaviour layer — ConditionType closed enum (13 variants); ActionEnvelope::transition_to / add_condition / canonical_conditions_for_phase / validate_phase_conditions; TransitionError enum; 25 new tests (32 → 57)",
     "T-005: full error taxonomy — ActionErrorCode closed enum (35 variants); ActionError struct (code/message/retryable/cause); MAX_CAUSE_CHAIN_DEPTH=8; From<IdError>/From<TransitionError>; 19 new tests (57 → 76)",
     "T-006: serde_jcs 0.1 adopted to workspace deps (Governor approved) — canonical.rs now delegates to RFC 8785 implementation; ECMA-262 number normalization deficit from T-002 is CLOSED (verified by golden test: numerically-equal f64 values 150.0 and 1.5e2 produce identical canonical bytes + identical request_hash); CanonicalError simplified to single Projection variant; tests/ integration target with common/mod.rs shared helpers + 3 test files (golden_envelope.rs: 8 tests, lifecycle_replay.rs: 6 tests, error_paths.rs: 12 tests = 26 integration tests); 3 hand-written golden JSON fixtures under tests/fixtures/ (envelope_success_full / envelope_policy_denied / envelope_rolled_back) — each parses, validates phase ↔ conditions, and round-trips through JCS canonical bytes lossless; M1 closed at 76 unit + 26 integration = 102 tests"
+  ],
+  "completed_steps_M2": [
+    "T-007: aios-evidence crate skeleton — Cargo.toml registers crate as workspace member; first cross-crate consumer of aios-action (uses ActionId, EvidenceReceiptId, jcs_canonicalize, blake3_hash, blake3_truncated, IdError, CanonicalError). 5 modules: error / record / receipt / chain / sealed. EvidenceError closed enum with 8 variants (EncodingFailed, HashMismatch, ChainBroken, GenesisMissing, EmptyChain, DuplicateGenesis, InvalidReceiptId, InvalidSubject). RetentionClass closed 3-variant enum (Standard24M/Extended60M/Forever) with exact SCREAMING_SNAKE_CASE serde renames. RecordType closed 39-variant subset of Wave-13 vocabulary (action lifecycle 11, namespace integration 2, vault/recovery/tamper 7, AI subject barriers 4, build/test/release 7, FSM extras 8 — covers everything the M1 aios-action lifecycle would emit), with TODO(T-008) comment marking the path to full 428 entries. EvidenceReceipt struct: all 10 fields private, only &self accessors (receipt_id, recorded_at, record_type, retention_class, subject_canonical_id, action_id, previous_receipt_hash, content_hash, payload, signature). ReceiptBuilder consuming builder pattern with seal() that mints evr_<ULID>, stamps Utc::now(), computes content_hash = BLAKE3-256(JCS(payload)) (64 hex), links previous via prior.link_hash() = BLAKE3-truncated-32(JCS(prior receipt)). ReceiptChain append-only Vec<EvidenceReceipt> with append() validating genesis discipline + link match, verify_integrity() walks windows(2) and recomputes every link. Sealed marker trait + private SealedSuper super-trait makes INV-005 (append-only) enforceable at the type level — impossible for downstream crates to implement Sealed for non-receipt types. 29 unit tests + 2 integration tests (lifecycle_chain.rs: full_action_lifecycle_emits_a_verifiable_chain + chain_serde_round_trips_and_still_verifies) = +31 tests (102 → 133). cargo build/test/clippy --all-targets -D warnings + cargo fmt --check all PASS."
   ],
   "files_touched_M1": [
     "Cargo.toml",
@@ -31,7 +34,18 @@
     "crates/aios-action/tests/error_paths.rs",
     "crates/aios-action/tests/fixtures/envelope_success_full.json",
     "crates/aios-action/tests/fixtures/envelope_policy_denied.json",
-    "crates/aios-action/tests/fixtures/envelope_rolled_back.json",
+    "crates/aios-action/tests/fixtures/envelope_rolled_back.json"
+  ],
+  "files_touched_M2": [
+    "Cargo.toml",
+    "crates/aios-evidence/Cargo.toml",
+    "crates/aios-evidence/src/lib.rs",
+    "crates/aios-evidence/src/error.rs",
+    "crates/aios-evidence/src/record.rs",
+    "crates/aios-evidence/src/receipt.rs",
+    "crates/aios-evidence/src/chain.rs",
+    "crates/aios-evidence/src/sealed.rs",
+    "crates/aios-evidence/tests/lifecycle_chain.rs",
     ".ai/memory.json",
     ".ai/tasks.json",
     ".ai/progress.log",
@@ -58,12 +72,18 @@
     "clippy::type_complexity fires on `[(fn(&mut T), U); N]` array types in tests — declare a local `type FnAlias = fn(&mut T);` and use that to keep the test fixture readable",
     "Integration tests use `tests/<name>.rs` and a shared `tests/common/mod.rs` (no Cargo.toml entry needed for sub-modules under tests/); each test target compiles with `mod common;` and the workspace fully respects `cargo test --test <name>`",
     "Integration test fixtures live under `tests/fixtures/<name>.json`; resolve via `env!(\"CARGO_MANIFEST_DIR\").join(\"tests/fixtures\")` rather than relying on cwd",
-    "ActionId etc are `#[serde(transparent)]` String newtypes — JSON deserialize does NOT run the ulid validator (validation only happens via explicit `parse(&str)`); fixtures may carry any opaque string in id-typed fields and still round-trip lossless"
+    "ActionId etc are `#[serde(transparent)]` String newtypes — JSON deserialize does NOT run the ulid validator (validation only happens via explicit `parse(&str)`); fixtures may carry any opaque string in id-typed fields and still round-trip lossless",
+    "T-007: Type-level append-only invariant (INV-005) requires (1) ALL receipt fields private, (2) ONLY &self accessors — no &mut self anywhere, (3) construction routed exclusively through a consuming Builder.seal(self) that returns the immutable value, (4) a Sealed marker trait with a private super-trait to prevent downstream impl. Deserialize is still derive'd so receipts can be loaded from disk, but the chain's append/verify_integrity re-validates link hashes — no edit-and-re-serialize path exists in the public API.",
+    "T-007: clippy::doc_markdown fires on EVERY bare PascalCase identifier and on SCREAMING_SNAKE_CASE words like 'RecordType' / 'PascalCase' / 'SCREAMING_SNAKE_CASE' / 'RocksDB' in doc comments — wrap each in backticks at write time to avoid lint-fix loops.",
+    "T-007: `Vec::len`/`Vec::is_empty` are const since Rust 1.39 — clippy::missing_const_for_fn fires if a no-mut method wrapping them is not const fn. Mark all read-only chain accessors `const fn` where the body is const-eligible.",
+    "T-007: assert!(str.contains('x')) with a 1-char needle MUST use a char literal not a string — clippy::single_char_pattern enforces it.",
+    "T-007: integration tests that build long fixture chains routinely exceed clippy::too_many_lines (default 100). Apply `#![allow(clippy::too_many_lines, reason = \"fixture builders\")]` at the test file's crate-level attribute block."
   ],
   "discovered_dependencies": [
     "chrono 0.4 (std + clock + serde features, default-features = false)",
-    "serde_jcs 0.1 (Governor approved T-006 — RFC 8785 canonical JSON for request_hash + idempotency_hash; pulls in ryu-js for ECMA-262 number formatting)"
+    "serde_jcs 0.1 (Governor approved T-006 — RFC 8785 canonical JSON for request_hash + idempotency_hash; pulls in ryu-js for ECMA-262 number formatting)",
+    "aios-evidence depends on aios-action via path = \"../aios-action\" — first cross-crate workspace dependency, exercises the public re-exports surface (ActionId / EvidenceReceiptId / jcs_canonicalize / blake3_hash / blake3_truncated / CanonicalError / IdError)"
   ],
   "last_errors": [],
-  "last_verification_result": "M1 closed (T-006 final): cargo build --workspace PASS; cargo test --workspace PASS (102 tests: 76 unit + 26 integration); cargo clippy --workspace --all-targets -D warnings PASS; cargo fmt --check PASS"
+  "last_verification_result": "T-007 complete: cargo build --workspace PASS; cargo test --workspace PASS (133 tests: 102 from aios-action + 29 aios-evidence unit + 2 aios-evidence integration = +31 delta); cargo clippy --workspace --all-targets -D warnings PASS; cargo fmt --check PASS"
 }

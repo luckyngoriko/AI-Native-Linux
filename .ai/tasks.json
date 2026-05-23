@@ -1,17 +1,18 @@
 {
   "backlog": [
     {
-      "id": "T-007",
-      "title": "aios-evidence crate skeleton (S3.1 evidence log client)",
+      "id": "T-008",
+      "title": "aios-evidence full Wave-13 RecordType vocabulary + Ed25519 signature path",
       "status": "queued",
       "priority": "P1",
-      "dependencies": ["T-006"],
+      "dependencies": ["T-007"],
       "acceptance_criteria": [
-        "crates/aios-evidence/ created and added to workspace members",
-        "EvidenceReceipt type carrying the §3.1 / §9.5 fields (evr_ id, trace context, BLAKE3 content hash, append-only chain pointer)",
-        "Append-only log invariant (INV-005) encoded at the type level (no API path that rewrites a receipt)",
-        "Wire format that the Capability Runtime will emit at every lifecycle edge",
-        "Unit tests with cargo build/test/clippy all PASS"
+        "RecordType extended from 39 variants to the full 427-entry Wave-13 reconciled vocabulary per S3.1 Appendix A (plus RecordTypeUnspecified = 0 if needed for proto compatibility)",
+        "Variants assigned in declaration order matching Appendix A IDs 1..427",
+        "All variants reject silently on unknown serde input (closed-enum discipline preserved)",
+        "Ed25519 signature integration path scaffolded (or explicitly punted to T-009) — at minimum a signed_with_key() builder method that consumes the Vault Broker capability handle",
+        "Per-RecordType payload schemas remain deferred to Wave 14+ per S3.1 §29.6",
+        "cargo build/test/clippy/fmt all PASS"
       ],
       "blockers": []
     }
@@ -52,6 +53,12 @@
       "title": "aios-action integration tests + golden fixtures + RFC 8785 full adoption (M1 closure)",
       "completed_at": "2026-05-23",
       "evidence": "cargo build/test/clippy --workspace --all-targets -D warnings all PASS + cargo fmt --check PASS; 102 tests green (76 unit + 26 integration); serde_jcs 0.1 added to workspace deps (Governor approved); canonical.rs delegates to serde_jcs::to_string (RFC 8785 ECMA-262 number normalization closed — golden test pins that 1.5e2 and 150.0 produce identical request_hash); CanonicalError simplified to single Projection variant (sort_value helper retired); tests/common/mod.rs shared helpers + 3 integration test files (golden_envelope: 8, lifecycle_replay: 6, error_paths: 12); 3 hand-written golden JSON fixtures (envelope_success_full / envelope_policy_denied / envelope_rolled_back) each parse + validate phase ↔ conditions + JCS canonical round-trip stable; M1 closed"
+    },
+    {
+      "id": "T-007",
+      "title": "aios-evidence crate skeleton (S3.1 evidence log foundation)",
+      "completed_at": "2026-05-23",
+      "evidence": "cargo build/test/clippy --workspace --all-targets -D warnings all PASS + cargo fmt --check PASS; 133 tests green (29 new unit + 2 new integration = +31 over M1's 102); crates/aios-evidence registered as workspace member; 5 modules (error/record/receipt/chain/sealed); EvidenceReceipt envelope with ALL fields private and ONLY &self accessors — INV-005 (append-only) enforced at type level; ReceiptBuilder consuming-builder seals via BLAKE3-256(JCS(payload)) for content_hash + BLAKE3-truncated-32(JCS(prior)) for link; ReceiptChain append-only Vec with verify_integrity() walking windows(2); RetentionClass closed 3-variant enum; RecordType closed 39-variant subset (action lifecycle 11 + namespace 2 + vault/recovery/tamper 7 + AI-barriers 4 + build/test 7 + FSM extras 8) with TODO(T-008) for full 428; Sealed marker trait with private super-trait blocks downstream impl; EvidenceError 8-variant closed enum; first cross-crate workspace dependency exercising aios-action's public re-exports"
     }
   ],
   "blocked": [],
@@ -66,7 +73,7 @@
       "status": "active",
       "title": "Evidence Log skeleton (S3.1 aios-evidence crate)",
       "started_at": "2026-05-23",
-      "tasks": ["T-007"]
+      "tasks": ["T-007", "T-008"]
     }
   }
 }

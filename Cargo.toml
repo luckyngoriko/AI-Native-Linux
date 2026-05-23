@@ -2,10 +2,10 @@
 resolver = "2"
 members = [
     "crates/aios-action",
+    "crates/aios-evidence",
 ]
 
 # Crates added later (per §22 MVP golden path order):
-# - crates/aios-evidence    (S3.1 evidence log client)
 # - crates/aios-policy      (S2.3 policy kernel client)
 # - crates/aios-capability-runtime  (S10.1 typed action dispatch)
 # - crates/aios-fs          (S1.3 AIOS-FS object model)

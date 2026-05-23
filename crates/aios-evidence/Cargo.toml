@@ -1,0 +1,25 @@
+[package]
+name = "aios-evidence"
+description = "AIOS S3.1 — Evidence Log foundation (rev.2 aios.evidence.v1alpha1). EvidenceReceipt envelope + append-only hash chain encoding INV-005 at the type level."
+edition.workspace = true
+rust-version.workspace = true
+version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+
+[dependencies]
+# First cross-crate consumer of `aios-action` — uses EvidenceReceiptId, ActionId,
+# and the canonical BLAKE3 + JCS helpers (see `aios_action::canonical`).
+aios-action = { path = "../aios-action" }
+
+serde       = { workspace = true }
+serde_json  = { workspace = true }
+serde_jcs   = { workspace = true }
+thiserror   = { workspace = true }
+blake3      = { workspace = true }
+tracing     = { workspace = true }
+chrono      = { workspace = true }
+
+[lints]
+workspace = true

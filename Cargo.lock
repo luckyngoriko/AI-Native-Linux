@@ -17,6 +17,20 @@ dependencies = [
 ]
 
 [[package]]
+name = "aios-evidence"
+version = "0.0.1"
+dependencies = [
+ "aios-action",
+ "blake3",
+ "chrono",
+ "serde",
+ "serde_jcs",
+ "serde_json",
+ "thiserror",
+ "tracing",
+]
+
+[[package]]
 name = "android_system_properties"
 version = "0.1.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"

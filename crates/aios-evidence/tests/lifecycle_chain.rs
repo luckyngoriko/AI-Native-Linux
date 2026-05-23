@@ -21,6 +21,7 @@
 
 use aios_action::ActionId;
 use aios_evidence::{ReceiptBuilder, ReceiptChain, RecordType, RetentionClass};
+use ed25519_dalek::SigningKey;
 use serde_json::json;
 
 #[test]
@@ -204,4 +205,99 @@ fn chain_serde_round_trips_and_still_verifies() {
         .verify_integrity()
         .expect("round-tripped chain must still verify");
     assert_eq!(rebuilt.len(), chain.len());
+}
+
+/// T-009: emit the canonical 5-receipt action lifecycle with **every receipt
+/// Ed25519-signed**, then verify both hash-chain integrity and per-receipt
+/// signatures end-to-end. This is the integration evidence that the S3.1
+/// §5.2 / §11.3 signing path is wired into the public crate surface.
+#[test]
+fn t009_signed_lifecycle_chain_verifies_chain_and_every_signature() {
+    // Deterministic test keypair. Production keys come from S5.2 Vault Broker
+    // for subject `_system:service:evidence-segment-signer`.
+    let seed = [7u8; 32];
+    let signing_key = SigningKey::from_bytes(&seed);
+    let verifying_key = signing_key.verifying_key();
+
+    let action_id = ActionId::new();
+    let subject = "service:capability-runtime";
+    let mut chain = ReceiptChain::new();
+
+    let received = ReceiptBuilder::new(
+        RecordType::ActionReceived,
+        RetentionClass::Standard24M,
+        subject,
+    )
+    .with_action_id(action_id.clone())
+    .with_payload(json!({"action": "fs.write", "adapter_id": "aios-fs"}))
+    .seal_signed(None, &signing_key)
+    .expect("ACTION_RECEIVED seal_signed");
+    chain.append(received).expect("append ACTION_RECEIVED");
+
+    let policy = ReceiptBuilder::new(
+        RecordType::PolicyDecision,
+        RetentionClass::Standard24M,
+        "service:policy-kernel",
+    )
+    .with_action_id(action_id.clone())
+    .with_payload(json!({"decision": "ALLOW"}))
+    .seal_signed(chain.receipts().last(), &signing_key)
+    .expect("POLICY_DECISION seal_signed");
+    chain.append(policy).expect("append POLICY_DECISION");
+
+    let exec_started = ReceiptBuilder::new(
+        RecordType::ExecutionStarted,
+        RetentionClass::Standard24M,
+        subject,
+    )
+    .with_action_id(action_id.clone())
+    .with_payload(json!({"adapter_id": "aios-fs"}))
+    .seal_signed(chain.receipts().last(), &signing_key)
+    .expect("EXECUTION_STARTED seal_signed");
+    chain
+        .append(exec_started)
+        .expect("append EXECUTION_STARTED");
+
+    let exec_done = ReceiptBuilder::new(
+        RecordType::ExecutionCompleted,
+        RetentionClass::Standard24M,
+        subject,
+    )
+    .with_action_id(action_id.clone())
+    .with_payload(json!({"outcome": "SUCCESS"}))
+    .seal_signed(chain.receipts().last(), &signing_key)
+    .expect("EXECUTION_COMPLETED seal_signed");
+    chain.append(exec_done).expect("append EXECUTION_COMPLETED");
+
+    let verified = ReceiptBuilder::new(
+        RecordType::VerificationResult,
+        RetentionClass::Standard24M,
+        "service:verification-harness",
+    )
+    .with_action_id(action_id)
+    .with_payload(json!({"status": "PASSED"}))
+    .seal_signed(chain.receipts().last(), &signing_key)
+    .expect("VERIFICATION_RESULT seal_signed");
+    chain.append(verified).expect("append VERIFICATION_RESULT");
+
+    // ─── Acceptance ──────────────────────────────────────────────────
+    assert_eq!(chain.len(), 5);
+
+    // Every receipt is signed.
+    for (i, r) in chain.receipts().iter().enumerate() {
+        assert!(r.is_signed(), "receipt at index {i} must be signed");
+        let sig = r
+            .signature()
+            .unwrap_or_else(|| panic!("receipt {i} missing signature"));
+        assert_eq!(
+            sig.len(),
+            128,
+            "signature at index {i} must be 128 lowercase hex chars"
+        );
+    }
+
+    // Combined integrity (hash chain + every Ed25519 signature) verifies.
+    chain
+        .verify_integrity_signed(&verifying_key)
+        .expect("signed lifecycle chain must fully verify");
 }

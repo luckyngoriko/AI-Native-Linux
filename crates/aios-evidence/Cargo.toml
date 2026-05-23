@@ -25,6 +25,17 @@ chrono      = { workspace = true }
 # hand-maintaining a parallel variant table.
 strum        = { workspace = true }
 strum_macros = { workspace = true }
+# T-009: Ed25519 receipt signing path (S3.1 §5.2 / §11.3 / §28.5). Production
+# signing keys are issued by S5.2 Vault Broker for the constitutional subject
+# `_system:service:evidence-segment-signer`; the broker hands the evidence-log
+# service a capability that performs the sign operation. The dependency here
+# carries the verifier surface and the test-only ephemeral keygen path.
+ed25519-dalek = { workspace = true }
+
+[dev-dependencies]
+# Tests mint ephemeral Ed25519 keypairs via the OS CSPRNG. Production never
+# does — keys come from S5.2 (see receipt.rs module-level doc).
+rand_core = { workspace = true }
 
 [lints]
 workspace = true

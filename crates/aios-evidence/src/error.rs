@@ -24,6 +24,14 @@ use thiserror::Error;
 /// - [`Self::InvalidReceiptId`] — receipt id failed `evr_<ULID>` validation
 ///   (delegated to [`aios_action::IdError`]).
 /// - [`Self::InvalidSubject`] — `subject_canonical_id` is empty or malformed.
+/// - [`Self::SignatureMalformed`] — receipt's `signature` field could not be
+///   parsed as 128 lowercase hex chars decoding to a 64-byte Ed25519 signature
+///   (T-009, §5.2 / §11.3).
+/// - [`Self::SignatureMissing`] — signature verification was requested on a
+///   receipt sealed without a signing key.
+/// - [`Self::SignatureMismatch`] — Ed25519 verification rejected the signature
+///   against the supplied verifying key. Constitutional tamper indicator per
+///   §28.5 (`RECEIPT_FORGERY_DETECTED`).
 #[derive(Debug, Error, Clone, PartialEq, Eq)]
 pub enum EvidenceError {
     /// Canonical JSON projection failed during content-hash computation.
@@ -98,6 +106,39 @@ pub enum EvidenceError {
         /// Reason the subject was rejected.
         detail: String,
     },
+
+    /// Ed25519 signature is structurally invalid: not 128 lowercase hex chars,
+    /// or does not decode to a 64-byte signature value.
+    ///
+    /// Distinct from [`Self::SignatureMismatch`], which carries a structurally
+    /// valid signature that fails cryptographic verification. T-009 / S3.1
+    /// §5.2 / §11.3.
+    #[error("evidence signature is malformed: {detail}")]
+    SignatureMalformed {
+        /// Reason the signature blob was rejected (hex parse, wrong length, etc.).
+        detail: String,
+    },
+
+    /// Signature verification was requested on a receipt whose `signature`
+    /// field is `None`.
+    ///
+    /// Used to distinguish "this receipt is unsigned" from "this receipt
+    /// claims a signature but the signature is bad" — the production engine
+    /// emits different record types for the two cases (an unsigned receipt is
+    /// a configuration / migration concern; a bad signature is `RECEIPT_FORGERY_DETECTED`).
+    /// T-009 / S3.1 §5.2 / §11.3 / §28.5.
+    #[error("evidence receipt carries no signature; cannot verify")]
+    SignatureMissing,
+
+    /// Ed25519 verification rejected the signature against the supplied
+    /// verifying key.
+    ///
+    /// Constitutional tamper indicator. Production maps this to a
+    /// `RECEIPT_FORGERY_DETECTED` record per S3.1 §28.5 — receipt's Ed25519
+    /// signature did not verify against the vault capability bound to the
+    /// claimed `subject_canonical_id`.
+    #[error("evidence signature verification failed (Ed25519 reject)")]
+    SignatureMismatch,
 }
 
 impl From<aios_action::CanonicalError> for EvidenceError {
@@ -149,6 +190,20 @@ mod tests {
         assert!(EvidenceError::DuplicateGenesis
             .to_string()
             .contains("genesis"));
+
+        let e = EvidenceError::SignatureMalformed {
+            detail: "expected 128 hex chars, got 64".to_owned(),
+        };
+        assert!(e.to_string().contains("malformed"));
+        assert!(e.to_string().contains("128 hex chars"));
+
+        assert!(EvidenceError::SignatureMissing
+            .to_string()
+            .contains("no signature"));
+
+        assert!(EvidenceError::SignatureMismatch
+            .to_string()
+            .contains("Ed25519"));
     }
 
     #[test]

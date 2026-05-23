@@ -20,6 +20,8 @@
 //! pointing at the offending index. This is the building block S3.1 §5.3 step 1
 //! `VerifyChain` requires.
 
+use ed25519_dalek::VerifyingKey;
+
 use crate::error::EvidenceError;
 use crate::receipt::EvidenceReceipt;
 
@@ -168,6 +170,48 @@ impl ReceiptChain {
                     expected,
                 });
             }
+        }
+
+        Ok(())
+    }
+
+    /// Verify hash-chain integrity **and** every receipt's Ed25519 signature
+    /// against `verifying_key` (T-009, S3.1 §5.2 / §11.3).
+    ///
+    /// This is the strict-mode counterpart to [`Self::verify_integrity`]: it
+    /// first runs the link-walk to confirm structural integrity, then walks
+    /// the chain a second time and calls
+    /// [`EvidenceReceipt::verify_signature`] on every receipt. A single failed
+    /// signature short-circuits the walk and returns
+    /// [`EvidenceError::SignatureMismatch`] (or the relevant
+    /// [`EvidenceError::SignatureMissing`] / [`EvidenceError::SignatureMalformed`]).
+    ///
+    /// T-009 assumes a **single** signing key across the whole chain — the
+    /// constitutional subject `_system:service:evidence-segment-signer` per
+    /// S3.1 §11.3. Per-segment key rotation (`signing_key_id` resolution per
+    /// the §5.2 `SegmentSealedPayload`) is a future task.
+    ///
+    /// # Errors
+    ///
+    /// - Everything [`Self::verify_integrity`] returns, plus:
+    /// - [`EvidenceError::SignatureMissing`] if any receipt in the chain has
+    ///   `signature: None`.
+    /// - [`EvidenceError::SignatureMalformed`] if any signature blob is not
+    ///   128 lowercase hex chars decoding to 64 bytes.
+    /// - [`EvidenceError::SignatureMismatch`] on the first Ed25519 reject.
+    pub fn verify_integrity_signed(
+        &self,
+        verifying_key: &VerifyingKey,
+    ) -> Result<(), EvidenceError> {
+        // First: structural integrity. If the chain is broken, signature
+        // checks are meaningless.
+        self.verify_integrity()?;
+
+        // Second: verify every signature. The chain may carry a single
+        // unsigned receipt at the start (e.g. a legacy genesis from
+        // `seal()`); strict-mode here REQUIRES every receipt to be signed.
+        for r in &self.receipts {
+            r.verify_signature(verifying_key)?;
         }
 
         Ok(())
@@ -345,5 +389,119 @@ mod tests {
         let g = b(RecordType::ActionReceived).seal(None).expect("g");
         chain.append(g).expect("g");
         chain.verify_integrity().expect("single genesis ok");
+    }
+
+    // ─── T-009: signed-chain integrity ────────────────────────────────
+
+    fn test_keypair() -> (ed25519_dalek::SigningKey, VerifyingKey) {
+        let seed = [13u8; 32];
+        let sk = ed25519_dalek::SigningKey::from_bytes(&seed);
+        let vk = sk.verifying_key();
+        (sk, vk)
+    }
+
+    #[test]
+    fn t009_verify_integrity_signed_succeeds_on_fully_signed_chain() {
+        let (sk, vk) = test_keypair();
+        let mut chain = ReceiptChain::new();
+
+        let g = b(RecordType::ActionReceived)
+            .with_payload(json!({"step": 0}))
+            .seal_signed(None, &sk)
+            .expect("genesis");
+        chain.append(g).expect("g");
+
+        for i in 1..5 {
+            let prev = chain.receipts().last();
+            let r = b(RecordType::PolicyDecision)
+                .with_payload(json!({"step": i}))
+                .seal_signed(prev, &sk)
+                .expect("seal_signed");
+            chain.append(r).expect("append");
+        }
+
+        assert_eq!(chain.len(), 5);
+        chain
+            .verify_integrity_signed(&vk)
+            .expect("signed chain must verify");
+    }
+
+    #[test]
+    fn t009_verify_integrity_signed_fails_when_one_signature_corrupted() {
+        let (sk, vk) = test_keypair();
+        let mut chain = ReceiptChain::new();
+
+        let g = b(RecordType::ActionReceived)
+            .seal_signed(None, &sk)
+            .expect("genesis");
+        chain.append(g).expect("g");
+        let r1 = b(RecordType::PolicyDecision)
+            .seal_signed(chain.receipts().last(), &sk)
+            .expect("r1");
+        chain.append(r1).expect("append");
+        let r2 = b(RecordType::ExecutionStarted)
+            .seal_signed(chain.receipts().last(), &sk)
+            .expect("r2");
+        chain.append(r2).expect("append");
+
+        // Corrupt receipt at index 1's signature via serde round-trip.
+        let mut serialized: Vec<serde_json::Value> = chain
+            .receipts()
+            .iter()
+            .map(|r| serde_json::to_value(r).expect("serialize"))
+            .collect();
+        // Flip one bit of the first hex pair of receipt 1's signature.
+        let sig = serialized[1]["signature"]
+            .as_str()
+            .expect("sig present")
+            .to_string();
+        // Replace the first byte with a guaranteed-different value
+        // (e.g. flip char 0 to '0' if it was 'f', else '1' if it was '0', etc.).
+        let first_char = sig.chars().next().expect("non-empty");
+        let replacement = if first_char == '0' { '1' } else { '0' };
+        let new_sig: String = std::iter::once(replacement)
+            .chain(sig.chars().skip(1))
+            .collect();
+        serialized[1]["signature"] = json!(new_sig);
+
+        let mutated: Vec<EvidenceReceipt> = serialized
+            .into_iter()
+            .map(|v| serde_json::from_value(v).expect("deserialize"))
+            .collect();
+        let tampered = ReceiptChain { receipts: mutated };
+
+        // The hash chain itself ALSO breaks because `link_hash` folds in the
+        // signature field — so the link walk fires first, before we ever get
+        // to the signature pass. That's also valid tamper detection. Accept
+        // either ChainBroken (at index 2 — receipt 2's `previous_receipt_hash`
+        // no longer matches the recomputed receipt-1 link hash) OR
+        // SignatureMismatch (if the chain happens to still walk; unlikely).
+        match tampered.verify_integrity_signed(&vk) {
+            Err(EvidenceError::ChainBroken { .. } | EvidenceError::SignatureMismatch) => {}
+            other => panic!(
+                "expected ChainBroken or SignatureMismatch on tampered signature, got {other:?}"
+            ),
+        }
+    }
+
+    #[test]
+    fn t009_verify_integrity_signed_fails_when_one_receipt_is_unsigned() {
+        let (sk, vk) = test_keypair();
+        let mut chain = ReceiptChain::new();
+
+        // Genesis is signed; second receipt is sealed WITHOUT signing.
+        let g = b(RecordType::ActionReceived)
+            .seal_signed(None, &sk)
+            .expect("g");
+        chain.append(g).expect("g");
+        let r1 = b(RecordType::PolicyDecision)
+            .seal(chain.receipts().last())
+            .expect("r1 unsigned");
+        chain.append(r1).expect("append unsigned");
+
+        match chain.verify_integrity_signed(&vk) {
+            Err(EvidenceError::SignatureMissing) => {}
+            other => panic!("expected SignatureMissing, got {other:?}"),
+        }
     }
 }

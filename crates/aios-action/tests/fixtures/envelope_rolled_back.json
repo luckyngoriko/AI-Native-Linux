@@ -1,0 +1,63 @@
+{
+  "schema_version": "aios.action.v1alpha1",
+  "identity": {
+    "subject_canonical_id": "agent:planner.systemd-ops",
+    "is_ai": true,
+    "session_id": "01HQZX1234ABCDEFGHJKMNPQRS"
+  },
+  "request": {
+    "action": "service.rollback",
+    "target": {
+      "service": "nginx",
+      "compensating_for": "act_01HQZX1234PARENT00000ABCDE",
+      "restore_unit_state": "running-prev"
+    },
+    "idempotency_key": "rollback-nginx-act-01HQZX1234SUCCEEDED000001",
+    "parent_action_id": "act_01HQZX1234PARENT00000ABCDE",
+    "dry_run": "LIVE"
+  },
+  "execution": {
+    "phase": "ROLLED_BACK",
+    "phase_changed_at": "2026-05-23T18:05:04Z",
+    "started_at": "2026-05-23T18:05:01Z",
+    "ended_at": "2026-05-23T18:05:04Z",
+    "sandbox_profile_id": "sandbox_systemd_restart_v1",
+    "conditions": [
+      {
+        "type": "PolicyEvaluated",
+        "status": "TRUE",
+        "observed_at": "2026-05-23T18:05:00Z",
+        "message": "Policy Kernel decision pol_01HQZX1234ROLLBK0000000001: Allow (compensating action policy is permissive for the originating subject)"
+      },
+      {
+        "type": "PolicyAccepted",
+        "status": "TRUE",
+        "observed_at": "2026-05-23T18:05:00.500Z",
+        "message": "Compensating action accepted; original parent_action_id bound"
+      },
+      {
+        "type": "Sandboxed",
+        "status": "TRUE",
+        "observed_at": "2026-05-23T18:05:01Z",
+        "message": "Sandbox profile sandbox_systemd_restart_v1 bound (same profile as parent action)"
+      },
+      {
+        "type": "Executed",
+        "status": "TRUE",
+        "observed_at": "2026-05-23T18:05:03Z",
+        "message": "systemd adapter restored nginx.service to previous unit state (Active: active (running) from snapshot snap_01HQZX1234PARENT000001)"
+      },
+      {
+        "type": "RolledBack",
+        "status": "TRUE",
+        "observed_at": "2026-05-23T18:05:04Z",
+        "message": "Compensating action complete; parent_action_id act_01HQZX1234PARENT00000ABCDE logically reverted (S0.1 §6.3 post-hoc rollback pattern)"
+      }
+    ]
+  },
+  "trace": {
+    "trace_id": "4bf92f3577b34da6a3ce929d0e0e4736",
+    "span_id": "11aabbccddeeff22",
+    "parent_span_id": "00f067aa0ba902b7"
+  }
+}

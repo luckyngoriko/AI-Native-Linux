@@ -3,100 +3,78 @@
 //! Produces deterministic byte sequences for any `serde::Serialize` value, so that
 //! `request_hash` and `idempotency_hash` (S0.1 §3.3) are stable across re-encodings.
 //!
-//! ## What this module guarantees today
+//! ## RFC 8785 full compliance via `serde_jcs` 0.1 (T-006 adoption)
 //!
-//! - **Lexicographic object key ordering.** JSON objects are emitted with keys sorted by
-//!   byte order, recursively, matching JCS §3.2.3.
-//! - **No insignificant whitespace.** Output has no spaces, tabs, or newlines outside of
-//!   string literals.
-//! - **Stable string encoding.** Strings are emitted via `serde_json` which already
-//!   escapes per RFC 8259; the surface that hits this module is `Request` content,
-//!   where all strings are ASCII identifiers in practice.
-//! - **Array order preserved.** Sequences keep declaration order (JCS §3.2.4).
-//! - **BLAKE3-256.** 64-char lowercase hex output; `[..32]` truncation helper for the
-//!   W11-B 32-hex-char id components (S0.1 §3.2.2).
+//! As of T-006 the encoder delegates to the Governor-approved [`serde_jcs`] 0.1 crate,
+//! the canonical Rust implementation of the JSON Canonicalization Scheme (RFC 8785).
+//! That gives us, in one drop-in dependency:
 //!
-//! ## What this module deliberately does NOT do (yet)
+//! - **Lexicographic object key ordering** (RFC 8785 §3.2.3, after Unicode code-point
+//!   sort of UTF-16 key encodings).
+//! - **No insignificant whitespace** (RFC 8785 §3.2.1).
+//! - **ECMA-262 §6.12.7 number normalization** (RFC 8785 §3.2.2.3) — non-integer
+//!   doubles that are equal under IEEE-754 produce the same canonical string. This is
+//!   the deficit explicitly deferred from T-002 and now closed.
+//! - **Array order preserved** (RFC 8785 §3.2.4).
+//! - **String escaping per RFC 8259 §7** (RFC 8785 §3.2.2.2).
 //!
-//! - **ECMA-262 number normalization (JCS §3.2.2.3).** Numbers are emitted via
-//!   `serde_json`'s default formatting, which is RFC 8259-compliant but not always
-//!   bit-identical to ECMA-262 (relevant only for non-integer floats with imprecise
-//!   binary representation). The `Request` surface today contains no `f64` payload
-//!   outside `target: Value`; full ECMA-262 number formatting will land alongside the
-//!   golden-fixture suite (T-006) once a vetted RFC 8785 implementation is approved
-//!   into the workspace.
-//! - **Unicode string normalization (NFC).** Deferred for the same reason; not on the
-//!   hot path for current consumers.
+//! On top of canonicalization we still own the **BLAKE3-256** layer: 64-char
+//! lowercase hex output via [`blake3_hash`]; `[..32]` truncation helper via
+//! [`blake3_truncated`] for the W11-B 32-hex-char id components (S0.1 §3.2.2).
 //!
-//! Within these bounds the encoding **is deterministic** for the structures hashed by
-//! [`crate::request::Request::request_hash`] and
-//! [`crate::envelope::ActionEnvelope::idempotency_hash`]: identical logical input
-//! produces identical bytes regardless of construction order or map backing type.
+//! ## Unicode NFC
+//!
+//! RFC 8785 §3.2.2.2 explicitly does **not** mandate NFC normalization of string
+//! contents — input strings are emitted verbatim once escaped. AIOS strings hashed
+//! today (`Request::action`, `Identity::subject_canonical_id`, etc.) are ASCII
+//! identifiers in practice; if a non-ASCII payload ever needs to hash identically
+//! across NFC/NFD inputs, the **caller** must normalize before construction. This is
+//! the same posture taken by the JCS specification.
+//!
+//! ## Guarantee for AIOS consumers
+//!
+//! Identical logical input — regardless of object-key insertion order, map backing
+//! type, or numerically-equal float representations — produces identical canonical
+//! bytes, and therefore identical [`crate::request::Request::request_hash`] and
+//! [`crate::envelope::ActionEnvelope::idempotency_hash`] outputs.
 
 use serde::Serialize;
-use serde_json::{Map, Value};
 use thiserror::Error;
 
 /// Failure modes for canonical encoding.
+///
+/// The underlying [`serde_jcs`] encoder returns `serde_json::Error` for both
+/// "the value's `Serialize` impl errored" and "the canonical writer failed". We
+/// flatten both into a single [`CanonicalError::Projection`] variant carrying the
+/// stringified message, so callers do not need to depend on `serde_json`'s error
+/// type. In practice neither failure mode is reachable for the AIOS types hashed
+/// by this module — every field is a primitive or a derived `Serialize`.
 #[derive(Debug, Error)]
 pub enum CanonicalError {
-    /// The input value could not be projected into a `serde_json::Value`.
+    /// The value could not be projected to canonical JSON.
     ///
-    /// In practice this only fires for `Serialize` implementations that themselves return
-    /// an error (custom `Serializer` adapters); the types in this crate never trigger it.
-    #[error("failed to project value into JSON for canonicalization: {0}")]
+    /// Carries the underlying `serde_json::Error` rendered as text. Triggered only
+    /// by `Serialize` implementations that themselves fail (custom `Serializer`
+    /// adapters); the types in this crate never trigger it.
+    #[error("failed to project value into canonical JSON: {0}")]
     Projection(String),
-
-    /// The intermediate JSON tree could not be serialized to bytes.
-    #[error("failed to serialize canonical JSON: {0}")]
-    Serialize(String),
 }
 
-/// Produce JCS-canonical JSON bytes for any `Serialize` value.
+/// Produce RFC 8785 canonical JSON bytes for any `Serialize` value.
 ///
-/// The output is UTF-8 text with lexicographic object key ordering, no insignificant
-/// whitespace, and array order preserved. See the module docs for caveats on number
-/// formatting and Unicode normalization.
+/// Delegates to [`serde_jcs::to_string`] 0.1 — the Governor-approved Rust JCS
+/// implementation. The output is UTF-8 text with lexicographic object key ordering,
+/// no insignificant whitespace, ECMA-262 number normalization, and array order
+/// preserved.
 ///
 /// # Errors
 ///
 /// Returns [`CanonicalError::Projection`] when the value's `Serialize` implementation
-/// itself fails, and [`CanonicalError::Serialize`] when the canonical writer fails
-/// (effectively unreachable for in-memory writers, but surfaced for completeness).
+/// itself fails (the only failure surface in practice — the underlying JCS encoder
+/// returns a `serde_json::Error`, which we wrap unchanged in the message text rather
+/// than leak the underlying error type into our public API).
 pub fn jcs_canonicalize<T: Serialize>(value: &T) -> Result<String, CanonicalError> {
-    // Step 1: project into `serde_json::Value`. Using the value tree (rather than a
-    // streaming serializer) lets us sort object keys recursively in a single pass and
-    // keeps the implementation auditable.
-    let projected: Value =
-        serde_json::to_value(value).map_err(|e| CanonicalError::Projection(e.to_string()))?;
-
-    // Step 2: walk the tree, sorting object keys lexicographically.
-    let sorted = sort_value(projected);
-
-    // Step 3: emit without whitespace.
-    serde_json::to_string(&sorted).map_err(|e| CanonicalError::Serialize(e.to_string()))
-}
-
-/// Recursively sort all object keys in a `serde_json::Value`.
-///
-/// `serde_json::Map` already uses `BTreeMap` (when the `preserve_order` feature is
-/// disabled, which it is at the workspace level), so map keys are sorted on
-/// construction. We rebuild the maps anyway to defend against future workspace
-/// configuration drift and to keep the canonicalization explicit and obvious.
-fn sort_value(value: Value) -> Value {
-    match value {
-        Value::Object(map) => {
-            let mut pairs: Vec<(String, Value)> = map.into_iter().collect();
-            pairs.sort_by(|a, b| a.0.cmp(&b.0));
-            let mut sorted = Map::new();
-            for (k, v) in pairs {
-                sorted.insert(k, sort_value(v));
-            }
-            Value::Object(sorted)
-        }
-        Value::Array(items) => Value::Array(items.into_iter().map(sort_value).collect()),
-        other => other,
-    }
+    serde_jcs::to_string(value).map_err(|e| CanonicalError::Projection(e.to_string()))
 }
 
 /// Compute the full 64-character lowercase hex BLAKE3-256 hash of `canonical_bytes`.
@@ -129,7 +107,7 @@ pub fn blake3_truncated(canonical_bytes: &[u8]) -> String {
     reason = "panic-on-failure is the idiomatic test signal"
 )]
 mod tests {
-    use super::{blake3_hash, blake3_truncated, jcs_canonicalize, sort_value};
+    use super::{blake3_hash, blake3_truncated, jcs_canonicalize};
     use serde_json::json;
     use std::collections::{BTreeMap, HashMap};
 
@@ -223,11 +201,11 @@ mod tests {
     }
 
     #[test]
-    fn sort_value_preserves_array_order() {
-        // Arrays must preserve declaration order (JCS §3.2.4).
+    fn jcs_preserves_array_order_at_top_level() {
+        // Arrays must preserve declaration order (RFC 8785 §3.2.4).
         let v = json!([3, 1, 2, "z", "a"]);
-        let sorted = sort_value(v);
-        assert_eq!(sorted, json!([3, 1, 2, "z", "a"]));
+        let canon = jcs_canonicalize(&v).expect("canonicalize must succeed");
+        assert_eq!(canon, "[3,1,2,\"z\",\"a\"]");
     }
 
     // ---- BLAKE3 helpers ---------------------------------------------------------

@@ -1,16 +1,17 @@
 {
   "backlog": [
     {
-      "id": "T-006",
-      "title": "aios-action integration tests + golden fixtures",
-      "status": "pending",
+      "id": "T-007",
+      "title": "aios-evidence crate skeleton (S3.1 evidence log client)",
+      "status": "queued",
       "priority": "P1",
-      "dependencies": ["T-002", "T-004", "T-005"],
+      "dependencies": ["T-006"],
       "acceptance_criteria": [
-        "Golden JSON fixtures for representative envelope shapes (successful path, policy denial, rollback)",
-        "tests/ directory with integration tests",
-        "JCS canonical encoding round-trip golden tests",
-        "Decide on RFC 8785 ECMA-262 number normalization dep (Governor approval required)"
+        "crates/aios-evidence/ created and added to workspace members",
+        "EvidenceReceipt type carrying the §3.1 / §9.5 fields (evr_ id, trace context, BLAKE3 content hash, append-only chain pointer)",
+        "Append-only log invariant (INV-005) encoded at the type level (no API path that rewrites a receipt)",
+        "Wire format that the Capability Runtime will emit at every lifecycle edge",
+        "Unit tests with cargo build/test/clippy all PASS"
       ],
       "blockers": []
     }
@@ -32,20 +33,40 @@
       "id": "T-003",
       "title": "aios-action extended ULID prefix registry (S5.3/S5.4/S10.1/S15.2 namespaces)",
       "completed_at": "2026-05-23",
-      "evidence": "cargo build/test/clippy --workspace --all-targets -D warnings all PASS; 32 unit tests green (+8 new); 5 ULID-bodied newtypes (ApprovalRequestId/ApprovalBindingId/OverrideRequestId/OverrideBindingId/ActionRuntimeRequestId) + 1 content-addressed newtype (TransitionPlanId, body = blake3_truncated bytes, no random new() constructor); IdError::InvalidHexBody variant added; all 6 reject Wave-11 colon-separator form; tplan_ body shape pinned to blake3_truncated helper"
+      "evidence": "cargo build/test/clippy --workspace --all-targets -D warnings all PASS; 32 unit tests green (+8 new); 5 ULID-bodied newtypes + 1 content-addressed newtype; IdError::InvalidHexBody variant added; all 6 reject Wave-11 colon-separator form"
     },
     {
       "id": "T-004",
       "title": "aios-action lifecycle FSM with conditions consistency (S0.1 §6.2 + §6.6 + §6.7)",
       "completed_at": "2026-05-23",
-      "evidence": "cargo build/test/clippy --workspace --all-targets -D warnings all PASS; 57 unit tests green (+25 new, target was +16); ConditionType closed enum (13 variants) + Condition.condition_type refactor; ActionEnvelope::transition_to / add_condition / canonical_conditions_for_phase / validate_phase_conditions; TransitionError enum (IllegalTransition / TerminalPhase / MonotonicityViolation / PhaseConditionMismatch); Execution.phase_changed_at field added; monotonicity (timestamp non-decreasing, True->False flip rejected, terminal-once) enforced; phase ↔ conditions canonicalization per S0.1 §6.6 (Pending=∅, Running={PolicyEvaluated,Sandboxed}, Succeeded={PolicyEvaluated,Sandboxed,Executed,Verified}, Failed={PolicyEvaluated}, RolledBack={PolicyEvaluated,Sandboxed,Executed,RolledBack}); full Pending→Running→Succeeded JSON round-trip with replay validation green"
+      "evidence": "cargo build/test/clippy --workspace --all-targets -D warnings all PASS; 57 unit tests green (+25 new); ConditionType closed enum (13 variants); ActionEnvelope::transition_to / add_condition / canonical_conditions_for_phase / validate_phase_conditions; TransitionError enum (IllegalTransition / TerminalPhase / MonotonicityViolation / PhaseConditionMismatch)"
     },
     {
       "id": "T-005",
       "title": "aios-action full error taxonomy (35 codes per S0.1 §7.3 + §13.3)",
       "completed_at": "2026-05-23",
-      "evidence": "cargo build/test/clippy --workspace --all-targets -D warnings all PASS; 76 unit tests green (+19 new, target was +18); ActionErrorCode closed enum (35 variants: 11 validation + 5 policy + 3 authorization + 8 execution + 3 verification + 2 rollback + 3 infrastructure) with exact PascalCase serde names; ActionError struct (code/message/retryable/cause) replaces T-001 thiserror enum; ActionErrorCode::retryable_default helper per §7.4 (Some(false)/Some(true)/None for the two 'depends' codes AdapterFailure + Internal); MAX_CAUSE_CHAIN_DEPTH=8 enforced via with_cause -> Result<Self, CauseChainTooDeep> (programmer-facing error, not on the wire); From<IdError> -> EnvelopeMalformed/retryable=false; From<TransitionError> -> Internal/retryable=false; serde round-trip of §7.5 three-deep cause-chain example shape matches verbatim"
+      "evidence": "cargo build/test/clippy --workspace --all-targets -D warnings all PASS; 76 unit tests green (+19 new); ActionErrorCode closed enum (35 variants); ActionError struct (code/message/retryable/cause); MAX_CAUSE_CHAIN_DEPTH=8; From<IdError>/From<TransitionError> mappings"
+    },
+    {
+      "id": "T-006",
+      "title": "aios-action integration tests + golden fixtures + RFC 8785 full adoption (M1 closure)",
+      "completed_at": "2026-05-23",
+      "evidence": "cargo build/test/clippy --workspace --all-targets -D warnings all PASS + cargo fmt --check PASS; 102 tests green (76 unit + 26 integration); serde_jcs 0.1 added to workspace deps (Governor approved); canonical.rs delegates to serde_jcs::to_string (RFC 8785 ECMA-262 number normalization closed — golden test pins that 1.5e2 and 150.0 produce identical request_hash); CanonicalError simplified to single Projection variant (sort_value helper retired); tests/common/mod.rs shared helpers + 3 integration test files (golden_envelope: 8, lifecycle_replay: 6, error_paths: 12); 3 hand-written golden JSON fixtures (envelope_success_full / envelope_policy_denied / envelope_rolled_back) each parse + validate phase ↔ conditions + JCS canonical round-trip stable; M1 closed"
     }
   ],
-  "blocked": []
+  "blocked": [],
+  "milestones": {
+    "M1": {
+      "status": "completed",
+      "title": "Action Envelope skeleton (S0.1 implementation)",
+      "completed_at": "2026-05-23",
+      "tasks": ["T-001", "T-002", "T-003", "T-004", "T-005", "T-006"]
+    },
+    "M2": {
+      "status": "active",
+      "title": "Evidence Log skeleton (S3.1 aios-evidence crate)",
+      "started_at": "2026-05-23",
+      "tasks": ["T-007"]
+    }
+  }
 }

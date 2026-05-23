@@ -1,0 +1,63 @@
+{
+  "schema_version": "aios.action.v1alpha1",
+  "identity": {
+    "subject_canonical_id": "agent:planner.systemd-ops",
+    "is_ai": true,
+    "session_id": "01HQZX1234ABCDEFGHJKMNPQRS"
+  },
+  "request": {
+    "action": "service.restart",
+    "target": {
+      "service": "nginx",
+      "force": true,
+      "timeout_seconds": 30
+    },
+    "idempotency_key": "restart-nginx-2026-05-23-batch-0042",
+    "parent_action_id": null,
+    "dry_run": "LIVE"
+  },
+  "execution": {
+    "phase": "SUCCEEDED",
+    "phase_changed_at": "2026-05-23T18:00:05Z",
+    "started_at": "2026-05-23T18:00:01Z",
+    "ended_at": "2026-05-23T18:00:05Z",
+    "sandbox_profile_id": "sandbox_systemd_restart_v1",
+    "conditions": [
+      {
+        "type": "PolicyEvaluated",
+        "status": "TRUE",
+        "observed_at": "2026-05-23T18:00:00Z",
+        "message": "Policy Kernel decision pol_01HQZX1234SUCCESS00000DECID: Allow"
+      },
+      {
+        "type": "PolicyAccepted",
+        "status": "TRUE",
+        "observed_at": "2026-05-23T18:00:00.500Z",
+        "message": "Decision evaluated as Allow (not RequireApproval, not Deny)"
+      },
+      {
+        "type": "Sandboxed",
+        "status": "TRUE",
+        "observed_at": "2026-05-23T18:00:01Z",
+        "message": "Sandbox profile sandbox_systemd_restart_v1 bound to adapter pid 4711"
+      },
+      {
+        "type": "Executed",
+        "status": "TRUE",
+        "observed_at": "2026-05-23T18:00:03Z",
+        "message": "systemd adapter returned: unit nginx.service restarted (Active: active (running))"
+      },
+      {
+        "type": "Verified",
+        "status": "TRUE",
+        "observed_at": "2026-05-23T18:00:05Z",
+        "message": "Verification intent ver_01HQZX1234VERIFY01: nginx listening on :80 within 3s"
+      }
+    ]
+  },
+  "trace": {
+    "trace_id": "4bf92f3577b34da6a3ce929d0e0e4736",
+    "span_id": "00f067aa0ba902b7",
+    "parent_span_id": null
+  }
+}

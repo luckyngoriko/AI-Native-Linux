@@ -1,23 +1,18 @@
 {
   "project_goal": "AIOS — AI-native Linux distribution. Implement the spec contracts from rev.2 (53 sub-specs CONTRACT-grade) into working Rust + Python + KDE code, following §22 MVP golden path discipline.",
-  "current_milestone": "M1 — Action Envelope skeleton (S0.1 implementation, foundation for all action dispatch)",
-  "current_task_id": "T-006",
-  "current_task_title": "aios-action integration tests + golden fixtures",
-  "current_step": "T-005 complete; T-006 queued — integration tests under tests/, golden JSON fixtures for representative envelope shapes (success path, policy denial, rollback), JCS canonical-encoding round-trip golden tests, and possibly adding a vetted RFC 8785 ECMA-262 number-normalization dep (governor approval required)",
-  "completed_steps": [
-    "Workspace root Cargo.toml created with §21 stack lock pins (serde, tokio-ready, tonic-ready, tracing)",
-    "crates/ directory created",
-    ".ai/ memory directory created",
+  "current_milestone": "M2 — Evidence Log skeleton (S3.1 aios-evidence crate)",
+  "current_task_id": "T-007",
+  "current_task_title": "aios-evidence crate skeleton (S3.1 evidence log client)",
+  "current_step": "M1 closed; queued T-007 — bootstrap aios-evidence crate with EvidenceReceipt envelope, append-only log invariant (INV-005), and the wire-format that the Capability Runtime will use to write evidence at every lifecycle edge",
+  "completed_steps_M1": [
     "T-001: aios-action crate skeleton + 8 prefix-namespaced ID types + 5-phase FSM + 4-section envelope + 11-variant error subset; 10 unit tests; cargo build/test/clippy all pass",
     "T-002: canonical.rs (jcs_canonicalize + blake3_hash + blake3_truncated + CanonicalError); Request::request_hash; ActionEnvelope::idempotency_hash; 14 new tests (10 → 24); no new deps added; ECMA-262 number normalization deferred to T-006 with documented limitation",
-    "T-003: extended prefix-namespace registry — 5 ULID-bodied newtypes (apprq_, appb_, ovrq_, ovr_, actrq_) reuse define_prefixed_id macro; TransitionPlanId (tplan_) is content-addressed with from_content(bytes)/parse(s) and intentionally exposes NO random new() constructor (S15.2 §5.3 byte-identical-replay invariant); IdError::InvalidHexBody added; 8 new tests (24 → 32); clippy clean after splitting macro doc first paragraphs and renaming single-char test bindings",
-    "T-004: lifecycle FSM behaviour layer — ConditionType closed enum (13 variants per S0.1 §5.3); Condition.condition_type refactor (was String); ActionEnvelope::transition_to enforces S0.1 §6.2 six edges + §6.3 terminality + §6.7 phase_changed_at monotonicity; ActionEnvelope::add_condition enforces append-only conditions list (no timestamp regression, no True→False flip on same condition_type); canonical_conditions_for_phase mirrors §6.6 mapping; validate_phase_conditions checks the actual list against the canonical required set; TransitionError enum (IllegalTransition/TerminalPhase/MonotonicityViolation/PhaseConditionMismatch) in error.rs; 25 new tests (32 → 57); full JSON round-trip with replay validation green; clippy clean",
-    "T-005: full error taxonomy — ActionErrorCode closed enum (35 variants per S0.1 §7.3 + §13.3: 11 validation + 5 policy + 3 authorization + 8 execution + 3 verification + 2 rollback + 3 infrastructure); replaced the 11-variant T-001 thiserror ActionError enum with the canonical envelope-shaped struct (code/message/retryable/cause); ActionErrorCode::retryable_default helper returns Some(false)/Some(true)/None per §7.4, with the two 'depends' codes (AdapterFailure, Internal) returning None; cause-chain bounded at MAX_CAUSE_CHAIN_DEPTH=8 via with_cause -> Result<Self, CauseChainTooDeep>; CauseChainTooDeep is a separate programmer-facing error (NOT an ActionErrorCode variant); From<IdError> -> EnvelopeMalformed/retryable=false; From<TransitionError> -> Internal/retryable=false; serde round-trip of §7.5 three-deep cause-chain example matches verbatim; 19 new tests (57 → 76); clippy clean (added scoped #[allow(clippy::match_same_arms)] on retryable_default because the spec §7.3 grouping is load-bearing)"
+    "T-003: extended prefix-namespace registry — 5 ULID-bodied newtypes + content-addressed TransitionPlanId; IdError::InvalidHexBody added; 8 new tests (24 → 32)",
+    "T-004: lifecycle FSM behaviour layer — ConditionType closed enum (13 variants); ActionEnvelope::transition_to / add_condition / canonical_conditions_for_phase / validate_phase_conditions; TransitionError enum; 25 new tests (32 → 57)",
+    "T-005: full error taxonomy — ActionErrorCode closed enum (35 variants); ActionError struct (code/message/retryable/cause); MAX_CAUSE_CHAIN_DEPTH=8; From<IdError>/From<TransitionError>; 19 new tests (57 → 76)",
+    "T-006: serde_jcs 0.1 adopted to workspace deps (Governor approved) — canonical.rs now delegates to RFC 8785 implementation; ECMA-262 number normalization deficit from T-002 is CLOSED (verified by golden test: numerically-equal f64 values 150.0 and 1.5e2 produce identical canonical bytes + identical request_hash); CanonicalError simplified to single Projection variant; tests/ integration target with common/mod.rs shared helpers + 3 test files (golden_envelope.rs: 8 tests, lifecycle_replay.rs: 6 tests, error_paths.rs: 12 tests = 26 integration tests); 3 hand-written golden JSON fixtures under tests/fixtures/ (envelope_success_full / envelope_policy_denied / envelope_rolled_back) — each parses, validates phase ↔ conditions, and round-trips through JCS canonical bytes lossless; M1 closed at 76 unit + 26 integration = 102 tests"
   ],
-  "remaining_steps_M1": [
-    "T-006: aios-action integration tests + golden fixtures (and approved RFC 8785 dep for full JCS number normalization)"
-  ],
-  "files_touched": [
+  "files_touched_M1": [
     "Cargo.toml",
     "crates/aios-action/Cargo.toml",
     "crates/aios-action/src/lib.rs",
@@ -30,9 +25,17 @@
     "crates/aios-action/src/envelope.rs",
     "crates/aios-action/src/error.rs",
     "crates/aios-action/src/canonical.rs",
+    "crates/aios-action/tests/common/mod.rs",
+    "crates/aios-action/tests/golden_envelope.rs",
+    "crates/aios-action/tests/lifecycle_replay.rs",
+    "crates/aios-action/tests/error_paths.rs",
+    "crates/aios-action/tests/fixtures/envelope_success_full.json",
+    "crates/aios-action/tests/fixtures/envelope_policy_denied.json",
+    "crates/aios-action/tests/fixtures/envelope_rolled_back.json",
     ".ai/memory.json",
     ".ai/tasks.json",
-    ".ai/progress.log"
+    ".ai/progress.log",
+    ".ai/global_memory.json"
   ],
   "discovered_constraints": [
     "Rust 1.94 toolchain available",
@@ -42,20 +45,25 @@
     "thiserror auto-source: a field named `source: String` collides with the AsDynError trait — use `detail: String` for stringified non-error contexts",
     "Tests need `#[allow(clippy::expect_used)]` since workspace denies expect/unwrap globally — applied at test mod level",
     "serde_json::Map defaults to BTreeMap (preserve_order feature disabled at workspace level), giving lex-sorted keys for free — but we still rebuild maps explicitly during canonicalization to defend against future workspace config drift",
-    "Full RFC 8785 ECMA-262 number formatting NOT implemented (serde_json default used); fine for Request's current surface (target: Value rarely contains floats outside integers); golden-fixture work in T-006 will need a vetted serde_jcs-equivalent dep added with Governor approval",
+    "serde_jcs 0.1.0 (Governor-approved T-006) is the canonical Rust RFC 8785 implementation; pulls in ryu-js for ECMA-262 number normalization; ECMA-262 number normalization deficit from T-002 is now CLOSED — numerically-equal floats produce identical canonical bytes",
     "clippy::too_long_first_doc_paragraph fires when a macro-emitted doc comment's first paragraph spans multiple sentences; split into one-sentence summary + blank doc line + body",
-    "clippy::many_single_char_names fires at 5+ single-char locals in one scope (multi-namespace round-trip tests) — use descriptive names like apprq/appb/ovrq/ovr/actrq",
+    "clippy::many_single_char_names fires at 5+ single-char locals in one scope — use descriptive names",
     "TransitionPlanId has NO random new() constructor by design — content addressing is the invariant (S15.2 §5.3 invariant 5: byte-identical replay); adding new() would silently violate this",
-    "clippy::doc_markdown flags bare PascalCase identifiers in docs — wrap policy/condition vocabulary words like Allow/Deny/RequireApproval/PascalCase/RolledBack in backticks",
+    "clippy::doc_markdown flags bare PascalCase identifiers in docs — wrap policy/condition vocabulary words in backticks; even casual mentions like `serde_json` in doc comments must be backticked",
     "clippy::panic denies panic! in non-test code; for tests, extend the test mod's #[allow(...)] to include clippy::panic when destructuring assertions need a panic-on-mismatch arm",
     "Execution::pending() was `const fn` in T-001 but had to drop `const` in T-004 because chrono::Utc::now() is not const — initial phase_changed_at stamp must be a wall-clock now",
-    "clippy::match_same_arms fires when arms with the same body are not consolidated; when the spec's §7.3 grouping is load-bearing for readability (validation/policy/auth/execution/verification/rollback/infra), scope an #[allow(...)] to the single function rather than collapsing across spec groups",
-    "clippy::redundant_clone in tests requires either consuming the value (`let _ = x.into()`) or capturing what you need *before* the consuming conversion (e.g. `let msg = x.to_string(); let e: ActionError = x.into();`)",
-    "Inside a struct impl, `Option<Box<Self>>` is preferred over `Option<Box<SelfTypeName>>` (clippy::use_self)"
+    "clippy::match_same_arms fires when arms with the same body are not consolidated; when the spec's §7.3 grouping is load-bearing for readability, scope an #[allow(...)] to the single function",
+    "clippy::redundant_clone in tests requires either consuming the value (`let _ = x.into()`) or capturing what you need *before* the consuming conversion",
+    "Inside a struct impl, `Option<Box<Self>>` is preferred over `Option<Box<SelfTypeName>>` (clippy::use_self)",
+    "clippy::type_complexity fires on `[(fn(&mut T), U); N]` array types in tests — declare a local `type FnAlias = fn(&mut T);` and use that to keep the test fixture readable",
+    "Integration tests use `tests/<name>.rs` and a shared `tests/common/mod.rs` (no Cargo.toml entry needed for sub-modules under tests/); each test target compiles with `mod common;` and the workspace fully respects `cargo test --test <name>`",
+    "Integration test fixtures live under `tests/fixtures/<name>.json`; resolve via `env!(\"CARGO_MANIFEST_DIR\").join(\"tests/fixtures\")` rather than relying on cwd",
+    "ActionId etc are `#[serde(transparent)]` String newtypes — JSON deserialize does NOT run the ulid validator (validation only happens via explicit `parse(&str)`); fixtures may carry any opaque string in id-typed fields and still round-trip lossless"
   ],
   "discovered_dependencies": [
-    "chrono 0.4 (std + clock + serde features, default-features = false)"
+    "chrono 0.4 (std + clock + serde features, default-features = false)",
+    "serde_jcs 0.1 (Governor approved T-006 — RFC 8785 canonical JSON for request_hash + idempotency_hash; pulls in ryu-js for ECMA-262 number formatting)"
   ],
   "last_errors": [],
-  "last_verification_result": "T-005: cargo build --workspace PASS; cargo test --workspace PASS (76/76, +19 new); cargo clippy --workspace --all-targets -D warnings PASS"
+  "last_verification_result": "M1 closed (T-006 final): cargo build --workspace PASS; cargo test --workspace PASS (102 tests: 76 unit + 26 integration); cargo clippy --workspace --all-targets -D warnings PASS; cargo fmt --check PASS"
 }

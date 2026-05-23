@@ -1,0 +1,38 @@
+{
+  "schema_version": "aios.action.v1alpha1",
+  "identity": {
+    "subject_canonical_id": "agent:experimental.bash-runner",
+    "is_ai": true,
+    "session_id": null
+  },
+  "request": {
+    "action": "host.shell.exec",
+    "target": {
+      "command": "rm -rf /etc/aios",
+      "shell": "bash"
+    },
+    "idempotency_key": null,
+    "parent_action_id": null,
+    "dry_run": "LIVE"
+  },
+  "execution": {
+    "phase": "FAILED",
+    "phase_changed_at": "2026-05-23T18:00:00.250Z",
+    "started_at": null,
+    "ended_at": "2026-05-23T18:00:00.250Z",
+    "sandbox_profile_id": null,
+    "conditions": [
+      {
+        "type": "PolicyEvaluated",
+        "status": "TRUE",
+        "observed_at": "2026-05-23T18:00:00.200Z",
+        "message": "Policy Kernel decision pol_01HQZX1234DENY00000000001: Deny (action `host.shell.exec` is unconditionally denied for AI subjects per INV-013)"
+      }
+    ]
+  },
+  "trace": {
+    "trace_id": "0af7651916cd43dd8448eb211c80319c",
+    "span_id": "b7ad6b7169203331",
+    "parent_span_id": null
+  }
+}

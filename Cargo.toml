@@ -44,6 +44,10 @@ ulid        = { version = "1.1", features = ["serde"] }
 blake3      = "1.5"
 tracing     = "0.1"
 chrono      = { version = "0.4", default-features = false, features = ["std", "clock", "serde"] }
+# RFC 8785 JSON Canonicalization Scheme (Governor-approved T-006):
+# canonical encoder with ECMA-262 §6.12.7 number normalization. Used by
+# `crates/aios-action/src/canonical.rs` for request_hash + idempotency_hash.
+serde_jcs   = "0.1"
 
 [profile.dev]
 opt-level = 0

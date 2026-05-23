@@ -43,6 +43,18 @@ pub enum IdError {
         /// The underlying parser error rendered as text (we deliberately do not leak the `ulid` crate's error type).
         detail: String,
     },
+
+    /// A content-addressed id body (e.g. `tplan_<32hex>`) failed validation.
+    ///
+    /// Triggers when the body is not exactly 32 lowercase hex characters, per the
+    /// W11-B truncation convention (S0.1 §3.2.2): `hex_lower(BLAKE3(...))[:32]`.
+    #[error("invalid hex body in id `{id}`: {detail}")]
+    InvalidHexBody {
+        /// The offending input.
+        id: String,
+        /// Human-readable reason (wrong length, non-hex character, uppercase, …).
+        detail: String,
+    },
 }
 
 /// Subset of the canonical `PascalCase` action-lifecycle error taxonomy from S0.1 §7.

@@ -41,8 +41,9 @@ pub use envelope::{ActionEnvelope, SCHEMA_VERSION};
 pub use error::{ActionError, IdError};
 pub use execution::{Condition, ConditionStatus, Execution};
 pub use id::{
-    ActionId, ApprovalId, CorrelationId, EvidenceReceiptId, IntentId, PlanId, PolicyDecisionId,
-    PolicyRequestId,
+    ActionId, ActionRuntimeRequestId, ApprovalBindingId, ApprovalId, ApprovalRequestId,
+    CorrelationId, EvidenceReceiptId, IntentId, OverrideBindingId, OverrideRequestId, PlanId,
+    PolicyDecisionId, PolicyRequestId, TransitionPlanId,
 };
 pub use identity::Identity;
 pub use phase::ActionPhase;

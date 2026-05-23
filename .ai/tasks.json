@@ -1,19 +1,6 @@
 {
   "backlog": [
     {
-      "id": "T-005",
-      "title": "aios-action full error taxonomy (~30 PascalCase codes)",
-      "status": "pending",
-      "priority": "P1",
-      "dependencies": ["T-001"],
-      "acceptance_criteria": [
-        "All canonical codes from S0.1 §7.3 (validation, policy, auth, execution, verification, rollback, infrastructure groups)",
-        "Each variant has retryable hint per S0.1 §7.4",
-        "Error::cause chain bounded at depth 8 per S0.1 §7.5"
-      ],
-      "blockers": []
-    },
-    {
       "id": "T-006",
       "title": "aios-action integration tests + golden fixtures",
       "status": "pending",
@@ -22,7 +9,8 @@
       "acceptance_criteria": [
         "Golden JSON fixtures for representative envelope shapes (successful path, policy denial, rollback)",
         "tests/ directory with integration tests",
-        "JCS canonical encoding round-trip golden tests"
+        "JCS canonical encoding round-trip golden tests",
+        "Decide on RFC 8785 ECMA-262 number normalization dep (Governor approval required)"
       ],
       "blockers": []
     }
@@ -51,6 +39,12 @@
       "title": "aios-action lifecycle FSM with conditions consistency (S0.1 §6.2 + §6.6 + §6.7)",
       "completed_at": "2026-05-23",
       "evidence": "cargo build/test/clippy --workspace --all-targets -D warnings all PASS; 57 unit tests green (+25 new, target was +16); ConditionType closed enum (13 variants) + Condition.condition_type refactor; ActionEnvelope::transition_to / add_condition / canonical_conditions_for_phase / validate_phase_conditions; TransitionError enum (IllegalTransition / TerminalPhase / MonotonicityViolation / PhaseConditionMismatch); Execution.phase_changed_at field added; monotonicity (timestamp non-decreasing, True->False flip rejected, terminal-once) enforced; phase ↔ conditions canonicalization per S0.1 §6.6 (Pending=∅, Running={PolicyEvaluated,Sandboxed}, Succeeded={PolicyEvaluated,Sandboxed,Executed,Verified}, Failed={PolicyEvaluated}, RolledBack={PolicyEvaluated,Sandboxed,Executed,RolledBack}); full Pending→Running→Succeeded JSON round-trip with replay validation green"
+    },
+    {
+      "id": "T-005",
+      "title": "aios-action full error taxonomy (35 codes per S0.1 §7.3 + §13.3)",
+      "completed_at": "2026-05-23",
+      "evidence": "cargo build/test/clippy --workspace --all-targets -D warnings all PASS; 76 unit tests green (+19 new, target was +18); ActionErrorCode closed enum (35 variants: 11 validation + 5 policy + 3 authorization + 8 execution + 3 verification + 2 rollback + 3 infrastructure) with exact PascalCase serde names; ActionError struct (code/message/retryable/cause) replaces T-001 thiserror enum; ActionErrorCode::retryable_default helper per §7.4 (Some(false)/Some(true)/None for the two 'depends' codes AdapterFailure + Internal); MAX_CAUSE_CHAIN_DEPTH=8 enforced via with_cause -> Result<Self, CauseChainTooDeep> (programmer-facing error, not on the wire); From<IdError> -> EnvelopeMalformed/retryable=false; From<TransitionError> -> Internal/retryable=false; serde round-trip of §7.5 three-deep cause-chain example shape matches verbatim"
     }
   ],
   "blocked": []

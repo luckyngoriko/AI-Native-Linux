@@ -180,5 +180,5 @@ After Wave 11, **re-audit** with the same 9 agents. Iterate Wave 12+ until conve
 ## See also
 
 - [00_MASTER_INDEX.md](00_MASTER_INDEX.md)
-- [02_design_decisions.md](02_design_decisions.md) — DEC-046 (forthcoming) records this audit cycle
+- [02_design_decisions.md](02_design_decisions.md) — DEC-046 records this audit cycle; DEC-047..051 record fix waves 9–13 (cycles 1+2 closed)
 - [XX_Cross_Cutting/04_constitutional_meta_principles.md](XX_Cross_Cutting/04_constitutional_meta_principles.md) — INV-002 enforcement map (clean per SIM-D)

@@ -100,4 +100,4 @@ pub use server::{build_router, serve, CapabilityRuntimeService, DEFAULT_RUNTIME_
 pub const SCHEMA_VERSION: &str = "aios.runtime.v1alpha1";
 
 /// Default Rust crate version reported by `GetCapabilityRuntimeInfo`.
-pub const DEFAULT_RUNTIME_VERSION: &str = "aios-capability-runtime/0.0.1-T033";
+pub const DEFAULT_RUNTIME_VERSION: &str = "aios-capability-runtime/0.1.0-T035";

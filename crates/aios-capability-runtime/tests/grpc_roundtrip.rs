@@ -506,53 +506,11 @@ async fn get_capability_runtime_info_returns_schema_and_runtime_id() {
 }
 
 // ===========================================================================
-// 9. Stubbed RPCs return Unimplemented (T-033 baseline).
+// 9. (retired in T-035) — T-033 baseline asserted 4 RPCs were Unimplemented;
+//    T-034 + T-035 closure wired EvaluatePolicyForAction, RequestApprovalForAction,
+//    VerifyAction, and RollbackAction. The "no Unimplemented remaining"
+//    invariant is now enforced by tests/m4_closure.rs at the source level.
 // ===========================================================================
-#[tokio::test]
-async fn stubbed_rpcs_return_unimplemented() {
-    let runtime = Arc::new(InMemoryCapabilityRuntime::new());
-    let svc = CapabilityRuntimeService::new(runtime);
-    let (addr, shutdown, handle) = spawn_server(svc).await;
-    let mut client = CapabilityRuntimeClient::connect(format!("http://{addr}"))
-        .await
-        .expect("client connect");
-
-    let err = client
-        .evaluate_policy_for_action(proto::EvaluatePolicyForActionRequest {
-            action_request_id: String::new(),
-            envelope_proto: Vec::new(),
-        })
-        .await
-        .expect_err("stubbed");
-    assert_eq!(err.code(), tonic::Code::Unimplemented);
-
-    let err = client
-        .request_approval_for_action(proto::RequestApprovalForActionRequest {
-            action_request_id: String::new(),
-        })
-        .await
-        .expect_err("stubbed");
-    assert_eq!(err.code(), tonic::Code::Unimplemented);
-
-    let err = client
-        .verify_action(proto::VerifyActionRequest {
-            action_request_id: String::new(),
-        })
-        .await
-        .expect_err("stubbed");
-    assert_eq!(err.code(), tonic::Code::Unimplemented);
-
-    let err = client
-        .rollback_action(proto::RollbackActionRequest {
-            action_request_id: String::new(),
-        })
-        .await
-        .expect_err("stubbed");
-    assert_eq!(err.code(), tonic::Code::Unimplemented);
-
-    let _ = shutdown.send(());
-    handle.await.expect("server join");
-}
 
 // ===========================================================================
 // 10. ActionContext, AdapterManifest, RegisteredAdapter wire round-trips.

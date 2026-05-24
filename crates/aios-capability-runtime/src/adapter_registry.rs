@@ -365,6 +365,30 @@ impl InMemoryAdapterRegistry {
     pub async fn is_empty(&self) -> bool {
         self.adapters.read().await.is_empty()
     }
+
+    /// T-035 — §10.4 manifest-expiry watchdog hook.
+    ///
+    /// Prunes every adapter whose `manifest.manifest_expires_at` is at or
+    /// before `now`. Returns the number of adapters de-registered. The
+    /// spec models this as an automatic background watchdog; production
+    /// wiring (M5+) schedules this call from an L9 admin operations
+    /// timer. The runtime exposes the primitive here so the watchdog is
+    /// testable and operator-driven `prune_expired` calls (e.g. on a
+    /// manual force-rotate) work without an extra scheduler.
+    ///
+    /// Pruning is `FAIL_CLOSED` for forensic purposes: a manifest whose
+    /// expiry has passed is dropped from the registry; the
+    /// `ADAPTER_DEREGISTERED` evidence with `reason = MANIFEST_EXPIRED`
+    /// is emitted by the caller (the watchdog scheduler), not by this
+    /// primitive — the primitive's contract is just the de-registration.
+    pub async fn prune_expired(&self, now: DateTime<Utc>) -> usize {
+        let mut guard = self.adapters.write().await;
+        let before = guard.len();
+        guard.retain(|_, reg| reg.manifest.manifest_expires_at > now);
+        let after = guard.len();
+        drop(guard);
+        before - after
+    }
 }
 
 impl AdapterRegistry for InMemoryAdapterRegistry {

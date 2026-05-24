@@ -17,12 +17,16 @@
 //! - Each RPC reconstructs the [`crate::RuntimeContext`] from a default
 //!   placeholder subject (T-033 baseline: matches the canonical `agent:dev`
 //!   fixture); T-034 lifts this onto per-RPC mTLS-derived identity.
-//! - `ValidateAction`, `ExecuteAction`, `GetActionStatus`, `ListAdapters`,
-//!   `GetAdapterCapabilities`, `GetCapabilityRuntimeInfo` are full
-//!   implementations.
-//! - `EvaluatePolicyForAction`, `RequestApprovalForAction`, `VerifyAction`,
-//!   `RollbackAction` are deliberately stubbed (T-034 / T-035) and return
-//!   `Unimplemented` so callers cannot silently rely on a half-built path.
+//! - **All ten RPCs** in `aios.runtime.v1alpha1.CapabilityRuntime` have
+//!   working implementations as of T-035 (M4 closer). The execute path
+//!   (`ExecuteAction`) runs the full §6.1 eight-step pipeline in one shot;
+//!   the standalone-phase RPCs (`EvaluatePolicyForAction`,
+//!   `RequestApprovalForAction`, `VerifyAction`, `RollbackAction`) act as
+//!   projections over the recorded `ActionContext` for callers that want to
+//!   query individual phases by `action_request_id`. The work itself has
+//!   already happened during `ExecuteAction`; these RPCs surface the per-
+//!   phase outcome without re-running the engine — matching the §16 worked
+//!   examples' read pattern.
 
 #![allow(clippy::result_large_err)]
 
@@ -58,7 +62,7 @@ pub const DEFAULT_RUNTIME_ID: &str = "aios-capability-runtime-inproc";
 pub const DEFAULT_BUNDLE_VERSION: &str = "polb_default";
 
 /// Default code version label used to seed the [`RuntimeContext`] per RPC.
-pub const DEFAULT_CODE_VERSION: &str = "aios-capability-runtime/0.0.1-T033";
+pub const DEFAULT_CODE_VERSION: &str = "aios-capability-runtime/0.1.0-T035";
 
 /// gRPC adapter mounting an [`InMemoryCapabilityRuntime`] behind the
 /// tonic-generated transport trait.
@@ -217,27 +221,71 @@ impl proto::capability_runtime_server::CapabilityRuntime for CapabilityRuntimeSe
 
     async fn evaluate_policy_for_action(
         &self,
-        _request: Request<proto::EvaluatePolicyForActionRequest>,
+        request: Request<proto::EvaluatePolicyForActionRequest>,
     ) -> Result<Response<proto::EvaluatePolicyForActionResponse>, Status> {
-        // T-034 — standalone policy-evaluation transition. T-033 folds the
+        // T-035 — standalone policy-evaluation projection. T-033 folds the
         // policy step into `ExecuteAction` (pipeline runs the full §6.1
-        // eight-step sequence in one `submit_action` call), so this RPC is
-        // deliberately stubbed.
-        Err(Status::unimplemented(
-            "EvaluatePolicyForAction is folded into ExecuteAction in T-033; standalone transition lands in T-034",
-        ))
+        // eight-step sequence in one `submit_action` call), so this RPC
+        // reads back the recorded `ActionContext` for the supplied
+        // `action_request_id` and surfaces the lifecycle state the policy
+        // step produced (POLICY_DENIED / APPROVAL_PENDING / APPROVED, or
+        // the further-advanced terminal state if execute already ran).
+        // Callers using the standalone surface treat this as "what did the
+        // policy kernel decide?" — same information that ExecuteAction
+        // emits inline.
+        let r = request.into_inner();
+        let action_id = aios_action::ActionId::parse(&r.action_request_id).map_err(|e| {
+            Status::invalid_argument(format!(
+                "action_request_id={} is not a valid action id: {e}",
+                r.action_request_id
+            ))
+        })?;
+        let ctx = self
+            .inner
+            .get_action_status(&action_id)
+            .await
+            .map_err(|e| runtime_error_to_status(&e))?;
+        Ok(Response::new(proto::EvaluatePolicyForActionResponse {
+            state: i32::from(lifecycle_state_to_proto(ctx.status)),
+            error: i32::from(crate::service::conversions::runtime_error_code_to_proto(
+                crate::failure::RuntimeErrorCode::RuntimeOk,
+            )),
+        }))
     }
 
     async fn request_approval_for_action(
         &self,
-        _request: Request<proto::RequestApprovalForActionRequest>,
+        request: Request<proto::RequestApprovalForActionRequest>,
     ) -> Result<Response<proto::RequestApprovalForActionResponse>, Status> {
-        // T-034 — approval orchestration. The Capability Runtime does not yet
-        // hold an approval-binding sink (S5.3 ApprovalBinding integration
-        // lands in T-034).
-        Err(Status::unimplemented(
-            "RequestApprovalForAction lands in T-034 (approval orchestration)",
-        ))
+        // T-035 — standalone approval-request projection. T-034 already
+        // mints the `ApprovalRequest` inside `submit_action` when a sink
+        // is wired and the policy decision is `RequireApproval`; this RPC
+        // surfaces the recorded lifecycle state of the action and (when
+        // an approval sink is attached AND the action is parked at
+        // `APPROVAL_PENDING`) the request id of the open approval. Until
+        // the runtime carries per-action approval-request handles on the
+        // `ActionContext` (M5+), the returned `approval_request_id` is
+        // left empty; callers learn of an outstanding approval by
+        // observing `state == APPROVAL_PENDING`.
+        let r = request.into_inner();
+        let action_id = aios_action::ActionId::parse(&r.action_request_id).map_err(|e| {
+            Status::invalid_argument(format!(
+                "action_request_id={} is not a valid action id: {e}",
+                r.action_request_id
+            ))
+        })?;
+        let ctx = self
+            .inner
+            .get_action_status(&action_id)
+            .await
+            .map_err(|e| runtime_error_to_status(&e))?;
+        Ok(Response::new(proto::RequestApprovalForActionResponse {
+            state: i32::from(lifecycle_state_to_proto(ctx.status)),
+            approval_request_id: String::new(),
+            error: i32::from(crate::service::conversions::runtime_error_code_to_proto(
+                crate::failure::RuntimeErrorCode::RuntimeOk,
+            )),
+        }))
     }
 
     async fn execute_action(
@@ -279,27 +327,73 @@ impl proto::capability_runtime_server::CapabilityRuntime for CapabilityRuntimeSe
 
     async fn verify_action(
         &self,
-        _request: Request<proto::VerifyActionRequest>,
+        request: Request<proto::VerifyActionRequest>,
     ) -> Result<Response<proto::VerifyActionResponse>, Status> {
-        // T-035 — standalone verification transition. T-033 folds verification
-        // into `ExecuteAction` (pipeline step 6 runs internally).
-        Err(Status::unimplemented(
-            "VerifyAction is folded into ExecuteAction in T-033; standalone transition lands in T-035",
-        ))
+        // T-035 — standalone verification projection. T-033 folds the
+        // verification step (S10.1 §6.1 step 6) into the `submit_action`
+        // pipeline, where `step_verify` runs after `step_execute`. This
+        // RPC reads back the recorded lifecycle state for callers that
+        // want to query verification outcome standalone: a stored
+        // context in `SUCCEEDED` indicates verification passed; a stored
+        // context in `FAILED` with `ExecutionFailureReason::AdapterRefused`
+        // (or a verification-grammar reason) indicates verification
+        // rejected the result. The RPC never re-runs the engine — the
+        // §6.1 step 6 outcome is recorded on the context.
+        let r = request.into_inner();
+        let action_id = aios_action::ActionId::parse(&r.action_request_id).map_err(|e| {
+            Status::invalid_argument(format!(
+                "action_request_id={} is not a valid action id: {e}",
+                r.action_request_id
+            ))
+        })?;
+        let ctx = self
+            .inner
+            .get_action_status(&action_id)
+            .await
+            .map_err(|e| runtime_error_to_status(&e))?;
+        Ok(Response::new(proto::VerifyActionResponse {
+            state: i32::from(lifecycle_state_to_proto(ctx.status)),
+            error: i32::from(crate::service::conversions::runtime_error_code_to_proto(
+                crate::failure::RuntimeErrorCode::RuntimeOk,
+            )),
+        }))
     }
 
     async fn rollback_action(
         &self,
-        _request: Request<proto::RollbackActionRequest>,
+        request: Request<proto::RollbackActionRequest>,
     ) -> Result<Response<proto::RollbackActionResponse>, Status> {
-        // T-035 — operator-initiated rollback. T-032 already drives the
-        // §7.2 outcome table automatically inside `submit_action` when a
-        // rollback driver is attached; the standalone RPC requires storing
-        // an adapter rollback handle alongside the action context (T-034 /
-        // T-035).
-        Err(Status::unimplemented(
-            "RollbackAction is driven automatically by ExecuteAction in T-033; standalone transition lands in T-035",
-        ))
+        // T-035 — standalone rollback projection. T-032 wires the §7.2
+        // outcome table into `submit_action` automatically when a
+        // `RollbackDriver` is attached: on a `FAILED` terminal the driver
+        // runs and the §4.2 T19 / T20 transition is applied inline. This
+        // RPC reads back the recorded `rollback_outcome` on the stored
+        // `ActionContext` so a forensic caller can ask "what did rollback
+        // do?" without re-running the engine. A stored context whose
+        // `rollback_outcome` is `None` indicates the action never reached
+        // a FAILED state where rollback would apply (the §7.2 contract).
+        let r = request.into_inner();
+        let action_id = aios_action::ActionId::parse(&r.action_request_id).map_err(|e| {
+            Status::invalid_argument(format!(
+                "action_request_id={} is not a valid action id: {e}",
+                r.action_request_id
+            ))
+        })?;
+        let ctx = self
+            .inner
+            .get_action_status(&action_id)
+            .await
+            .map_err(|e| runtime_error_to_status(&e))?;
+        let outcome = ctx.rollback_outcome.map_or(0, |o| {
+            i32::from(crate::service::conversions::rollback_outcome_to_proto(o))
+        });
+        Ok(Response::new(proto::RollbackActionResponse {
+            state: i32::from(lifecycle_state_to_proto(ctx.status)),
+            outcome,
+            error: i32::from(crate::service::conversions::runtime_error_code_to_proto(
+                crate::failure::RuntimeErrorCode::RuntimeOk,
+            )),
+        }))
     }
 
     async fn get_action_status(

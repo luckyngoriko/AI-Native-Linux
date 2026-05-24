@@ -67,6 +67,12 @@ ed25519-dalek = { version = "2.1", features = ["std", "rand_core"] }
 # 2.1's `rand_core` feature; `getrandom` backend is the OS CSPRNG used by tests
 # to mint ephemeral keypairs. Production never calls this path.
 rand_core    = { version = "0.6", features = ["getrandom"] }
+# T-049: vault real crypto primitives for S5.2 use-without-reveal operations.
+aes-gcm      = "0.10"
+hmac         = "0.12"
+sha2         = "0.10"
+hkdf         = "0.12"
+x25519-dalek = { version = "2.0", features = ["static_secrets"] }
 # T-011: gRPC stack per §21 lock — Rust + Tokio + tonic. tonic 0.12 is the
 # current stable line; pairs with prost 0.13 (proto3 codegen) and tokio 1
 # (async runtime). `tls` feature on tonic enables transport encryption for

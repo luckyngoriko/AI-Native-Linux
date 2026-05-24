@@ -264,6 +264,12 @@
       "title": "aios-vault - IdentityCatalog + VaultSubjectHydrator (S5.1)",
       "completed_at": "2026-05-24",
       "evidence": "1041 tests workspace (+17 over T-047 baseline 1024). Added IdentityCatalog with subject registration/lookup, session start/lookup/suspend/revoke, expiry transition, active-session duplicate guard, group membership add/remove, and with_fixtures() for family:alice, agent:dev, app:browser, _system:kwin, operator:root. Added VaultSubjectHydrator + HydratedSubjectSnapshot mirror for T-054 aios-policy reconciliation; hydrate_by_session and hydrate_by_canonical_id populate subject_type, groups, empty capabilities, session_class, recovery_mode, and is_ai. VaultError gained SubjectAlreadyRegistered, SessionAlreadyActive, and GroupMembershipUnchanged only. Tests: crates/aios-vault/tests/identity_catalog.rs (17). Gates PASS: cargo check --workspace + cargo test --workspace + cargo clippy --workspace --all-targets -- -D warnings + cargo fmt --all -- --check. Scope guard: no real crypto, no override broker, no lifecycle driver, no gRPC, no evidence emission, no aios-policy dependency."
+    },
+    {
+      "id": "T-049",
+      "title": "aios-vault - real crypto operations AES-256-GCM/HMAC-SHA256/HKDF/Ed25519 (S5.2 §5)",
+      "completed_at": "2026-05-24",
+      "evidence": "1059 tests workspace (+18 over T-048 baseline 1041). Added crypto modules for AES-256-GCM, HMAC-SHA256, HKDF-SHA256, and Ed25519; InMemoryVaultBroker now performs real crypto operations, issue-time KeyAlgorithmMismatch validation, OsRng key generation, and stores HKDF-derived bytes behind opaque handles. VaultError gained CryptoError and KeyAlgorithmMismatch; SECRET_GET now returns OperationUnsupportedInT049. Tests: crates/aios-vault/tests/crypto_ops.rs (18) plus T-047 broker tests updated from operation_simulated placeholders to real outputs. Gates PASS: cargo check --workspace + cargo test --workspace + cargo clippy --workspace --all-targets -- -D warnings + cargo fmt --all -- --check. Scope guard: no override broker, no lifecycle driver, no gRPC, no evidence emission, no cross-crate reconciliation."
     }
   ],
   "blocked": [],
@@ -391,9 +397,10 @@
       "tasks": [
         "T-046",
         "T-047",
-        "T-048"
+        "T-048",
+        "T-049"
       ],
-      "current_test_count": 1041,
+      "current_test_count": 1059,
       "crate_version_target": "aios-vault/0.1.0",
       "rationale": "Secrets-as-capabilities (INV-018). Unblocks signed bundle/manifest infra + external model calls."
     },

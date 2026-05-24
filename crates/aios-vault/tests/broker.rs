@@ -17,10 +17,23 @@ use aios_vault::{
     VaultOperation,
 };
 
-const SECRET_BYTES: &[u8] = b"super-secret-key-material";
+const SECRET_BYTES: [u8; 32] = [0x51; 32];
 
 fn subject(id: &str) -> SubjectRef {
     SubjectRef(id.to_owned())
+}
+
+const fn key_algorithm_for_class(class: CapabilityClass) -> KeyAlgorithm {
+    match class {
+        CapabilityClass::KeySign
+        | CapabilityClass::KeyVerify
+        | CapabilityClass::BootstrapKeySign => KeyAlgorithm::Ed25519,
+        CapabilityClass::MacGenerate | CapabilityClass::MacVerify => KeyAlgorithm::HmacSha256,
+        CapabilityClass::KeyEncrypt
+        | CapabilityClass::KeyDecrypt
+        | CapabilityClass::RandomGenerate
+        | CapabilityClass::SecretGet => KeyAlgorithm::Aes256Gcm,
+    }
 }
 
 const fn issue_request(
@@ -32,7 +45,7 @@ const fn issue_request(
         class,
         issued_to,
         expires_at: None,
-        key_algorithm: KeyAlgorithm::Aes256Gcm,
+        key_algorithm: key_algorithm_for_class(class),
         key_material_bytes,
     }
 }
@@ -86,7 +99,7 @@ async fn issue_capability_accepts_each_capability_class() {
 }
 
 #[tokio::test]
-async fn use_capability_with_matching_encrypt_class_returns_placeholder() {
+async fn use_capability_with_matching_encrypt_class_returns_ciphertext() {
     let broker = InMemoryVaultBroker::new();
     let capability = issue(
         &broker,
@@ -112,8 +125,8 @@ async fn use_capability_with_matching_encrypt_class_returns_placeholder() {
             nonce,
             aad,
         } => {
-            assert_eq!(ciphertext, b"operation_simulated".to_vec());
-            assert_eq!(nonce, b"operation_simulated".to_vec());
+            assert_ne!(ciphertext, b"secret plaintext".to_vec());
+            assert_eq!(nonce.len(), 12);
             assert_eq!(aad, b"aad".to_vec());
         }
         other => panic!("expected encrypted result, got {other:?}"),
@@ -296,7 +309,7 @@ async fn vault_capability_serialize_omits_key_bytes() {
 
     let json = serde_json::to_string(&capability).expect("serialize capability");
 
-    assert!(!json.contains("super-secret-key-material"));
+    assert!(!json.contains(&format!("{SECRET_BYTES:?}")));
     assert!(!json.contains("key_material_bytes"));
     assert!(!json.contains("\"bytes\""));
 }
@@ -326,7 +339,7 @@ async fn use_capability_result_omits_key_bytes() {
     let rendered = format!("{result:?}");
 
     assert!(!rendered.contains("key_material"));
-    assert!(!rendered.contains("super-secret-key-material"));
+    assert!(!rendered.contains(&format!("{SECRET_BYTES:?}")));
     assert!(!rendered.contains(&plaintext_debug));
 }
 
@@ -346,7 +359,7 @@ async fn list_capabilities_result_omits_key_bytes() {
         .expect("list capabilities");
     let json = serde_json::to_string(&listed).expect("serialize capability list");
 
-    assert!(!json.contains("super-secret-key-material"));
+    assert!(!json.contains(&format!("{SECRET_BYTES:?}")));
     assert!(!json.contains("key_material_bytes"));
     assert!(!json.contains("\"bytes\""));
 }
@@ -373,16 +386,14 @@ async fn arc_dyn_vault_broker_dispatch_compiles_and_works() {
         .await
         .expect("use via trait object");
 
-    assert_eq!(
-        result,
-        UseCapabilityResult::MacGenerated {
-            tag: b"operation_simulated".to_vec()
-        }
-    );
+    match result {
+        UseCapabilityResult::MacGenerated { tag } => assert_eq!(tag.len(), 32),
+        other => panic!("expected MAC result, got {other:?}"),
+    }
 }
 
 #[tokio::test]
-async fn secret_get_operation_is_unsupported_in_t047_without_reveal() {
+async fn secret_get_operation_is_unsupported_in_t049_without_reveal() {
     let broker = InMemoryVaultBroker::new();
     let capability = issue(&broker, CapabilityClass::SecretGet, subject("family:alice")).await;
     let operation = VaultOperation::SecretGet {
@@ -397,5 +408,5 @@ async fn secret_get_operation_is_unsupported_in_t047_without_reveal() {
         .await
         .expect_err("raw reveal is not in T-047");
 
-    assert_eq!(error, VaultError::OperationUnsupportedInT047(operation));
+    assert_eq!(error, VaultError::OperationUnsupportedInT049(operation));
 }

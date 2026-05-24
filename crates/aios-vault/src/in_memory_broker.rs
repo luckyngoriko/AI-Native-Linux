@@ -1,8 +1,7 @@
 //! In-memory [`VaultBroker`](crate::VaultBroker) harness for T-047.
 //!
 //! The harness stores `(VaultCapability, KeyMaterial)` tuples privately and
-//! returns only public capability records or operation outputs. It performs no
-//! real cryptography in T-047; T-049 replaces the deterministic placeholders.
+//! returns only public capability records or operation outputs.
 
 #![allow(
     clippy::module_name_repetitions,
@@ -18,23 +17,27 @@ use std::sync::Arc;
 
 use async_trait::async_trait;
 use chrono::Utc;
+use rand_core::{OsRng, RngCore};
 use tokio::sync::RwLock;
+use x25519_dalek::StaticSecret;
 
 use crate::broker::{
     operation_matches_class, IssueCapabilityRequest, UseCapabilityRequest, UseCapabilityResult,
     VaultBroker, VaultOperation,
 };
-use crate::capability::{CapabilityId, CapabilityState, KeyMaterialHandle, VaultCapability};
+use crate::capability::{
+    CapabilityClass, CapabilityId, CapabilityState, KeyMaterialHandle, VaultCapability,
+};
+use crate::crypto;
 use crate::error::VaultError;
 use crate::identity::SubjectRef;
-use crate::key_material::KeyMaterial;
-
-const SIMULATED_BYTES: &[u8] = b"operation_simulated";
+use crate::key_material::{KeyAlgorithm, KeyMaterial};
 
 /// HashMap-backed in-process Vault Broker used by tests and successor slices.
 #[derive(Debug, Clone, Default)]
 pub struct InMemoryVaultBroker {
     capabilities: Arc<RwLock<HashMap<CapabilityId, (VaultCapability, KeyMaterial)>>>,
+    derived_key_materials: Arc<RwLock<HashMap<KeyMaterialHandle, KeyMaterial>>>,
 }
 
 impl InMemoryVaultBroker {
@@ -58,19 +61,16 @@ impl VaultBroker for InMemoryVaultBroker {
             key_algorithm,
             key_material_bytes,
         } = request;
+        validate_key_algorithm_for_class(class, key_algorithm)?;
+
         let now = Utc::now();
         let capability_id = CapabilityId::new();
         let key_material_handle =
             KeyMaterialHandle(format!("vault-internal:{}", capability_id.as_str()));
-        // T-047 accepts the closed T-046 class enum through this generic
-        // harness. First-boot-only `BOOTSTRAP_KEY_SIGN` admission and
-        // class/material-kind checks land with the dedicated successor paths.
-        // T-049 lands real KeyGen. T-047 stores caller-supplied bytes or a
-        // zero-byte placeholder when generation is requested.
         let key_material = KeyMaterial {
             algorithm: key_algorithm,
             created_at: now,
-            bytes: key_material_bytes.unwrap_or_default(),
+            bytes: key_material_bytes.unwrap_or_else(|| generate_key_material(key_algorithm)),
         };
         let capability = VaultCapability {
             capability_id: capability_id.clone(),
@@ -98,9 +98,9 @@ impl VaultBroker for InMemoryVaultBroker {
             capability_id,
             operation,
         } = request;
-        let key_material_handle = {
+        let (capability_class, key_material) = {
             let mut store = self.capabilities.write().await;
-            let (capability, _key_material) = store
+            let (capability, key_material) = store
                 .get_mut(&capability_id)
                 .ok_or_else(|| VaultError::CapabilityNotFound(capability_id.clone()))?;
 
@@ -128,17 +128,20 @@ impl VaultBroker for InMemoryVaultBroker {
                 return Err(VaultError::CapabilityExpired(capability_id));
             }
 
-            if !operation_matches_class(capability.class, &operation) {
+            if !operation_matches_class(capability.class, &operation)
+                && !operation_matches_t049_extension(capability.class, &operation)
+            {
                 return Err(VaultError::OperationClassMismatch {
                     capability_class: capability.class,
                     operation_kind: operation.operation_kind().to_owned(),
                 });
             }
 
-            capability.key_material_handle.clone()
+            (capability.class, key_material.clone())
         };
 
-        simulate_operation(&key_material_handle, operation)
+        self.execute_operation(capability_class, key_material, operation)
+            .await
     }
 
     async fn list_capabilities(
@@ -178,35 +181,154 @@ impl VaultBroker for InMemoryVaultBroker {
     }
 }
 
-fn simulate_operation(
-    key_material_handle: &KeyMaterialHandle,
-    operation: VaultOperation,
-) -> Result<UseCapabilityResult, VaultError> {
-    let simulated = SIMULATED_BYTES.to_vec();
+impl InMemoryVaultBroker {
+    async fn execute_operation(
+        &self,
+        _capability_class: CapabilityClass,
+        key_material: KeyMaterial,
+        operation: VaultOperation,
+    ) -> Result<UseCapabilityResult, VaultError> {
+        match operation {
+            VaultOperation::Encrypt { plaintext, aad }
+                if key_material.algorithm == KeyAlgorithm::Aes256Gcm =>
+            {
+                let encrypted = crypto::aes_gcm::encrypt(&key_material.bytes, &plaintext, &aad)?;
+                Ok(UseCapabilityResult::Encrypted {
+                    ciphertext: encrypted.ciphertext,
+                    nonce: encrypted.nonce,
+                    aad,
+                })
+            }
+            VaultOperation::Decrypt { ciphertext, aad }
+                if key_material.algorithm == KeyAlgorithm::Aes256Gcm =>
+            {
+                Ok(UseCapabilityResult::Decrypted {
+                    plaintext: crypto::aes_gcm::decrypt(&key_material.bytes, &ciphertext, &aad)?,
+                })
+            }
+            VaultOperation::MacGenerate { message }
+                if key_material.algorithm == KeyAlgorithm::HmacSha256 =>
+            {
+                Ok(UseCapabilityResult::MacGenerated {
+                    tag: crypto::hmac::generate(&key_material.bytes, &message)?,
+                })
+            }
+            VaultOperation::MacVerify { message, tag }
+                if key_material.algorithm == KeyAlgorithm::HmacSha256 =>
+            {
+                Ok(UseCapabilityResult::MacVerified {
+                    valid: crypto::hmac::verify(&key_material.bytes, &message, &tag)?,
+                })
+            }
+            VaultOperation::KdfDerive { info, length }
+                if key_material.algorithm == KeyAlgorithm::HkdfSha256 =>
+            {
+                let derived = crypto::hkdf::derive(&key_material.bytes, &info, length)?;
+                let handle = derived.handle;
+                self.derived_key_materials.write().await.insert(
+                    handle.clone(),
+                    KeyMaterial {
+                        algorithm: KeyAlgorithm::HkdfSha256,
+                        created_at: Utc::now(),
+                        bytes: derived.bytes,
+                    },
+                );
+                Ok(UseCapabilityResult::KdfDerived {
+                    derived_key_handle: handle,
+                })
+            }
+            VaultOperation::KdfDerive { .. } => Err(VaultError::KeyAlgorithmMismatch {
+                expected: KeyAlgorithm::HkdfSha256,
+                found: key_material.algorithm,
+            }),
 
-    match operation {
-        VaultOperation::Encrypt { aad, .. } => Ok(UseCapabilityResult::Encrypted {
-            ciphertext: simulated.clone(),
-            nonce: simulated,
-            aad,
-        }),
-        VaultOperation::Decrypt { .. } => Ok(UseCapabilityResult::Decrypted {
-            plaintext: simulated,
-        }),
-        VaultOperation::MacGenerate { .. } => {
-            Ok(UseCapabilityResult::MacGenerated { tag: simulated })
+            VaultOperation::Sign { message } if key_material.algorithm == KeyAlgorithm::Ed25519 => {
+                Ok(UseCapabilityResult::Signed {
+                    signature: crypto::ed25519::sign(&key_material.bytes, &message)?,
+                })
+            }
+            VaultOperation::Verify { message, signature }
+                if key_material.algorithm == KeyAlgorithm::Ed25519 =>
+            {
+                Ok(UseCapabilityResult::Verified {
+                    valid: crypto::ed25519::verify(&key_material.bytes, &message, &signature)?,
+                })
+            }
+            VaultOperation::RandomGenerate { byte_count } => {
+                let byte_count = usize::try_from(byte_count).map_err(|_| {
+                    VaultError::CryptoError(
+                        "random byte count is not representable on this target".to_owned(),
+                    )
+                })?;
+                let mut random_bytes = vec![0_u8; byte_count];
+                OsRng.fill_bytes(&mut random_bytes);
+                Ok(UseCapabilityResult::RandomGenerated { random_bytes })
+            }
+
+            operation => Err(VaultError::OperationUnsupportedInT049(operation)),
         }
-        VaultOperation::MacVerify { .. } => Ok(UseCapabilityResult::MacVerified { valid: true }),
-        VaultOperation::KdfDerive { .. } => Ok(UseCapabilityResult::KdfDerived {
-            derived_key_handle: KeyMaterialHandle(format!("{}:derived", key_material_handle.0)),
-        }),
-        VaultOperation::Sign { .. } => Ok(UseCapabilityResult::Signed {
-            signature: simulated,
-        }),
-        VaultOperation::Verify { .. } => Ok(UseCapabilityResult::Verified { valid: true }),
-        VaultOperation::RandomGenerate { .. } => Ok(UseCapabilityResult::RandomGenerated {
-            random_bytes: simulated,
-        }),
-        VaultOperation::SecretGet { .. } => Err(VaultError::OperationUnsupportedInT047(operation)),
     }
+}
+
+fn validate_key_algorithm_for_class(
+    class: CapabilityClass,
+    found: KeyAlgorithm,
+) -> Result<(), VaultError> {
+    match class {
+        CapabilityClass::KeySign
+        | CapabilityClass::KeyVerify
+        | CapabilityClass::BootstrapKeySign => expect_algorithm(KeyAlgorithm::Ed25519, found),
+        CapabilityClass::KeyEncrypt | CapabilityClass::KeyDecrypt
+            if matches!(
+                found,
+                KeyAlgorithm::Aes256Gcm | KeyAlgorithm::HkdfSha256 | KeyAlgorithm::X25519
+            ) =>
+        {
+            Ok(())
+        }
+        CapabilityClass::KeyEncrypt | CapabilityClass::KeyDecrypt => {
+            expect_algorithm(KeyAlgorithm::Aes256Gcm, found)
+        }
+        CapabilityClass::MacGenerate | CapabilityClass::MacVerify => {
+            expect_algorithm(KeyAlgorithm::HmacSha256, found)
+        }
+        CapabilityClass::RandomGenerate | CapabilityClass::SecretGet => Ok(()),
+    }
+}
+
+fn expect_algorithm(expected: KeyAlgorithm, found: KeyAlgorithm) -> Result<(), VaultError> {
+    if expected == found {
+        Ok(())
+    } else {
+        Err(VaultError::KeyAlgorithmMismatch { expected, found })
+    }
+}
+
+fn generate_key_material(algorithm: KeyAlgorithm) -> Vec<u8> {
+    match algorithm {
+        KeyAlgorithm::Aes256Gcm => crypto::aes_gcm::generate_key(),
+        KeyAlgorithm::HmacSha256 => crypto::hmac::generate_key(),
+        KeyAlgorithm::HkdfSha256 => crypto::hkdf::generate_ikm(),
+        KeyAlgorithm::Ed25519 => crypto::ed25519::generate_signing_key(),
+        KeyAlgorithm::X25519 => generate_x25519_static_secret(),
+    }
+}
+
+fn generate_x25519_static_secret() -> Vec<u8> {
+    let mut bytes = [0_u8; 32];
+    OsRng.fill_bytes(&mut bytes);
+    StaticSecret::from(bytes).to_bytes().to_vec()
+}
+
+const fn operation_matches_t049_extension(
+    capability_class: CapabilityClass,
+    operation: &VaultOperation,
+) -> bool {
+    matches!(
+        (capability_class, operation),
+        (
+            CapabilityClass::KeyEncrypt,
+            VaultOperation::KdfDerive { .. }
+        )
+    )
 }

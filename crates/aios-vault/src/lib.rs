@@ -13,6 +13,7 @@
 
 pub mod broker;
 pub mod capability;
+pub mod crypto;
 pub mod error;
 pub mod hydrator;
 pub mod identity;

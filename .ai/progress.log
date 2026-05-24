@@ -1,0 +1,529 @@
+# AIOS Implementation Progress Log
+
+Format: ISO-8601 timestamp | task_id | step | command(s) | result | status | next_step
+
+---
+
+2026-05-23T(governance) | M1-setup | governance scaffolding | Write Cargo.toml + .ai/ memory + crates/ dir | success — workspace ready | SUCCESS | T-001 worker launch
+2026-05-23T(worker) | T-001 | aios-action crate skeleton + S0.1 core types | cargo build --workspace; cargo test --workspace; cargo clippy --workspace --all-targets -- -D warnings | 10/10 tests green; clippy clean; 877 lines Rust across 9 module files | SUCCESS | T-002 (BLAKE3 canonical hashing per S0.1 §8.5)
+2026-05-23T(worker) | T-002 | aios-action canonical encoding + BLAKE3 hashing per S0.1 §8.5 | cargo build --workspace; cargo test --workspace; cargo clippy --workspace --all-targets -- -D warnings | 24/24 tests green (+14 new); clippy clean; new canonical.rs module + Request::request_hash + ActionEnvelope::idempotency_hash; JCS subset (lex key sort, no whitespace, array order preserved); ECMA-262 number normalization deferred to T-006 with documented limitation | SUCCESS | T-003 (extended ULID prefix registry)
+2026-05-23T(worker) | T-003 | aios-action extended prefix-namespace registry (S5.3/S5.4/S10.1/S15.2) | cargo build --workspace; cargo test --workspace; cargo clippy --workspace --all-targets -- -D warnings | 32/32 tests green (+8 new); clippy clean; 5 ULID-bodied newtypes (ApprovalRequestId/ApprovalBindingId/OverrideRequestId/OverrideBindingId/ActionRuntimeRequestId) via existing macro; TransitionPlanId content-addressed (from_content + parse, no random new()) per S0.1 §3.2.2 + S15.2 §5.3; IdError::InvalidHexBody variant added; all 6 reject Wave-11 colon-separator form | SUCCESS | T-004 (lifecycle FSM with conditions consistency)
+2026-05-23T(worker) | T-004 | aios-action lifecycle FSM with conditions consistency (S0.1 §6.2 + §6.6 + §6.7) | cargo build --workspace; cargo test --workspace; cargo clippy --workspace --all-targets -- -D warnings | 57/57 tests green (+25 new, target was +16); clippy clean; ConditionType closed enum (13 variants); Condition.condition_type refactor (was String); ActionEnvelope::transition_to / add_condition / canonical_conditions_for_phase / validate_phase_conditions; TransitionError enum (IllegalTransition/TerminalPhase/MonotonicityViolation/PhaseConditionMismatch); Execution.phase_changed_at field added; monotonicity (timestamp non-decreasing, True->False flip rejected, terminal-once stamping of started_at/ended_at) enforced; phase ↔ conditions canonicalization per S0.1 §6.6; full Pending→Running→Succeeded JSON round-trip with replay validation green | SUCCESS | T-005 (full error taxonomy, ~30 PascalCase codes)
+2026-05-23T(worker) | T-005 | aios-action full error taxonomy (35 codes per S0.1 §7.3 + §13.3) | cargo build --workspace; cargo test --workspace; cargo clippy --workspace --all-targets -- -D warnings | 76/76 tests green (+19 new, target was +18); clippy clean; ActionErrorCode closed enum (35 variants: 11 validation + 5 policy + 3 authorization + 8 execution + 3 verification + 2 rollback + 3 infrastructure); ActionError struct replaces previous T-001 thiserror enum (code/message/retryable/cause); ActionErrorCode::retryable_default helper per §7.4 (Some(false)/Some(true)/None for the two "depends" codes); cause-chain bounded at MAX_CAUSE_CHAIN_DEPTH=8 via with_cause (returns CauseChainTooDeep — separate programmer-facing error, not on the wire); From<IdError> → EnvelopeMalformed/retryable=false; From<TransitionError> → Internal/retryable=false; serde round-trip of the §7.5 three-deep cause-chain example matches verbatim | SUCCESS | T-006 (integration tests + golden fixtures)
+2026-05-23T(worker) | T-006 | aios-action integration tests + golden fixtures + RFC 8785 full adoption (M1 closure) | cargo build --workspace; cargo test --workspace; cargo clippy --workspace --all-targets -- -D warnings; cargo fmt --check | 102/102 tests green (76 unit + 26 integration: 8 golden_envelope + 6 lifecycle_replay + 12 error_paths); clippy clean; fmt clean; serde_jcs 0.1 added to workspace deps (Governor approved) — canonical.rs delegates to serde_jcs::to_string for RFC 8785 ECMA-262 number normalization; CanonicalError simplified to single Projection variant (sort_value helper retired since serde_jcs owns the recursion); 3 hand-written golden JSON fixtures under tests/fixtures/ (envelope_success_full / envelope_policy_denied / envelope_rolled_back) each parse + validate phase ↔ conditions + JCS canonical round-trip stable; T-002 ECMA-262 deficit CLOSED — golden test pins that 1.5e2 (Number::F64) and 150.0 produce identical canonical bytes and identical request_hash, and 150 (Number::I64) vs 150.0 (Number::F64) canonicalize identically; type alias TerminalWalker introduced in lifecycle_replay.rs to satisfy clippy::type_complexity | SUCCESS | M1 closed; T-007 queued (aios-evidence crate skeleton, M2 start)
+2026-05-23T(worker) | M1-closure | Milestone 1 completion — Action Envelope skeleton (S0.1 implementation) | 6 tasks T-001..T-006 over the course of one engineering day | 102 tests green; aios-action crate fully landed at 0.0.1: identity/request/execution/trace, 9 prefix-namespaced ID types (8 ULID + 1 content-addressed), canonical encoding (RFC 8785 via serde_jcs), 5-phase FSM with monotonicity invariants, 35-code error taxonomy with cause-chain depth bound, 3 golden JSON fixtures, 26 integration tests; ready to consume from L3 Capability Runtime (T-007+) | M1-COMPLETE | M2 — Evidence Log skeleton (T-007: aios-evidence crate scaffold + EvidenceReceipt + INV-005 append-only invariant)
+2026-05-23T(worker) | T-007 | aios-evidence crate skeleton (S3.1 evidence log foundation) | cargo build --workspace; cargo test --workspace; cargo clippy --workspace --all-targets -- -D warnings; cargo fmt --all -- --check | 133/133 tests green (+31 over M1: 29 unit + 2 integration in aios-evidence); clippy clean; fmt clean; new workspace member crates/aios-evidence (first cross-crate consumer of aios-action via path = "../aios-action"); 5 modules (error/record/receipt/chain/sealed); EvidenceReceipt envelope per S3.1 §3 subset (10 fields, ALL private, ONLY &self accessors, no &mut self method anywhere — INV-005 (append-only) enforced at the Rust type level); ReceiptBuilder consuming-builder seals via content_hash = BLAKE3-256(JCS(payload)) (64 hex) and link_hash = BLAKE3-truncated-32(JCS(prior receipt)); ReceiptChain append-only Vec<EvidenceReceipt> with verify_integrity() walking windows(2); RetentionClass closed 3-variant enum (Standard24M/Extended60M/Forever) with exact SCREAMING_SNAKE_CASE serde renames; RecordType closed 39-variant subset of the 427-entry Wave-13 vocabulary (action lifecycle 11 + namespace integration 2 + vault/recovery/tamper 7 + AI subject barriers 4 + build/test/release 7 + FSM extras 8) with TODO(T-008) for full enum; Sealed marker trait + private SealedSuper super-trait blocks downstream impl; EvidenceError 8-variant closed enum (EncodingFailed/HashMismatch/ChainBroken/GenesisMissing/EmptyChain/DuplicateGenesis/InvalidReceiptId/InvalidSubject); integration test lifecycle_chain.rs builds full ACTION_RECEIVED → POLICY_DECISION → EXECUTION_STARTED → EXECUTION_COMPLETED → VERIFICATION_RESULT 5-receipt chain and verifies integrity end-to-end; chain serde round-trip preserves verifiability | SUCCESS | T-008 queued (full Wave-13 RecordType vocabulary + Ed25519 signature path)
+2026-05-23T(worker) | T-008 | aios-evidence RecordType expanded to full 427-entry Wave-13 vocabulary (commit 9185413) | cargo build/test/clippy/fmt all PASS | 158/158 tests green (+25 over T-007); strum 0.26 + strum_macros 0.26 added for EnumIter/EnumCount derives; closed 427-variant enum matches S3.1 Appendix A IDs 1..427 declaration order | SUCCESS | T-009 queued (Ed25519 signature path)
+2026-05-23T(worker) | T-009 | aios-evidence Ed25519 signature path per S3.1 §5.2 / §11.3 / §28.5 (commit 6ee436d) | cargo build --workspace; cargo test --workspace; cargo clippy --workspace --all-targets -- -D warnings; cargo fmt --all -- --check | 176/176 tests green (+18 over T-008: 12 receipt unit + 3 chain unit + 2 error display + 1 integration; integration test t009_signed_lifecycle_chain_verifies_chain_and_every_signature builds full 5-receipt signed lifecycle and exercises verify_integrity_signed end-to-end); clippy clean; fmt clean; ed25519-dalek 2.1 (BSD-3-Clause) + rand_core 0.6 added to workspace deps; ReceiptBuilder::seal_signed(previous, &SigningKey) shares core with seal() via private seal_inner; EvidenceReceipt::verify_signature(&VerifyingKey) + is_signed() + signing_digest(); private ReceiptForSigning<'a> serde view omits signature field (canonical-minus-signature digest avoids sign-the-signature cycle); encode/decode_signature_hex enforce 128 lowercase hex chars (uppercase rejected); ReceiptChain::verify_integrity_signed walks link hashes then verifies every receipt's signature; 3 new EvidenceError variants (SignatureMalformed/SignatureMissing/SignatureMismatch — Mismatch maps to RECEIPT_FORGERY_DETECTED per §28.5); production key acquisition documented as deferred to S5.2 Vault Broker for subject _system:service:evidence-segment-signer (the &SigningKey API surface will be replaced with a &VaultSignCapability when S5.2 lands — hash-then-sign envelope is identical, migration is custody-only); signature field on EvidenceReceipt is now actually populated for signed receipts (was placeholder None in T-007) | SUCCESS | T-010 queued (segment sealing + cross-segment linkage per S3.1 §5.2 / §7)
+
+[2026-05-23] T-010 — aios-evidence segment sealing + cross-segment linkage (S3.1 §5.2 / §7)
+  Files added:
+    - crates/aios-evidence/src/segment.rs (1022 LoC) — SegmentId + Segment + SealedSegment + SegmentSealedPayload + SegmentSealMetadata
+    - crates/aios-evidence/src/segment_chain.rs (415 LoC) — SegmentChain append-only cross-segment list
+    - crates/aios-evidence/tests/segment_lifecycle.rs (204 LoC) — 2 integration tests
+  Files modified:
+    - crates/aios-evidence/src/lib.rs — re-export Segment/SealedSegment/SegmentId/SegmentChain
+    - crates/aios-evidence/src/error.rs — 5 new EvidenceError variants
+    - .ai/{memory,tasks,global_memory}.json + .ai/progress.log
+  Verification:
+    - cargo build --workspace            PASS
+    - cargo test --workspace             PASS (204 tests, +28 over 176 baseline)
+    - cargo clippy --workspace --all-targets -- -D warnings  PASS
+    - cargo fmt --all -- --check         PASS
+  Status: SUCCESS
+  Next: T-011 (Governor selection — WAL/RocksDB persistence § 7.2, OR gRPC EvidenceLog §9/§17, OR streaming/query §9/§10, OR redaction §14)
+
+[2026-05-23] T-011 — aios-evidence gRPC EvidenceLog service surface (S3.1 §9 / §17 / Appendix A)
+  Files added:
+    - crates/aios-evidence/build.rs                                       — tonic-build invocation with vendored protoc
+    - crates/aios-evidence/proto/aios.evidence.v1alpha1.proto             — verbatim S3.1 Appendix A IDL (~530 LoC)
+    - crates/aios-evidence/src/service/mod.rs                             — include_proto! + re-exports + lint allow block
+    - crates/aios-evidence/src/service/conversions.rs                     — single Rust↔proto bridge
+    - crates/aios-evidence/src/service/impl_inmemory.rs                   — InMemoryEvidenceLog backend, all 7 RPCs
+    - crates/aios-evidence/src/service/server.rs                          — build_router/serve bootstrap helpers
+    - crates/aios-evidence/tests/grpc_roundtrip.rs                        — 4 integration tests, full 7-RPC + Subscribe live + tamper rejection
+  Files modified:
+    - Cargo.toml                                          — workspace deps: tonic 0.12, tonic-build 0.12, prost 0.13, prost-types 0.13, tokio 1, tokio-stream 0.1 (sync feat), async-trait 0.1, protoc-bin-vendored 3.0
+    - crates/aios-evidence/Cargo.toml                     — runtime + build-deps registered; tokio + tokio-stream also under dev-dependencies for integration tests
+    - crates/aios-evidence/src/lib.rs                     — pub mod service
+    - crates/aios-evidence/src/error.rs                   — From<EvidenceError> for tonic::Status (DataLoss/InvalidArgument/FailedPrecondition/Internal mapping)
+    - .ai/{memory,tasks,global_memory}.json + .ai/progress.log
+  Verification:
+    - cargo build --workspace                                  PASS
+    - cargo test --workspace                                   PASS (230 tests, +26 over 204 baseline; aios-evidence unit 97→119, integration 5→9)
+    - cargo clippy --workspace --all-targets -- -D warnings    PASS
+    - cargo fmt --all -- --check                               PASS
+  Status: SUCCESS
+  Next: T-012 (Governor selection — WAL/RocksDB persistence §7.2, OR redaction profiles §14, OR per-RecordType payload one-of reconciliation §29.6/Wave 14, OR chain audit + degraded-mode behaviour §11.4/§11.5)
+
+
+[2026-05-23T17:52Z] T-012 — RocksDB persistence backend (S3.1 §7.2 / §11.4) — BLOCKED at env probe
+  Workspace deps added (then rolled back pending Governor decision):
+    rocksdb 0.22 (default-features=false, features=["snappy","lz4"])
+    tempfile 3.10 (dev-only)
+  Smoke build outcome:
+    cargo build -p aios-evidence
+    → librocksdb-sys 0.16.0+8.10.0 build script FAILED
+    → bindgen invocation found libclang.so but emitted:
+        rocksdb/include/rocksdb/c.h:65:10: fatal error: 'stdbool.h' file not found
+    → Diagnosis: clang's builtin resource header directory (clang-resource-headers package on openSUSE) is NOT installed on the dev box.
+      gcc + cmake are present; libclang.so is present (bindgen found it); but the clang resource headers (stdbool.h, stddef.h, stdarg.h, ...) that bindgen needs at build time are missing.
+      System package install is outside agent authority (no sudo, sandbox blocks /usr/* probes).
+  Rollback:
+    Reverted Cargo.toml + aios-evidence/Cargo.toml to T-011 state.
+    cargo build --workspace --offline → PASS (clean).
+  Status: FAIL (blocker — environment prerequisite missing)
+  Next: Governor decision required.
+    Option A — Install clang-resource-headers (openSUSE: `zypper in clang17-devel` or `clang-devel`) then resume T-012 with rocksdb 0.22.
+    Option B — Pivot T-012 to a pure-Rust persistence backend (sled 0.34 or redb 2.x) that does not require libclang at build time. Constraint: sled's on-disk format is not RocksDB's; the spec's §7.2 column-family layout would map onto sled trees (one tree per CF). Spec compliance question for Governor.
+    Option C — Defer T-012; advance with T-013 (Redaction profiles §14) or per-RecordType payload one-of (§29.6 / Wave 14) — both pure-Rust, no env prereq.
+
+2026-05-24T00:00:00Z | T-013 | implement redaction profiles per S3.1 §14
+  Files added:
+    crates/aios-evidence/src/redaction.rs (NEW — ~550 LoC incl. tests; 16 unit tests)
+    crates/aios-evidence/tests/redaction_roundtrip.rs (NEW — 5 integration tests)
+  Files modified:
+    crates/aios-evidence/src/lib.rs (re-exports for redaction module)
+    crates/aios-evidence/src/receipt.rs (+redaction_profile field; with_redaction_profile setter; redact-before-hash pipeline; ReceiptForSigning includes profile; 10 new t013_* tests)
+    crates/aios-evidence/src/service/conversions.rs (populate proto redaction_profile wire field; updated test assertion + doc table)
+  Commands run:
+    cargo build --workspace                                    -> PASS
+    cargo test --workspace                                     -> 306 tests pass (was 271; +35)
+    cargo clippy --workspace --all-targets -- -D warnings      -> PASS
+    cargo fmt --all -- --check                                 -> PASS
+  Key design points:
+    - Closed RedactionProfile enum with serde rename to exact §14 wire names (default/strict/debug_capture).
+    - Per-RecordType bucketing via record_category() over RecordType::as_wire_str() prefix matching — 6 categories (Lifecycle/Vault/Recovery/Telemetry/Segment/Generic). Avoids 427-arm match while staying coherent with spec wire-name namespacing.
+    - normalize_key() handles hyphen/space/dot/camelCase variants so x-api-key, Authorization, clientSecret all match.
+    - Strict on Lifecycle/Telemetry/Generic -> reduce_to_structural_marker: { record_type, payload_hash_prefix (BLAKE3-truncated 32 hex), redacted_under_profile: "strict" }. Recovery+Segment kept verbatim. Vault hashes PII keys, keeps capability metadata.
+    - Default+DebugCapture share the secret-redaction body transformation per spec §14 ("minimal redaction; only secrets" applies to both); operational distinction is policy-attested via the redaction_profile field. Asserted as the design rule, not a bug.
+    - Redaction applied in seal_inner BEFORE content_hash + signature -- constitutional anchor §14 ("no unredacted-but-signed representation anywhere").
+    - ReceiptForSigning includes redaction_profile so tampering with the profile post-seal breaks signature verification (test t013_tampering_redaction_profile_breaks_signature).
+    - EvidenceReceipt.redaction_profile has #[serde(default)] for back-compat with pre-T-013 receipt JSON (test t013_legacy_receipt_json_without_profile_field_deserializes_with_default).
+    - Proto AppendRequest NOT mutated (per STOP rule); server-side defaults to RedactionProfile::Default. gRPC integration test verifies the wire envelope reflects "default" at proto field tag 14.
+  Status: SUCCESS
+  Next: T-014 — privacy ceiling on Query (§10 trailer count).
+
+[2026-05-24] T-014 — aios-evidence privacy ceiling on Query/Subscribe (S3.1 §10 + §23.2 + §11.4)
+  Status: SUCCESS
+  Commands:
+    cargo build --workspace                                  PASS
+    cargo test --workspace                                   PASS (330 tests; +24 over T-013 306)
+    cargo clippy --workspace --all-targets -- -D warnings    PASS
+    cargo fmt --all -- --check                               PASS
+  Notes:
+    - New crates/aios-evidence/src/privacy.rs (~445 LoC).
+    - PrivacyCeiling struct + admits() + admits_wire() closed predicates per S3.1 §10 + §23.2 + §11.4.
+    - 6 rules in priority order: system-caller bypass (empty subject = admit all; test-only backward-compat shortcut documented as T-016/M3-hardened) → self-receipt → 42 constitutionally-public RecordTypes to non-AI → group-scoped admission via subject 'type:group/name' rev.2 grammar → AI strictness (own + public-about-system only) → recovery-mode FOREVER broadening for non-AI operators (§11.4 forensic access).
+    - Proto3-additive schema (wire-compatible): QueryRequest +fields 10/11/12 (caller_primary_group/_is_ai/_is_recovery_mode); existing `subject = 9` reused as caller canonical id per spec §10 IDL. SubscribeRequest +fields 6/7/8/9 (caller_subject/_primary_group/_is_ai/_is_recovery_mode).
+    - Suppressed-count surfaced via initial-metadata header `x-aios-suppressed-count` (constant SUPPRESSED_COUNT_TRAILER). tonic 0.12 has no trailing-metadata-on-success API; documented design choice in attach_suppressed_count().
+    - Both InMemoryEvidenceLog and RocksDbEvidenceLog Query/Subscribe handlers wired symmetrically — ceiling.admits() filters historic + replay, ceiling.admits_wire() filters live broadcast events.
+    - 8 existing test fixtures updated with new caller_* default fields (empty subject preserves T-007..T-013 wire-compat).
+    - 17 unit tests in privacy.rs + 5 service-level Query tests in impl_inmemory.rs + 2 integration tests in tests/privacy_ceiling.rs (3-subject corpus through gRPC + subscribe filter).
+  Next: T-015 — aios-evidence retention-class compaction worker per S3.1 §12 / §13 (final M2 task).
+
+[2026-05-24] T-015 — aios-evidence retention-class compaction worker (S3.1 §11.5 / §12 / §13) — M2 CLOSER
+  Status: SUCCESS
+  Commands:
+    cargo build --workspace                                  PASS
+    cargo test --workspace                                   PASS (364 tests; +34 over T-014 330)
+    cargo clippy --workspace --all-targets -- -D warnings    PASS
+    cargo fmt --all -- --check                               PASS
+  Notes:
+    - New crates/aios-evidence/src/compaction.rs (~600 LoC; 19 unit tests).
+    - Closed CompactionPolicy enum: Auto / OperatorApproval (default per §11.5) / Disabled. Serde wire tokens lowercase.
+    - CompactionWorker struct with sync tick(&mut self, backend, now) primitive — production wraps in tokio::time::interval task (documented; not shipped per spec carry-forward).
+    - approve_segment(&SegmentId) records out-of-band operator authorisation. Segments approved before becoming eligible are parked and consumed on the tick when eligibility kicks in.
+    - CompactionReport carries eligible_segments / compacted_segments / awaiting_approval / receipts_removed / index_entries_pruned. Serializable for §20 telemetry.
+    - CompactionBackend trait: list_sealed_segments / compact_segment / emit_approval_required. Both InMemoryEvidenceLog and RocksDbEvidenceLog implement it.
+    - InMemory: new sealed_segments std::sync::Mutex<SealedStore>; new seal_current_segment(retention_class) method; warm_receipt_count/warm_index_count drops to 0 on compact (tombstone preserved per §12); compact_segment returns counts. emit_approval_required appends through normal signed+chained pipeline via blocking_write on the open chain (tokio).
+    - RocksDB: list_sealed_segments scans chain_index→segments CFs (sync DB read); compact_segment is one atomic WriteBatch (delete receipt rows + record_type_index rows; set compacted_at::<seg_id> sentinel in metadata CF); segment row in segments CF untouched so recover_sealed_chain on reopen continues to verify. emit_approval_required uses blocking_write on the open-segment state. Helper rocksdb_segment_compacted_at(db, seg_id) introspects the sentinel.
+    - list_sealed_segments in both backends filters out already-compacted segments so the worker does not re-emit approval-required records every tick.
+    - RecordType +1: CompactionApprovalRequired (wire ID 1000, retention FOREVER). Proto IDL: COMPACTION_APPROVAL_REQUIRED = 1000; reserved range tightened to 1001..9999. Total RecordType variants = 428 (Wave 13 dense 1..=427 + Wave 14+ reserved 1 = 428). Multiple invariant tests updated (record_type_count, every_variant_round_trips, wave_id ranges split into Wave 13 dense + Wave 14+ reserved, etc.).
+    - New encoding helper metadata_compacted_at_key(&SegmentId) returning the `compacted_at::<id>` key for the metadata CF. Compaction state lives OUT of the segments CF on purpose so segment-row byte layout is unchanged and §11.4 cryptographic recovery is untouched.
+    - Privacy ceiling: CompactionApprovalRequired added to is_constitutionally_public_record_type() — operators always see compaction governance events.
+    - lib.rs re-exports: CompactionPolicy, CompactionWorker, CompactionReport, CompactionBackend, COMPACTION_WORKER_SUBJECT, is_compaction_eligible_for.
+    - Tests: 19 in compaction.rs (FakeBackend; policy modes; eligibility horizons; approve flow; pre-approval; mixed approved/unapproved; report serialization), 6 in impl_inmemory.rs (seal; compact; list ordering; approval emit; worker auto; worker operator-approval round-trip), 5 in rocksdb_backend.rs (list; compact removes rows; compact-then-reopen state preserved; approval emit signed; worker auto), 3 in tests/compaction_lifecycle.rs (3-segment FOREVER+2×STANDARD_24M end-to-end auto; full operator-approval 3-tick round-trip; rocksdb reopen + VerifyChain after compaction). Total +34 tests.
+    - aios-evidence Cargo.toml version: 0.0.1 → 0.1.0 (M2 closure marker; API not yet stable but feature-complete for S3.1 in-tree contract).
+    - Out of scope (carry-forward to M3+/M4, documented in module header): cold-tier offload to alternative storage (§7.4) — current single-tier RocksDB satisfies the §7.4 contract via future backend-trait extension; tokio interval task wrapping — provided as docstring, not code (production binary M3+ wires it).
+  Next: M2 honest closure (no debt across milestones discipline). M3 candidate: capability runtime (S10.1) — first consumer of aios-action + aios-evidence end-to-end through Capability Runtime gRPC surface per S3.1 §13 lifecycle.
+
+
+---
+
+2026-05-24T13:00:00Z | T-016 | aios-policy crate skeleton (S2.3 §3-§10 core types) | cargo check + test + clippy -D warnings + fmt --check | PASS (369 tests, +5 new) | T-017 — PolicyKernel trait + EvaluatePolicy + bundle loader
+  Files added:
+    - crates/aios-policy/Cargo.toml                 (v0.0.1, edition workspace; deps aios-action + serde + chrono + strum + thiserror)
+    - crates/aios-policy/src/lib.rs                 (module decls + re-exports; forbid unsafe_code; scope-of-T-016 doc)
+    - crates/aios-policy/src/decision.rs            (Decision enum 4-variant w/ proto Unspecified; PolicyDecision 14-field struct per §4)
+    - crates/aios-policy/src/hard_deny.rs           (HardDenyClass 10-variant enum w/ EnumIter + EnumCount; serde wire form `hd.<snake>`)
+    - crates/aios-policy/src/subject.rs             (SubjectType 7-variant + HydratedSubject 7-field per §7)
+    - crates/aios-policy/src/constraints.rs         (Constraints + ApprovalRequirement STUB structs — T-017 fills the 11-field §10 vocabulary)
+    - crates/aios-policy/src/error.rs               (PolicyError: SubjectUnauthenticated/EnrichmentUnavailable/BundleLoad{reason}/SchemaInvalid{detail})
+    - crates/aios-policy/tests/types_roundtrip.rs   (5 tests: Decision variant count, HardDenyClass count==10, PolicyDecision serde round-trip, HydratedSubject serde round-trip, PolicyError display strings)
+  Files touched:
+    - Cargo.toml — workspace members += "crates/aios-policy"
+    - Cargo.lock — auto-updated by cargo
+  Workspace tests: 364 → 369 (+5, M3 first task).
+  Scope guard: no PolicyKernel trait, no EvaluatePolicy, no gRPC, no bundle loading, no conditions parser — all deferred to T-017+.
+  Constitutional anchors:
+    - Decision serde wire form is SCREAMING_SNAKE_CASE matching the proto3 IDL (ALLOW / REQUIRE_APPROVAL / DENY / UNSPECIFIED).
+    - HardDenyClass wire form is the spec `hd.<snake_case>` policy_id so bundle YAML/proto encoding uses constitutional string keys.
+    - SubjectType wire form is lowercase per S2.3 §7 ("human", "agent", "application", ...).
+    - PolicyDecision.action_id is typed aios_action::ActionId (cross-crate type linkage anchored).
+    - PolicyDecision.evaluated_at is chrono::DateTime<Utc> (matches Timestamp proto field).
+  Lint notes for future T-017:
+    - workspace forbids clippy::expect_used; tests follow the established aios-action pattern of `#![allow(clippy::expect_used, clippy::panic, reason = "panic-on-failure is the idiomatic test signal")]`.
+    - clippy::doc_markdown is enforced; all crate identifiers in doc-comments must be backticked.
+
+2026-05-24T07:13Z  T-017  aios-policy PolicyKernel trait + 12-step decision pipeline.
+  Files: crates/aios-policy/{Cargo.toml,src/lib.rs,src/kernel.rs,src/pipeline.rs,src/precedence.rs}, crates/aios-policy/tests/pipeline.rs.
+  Surface: PolicyKernel async trait (evaluate_policy) + PolicyContext + EnrichmentSnapshot stub +
+  DecisionPipeline (12 steps; step 1 schema + step 2 subject pass-through + step 9 default-deny floor REAL;
+  steps 3,4,5,6,7,8,10,12 stubbed for T-018..T-025) + RulePrecedence (7 tiers, EnumIter+EnumCount, COUNT==7) +
+  InMemoryPolicyKernel harness. PipelineState enum (Continue / ShortCircuit(Box<PolicyDecision>)).
+  reason_code constants: SchemaInvalid + DefaultDeny.
+  Deps added: async-trait, tokio (macros+rt via workspace), ulid (poldec_<ULID> minting).
+  Tests: +10 new (workspace 369 -> 379). All 4 gates: check + test + clippy -D warnings + fmt --check PASS.
+  Scope guard held: hard-deny engine (T-018), conditions parser (T-019), constraints vocab (T-020),
+  subject hydration + AI self-approval (T-021), bundle loader (T-022), gRPC (T-023), cache (T-024),
+  override boundary (T-025) all deferred. action_id is fresh ULID per evaluation (Capability Runtime
+  T-002/T-006 lands the content-addressed binding).
+  STATUS: SUCCESS.
+
+2026-05-24 T-020 — aios-policy full Constraints vocabulary (S2.3 §10)
+  commit: c3530fa
+  files: crates/aios-policy/src/constraints.rs (rewrite, 0-field stub -> 11-field §10 + expires_at audit helper + 5 closed enums + 2 newtypes + validate())
+         crates/aios-policy/src/error.rs (+ConstraintsInvalid variant)
+         crates/aios-policy/src/lib.rs (re-export new enums + newtypes; update T-020 status note)
+         crates/aios-policy/tests/types_roundtrip.rs (+4 new tests, +1 PolicyError display case for ConstraintsInvalid)
+         .ai/tasks.json (M3.running_test_count 379->383; M3.tasks += T-020; T-020 completed entry appended)
+  tests: 383 workspace (+4 over T-017 baseline 379)
+  gates: cargo check / test / clippy --all-targets -D warnings / fmt --check ALL GREEN
+  scope-guard: kernel.rs / pipeline.rs / precedence.rs / hard_deny.rs / subject.rs UNTOUCHED (queue for T-018/T-019/T-021/T-022)
+  next: T-018 / T-019 / T-021 / T-022 parallel wave (parent agent dispatches)
+
+2026-05-24 T-018 — aios-policy HardDenyEngine (S2.3 §6, 10 classes enforced)
+  files: crates/aios-policy/src/hard_deny_engine.rs (NEW, ~620 LoC, 5 inline unit tests)
+         crates/aios-policy/src/pipeline.rs (added step_4_evaluate_hard_denies_with_engine + evaluate_with_hard_deny_engine driver; zero-arg stub preserved)
+         crates/aios-policy/src/kernel.rs (Option<Arc<HardDenyEngine>> field + new_with_hard_deny ctor + has_hard_deny_engine inspector; bare new() unchanged)
+         crates/aios-policy/src/lib.rs (re-exports: HardDenyEngine, HardDenyEngineConfig, reason_code_for, reason_message_for, has_recovery_override_path)
+         crates/aios-policy/tests/hard_deny.rs (NEW, 19 integration tests)
+         .ai/memory.json (current_task_id -> T-018; T-018 closer entry)
+         .ai/tasks.json (M3.tasks += T-018; running_test_count 383 -> 407; T-018 completed entry)
+  tests: 407 workspace (+24 over T-020 baseline 383)
+  gates: cargo check / test / clippy --workspace --all-targets -D warnings / fmt --all -- --check ALL GREEN
+  scope-guard: hard_deny.rs ENUM + precedence.rs + constraints.rs + subject.rs UNTOUCHED. Conditions parser (T-019), bundle loader (T-022), subject hydration (T-021), gRPC (T-023), cache (T-024), override boundary (T-025) deferred per brief.
+  STATUS: SUCCESS.
+
+2026-05-24 T-019 COMPLETED — Conditions vocabulary + EBNF parser + evaluator (S2.3 §9)
+  Files added:
+    crates/aios-policy/src/conditions.rs (~700 LoC, 9 inline tests)
+    crates/aios-policy/src/conditions_parser.rs (~700 LoC, 4 inline tests)
+    crates/aios-policy/src/conditions_eval.rs (~600 LoC, 3 inline tests)
+    crates/aios-policy/tests/conditions_parser.rs (26 integration tests)
+    crates/aios-policy/tests/conditions_eval.rs (15 integration tests)
+  Files modified:
+    crates/aios-policy/src/error.rs (+ ConditionParse, ConditionEval variants)
+    crates/aios-policy/src/lib.rs (+ module decls, re-exports)
+    .ai/memory.json, .ai/tasks.json, .ai/progress.log
+  Gates:
+    cargo check --workspace        PASS
+    cargo test --workspace         PASS (464, +57 over 407)
+    cargo clippy --workspace --all-targets -D warnings  PASS
+    cargo fmt --all -- --check     PASS
+  Spec deviation from brief (TRUST SPEC):
+    §9.1 EBNF is AND-only conjunction — no Or/Not/parens. AST therefore omits
+    Or/Not variants; parser refuses or/not/( /) tokens with DisallowedToken
+    error. Documented in conditions.rs module header.
+  Scope guard held:
+    No modification to hard_deny_engine.rs, kernel.rs, pipeline.rs,
+    precedence.rs, constraints.rs, hard_deny.rs, subject.rs, decision.rs.
+  Next: T-021 (subject hydration + §17 AI self-approval prevention) OR
+        T-022 (bundle loader — wires conditions into rule evaluator).
+
+2026-05-24 T-022 EXECUTED — aios-policy policy bundle loader (S2.3 §12)
+  Commands: cargo check --workspace; cargo test --workspace; cargo clippy --workspace --all-targets -- -D warnings; cargo fmt --all -- --check
+  Result: 4 gates PASS — 479 tests (464 baseline + 15 new in tests/bundle.rs)
+  Status: SUCCESS
+  Files: crates/aios-policy/{Cargo.toml, src/{lib.rs, error.rs, bundle.rs (NEW), bundle_loader.rs (NEW)}, tests/bundle.rs (NEW)}; Cargo.toml (base64 workspace dep)
+  Spec deviation: brief asked `condition: String` per rule + 3-value RuleScope; spec §11.2 has `conditions[]` Vec — TRUST SPEC applied (kept Vec<String> + 5-value RuleScope superset of brief's 3).
+  Next step: T-021 (subject hydration + AI self-approval prevention, S2.3 §7 + §17).
+
+[2026-05-24] T-021 — aios-policy subject hydration + AI self-approval prevention (S2.3 §7 + §17)
+  Files: crates/aios-policy/src/{subject_hydration.rs (NEW, ~300 LoC), lib.rs, kernel.rs, pipeline.rs}
+         crates/aios-policy/tests/{subject_hydration.rs (NEW, 8 tests), ai_self_approval.rs (NEW, 8 tests)}
+  Commands: cargo check --workspace / cargo test --workspace / cargo clippy --workspace --all-targets -- -D warnings / cargo fmt --all -- --check
+  Tests: 479 → 498 (+19)
+  Status: SUCCESS
+  Next: T-023 gRPC PolicyKernel surface (S2.3 §14)
+
+[2026-05-24 T-023] gRPC PolicyKernel service surface (S2.3 §20 / Appendix A)
+  Spec deviation report: brief stated §14; §14 is actually Simulation. The gRPC
+  service surface lives at §20 + Appendix A. TRUST SPEC applied — implemented
+  the §20 6-RPC list verbatim (EvaluatePolicy / SimulatePolicy / LoadBundle /
+  RollbackBundle / ExplainDecision / GetPolicyEngineInfo).
+  Files: crates/aios-policy/proto/aios.policy.v1alpha1.proto (NEW),
+         crates/aios-policy/build.rs (NEW),
+         crates/aios-policy/Cargo.toml (tonic/prost/build deps),
+         crates/aios-policy/src/lib.rs (+pub mod service),
+         crates/aios-policy/src/service/{mod,conversions,server}.rs (NEW),
+         crates/aios-policy/tests/grpc_roundtrip.rs (NEW, 11 tests).
+  Commands: cargo build --workspace / cargo test --workspace (520) /
+            cargo clippy --workspace --all-targets -- -D warnings /
+            cargo fmt --all -- --check
+  Tests: 498 → 520 (+22: 11 inline service unit tests + 11 grpc_roundtrip
+         integration tests; service module covers conversions for Decision,
+         Constraints, ApprovalRequirement, PolicyDecision, every closed enum,
+         and the §18.2 PolicyError → tonic::Status mapping).
+  Status: SUCCESS
+  Scope guard held: kernel.rs / pipeline.rs / hard_deny_engine.rs /
+         conditions*.rs / constraints.rs / bundle*.rs / subject_hydration.rs /
+         decision.rs / error.rs / hard_deny.rs / subject.rs UNTOUCHED.
+  External imports placeholder pattern preserved: EvaluatePolicyRequest.
+         envelope_proto is `bytes` per spec; in-tree wire format is JSON-encoded
+         aios_action::ActionEnvelope per open task #26. Single touch-point is
+         envelope_to_bytes / envelope_from_bytes in conversions.rs.
+  Next: T-024 cache + perf budget (S2.3 §13 + §15); T-025 M3 closer.
+
+2026-05-24T09:15:00Z  T-024  aios-policy — determinism + decision cache + perf benchmark (S2.3 §13 + §15 + §18.1)
+  Files added:
+    crates/aios-policy/src/snapshot.rs           (~280 LoC, 5 inline tests)
+    crates/aios-policy/src/cache.rs              (~360 LoC, 10 inline tests)
+    crates/aios-policy/src/explain.rs            (~230 LoC, 5 inline tests)
+    crates/aios-policy/benches/policy_eval.rs    (criterion 0.5; informational)
+    crates/aios-policy/tests/determinism_cache.rs (15 integration tests)
+  Files modified:
+    Cargo.toml                                   (+lru 0.12, +criterion 0.5)
+    crates/aios-policy/Cargo.toml                (+lru, +serde_jcs, +criterion dev-dep, [[bench]] section)
+    crates/aios-policy/src/lib.rs                (+pub mod {cache,explain,snapshot}; +re-exports)
+    crates/aios-policy/src/kernel.rs             (+decision_cache + active_bundle fields;
+                                                  +new_with_cache + new_with_full_chain_and_cache;
+                                                  +set_active_bundle / active_bundle_snapshot;
+                                                  evaluate_policy: cache lookup before pipeline;
+                                                  cache hit refreshes evaluated_at, preserves first id)
+    crates/aios-policy/src/bundle_loader.rs      (+accept_bundle helper — skips JSON parse,
+                                                  runs steps 2-5; used by LoadBundle RPC)
+    crates/aios-policy/src/service/conversions.rs (+proto_bundle_to_rust + proto_rule_to_rust
+                                                   + rule_effect_from_proto)
+    crates/aios-policy/src/service/server.rs     (PolicyKernelService gained in_memory_kernel,
+                                                  bundle_loader, cache, decision_log fields;
+                                                  +new_in_memory ctor + with_* builders;
+                                                  active_bundle_version → Arc<RwLock<String>>;
+                                                  LoadBundle + ExplainDecision RPCs REAL;
+                                                  RollbackBundle stays Unimplemented for T-025)
+    crates/aios-policy/src/conditions_eval.rs    (import switched from kernel::EnrichmentSnapshot
+                                                  to snapshot::EnrichmentSnapshot; test fixture
+                                                  uses ..Default::default() for new fields)
+    crates/aios-policy/tests/{conditions_eval,hard_deny,pipeline,subject_hydration}.rs
+                                                  (EnrichmentSnapshot literals updated to use
+                                                  ..Default::default() spread for new fields)
+    crates/aios-policy/tests/grpc_roundtrip.rs   (deferred_rpcs test updated to T-024 contract:
+                                                  LoadBundle bundle=None → InvalidArgument;
+                                                  ExplainDecision no log → Unimplemented opt-in;
+                                                  RollbackBundle → Unimplemented (T-025))
+  Spec deviation acknowledged:
+    Brief proposed 3-tuple cache key (request_hash, bundle_version, snapshot_id).
+    S2.3 §13.3 mandates 2-tuple (request_hash, bundle_version) verbatim formula.
+    TRUST SPEC applied per brief STOP rule: CacheKey is the 2-tuple; wire_form()
+    is 'polc_' + hex_lower(BLAKE3(JCS({request_hash, bundle_version})))[:32].
+    Determinism still anchors on the full §13.1 triple; cache hits anchor on the
+    2-tuple; §13.2 TTL bounds re-evaluation when snapshot changes within TTL.
+  Gates:
+    cargo check --workspace                              ✓
+    cargo test --workspace                                ✓ (555 / 555; +35 new)
+    cargo clippy --workspace --all-targets -- -D warnings ✓
+    cargo fmt --all -- --check                            ✓
+    cargo bench -p aios-policy --no-run                   ✓ (compiles only)
+  Scope guard held:
+    pipeline.rs / hard_deny_engine.rs / conditions*.rs / constraints.rs /
+    subject_hydration.rs / subject.rs / decision.rs / precedence.rs /
+    error.rs / hard_deny.rs UNTOUCHED. proto schema UNTOUCHED.
+    bundle.rs UNTOUCHED. bundle_loader.rs: +1 helper only (allowed by brief).
+  Next: T-025 — M3 closer (RollbackBundle + §16 override boundary + §22 acceptance fixtures + v0.1.0 bump).
+
+[2026-05-24] T-025 — M3 CLOSER (aios-policy 0.1.0; emergency override boundary + RollbackBundle RPC + §22 acceptance fixtures)
+  Status: SUCCESS (M3 CLOSED honestly; no debt carried into M4)
+  Files:
+    + crates/aios-policy/src/override_boundary.rs  (~430 LoC, 9 inline unit tests)
+    M crates/aios-policy/src/pipeline.rs           (step 5 wired; new evaluate_with_chain_full driver)
+    M crates/aios-policy/src/kernel.rs             (rollback_stack + override_boundary fields; new ctors)
+    M crates/aios-policy/src/service/server.rs     (RollbackBundle RPC wired; last Unimplemented stub gone)
+    M crates/aios-policy/src/lib.rs                (re-exports override boundary types)
+    M crates/aios-policy/Cargo.toml                (0.0.1 → 0.1.0 — M3 closure marker)
+    + crates/aios-policy/tests/override_boundary.rs    (11 tests)
+    + crates/aios-policy/tests/acceptance_fixtures.rs  (11 tests — §22.1..§22.10 with 22.9 split into 9a+9b)
+    + crates/aios-policy/tests/rollback_bundle.rs      (6 tests)
+    + crates/aios-policy/tests/m3_closure.rs           (6 tests — closure-invariant guard)
+  Gates: cargo check + cargo test --workspace (599 PASS, +44) + cargo clippy --workspace --all-targets -- -D warnings + cargo fmt --all -- --check + cargo bench -p aios-policy --no-run — ALL PASS.
+  Scope guard held: hard_deny_engine.rs / conditions*.rs / constraints.rs / bundle.rs / bundle_loader.rs / subject_hydration.rs / subject.rs / decision.rs / error.rs / precedence.rs / hard_deny.rs / snapshot.rs / cache.rs / explain.rs UNTOUCHED.
+  Spec deviations (TRUST SPEC): §22 fixtures 22.1 / 22.6 / 22.7 / 22.8 / 22.10 exercise pipeline paths still partially stubbed in M3 (scoped-allow matcher, subject-group cycle detection, degraded-mode flag, budget enforcement, hot-reload in-flight pinning); tests assert the constitutional contract at the level M3 demonstrates and document the M4+ continuation point.
+  M3 summary: T-016..T-025 = 10 tasks complete. 555 → 599 tests (+44). aios-policy 0.0.1 → 0.1.0.
+  Next: M4 candidate — Capability Runtime (S2.1 aios-action submission FSM + adapter manifest + L3 SGR integration) OR L2 AIOS-FS reads (S1.3 read-path for §8 resource enrichment). Final pick deferred to next planning loop.
+2026-05-24T15:30:00Z | T-026 | aios-capability-runtime v0.0.1 skeleton — S10.1 §3.1 FSM types + §3.2/§3.5/§3.7 enums + §10.1 AdapterManifest | cargo check/test/clippy/fmt all green | SUCCESS | tests 599 → 613 (+14); M4 OPENED; next: T-027 CapabilityRuntime async trait + lifecycle pipeline
+2026-05-24T16:45:00Z | T-027 | aios-capability-runtime — CapabilityRuntime async trait + ActionLifecyclePipeline driver (S10.1 §3 + §4.2) | cargo check/test/clippy/fmt all green | SUCCESS | tests 613 → 625 (+12); files: + crates/aios-capability-runtime/src/pipeline.rs (~560 LoC) + crates/aios-capability-runtime/src/runtime.rs (~280 LoC) + crates/aios-capability-runtime/tests/pipeline.rs (12 tests) M crates/aios-capability-runtime/Cargo.toml (+tokio +async-trait) M crates/aios-capability-runtime/src/lib.rs (+2 module decls + 11 re-exports). TRANSITIONS const = 20 §4.2 rows (T2..T21). apply_transition = single FSM writer; ShortCircuit | Continue PipelineState. Step 1 (validate) REAL; Steps 2..8 STUBBED with T-028..T-034 owner tags. InMemoryCapabilityRuntime backs CapabilityRuntime trait via Arc<RwLock<HashMap<ActionId, ActionContext>>>. Scope guard held; T-026 modules untouched apart from lib.rs re-export additions. Next: T-028 adapter registry (S10.1 §10).
+2026-05-24T17:45:00Z | T-028 | aios-capability-runtime — InMemoryAdapterRegistry + Ed25519 manifest verification + AdapterStability ladder enforcement (S10.1 §10) | cargo check/test/clippy/fmt all green | SUCCESS | tests 625 → 646 (+21: 16 new integration in tests/adapter_registry.rs + 5 new hex codec unit tests); files: + crates/aios-capability-runtime/src/adapter_registry.rs (~470 LoC; SignedManifestBody view + canonical_signed_manifest_bytes + encode/decode_hex_signature + RegisteredAdapter + InMemoryAdapterRegistry async API + AdapterRegistry trait impl) + crates/aios-capability-runtime/src/adapter_handle.rs (~70 LoC; RealAdapterHandle wrapping Arc<AdapterManifest>) + crates/aios-capability-runtime/tests/adapter_registry.rs (16 tests covering brief's 12 behaviours + 4 supporting cases) M crates/aios-capability-runtime/src/error.rs (+AdapterUnknownAuthority, +AdapterAlreadyRegistered; T-026 variants untouched) M crates/aios-capability-runtime/src/lib.rs (+2 module decls + 4 re-exports) M crates/aios-capability-runtime/src/pipeline.rs (added run_with_registry; modified step_execute signature to take Option<&InMemoryAdapterRegistry>; FAIL_CLOSED with ExecutionFailureReason::DependencyUnready when registry attached + adapter missing) M crates/aios-capability-runtime/src/runtime.rs (+ adapter_registry field on InMemoryCapabilityRuntime + with_adapter_registry chainable ctor + adapter_registry() accessor; submit_action routes through run_with_registry) M crates/aios-capability-runtime/Cargo.toml (+ ed25519-dalek + base64 to [dependencies]; + rand_core to [dev-dependencies]). Signature discipline: Ed25519 over JCS of manifest fields 1..11 (excludes signature, signing_key_id, created_at, expires_at — TRUST SPEC §10.1); hex_lower 128-char encoding per §10.1 field 12. AdapterStability::Retired → None from lookup_by_id/lookup_for_target/trait lookup (FAIL_CLOSED per §3.4); still surfaced by list() for forensic ListAdapters RPC. Spec deviation note: ExecutionFailureReason::AdapterUnknown variant requested by brief does not exist in T-026's closed §3.6 enum (failure.rs is disallowed-modify by T-028 scope); T-028 uses ExecutionFailureReason::DependencyUnready as the closest spec-pinned surrogate (adapter not registered = dependency not ready) and documents the surrogate choice in runtime.rs. T-028 does NOT yet enforce §10.5 action-kind exclusivity, §10.4 expiry watchdog, or §10.3 stability promotion — queued. Scope guard held; T-026 modules (status.rs, dispatch.rs, failure.rs, adapter_manifest.rs, context.rs) untouched. Next: T-029 dispatch queue + ActionDispatcher (S10.1 §3.5 + §11).
+2026-05-24T18:45:00Z | T-029 | aios-capability-runtime — DispatchQueue + ActionDispatcher (S10.1 §3.5 + §11) | cargo check/test/clippy/fmt all green | SUCCESS | tests 646 → 676 (+30: 25 new integration in tests/dispatch_queue.rs (13) + tests/dispatcher.rs (12) + 5 new TokenBucket inline); files: + crates/aios-capability-runtime/src/dispatch_queue.rs (~410 LoC; TokenBucket §11.2 monotonic-clock rate limiter, DispatchQueue per-class FIFO + 50% AGENT_PROPOSAL hard cap against TOTAL CAPACITY per §11.1, new_with_defaults seeds 300/400/250/50 absolute slots from §11.1 30/40/25/5% shares against DEFAULT_TOTAL_CAPACITY=1_000 matching §11.3 backpressure threshold) + crates/aios-capability-runtime/src/dispatcher.rs (~155 LoC; ActionDispatcher pure decision helpers: select_queue_class §3.5, select_dispatch_kind §3.2 closed table, apply_ai_interactive_downgrade §11.4 marker AI_INTERACTIVE_QUEUE_DOWNGRADE) + crates/aios-capability-runtime/tests/dispatch_queue.rs (13 tests) + crates/aios-capability-runtime/tests/dispatcher.rs (12 tests) M crates/aios-capability-runtime/src/error.rs (+QueueFull(QueueClass) +RateLimited(String) — exactly the 2 brief-specified additions) M crates/aios-capability-runtime/src/lib.rs (+ 2 module decls + 7 re-exports) M crates/aios-capability-runtime/src/pipeline.rs (additions only: run_with_engines async + step_queue_with_engine async + step_execute_with_engines + DispatchKindInputs struct + compute_dispatch_kind pure function; T-027/T-028 sync paths preserved verbatim) M crates/aios-capability-runtime/src/runtime.rs (+ dispatch_queue: Option<Arc<DispatchQueue>> field + with_dispatch_queue chainable ctor + dispatch_queue() const accessor; submit_action threads both adapter_registry and dispatch_queue refs into run_with_engines().await). 50% AGENT_PROPOSAL hard cap interpreted against TOTAL CAPACITY (TRUST SPEC: §11.1 'Max share 50%' is capacity-relative, not enrolment-relative — a lone AI submission must be admitted). §11.4 AI-interactive downgrade folded into selection via select_queue_class (AI subjects can never request INTERACTIVE — marker logged for T-031 evidence emission). Scope guard held: status.rs/dispatch.rs/failure.rs/adapter_manifest.rs/context.rs/adapter_registry.rs/adapter_handle.rs UNTOUCHED. Pipeline + runtime modifications are pure additions; the T-027/T-028 sync paths unchanged. M4 6/10 complete. Next: T-030 policy integration (S10.1 ↔ S2.3, wires aios_policy::PolicyKernel into step_policy_evaluate + swaps RuntimeContext.subject_id String for aios_policy::HydratedSubject + adds aios-policy path dep to aios-capability-runtime Cargo.toml).
+2026-05-24T19:30:00Z | T-030 | aios-capability-runtime — policy integration (S10.1 ↔ S2.3 §3 + §4.2) | cargo check/test/clippy/fmt all green | SUCCESS | tests 676 → 688 (+12: tests/policy_integration.rs); files: M crates/aios-capability-runtime/Cargo.toml (+ aios-policy path dep) M crates/aios-capability-runtime/src/error.rs (+ PolicyEvalFailed(String) variant; T-026/T-028/T-029 variants untouched) M crates/aios-capability-runtime/src/runtime.rs (replaced RuntimeContext.subject_id: String with subject: HydratedSubject; added from_subject() ctor + with_hydrated_subject() chainable + subject_id() &str accessor preserving T-028/T-029 dispatcher call-sites; added policy_constraints: Arc<Mutex<Option<Constraints>>> interior-mutable slot + policy_constraints_snapshot() reader + install_policy_constraints() pub(crate) writer for Option A constraints projection; added policy_kernel: Option<Arc<dyn PolicyKernel>> field + with_policy_kernel() chainable + policy_kernel() accessor; added policy_double_check_warnings: Arc<AtomicU64> §17 tripwire counter + policy_double_check_warnings() reader; submit_action now routes through pipeline.run_with_full_engines threading kernel + RuntimeContext + tripwire) M crates/aios-capability-runtime/src/pipeline.rs (added run_with_full_engines async + step_policy_evaluate_with_kernel async; Decision→§4.2 mapping per S10.1 §4.2 verbatim: Allow→T4 PolicyPending→Approved with constraints projection + §17 tripwire, RequireApproval→T5 PolicyPending→ApprovalPending short-circuit, Deny→T6 PolicyPending→PolicyDenied short-circuit, SubjectUnauthenticated→T6 with EnvelopeValidationFailed reason, other PolicyError→RuntimeError::PolicyEvalFailed; T-027/T-028/T-029 baselines preserved when kernel=None) + crates/aios-capability-runtime/tests/policy_integration.rs (12 new tests: ALLOW T4 + REQUIRE_APPROVAL T5 + DENY T6 + no-kernel baseline + HydratedSubject reaches kernel unchanged + constraints projection visible via snapshot + AI+Allow tripwire increments + Human+Allow no increment + AI+Allow+Human-approver no increment + SubjectUnauthenticated→PolicyDenied+EnvelopeValidationFailed + BundleVersionMismatch→PolicyEvalFailed + e2e Allow walks to Succeeded). Scope guard held: status.rs/dispatch.rs/failure.rs/adapter_manifest.rs/context.rs/adapter_registry.rs/adapter_handle.rs/dispatch_queue.rs/dispatcher.rs UNTOUCHED. T7 OverridePending mapping deferred: aios_policy::InMemoryPolicyKernel already consults its own OverrideBoundary handle during evaluate_policy, so any successful override relaxation converts Deny→Allow inside the kernel before reaching the runtime; if a Deny reaches the runtime it means no override path was authored at the kernel layer (T-031 will revisit when the override boundary handle is threaded through the runtime alongside the kernel). M4 7/10 complete. Next: T-031 evidence emission (S10.1 ↔ S3.1, wires aios_evidence::EvidenceLog into step_emit_evidence + appends per-step receipts onto ctx.evidence_chain + emits ACTION_POLICY_DECISION + ACTION_QUEUED + AI_INTERACTIVE_QUEUE_DOWNGRADE records).
+
+[2026-05-24] T-031 — aios-capability-runtime evidence emission (S10.1 ↔ S3.1)
+  Files added:
+    - crates/aios-capability-runtime/src/evidence_emit.rs (~470 LoC) — EvidenceSink trait + InMemoryEvidenceSink + EvidenceEmitter + 9 emit_* helpers + CAPABILITY_RUNTIME_SUBJECT const
+    - crates/aios-capability-runtime/src/evidence_payloads.rs (~330 LoC) — 9 typed payload structs (ActionReceivedPayload, PolicyDecisionPayload, RoutingDecisionPayload, ActionQueuedPayload, ExecutionStartedPayload, ExecutionCompletedPayload, VerificationResultPayload, RollbackCompletedPayload, AiInteractiveQueueDowngradePayload) — each round-trips through serde_json
+    - crates/aios-capability-runtime/tests/evidence_emission.rs (~700 LoC) — 15 integration tests
+  Files modified:
+    - crates/aios-capability-runtime/Cargo.toml — aios-evidence path dep added
+    - crates/aios-capability-runtime/src/lib.rs — pub mod evidence_emit + pub mod evidence_payloads + re-exports
+    - crates/aios-capability-runtime/src/error.rs — EvidenceEmitFailed(String) variant added (maps to RuntimeErrorCode::EvidenceLogUnavailable)
+    - crates/aios-capability-runtime/src/runtime.rs — evidence_emitter: Option<Arc<EvidenceEmitter>> field + with_evidence_emitter ctor + evidence_emitter() accessor + Debug field + submit_action threading
+    - crates/aios-capability-runtime/src/pipeline.rs — run_with_full_engines_and_evidence top-level driver + 4 emitter-aware step variants (step_policy_evaluate_with_kernel_and_emit, step_queue_with_engine_and_emit, step_execute_with_engines_and_emit, step_verify_and_emit)
+    - .ai/{tasks,memory,global_memory}.json + .ai/progress.log
+  Spec deviation:
+    - ACTION_QUEUED has no S3.1 RecordType (Wave 13 / DEC-051 vocabulary at 427 entries); queue-enrolment evidence is emitted under RecordType::ActionDispatched(ID 116) with `dispatched: false` payload field marking it as the queue-enrolment phase (the EXECUTION_STARTED record handles the actual dispatch). Documented inline in evidence_payloads.rs ActionQueuedPayload doc comment.
+  RecordTypes used (10): ActionReceived (1) | PolicyDecision (4) | RoutingDecision (3) | ActionDispatched (116) | ExecutionStarted (8) | ExecutionCompleted (9) | VerificationResult (10) | RollbackCompleted (11) | AiInteractiveQueueDowngrade (129) | (FOREVER override for ROLLBACK_FAILED via emit_with_retention)
+  Verification:
+    - cargo check --workspace            PASS
+    - cargo test --workspace             PASS — 715 tests (+27 over 688 baseline: 12 unit tests in evidence_emit/evidence_payloads + 15 integration tests in evidence_emission.rs)
+    - cargo clippy --workspace --all-targets -- -D warnings  PASS
+    - cargo fmt --all -- --check         PASS
+  T-027/T-028/T-029/T-030 baselines preserved: emitter is Option; runtime falls through to run_with_full_engines when None.
+
+[2026-05-24 T-032] aios-capability-runtime — rollback FSM + ROLLBACK_FAILED forensic semantics (S10.1 §7)
+  New: src/rollback.rs (RollbackDriver async driver; run_rollback + classify_terminal; 8 unit tests)
+  New: src/rollback_strategy.rs (RollbackStrategy 5-variant closed enum per §7.2 — Unspecified/None/IdempotentReverse/CheckpointBased/ExternalRequired; RollbackFailureMode test seam; 6 unit tests)
+  Modified: src/lib.rs (pub mod rollback + rollback_strategy + re-exports RollbackDriver/RollbackStrategy/RollbackFailureMode)
+  Modified: src/pipeline.rs (added step_rollback_with_driver + step_rollback_with_driver_and_emit + step_verify_inject_failure_and_emit + run_with_full_engines_and_evidence_and_rollback top-level driver; existing step_rollback stub preserved for backward-compat)
+  Modified: src/runtime.rs (added rollback_driver field + operator_alerts AtomicU64 + with_rollback_driver ctor + accessor + operator_alerts() snapshot; submit_action routes through evidence+rollback pipeline when both attached)
+  New tests: tests/rollback_fsm.rs (12 integration tests covering §7.2 outcome table — strategy NONE/IDEMPOTENT_REVERSE/CHECKPOINT_BASED/EXTERNAL_REQUIRED, FOREVER retention on ROLLBACK_FAILED, operator_alerts counter, terminal-state strictness, backward-compat with no driver)
+  Spec deviation report: brief assumed rollback strategy enum {NONE, IDEMPOTENT_REAPPLY, INVERSE_APPLY, COMPENSATING_ACTION} but §7.2 declares {ROLLBACK_STRATEGY_UNSPECIFIED, NONE, IDEMPOTENT_REVERSE, CHECKPOINT_BASED, EXTERNAL_REQUIRED}. TRUST SPEC applied — implementation uses §7.2 vocabulary verbatim. §7.2 also pins EXTERNAL_REQUIRED → NotApplicable (operator-only rollback); honoured.
+  Gates:
+    - cargo check --workspace            PASS
+    - cargo test --workspace             PASS — 740 tests (+25 over 715 baseline: 13 unit tests across rollback + rollback_strategy + 12 integration tests in rollback_fsm.rs)
+    - cargo clippy --workspace --all-targets -- -D warnings  PASS
+    - cargo fmt --all -- --check         PASS
+  Scope guard: status.rs / dispatch.rs / failure.rs (untouched — RollbackOutcome already had Succeeded/Failed/NotApplicable/NotAttempted from T-026) / adapter_manifest.rs (untouched — declared_actions[].rollback_strategy already a String from T-026) / context.rs / adapter_registry.rs / adapter_handle.rs / dispatch_queue.rs / dispatcher.rs / evidence_emit.rs / evidence_payloads.rs all UNTOUCHED.
+  No gRPC (T-033), no approval orchestration (T-034), no M4 closer (T-035) — all deferred. M4 7/10 complete.
+
+2026-05-24 — T-033 (aios-capability-runtime — gRPC CapabilityRuntime service surface, S10.1 §5)
+  Action: Implemented the gRPC service surface for the L3-internal `aios.runtime.v1alpha1.CapabilityRuntime`
+          (S10.1 §5.1 nine-RPC closed set). Pattern mirrors aios-policy T-023 + aios-evidence T-011 verbatim.
+  New files:
+    - crates/aios-capability-runtime/proto/aios.runtime.v1alpha1.proto (319 lines — full §5.1 IDL: 9 RPCs,
+      8 vocabulary enums per §3, AdapterManifest per §10.1, ActionContext, request/response messages)
+    - crates/aios-capability-runtime/build.rs (tonic-build invocation with vendored protoc)
+    - crates/aios-capability-runtime/src/service/mod.rs (proto include + re-exports + SCHEMA_VERSION + status table)
+    - crates/aios-capability-runtime/src/service/conversions.rs (~840 lines — Rust ↔ proto for every value type
+      [ActionLifecycleState, ActionDispatchKind, AdapterIOMode, AdapterStability, QueueClass,
+      ExecutionFailureReason, RollbackOutcome, RuntimeErrorCode, AdapterManifest, AdapterActionDeclaration,
+      RegisteredAdapter, ActionContext] + envelope_to/from_bytes JSON placeholder + RuntimeError → tonic::Status
+      mapping table + runtime_error_to_code projection)
+    - crates/aios-capability-runtime/src/service/server.rs (CapabilityRuntimeService adapter wrapping
+      Arc<InMemoryCapabilityRuntime>; full impls for ValidateAction / ExecuteAction / GetActionStatus /
+      ListAdapters / GetAdapterCapabilities / GetCapabilityRuntimeInfo; stubs returning Unimplemented for
+      EvaluatePolicyForAction / RequestApprovalForAction / VerifyAction / RollbackAction per T-034/T-035 scope)
+    - crates/aios-capability-runtime/tests/grpc_roundtrip.rs (13 integration tests: validate_action happy +
+      empty-bytes negative; execute_action happy + POLICY_DENIED via scripted DenyKernel;
+      get_action_status known + not-found; list_adapters empty + populated; get_adapter_capabilities known +
+      not-found; get_capability_runtime_info schema + id; stubbed RPCs return Unimplemented;
+      ActionContext / AdapterManifest / RegisteredAdapter wire round-trips; full RuntimeError → tonic::Status
+      mapping table covering every variant)
+  Modified files:
+    - crates/aios-capability-runtime/Cargo.toml (added tonic + prost + prost-types runtime deps;
+      tonic-build + protoc-bin-vendored build-deps; build = "build.rs")
+    - crates/aios-capability-runtime/src/lib.rs (added `pub mod service;`)
+  RuntimeError → tonic::Status mapping table (full coverage in tests):
+    ActionNotFound → NotFound;
+    InvalidTransition{..} → FailedPrecondition;
+    AdapterUnknown(_) → NotFound;
+    AdapterSignatureInvalid / AdapterUnknownAuthority(_) → PermissionDenied;
+    AdapterAlreadyRegistered(_) → AlreadyExists;
+    ManifestInvalid(_) → InvalidArgument;
+    QueueFull(_) / RateLimited(_) → ResourceExhausted;
+    PolicyEvalFailed(_) → FailedPrecondition;
+    EvidenceEmitFailed(_) → Internal;
+    Internal(_) → Internal.
+  Cross-crate envelope: kept JSON placeholder pattern (envelope_to/from_bytes) per open task #26 —
+    matches aios-policy T-023 exactly. The conversions module is the single touch point when
+    aios-action ships its own proto IDL.
+  Gates:
+    - cargo check --workspace            PASS
+    - cargo test --workspace             PASS — 769 tests (+29 over 740 baseline:
+      16 unit tests in service::conversions::tests + service::server::tests; 13 integration tests in
+      tests/grpc_roundtrip.rs)
+    - cargo clippy --workspace --all-targets -- -D warnings  PASS
+    - cargo fmt --all -- --check         PASS
+  Scope guard: status.rs / dispatch.rs / failure.rs / adapter_manifest.rs / context.rs / adapter_registry.rs /
+    adapter_handle.rs / dispatch_queue.rs / dispatcher.rs / evidence_emit.rs / evidence_payloads.rs /
+    rollback.rs / rollback_strategy.rs / pipeline.rs / runtime.rs / error.rs all UNTOUCHED. No new error
+    variants. No behaviour change in any existing module. M4 9/10 complete.
+  Spec deviation: brief listed RPC names "ValidateAction / EvaluatePolicy / RequestApproval / ExecuteAction /
+    VerifyAction / RollbackAction / GetActionStatus / ListAdapters / GetAdapterCapabilities". Spec §5.1 actual
+    list: ValidateAction / EvaluatePolicyForAction / RequestApprovalForAction / ExecuteAction / VerifyAction /
+    RollbackAction / GetActionStatus / ListAdapters / GetAdapterCapabilities / GetCapabilityRuntimeInfo
+    (10 RPCs, not 9 — GetCapabilityRuntimeInfo is part of the spec surface). TRUST SPEC applied — implemented
+    all 10 spec RPCs verbatim.
+  Stubbed RPCs (T-034 / T-035 scope, returning Unimplemented):
+    - EvaluatePolicyForAction — policy step is folded into submit_action; standalone transition lands T-034.
+    - RequestApprovalForAction — approval orchestration lands T-034.
+    - VerifyAction — verification is folded into submit_action; standalone transition lands T-035.
+    - RollbackAction — rollback is driven automatically when a rollback driver is attached (T-032);
+      standalone operator-initiated rollback lands T-035 (needs stored adapter handle).
+  Next: T-034 (approval orchestration — S10.1 §6 + S2.3 §11.2 ApprovalRequirement; wires the validate ↔
+    execute boundary, the §6.1 step-7 anti-replay gate, and the ApprovalBinding consumption path).
+
+2026-05-24 — T-034 aios-capability-runtime — approval orchestration (S10.1 §6 + S5.3 + S2.3 §11.2)
+  Result: SUCCESS
+  Workspace tests: 794 passing (+25 over T-033 baseline 769; 14 integration + 11 inline unit).
+  Gates: cargo check + cargo test + cargo clippy --workspace --all-targets -- -D warnings + cargo fmt --all -- --check — ALL PASS.
+  Files added:
+    - src/approval.rs (~210 LoC + 3 unit tests) — ApprovalBindingState + ApprovalRequest + ApprovalBinding.
+    - src/approval_sink.rs (~280 LoC + 4 unit tests) — ApprovalBindingSink trait + InMemoryApprovalSink with §13.1
+      atomic consume gate.
+    - tests/approval_orchestration.rs (14 tests covering the full brief matrix).
+  Files modified:
+    - src/error.rs +5 variants (ApprovalBindingInvalid, ApprovalBindingConsumed, ApprovalBindingExpired,
+      ApprovalRequestNotFound, ApprovalApproverClassMismatch).
+    - src/evidence_payloads.rs +3 typed payload structs + 3 round-trip tests.
+    - src/evidence_emit.rs +3 emit_approval_* helpers.
+    - src/pipeline.rs — step_request_approval rewritten as async + new step_consume_binding +
+      step_request_approval_passthrough sync helper for legacy drivers; policy_evaluate steps install
+      ApprovalRequirement alongside Constraints.
+    - src/runtime.rs +approval_sink field +with_approval_sink ctor +resume_with_binding inherent helper +
+      policy_approval slot on RuntimeContext.
+    - proto/aios.runtime.v1alpha1.proto +optional approval_binding_id field on ExecuteActionRequest (tag 3).
+    - src/service/server.rs — execute_action handler routes to resume_with_binding when
+      approval_binding_id + action_request_id are both supplied.
+    - src/service/conversions.rs — error→status mapping for the 5 new variants.
+    - src/lib.rs — module decls + re-exports.
+  Spec deviations:
+    - ApprovalRequirement is not on Constraints; added a sibling policy_approval slot on RuntimeContext
+      (mirroring the existing policy_constraints pattern).
+    - resume_with_binding helper added in a separate inherent impl on InMemoryCapabilityRuntime — keeps the
+      CapabilityRuntime trait surface unchanged.
+    - 3 evidence helpers shipped (emit_approval_requested / _granted / _denied), within the brief's "up to 3"
+      bound.
+  Anti-replay proof: parallel_consume_binding_anti_replay_atomicity_one_winner test runs two concurrent
+    consume_binding calls under tokio::join! (multi_thread, 4 workers) — exactly one succeeds, the other
+    reports ApprovalBindingConsumed.
+  AI self-approval defense-in-depth: resume_with_ai_self_approval_returns_mismatch_defense_in_depth test
+    proves the L3 consume gate rejects an AI envelope whose granted_by equals the envelope's
+    canonical_subject_id (constitutional backstop for INV-002 / S2.3 §17 / S5.3 §14.3).
+  M4 status: 10/10 complete.
+  Next: T-035 — M4 closer (§22 MVP golden path E2E + acceptance fixtures + v0.1.0 bump).
+2026-05-24 17:16 T-036 codex exec aios-fs skeleton committed 7552a9b tests=831
+2026-05-24 17:31 T-037 codex exec aios-fs trait + InMemory + SNAPSHOT committed fb38671 tests=845
+2026-05-24 17:56 T-038 codex exec quarantine driver committed a3e29f3 tests=859
+2026-05-24 18:04 T-039 codex exec GC pass + chunk refcount committed 0385b57 tests=871
+2026-05-24 18:44 T-040 codex exec Query/View predicate core ready tests=891
+2026-05-24 19:08 T-041 codex exec implementation-space binding ready tests=911
+2026-05-24 18:37 T-042 codex exec namespace expansion + recovery policy ready tests=930
+2026-05-24 19:32 T-043 codex exec aios-fs gRPC service surface ready tests=944
+2026-05-24 20:10 T-044 codex exec aios-fs evidence emission ready tests=960
+2026-05-24 20:45 T-045 codex exec aios-fs M5 closer ready tests=997
+2026-05-24 20:45 M5 CLOSED aios-fs v0.1.0 workspace_tests=997 next=M6-aios-vault
+2026-05-24 20:58 T-045 committed 62bc784 gates=green tests=997
+2026-05-24 20:19 T-046 codex exec aios-vault skeleton committed 3913b01 tests=1006
+2026-05-24 20:30 T-047 codex exec VaultBroker trait + InMemory use-without-reveal ready tests=1024
+2026-05-24 20:30 T-047 committed d591c0a gates=green tests=1024
+2026-05-24 21:05 T-048 codex exec identity catalog + subject hydrator ready gates=green tests=1041
+2026-05-24 22:08 T-049 codex exec real crypto operations ready gates=green tests=1059

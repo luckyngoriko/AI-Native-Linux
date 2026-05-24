@@ -20,6 +20,13 @@ thiserror    = { workspace = true }
 tokio        = { workspace = true, features = ["macros", "rt"] }
 ulid         = { workspace = true }
 blake3       = { workspace = true }
+ed25519-dalek = { workspace = true }
+rand_core      = { workspace = true }
+aes-gcm        = { workspace = true }
+hmac           = { workspace = true }
+sha2           = { workspace = true }
+hkdf           = { workspace = true }
+x25519-dalek   = { workspace = true }
 
 [lints]
 workspace = true

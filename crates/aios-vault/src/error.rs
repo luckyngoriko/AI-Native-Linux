@@ -4,6 +4,7 @@ use thiserror::Error;
 
 use crate::broker::VaultOperation;
 use crate::capability::{CapabilityClass, CapabilityId, CapabilityState};
+use crate::key_material::KeyAlgorithm;
 
 /// Typed vault error surface.
 #[derive(Debug, Error, Clone, PartialEq, Eq)]
@@ -69,6 +70,23 @@ pub enum VaultError {
     /// Operation is typed but intentionally not implemented until T-049+.
     #[error("operation unsupported in T-047: {0}")]
     OperationUnsupportedInT047(VaultOperation),
+
+    /// Operation is typed but intentionally not implemented until after T-049.
+    #[error("operation unsupported in T-049: {0}")]
+    OperationUnsupportedInT049(VaultOperation),
+
+    /// Capability class and requested key algorithm are incompatible.
+    #[error("key algorithm mismatch: expected {expected:?}, found {found:?}")]
+    KeyAlgorithmMismatch {
+        /// Algorithm expected for the capability class.
+        expected: KeyAlgorithm,
+        /// Algorithm supplied by the caller.
+        found: KeyAlgorithm,
+    },
+
+    /// Cryptographic primitive failed without exposing backend error types.
+    #[error("crypto error: {0}")]
+    CryptoError(String),
 
     /// Internal broker failure.
     #[error("vault internal error: {0}")]

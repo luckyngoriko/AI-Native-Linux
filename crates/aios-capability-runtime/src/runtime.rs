@@ -38,6 +38,7 @@ use aios_action::{ActionEnvelope, ActionId};
 use crate::adapter_registry::InMemoryAdapterRegistry;
 use crate::context::ActionContext;
 use crate::dispatch::ActionDispatchKind;
+use crate::dispatch_queue::DispatchQueue;
 use crate::error::RuntimeError;
 use crate::pipeline::{fresh_context, ActionLifecyclePipeline};
 
@@ -268,6 +269,15 @@ pub struct InMemoryCapabilityRuntime {
     /// `RuntimeErrorCode::UnknownAdapter` already exists at the RPC
     /// surface); T-029 / T-035 will reconcile the two.
     adapter_registry: Option<Arc<InMemoryAdapterRegistry>>,
+    /// Optional dispatch queue handle. **T-029 entry point.** When attached,
+    /// `step_queue` (§3.5 / §11) enrols the action through the queue and
+    /// fails closed with `QUEUED → FAILED` (T14) +
+    /// [`crate::ExecutionFailureReason::ResourceBudgetExceeded`] on
+    /// [`crate::RuntimeError::QueueFull`] or
+    /// [`crate::RuntimeError::RateLimited`]. When `None`, the T-027
+    /// structural-pass-through behaviour is preserved so the §22 golden
+    /// path tests and the T-028 baseline keep driving.
+    dispatch_queue: Option<Arc<DispatchQueue>>,
 }
 
 impl InMemoryCapabilityRuntime {
@@ -305,6 +315,32 @@ impl InMemoryCapabilityRuntime {
     #[must_use]
     pub const fn adapter_registry(&self) -> Option<&Arc<InMemoryAdapterRegistry>> {
         self.adapter_registry.as_ref()
+    }
+
+    /// Attach a [`DispatchQueue`] to the runtime. Returns `self` for
+    /// chaining.
+    ///
+    /// **T-029 entry point.** With a queue attached, `step_queue`
+    /// (S10.1 §3.5 / §11) enrols the action via
+    /// [`DispatchQueue::enroll`] keyed by the envelope's
+    /// `identity.subject_canonical_id`. On a
+    /// [`crate::RuntimeError::QueueFull`] or
+    /// [`crate::RuntimeError::RateLimited`] failure the pipeline records
+    /// `error = ExecutionFailureReason::ResourceBudgetExceeded` and drives
+    /// `APPROVED → ... → QUEUED → FAILED` (T12 + T14) — the action does
+    /// not progress past queue admission. Without a queue, the T-027
+    /// structural-pass-through behaviour is preserved.
+    #[must_use]
+    pub fn with_dispatch_queue(mut self, queue: Arc<DispatchQueue>) -> Self {
+        self.dispatch_queue = Some(queue);
+        self
+    }
+
+    /// Borrow the attached dispatch queue, if any. Used by tests to inspect
+    /// per-class depths after a submission.
+    #[must_use]
+    pub const fn dispatch_queue(&self) -> Option<&Arc<DispatchQueue>> {
+        self.dispatch_queue.as_ref()
     }
 
     /// Snapshot of the number of action contexts currently held. Useful
@@ -345,9 +381,11 @@ impl CapabilityRuntime for InMemoryCapabilityRuntime {
         // attached (T-027 contract), the pipeline preserves its
         // structural-pass-through behaviour.
         let registry_ref = self.adapter_registry.as_deref();
+        let queue_ref = self.dispatch_queue.as_deref();
         let final_ctx = self
             .pipeline
-            .run_with_registry(envelope, ctx, now, registry_ref)?;
+            .run_with_engines(envelope, ctx, now, registry_ref, queue_ref)
+            .await?;
 
         // Persist for subsequent `get_action_status` reads.
         self.contexts

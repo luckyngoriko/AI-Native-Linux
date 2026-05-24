@@ -45,6 +45,8 @@ use aios_action::ActionEnvelope;
 use crate::adapter_registry::InMemoryAdapterRegistry;
 use crate::context::ActionContext;
 use crate::dispatch::{ActionDispatchKind, QueueClass};
+use crate::dispatch_queue::DispatchQueue;
+use crate::dispatcher::ActionDispatcher;
 use crate::error::RuntimeError;
 use crate::failure::ExecutionFailureReason;
 use crate::status::ActionLifecycleState;
@@ -290,6 +292,10 @@ impl ActionLifecyclePipeline {
     /// # Errors
     ///
     /// Same as [`Self::run`].
+    ///
+    /// Async sibling: [`Self::run_with_engines`] composes the dispatch queue
+    /// (T-029) over the same pipeline and is awaited from
+    /// [`crate::InMemoryCapabilityRuntime::submit_action`].
     pub fn run_with_registry(
         &self,
         envelope: &ActionEnvelope,
@@ -328,6 +334,205 @@ impl ActionLifecyclePipeline {
             }
         };
         Ok(state.into_context())
+    }
+
+    // -----------------------------------------------------------------------
+    // T-029 entry point — async pipeline with dispatch queue + dispatcher.
+    // -----------------------------------------------------------------------
+
+    /// Drive an envelope through all eight steps with an optional adapter
+    /// registry **and** an optional dispatch queue attached. **T-029 entry
+    /// point.**
+    ///
+    /// Composition rules:
+    ///
+    /// - `queue = None`, `registry = None` — identical to [`Self::run`]
+    ///   (T-027 contract preserved).
+    /// - `queue = None`, `registry = Some(...)` — identical to
+    ///   [`Self::run_with_registry`] (T-028 contract preserved).
+    /// - `queue = Some(...)` — step 4 (`step_queue`) consults
+    ///   [`ActionDispatcher::select_queue_class`] to pick the bucket,
+    ///   applies the §11.4 AI-interactive downgrade marker, and calls
+    ///   [`DispatchQueue::enroll`]. A
+    ///   [`RuntimeError::QueueFull`] / [`RuntimeError::RateLimited`]
+    ///   short-circuits to `QUEUED → FAILED` (T14) with
+    ///   `error = ExecutionFailureReason::ResourceBudgetExceeded`.
+    /// - `queue = Some(...)` + `registry = Some(...)` — step 5
+    ///   (`step_execute`) additionally records the dispatcher's chosen
+    ///   [`ActionDispatchKind`] on `context.dispatch_kind` (the field T-026
+    ///   already wires) per the §3.2 closed table. The selection logs are
+    ///   forensic only today; T-031 surfaces them through evidence.
+    ///
+    /// # Errors
+    ///
+    /// Same as [`Self::run`]; additionally returns
+    /// [`RuntimeError::InvalidTransition`] only if a step author requests a
+    /// transition outside the §4.2 table.
+    pub async fn run_with_engines(
+        &self,
+        envelope: &ActionEnvelope,
+        ctx: ActionContext,
+        now: DateTime<Utc>,
+        registry: Option<&InMemoryAdapterRegistry>,
+        queue: Option<&DispatchQueue>,
+    ) -> Result<ActionContext, RuntimeError> {
+        let state = self.step_validate(envelope, ctx, now)?;
+        let state = match state {
+            PipelineState::Continue(c) => self.step_policy_evaluate(envelope, c, now)?,
+            PipelineState::ShortCircuit(c) => return Ok(c),
+        };
+        let state = match state {
+            PipelineState::Continue(c) => self.step_request_approval(envelope, c, now)?,
+            PipelineState::ShortCircuit(c) => return Ok(c),
+        };
+        let state = match state {
+            PipelineState::Continue(c) => {
+                self.step_queue_with_engine(envelope, c, now, queue).await?
+            }
+            PipelineState::ShortCircuit(c) => return Ok(c),
+        };
+        let state = match state {
+            PipelineState::Continue(c) => {
+                self.step_execute_with_engines(envelope, c, now, registry)?
+            }
+            PipelineState::ShortCircuit(c) => return Ok(c),
+        };
+        let state = match state {
+            PipelineState::Continue(c) => self.step_verify(envelope, c, now)?,
+            PipelineState::ShortCircuit(c) => return Ok(c),
+        };
+        let state = match state {
+            PipelineState::Continue(c) => self.step_rollback(envelope, c, now)?,
+            PipelineState::ShortCircuit(c) => return Ok(c),
+        };
+        let state = match state {
+            PipelineState::Continue(c) | PipelineState::ShortCircuit(c) => {
+                self.step_emit_evidence(envelope, c, now)?
+            }
+        };
+        Ok(state.into_context())
+    }
+
+    /// T-029 — async sibling of [`Self::step_queue`] that consults the
+    /// dispatch queue.
+    ///
+    /// Behaviour:
+    /// - `queue = None` — identical to [`Self::step_queue`] (T-027 stub).
+    /// - `queue = Some(...)` — selects the [`QueueClass`] via
+    ///   [`ActionDispatcher::select_queue_class`] (`recovery_mode` is
+    ///   `false` today; T-030 will surface the host's recovery flag), applies the
+    ///   §11.4 AI-interactive downgrade if applicable, updates
+    ///   `ctx.queue_class`, then calls [`DispatchQueue::enroll`].
+    ///
+    ///   - On success → `APPROVED → QUEUED` (T12) and continue.
+    ///   - On [`RuntimeError::QueueFull`] / [`RuntimeError::RateLimited`] →
+    ///     `APPROVED → QUEUED → FAILED` (T12 + T14) with
+    ///     `error = ExecutionFailureReason::ResourceBudgetExceeded`, then
+    ///     short-circuit.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`RuntimeError::InvalidTransition`] if the context is not in
+    /// [`ActionLifecycleState::Approved`].
+    pub async fn step_queue_with_engine(
+        &self,
+        envelope: &ActionEnvelope,
+        mut ctx: ActionContext,
+        now: DateTime<Utc>,
+        queue: Option<&DispatchQueue>,
+    ) -> Result<PipelineState, RuntimeError> {
+        let Some(queue) = queue else {
+            return self.step_queue(envelope, ctx, now);
+        };
+
+        // §3.5 / §11.4 selection. `recovery_mode = false` for T-029; T-030
+        // will surface the host's recovery flag through `RuntimeContext`.
+        let is_ai = envelope.identity.is_ai;
+        let selected = ActionDispatcher::select_queue_class(envelope, false);
+        ctx.queue_class = selected;
+
+        // §11.4 silent downgrade marker — folded into selection above, but
+        // the call is preserved for the forensic log (T-031 emits the
+        // evidence record on the marker presence).
+        let _downgrade_marker = ActionDispatcher::apply_ai_interactive_downgrade(&ctx, is_ai);
+
+        // §4.2 T12 — APPROVED → QUEUED.
+        apply_transition(&mut ctx, ActionLifecycleState::Queued, now)?;
+
+        // Admission gate. The subject id is the envelope's
+        // `subject_canonical_id`; T-030 will replace it with the hydrated
+        // typed subject.
+        let subject_id = envelope.identity.subject_canonical_id.clone();
+        match queue.enroll(ctx.clone(), &subject_id).await {
+            Ok(stored) => Ok(PipelineState::Continue(stored)),
+            Err(RuntimeError::QueueFull(_) | RuntimeError::RateLimited(_)) => {
+                // §4.2 T14 — QUEUED → FAILED with ResourceBudgetExceeded.
+                apply_transition(&mut ctx, ActionLifecycleState::Failed, now)?;
+                ctx.error = Some(ExecutionFailureReason::ResourceBudgetExceeded);
+                Ok(PipelineState::ShortCircuit(ctx))
+            }
+            Err(other) => Err(other),
+        }
+    }
+
+    /// T-029 — sibling of [`Self::step_execute`] that additionally records
+    /// the dispatcher's chosen [`ActionDispatchKind`] (per the §3.2 closed
+    /// table) onto `ctx.dispatch_kind` when a registry is attached.
+    ///
+    /// Lookup behaviour mirrors [`Self::step_execute`]; the only addition
+    /// is the dispatch-kind selection. When no manifest can be retrieved
+    /// (no registry attached, or unknown `action_kind`), the
+    /// `dispatch_kind` on the context is left at its prior value — the
+    /// T-026 [`fresh_context`] seed ([`ActionDispatchKind::SubprocessFork`]).
+    ///
+    /// # Errors
+    ///
+    /// Returns [`RuntimeError::InvalidTransition`] only if the context is
+    /// not in [`ActionLifecycleState::Queued`].
+    pub fn step_execute_with_engines(
+        &self,
+        envelope: &ActionEnvelope,
+        mut ctx: ActionContext,
+        now: DateTime<Utc>,
+        registry: Option<&InMemoryAdapterRegistry>,
+    ) -> Result<PipelineState, RuntimeError> {
+        if let Some(registry) = registry {
+            use crate::runtime::AdapterRegistry;
+            let Some(handle) = registry.lookup(&envelope.request.action) else {
+                apply_transition(&mut ctx, ActionLifecycleState::Failed, now)?;
+                ctx.error = Some(ExecutionFailureReason::DependencyUnready);
+                return Ok(PipelineState::ShortCircuit(ctx));
+            };
+            // Down-cast to RealAdapterHandle to pull the manifest for the
+            // §3.2 dispatch-kind decision. The cast is safe because the
+            // InMemoryAdapterRegistry only ever returns RealAdapterHandle
+            // instances; the trait object is what `AdapterRegistry::lookup`
+            // returns for forward compatibility with future handle kinds.
+            // We perform the decision via a minimal sketch using the
+            // handle's dispatch_kind() (manifest's preferred kind) plus
+            // §3.2 modifiers.
+            let manifest_kind = handle.dispatch_kind();
+            let is_ai = envelope.identity.is_ai;
+            let is_simulate = matches!(envelope.request.dry_run, aios_action::DryRunMode::Simulate);
+            // Synthesise a minimal AdapterManifest-shaped view by reading
+            // the handle's preferred dispatch kind + assuming Stable
+            // stability when the registry returned it (Retired adapters
+            // are filtered upstream by `AdapterRegistry::lookup`).
+            // `risk_privileged` is `false` for T-029 (the typed risk
+            // surface is not yet on the envelope).
+            let chosen = compute_dispatch_kind(
+                manifest_kind,
+                DispatchKindInputs {
+                    is_simulate,
+                    is_ai,
+                    risk_privileged: false,
+                    manifest_stable: true,
+                },
+            );
+            ctx.dispatch_kind = chosen;
+        }
+        apply_transition(&mut ctx, ActionLifecycleState::Executing, now)?;
+        Ok(PipelineState::Continue(ctx))
     }
 
     // -----------------------------------------------------------------------
@@ -609,6 +814,57 @@ impl ActionLifecyclePipeline {
         _now: DateTime<Utc>,
     ) -> Result<PipelineState, RuntimeError> {
         Ok(PipelineState::Continue(ctx))
+    }
+}
+
+/// Bundle of the boolean modifiers that feed the §3.2 dispatch-kind rule.
+///
+/// Authored as a single struct so [`compute_dispatch_kind`] can take one
+/// typed argument rather than four positional `bool`s (constitutional
+/// clippy rule: more than three bools in a signature is a reviewer trap).
+#[allow(
+    clippy::struct_excessive_bools,
+    reason = "the §3.2 closed decision table has four independent boolean inputs; modelling each as a two-variant enum would inflate the surface without adding type safety"
+)]
+#[derive(Debug, Clone, Copy)]
+pub struct DispatchKindInputs {
+    /// `request.dry_run == SIMULATE` (§3.2 rule 1, topmost).
+    pub is_simulate: bool,
+    /// Subject's `is_ai` flag (§3.2 rule 2 — AI forces `ISOLATED_SANDBOX`).
+    pub is_ai: bool,
+    /// `request.risk.privileged` (§3.2 rule 3 — privileged forces
+    /// `ISOLATED_SANDBOX`).
+    pub risk_privileged: bool,
+    /// `manifest.declared_stability == STABLE` (§3.2 rule 5 — only STABLE
+    /// adapters are eligible for `IN_PROCESS_RPC`).
+    pub manifest_stable: bool,
+}
+
+/// T-029 dispatch-kind decision (§3.2 closed table) — pure function so
+/// `step_execute_with_engines` can decide without re-binding the manifest.
+///
+/// The decision is identical to
+/// [`crate::dispatcher::ActionDispatcher::select_dispatch_kind`] but takes
+/// the manifest's preferred kind + a [`DispatchKindInputs`] modifier
+/// bundle directly so the adapter-registry trait surface (which returns
+/// [`crate::runtime::AdapterHandle`] objects, not full manifests) can
+/// drive it without down-casting.
+#[must_use]
+pub fn compute_dispatch_kind(
+    manifest_kind: ActionDispatchKind,
+    inputs: DispatchKindInputs,
+) -> ActionDispatchKind {
+    if inputs.is_simulate {
+        return ActionDispatchKind::DryRun;
+    }
+    if inputs.is_ai || inputs.risk_privileged {
+        return ActionDispatchKind::IsolatedSandbox;
+    }
+    if manifest_kind == ActionDispatchKind::InProcessRpc && inputs.manifest_stable {
+        ActionDispatchKind::InProcessRpc
+    } else {
+        // SUBPROCESS_FORK terminus (§3.2 rule 4 + rule 6 fallback).
+        ActionDispatchKind::SubprocessFork
     }
 }
 

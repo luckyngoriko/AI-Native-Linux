@@ -12,6 +12,7 @@ use thiserror::Error;
 
 use aios_action::ActionId;
 
+use crate::dispatch::QueueClass;
 use crate::status::ActionLifecycleState;
 
 /// Closed error taxonomy for the L3 orchestration surface.
@@ -79,6 +80,24 @@ pub enum RuntimeError {
     /// is signature-adjacent, otherwise `INVALID_ENVELOPE` semantics.
     #[error("adapter manifest invalid: {0}")]
     ManifestInvalid(String),
+
+    /// The dispatch queue refused enrolment because the per-class capacity
+    /// (§11.1) or the 50 % `AGENT_PROPOSAL` hard cap (§11.1 — constitutional)
+    /// is full. T-029 surface; the offending [`QueueClass`] is carried for
+    /// forensic logging. The pipeline maps this to
+    /// [`crate::ExecutionFailureReason::ResourceBudgetExceeded`] on the
+    /// `QUEUED → FAILED` (T14) transition; the gRPC adapter (T-033) maps
+    /// it to [`crate::RuntimeErrorCode::QueueBackpressureRejected`].
+    #[error("dispatch queue full for class: {0:?}")]
+    QueueFull(QueueClass),
+
+    /// The dispatch queue refused enrolment because the per-subject token-
+    /// bucket rate limit (§11.2) is exhausted. T-029 surface; the offending
+    /// `subject_canonical_id` is carried for forensic logging. The pipeline
+    /// maps this to [`crate::ExecutionFailureReason::ResourceBudgetExceeded`]
+    /// on the `QUEUED → FAILED` (T14) transition.
+    #[error("subject rate-limited: {0}")]
+    RateLimited(String),
 
     /// Catch-all for unexpected internal faults. Maps to
     /// [`crate::RuntimeErrorCode::RuntimeInternal`]. Carries a free-form

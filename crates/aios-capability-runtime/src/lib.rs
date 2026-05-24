@@ -45,6 +45,8 @@ pub mod adapter_manifest;
 pub mod adapter_registry;
 pub mod context;
 pub mod dispatch;
+pub mod dispatch_queue;
+pub mod dispatcher;
 pub mod error;
 pub mod failure;
 pub mod pipeline;
@@ -59,10 +61,16 @@ pub use adapter_registry::{
 };
 pub use context::ActionContext;
 pub use dispatch::{ActionDispatchKind, AdapterIOMode, AdapterStability, QueueClass};
+pub use dispatch_queue::{
+    DispatchQueue, TokenBucket, AGENT_PROPOSAL_CAP_DEN, AGENT_PROPOSAL_CAP_NUM,
+    DEFAULT_BURST_CAPACITY, DEFAULT_REFILL_PER_SECOND, DEFAULT_TOTAL_CAPACITY,
+};
+pub use dispatcher::{ActionDispatcher, AI_INTERACTIVE_DOWNGRADE_MARKER};
 pub use error::RuntimeError;
 pub use failure::{ExecutionFailureReason, RollbackOutcome, RuntimeErrorCode};
 pub use pipeline::{
-    apply_transition, fresh_context, ActionLifecyclePipeline, PipelineState, TRANSITIONS,
+    apply_transition, compute_dispatch_kind, fresh_context, ActionLifecyclePipeline,
+    DispatchKindInputs, PipelineState, TRANSITIONS,
 };
 pub use runtime::{
     AdapterHandle, AdapterRegistry, CapabilityRuntime, InMemoryCapabilityRuntime,

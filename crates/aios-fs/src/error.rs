@@ -90,6 +90,18 @@ pub enum FsError {
     #[error("query evaluation error: {0}")]
     QueryEval(String),
 
+    /// Implementation-space binding id was not present in the binding catalog.
+    #[error("implementation-space binding not found: {0}")]
+    ImplSpaceBindingNotFound(String),
+
+    /// Implementation-space target could not be reached by a backend verifier.
+    #[error("implementation-space target unreachable: {0}")]
+    ImplSpaceTargetUnreachable(String),
+
+    /// Implementation-space integrity verification failed.
+    #[error("implementation-space integrity failed: {0}")]
+    ImplSpaceIntegrityFailed(String),
+
     /// Unexpected internal fault.
     #[error("aios-fs internal error: {0}")]
     Internal(String),

@@ -216,6 +216,12 @@
       "title": "aios-fs - Query / View language + parser + evaluator (S2.1 predicate core)",
       "completed_at": "2026-05-24",
       "evidence": "891 tests workspace (+20 over T-039 baseline 871). New crates/aios-fs/src/query.rs typed AND-only AST, query_parser.rs recursive-descent parser with position-accurate errors and DisallowedToken for or/not/parens, query_eval.rs evaluator + read-only materialize_view over AiosFs reads. FsError additions: QueryParse, QueryEval. Tests: crates/aios-fs/tests/query_parser.rs (11) + query_eval.rs (9). Gates PASS: cargo check --workspace + cargo test --workspace + cargo clippy --workspace --all-targets -- -D warnings + cargo fmt --all -- --check. Scope guard held: no implementation space, no namespace expansion, no gRPC, no evidence emission."
+    },
+    {
+      "id": "T-041",
+      "title": "aios-fs - Implementation space binding (S2.2)",
+      "completed_at": "2026-05-24",
+      "evidence": "911 tests workspace (+20 over T-040 baseline 891). New crates/aios-fs/src/impl_space.rs with ImplSpace async trait, ImplSpaceTarget, ImplSpaceSource, IntegrityState, ImplSpaceBinding, and InMemoryImplSpace + with_fixtures(). FsError additions: ImplSpaceBindingNotFound, ImplSpaceTargetUnreachable, ImplSpaceIntegrityFailed. Tests: crates/aios-fs/tests/impl_space.rs (20). Gates PASS: cargo check --workspace + cargo test --workspace + cargo clippy --workspace --all-targets -- -D warnings + cargo fmt --all -- --check. Scope guard held: no namespace expansion, no gRPC, no evidence emission, no real I/O/encryption/network."
     }
   ],
   "blocked": [],
@@ -317,9 +323,10 @@
         "T-037",
         "T-038",
         "T-039",
-        "T-040"
+        "T-040",
+        "T-041"
       ],
-      "current_test_count": 891,
+      "current_test_count": 911,
       "rationale": "Closes \u00a722 phase-2 (mount /aios + versioned object + semantic view). Unblocks M4 enrichment stub."
     },
     "M6": {

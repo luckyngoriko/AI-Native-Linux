@@ -30,6 +30,7 @@ pub mod error;
 pub mod fs_trait;
 pub mod gc;
 mod id;
+pub mod impl_space;
 pub mod in_memory;
 pub mod lifecycle;
 pub mod namespace;
@@ -49,6 +50,10 @@ pub use fs_trait::{
     AiosFs, FsContext, ObjectReadResult, ObjectWriteRequest, ObjectWriteResult, SnapshotSummary,
 };
 pub use gc::{GcPassDriver, GcPassReport, GcReason, VersionPurgeReason};
+pub use impl_space::{
+    ImplSpace, ImplSpaceBinding, ImplSpaceSource, ImplSpaceTarget, InMemoryImplSpace,
+    IntegrityState,
+};
 pub use in_memory::InMemoryAiosFs;
 pub use lifecycle::LifecycleState;
 pub use namespace::{AiosPath, NamespaceClass};

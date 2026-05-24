@@ -24,6 +24,9 @@ use crate::object::{
     ScopeKind, SubjectRef,
 };
 use crate::pointer::{Pointer, PointerId, PointerKind};
+use crate::quarantine::{
+    new_quarantine_id, MutableAiosFs, QuarantineDisposition, QuarantineReceipt, QuarantineTrigger,
+};
 use crate::snapshot_id::SnapshotId;
 use crate::transaction::{PointerMoveOp, Transaction, TransactionId, TransactionState, WriteOp};
 use crate::version::{Version, VersionId, VersionState};
@@ -31,8 +34,8 @@ use crate::version::{Version, VersionId, VersionState};
 /// In-process AIOS-FS harness backed by `RwLock<HashMap<...>>` catalogs.
 ///
 /// The harness is deliberately small: no persistence, no real transaction
-/// lifecycle driver, no quarantine entry/exit driver, and no GC pass. It exists so
-/// T-038..T-045 can plug real engines into a stable trait surface.
+/// lifecycle driver and no GC pass. It exists so T-038..T-045 can plug real
+/// engines into a stable trait surface.
 #[derive(Debug, Clone)]
 pub struct InMemoryAiosFs {
     state: Arc<RwLock<State>>,
@@ -96,6 +99,86 @@ impl InMemoryAiosFs {
 
             store.capture_snapshot();
         }
+
+        Ok(())
+    }
+
+    /// Harness-only pointer fixture used by T-038 quarantine tests.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`FsError::ObjectNotFound`] when `object_id` is unknown,
+    /// [`FsError::VersionNotFound`] when `version_id` is unknown or belongs to
+    /// another object.
+    #[doc(hidden)]
+    pub fn force_pointer_for_harness(
+        &self,
+        object_id: &ObjectId,
+        kind: PointerKind,
+        version_id: &VersionId,
+    ) -> Result<PointerId, FsError> {
+        let mut store = self.write_state();
+        if !store.objects.contains_key(object_id) {
+            return Err(FsError::ObjectNotFound(object_id.clone()));
+        }
+
+        let version = store
+            .versions
+            .get(version_id)
+            .ok_or_else(|| FsError::VersionNotFound(version_id.clone()))?;
+        if version.object_id != *object_id {
+            return Err(FsError::VersionNotFound(version_id.clone()));
+        }
+
+        let now = Utc::now();
+        let pointer_id = PointerId::new();
+        store.pointers.insert(
+            pointer_id.clone(),
+            Pointer {
+                pointer_id: pointer_id.clone(),
+                object_id: object_id.clone(),
+                kind,
+                current_version_id: version_id.clone(),
+                last_promoted_at: now,
+                last_promoted_by_transaction_id: TransactionId::new(),
+            },
+        );
+        store.capture_snapshot();
+        drop(store);
+
+        Ok(pointer_id)
+    }
+
+    /// Harness-only object pointer rebinding used to exercise T-037 read gates
+    /// after T-038 pointer moves.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`FsError::ObjectNotFound`] when `object_id` is unknown and
+    /// [`FsError::PointerNotFound`] when `pointer_id` is unknown or belongs to
+    /// another object.
+    #[doc(hidden)]
+    pub fn force_object_current_pointer_for_harness(
+        &self,
+        object_id: &ObjectId,
+        pointer_id: &PointerId,
+    ) -> Result<(), FsError> {
+        let mut store = self.write_state();
+        let pointer = store
+            .pointers
+            .get(pointer_id)
+            .ok_or_else(|| FsError::PointerNotFound(pointer_id.clone()))?;
+        if pointer.object_id != *object_id {
+            return Err(FsError::PointerNotFound(pointer_id.clone()));
+        }
+
+        let object = store
+            .objects
+            .get_mut(object_id)
+            .ok_or_else(|| FsError::ObjectNotFound(object_id.clone()))?;
+        object.current_pointer_id = pointer_id.clone();
+        store.capture_snapshot();
+        drop(store);
 
         Ok(())
     }
@@ -312,6 +395,108 @@ impl AiosFs for InMemoryAiosFs {
     }
 }
 
+impl MutableAiosFs for InMemoryAiosFs {
+    fn apply_quarantine_entry(
+        &self,
+        version_id: &VersionId,
+        trigger: QuarantineTrigger,
+        reason: &str,
+    ) -> Result<QuarantineReceipt, FsError> {
+        let mut store = self.write_state();
+        let now = Utc::now();
+        let transaction_id = TransactionId::new();
+        let version = store
+            .versions
+            .get(version_id)
+            .cloned()
+            .ok_or_else(|| FsError::VersionNotFound(version_id.clone()))?;
+
+        if version.state == VersionState::Quarantined {
+            return Err(FsError::QuarantineAlreadyApplied(version_id.clone()));
+        }
+
+        let affected_pointer_ids = current_or_stable_pointers_to(&store, version_id);
+        let fallback_target = if affected_pointer_ids.is_empty() {
+            None
+        } else {
+            quarantine_pointer_fallback(&store, &version)?
+        };
+
+        if !affected_pointer_ids.is_empty() && fallback_target.is_none() {
+            return Err(FsError::NoPriorStablePointer(version.object_id));
+        }
+
+        let version_mut = store
+            .versions
+            .get_mut(version_id)
+            .ok_or_else(|| FsError::VersionNotFound(version_id.clone()))?;
+        version_mut.state = VersionState::Quarantined;
+        version_mut.quarantined_at = Some(now);
+        version_mut.quarantine_reason = Some(reason.to_owned());
+
+        if let Some(target_version_id) = fallback_target {
+            for pointer_id in affected_pointer_ids {
+                let pointer = store
+                    .pointers
+                    .get_mut(&pointer_id)
+                    .ok_or_else(|| FsError::PointerNotFound(pointer_id.clone()))?;
+                pointer.current_version_id = target_version_id.clone();
+                pointer.last_promoted_at = now;
+                pointer.last_promoted_by_transaction_id = transaction_id.clone();
+            }
+        }
+
+        store.capture_snapshot();
+        drop(store);
+
+        Ok(QuarantineReceipt {
+            quarantine_id: new_quarantine_id(),
+            version_id: version_id.clone(),
+            transitioned_at: now,
+            trigger: Some(trigger),
+            disposition: None,
+            reason: reason.to_owned(),
+        })
+    }
+
+    fn apply_quarantine_exit(
+        &self,
+        version_id: &VersionId,
+        disposition: QuarantineDisposition,
+        operator: &SubjectRef,
+    ) -> Result<QuarantineReceipt, FsError> {
+        let mut store = self.write_state();
+        let now = Utc::now();
+        let version = store
+            .versions
+            .get_mut(version_id)
+            .ok_or_else(|| FsError::VersionNotFound(version_id.clone()))?;
+
+        if version.state != VersionState::Quarantined {
+            return Err(FsError::QuarantineNotApplied(version_id.clone()));
+        }
+
+        version.state = match disposition {
+            QuarantineDisposition::Released => VersionState::Verified,
+            QuarantineDisposition::Purged => VersionState::RetiredVersion,
+        };
+        version.quarantined_at = None;
+        version.quarantine_reason = None;
+
+        store.capture_snapshot();
+        drop(store);
+
+        Ok(QuarantineReceipt {
+            quarantine_id: new_quarantine_id(),
+            version_id: version_id.clone(),
+            transitioned_at: now,
+            trigger: None,
+            disposition: Some(disposition),
+            reason: format!("operator={}", operator.0),
+        })
+    }
+}
+
 #[derive(Debug, Default)]
 struct State {
     objects: HashMap<ObjectId, Object>,
@@ -400,6 +585,98 @@ impl State {
             })
             .collect()
     }
+}
+
+fn current_or_stable_pointers_to(store: &State, version_id: &VersionId) -> Vec<PointerId> {
+    let mut pointer_ids: Vec<PointerId> = store
+        .pointers
+        .values()
+        .filter(|pointer| {
+            matches!(pointer.kind, PointerKind::Current | PointerKind::Stable)
+                && pointer.current_version_id == *version_id
+        })
+        .map(|pointer| pointer.pointer_id.clone())
+        .collect();
+
+    pointer_ids.sort_by(|left, right| left.as_str().cmp(right.as_str()));
+    pointer_ids
+}
+
+fn quarantine_pointer_fallback(
+    store: &State,
+    version: &Version,
+) -> Result<Option<VersionId>, FsError> {
+    if let Some(rollback_target) = pointer_target_for_kind(
+        store,
+        &version.object_id,
+        PointerKind::Rollback,
+        &version.version_id,
+    )? {
+        return Ok(Some(rollback_target));
+    }
+
+    if let Some(stable_pointer_target) = pointer_target_for_kind(
+        store,
+        &version.object_id,
+        PointerKind::Stable,
+        &version.version_id,
+    )? {
+        return Ok(Some(stable_pointer_target));
+    }
+
+    prior_verified_parent(store, version)
+}
+
+fn pointer_target_for_kind(
+    store: &State,
+    object_id: &ObjectId,
+    kind: PointerKind,
+    excluded_version_id: &VersionId,
+) -> Result<Option<VersionId>, FsError> {
+    let mut pointers: Vec<&Pointer> = store
+        .pointers
+        .values()
+        .filter(|pointer| {
+            pointer.object_id == *object_id
+                && pointer.kind == kind
+                && pointer.current_version_id != *excluded_version_id
+        })
+        .collect();
+    pointers.sort_by(|left, right| left.pointer_id.as_str().cmp(right.pointer_id.as_str()));
+
+    if let Some(pointer) = pointers.first() {
+        let target = version_for_object(store, object_id, &pointer.current_version_id)?;
+        return Ok(Some(target.version_id.clone()));
+    }
+
+    Ok(None)
+}
+
+fn prior_verified_parent(store: &State, version: &Version) -> Result<Option<VersionId>, FsError> {
+    for parent_version_id in &version.parent_version_ids {
+        let parent = version_for_object(store, &version.object_id, parent_version_id)?;
+        if parent.state == VersionState::Verified {
+            return Ok(Some(parent.version_id.clone()));
+        }
+    }
+
+    Ok(None)
+}
+
+fn version_for_object<'a>(
+    store: &'a State,
+    object_id: &ObjectId,
+    version_id: &VersionId,
+) -> Result<&'a Version, FsError> {
+    let version = store
+        .versions
+        .get(version_id)
+        .ok_or_else(|| FsError::VersionNotFound(version_id.clone()))?;
+    if version.object_id != *object_id {
+        return Err(FsError::VersionNotFound(version_id.clone()));
+    }
+
+    Ok(version)
 }
 
 fn ensure_snapshot_current(

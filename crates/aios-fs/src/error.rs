@@ -48,6 +48,18 @@ pub enum FsError {
     #[error("quarantine violation: {0}")]
     QuarantineViolation(String),
 
+    /// Quarantine entry was requested for a version already in quarantine.
+    #[error("quarantine already applied: {0}")]
+    QuarantineAlreadyApplied(VersionId),
+
+    /// Quarantine exit was requested for a version not in quarantine.
+    #[error("quarantine not applied: {0}")]
+    QuarantineNotApplied(VersionId),
+
+    /// No rollback or prior stable pointer target exists for the object.
+    #[error("no prior stable pointer for object: {0}")]
+    NoPriorStablePointer(ObjectId),
+
     /// Version state transition is not permitted by S1.3.
     #[error("invalid version transition: {from:?} -> {to:?}")]
     InvalidTransition {

@@ -192,6 +192,18 @@
       "title": "aios-fs crate skeleton \u2014 S1.3 typed schema + S4.1 namespace skeleton (M5 OPENER)",
       "completed_at": "2026-05-24",
       "evidence": "831 tests workspace (+10 over M4 closure baseline 821). New crate crates/aios-fs v0.0.1 registered in workspace members. Types-only skeleton: Object/Version/Chunk/Pointer/Transaction records per S1.3 \u00a75..\u00a79; closed enums VersionState, PointerKind, LifecycleState, PrivacyClass, ObjectKind, TransactionState, ConsistencyClass; AiosPath + NamespaceClass classifier per S4.1; FsError taxonomy. Spec deviations from brief are TRUST SPEC choices: Object uses current_pointer_id/metadata/retired_at/purge_at/index_hints/scope_binding per \u00a75+\u00a721, Version uses parent_version_ids/chunk_refs/content_hash/metadata_delta/action+transaction linkage per \u00a76, Chunk uses ref_count per \u00a77, Pointer uses CURRENT/STABLE/CANDIDATE/ROLLBACK/QUARANTINE per \u00a78, Transaction uses \u00a79 state/writes/pointer_moves/evidence_receipt_id while ConsistencyClass remains a separate \u00a711 enum, Namespace follows /aios/system + /aios/groups rather than legacy flat /users/work/cache, LifecycleState is ACTIVE/RETIRED/PURGED per \u00a74.2. Gates PASS: cargo check --workspace + cargo test --workspace + cargo clippy --workspace --all-targets -- -D warnings + cargo fmt --all -- --check."
+    },
+    {
+      "id": "T-037",
+      "title": "aios-fs \u2014 AiosFs trait + InMemory impl + SNAPSHOT consistency",
+      "completed_at": "2026-05-24",
+      "evidence": "845 tests workspace (+14 over T-036 baseline 831). New AiosFs async trait, ObjectReadResult/ObjectWriteRequest/ObjectWriteResult/FsContext/SnapshotSummary DTOs, SnapshotId snap_<32hex> BLAKE3+JCS derivation, InMemoryAiosFs HashMap-backed harness, SNAPSHOT stale detection, S1.3 \u00a712 quarantine read denial stub, FsError additions SnapshotStale/WriteRequiresParent/ChunkUnknown. Gates PASS: cargo check --workspace + cargo test --workspace + cargo clippy --workspace --all-targets -- -D warnings + cargo fmt --all -- --check."
+    },
+    {
+      "id": "T-038",
+      "title": "aios-fs \u2014 QuarantineDriver entry/exit + pointer atomic move (S1.3 \u00a712)",
+      "completed_at": "2026-05-24",
+      "evidence": "859 tests workspace (+12 new quarantine tests over T-037 target scope). New crates/aios-fs/src/quarantine.rs with QuarantineDriver, MutableAiosFs, QuarantineTrigger, QuarantineDisposition, QuarantineReceipt. InMemoryAiosFs implements quarantine entry/exit mutation and S1.3 \u00a712.2 pointer move: ROLLBACK target first, otherwise prior stable fallback. FsError additions: QuarantineAlreadyApplied, QuarantineNotApplied, NoPriorStablePointer. Gates PASS: cargo check --workspace + cargo test --workspace + cargo clippy --workspace --all-targets -- -D warnings + cargo fmt --all -- --check. Scope guard held: no GC, no Query/View, no gRPC, no evidence emission."
     }
   ],
   "blocked": [],
@@ -289,9 +301,11 @@
       "layer": "L2",
       "target_crate": "aios-fs",
       "tasks": [
-        "T-036"
+        "T-036",
+        "T-037",
+        "T-038"
       ],
-      "current_test_count": 831,
+      "current_test_count": 859,
       "rationale": "Closes \u00a722 phase-2 (mount /aios + versioned object + semantic view). Unblocks M4 enrichment stub."
     },
     "M6": {

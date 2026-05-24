@@ -34,6 +34,7 @@ pub mod lifecycle;
 pub mod namespace;
 pub mod object;
 pub mod pointer;
+pub mod quarantine;
 pub mod snapshot_id;
 pub mod transaction;
 pub mod version;
@@ -51,6 +52,9 @@ pub use object::{
     ScopeKind, SubjectRef,
 };
 pub use pointer::{Pointer, PointerId, PointerKind};
+pub use quarantine::{
+    MutableAiosFs, QuarantineDisposition, QuarantineDriver, QuarantineReceipt, QuarantineTrigger,
+};
 pub use snapshot_id::SnapshotId;
 pub use transaction::{
     ConsistencyClass, PointerMoveOp, Transaction, TransactionId, TransactionState, WriteOp,

@@ -32,3 +32,4 @@ __pycache__/
 # Capella tooling
 tools/capella/.venv/
 tools/capella/output/build_report.json
+tools/capella/output/gap_report.json

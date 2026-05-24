@@ -13,6 +13,7 @@
     xmlns:org.polarsys.capella.core.data.information="http://www.polarsys.org/capella/core/information/7.0.0"
     xmlns:org.polarsys.capella.core.data.information.datatype="http://www.polarsys.org/capella/core/information/datatype/7.0.0"
     xmlns:org.polarsys.capella.core.data.information.datavalue="http://www.polarsys.org/capella/core/information/datavalue/7.0.0"
+    xmlns:org.polarsys.capella.core.data.interaction="http://www.polarsys.org/capella/core/interaction/7.0.0"
     xmlns:org.polarsys.capella.core.data.la="http://www.polarsys.org/capella/core/la/7.0.0"
     xmlns:org.polarsys.capella.core.data.oa="http://www.polarsys.org/capella/core/oa/7.0.0"
     xmlns:org.polarsys.capella.core.data.pa="http://www.polarsys.org/capella/core/pa/7.0.0"
@@ -120,17 +121,78 @@
             id="45618019-cd88-5635-8d94-3151daeecbbf" name="INV-024 — GPU compute access is capability-gated"
             description="&lt;p>&lt;strong>Statement.&lt;/strong> Access to `GPU_COMPUTE_HEAVY` (per L8.2 closed `GpuCapabilityClass` enum) requires an explicit `gpu.compute_heavy` capability grant tracked by the L4 capability catalog. The default capability set does not include this grant. Generic adapter capability negotiation cannot synthesise this access. Workloads that need GPGPU compute must request and receive the capability before any compute submission is dispatched to the device.&lt;/p>&lt;p>&lt;strong>Why.&lt;/strong> GPGPU compute is the highest-cost, highest-risk renderer-adjacent resource. Unbounded GPU compute is the canonical vector for cross-group side-channels (residual memory probing, timing leaks across VkDevice partitions), sustained thermal and energy abuse, and exfiltration via shader timing. Default-deny with explicit capability grant ensures an operator (or, in recovery mode, an emergency override per S5.4) has authorised the workload class. Combined with the L8.2 per-group VkDevice partitioning&lt;/p>&lt;p>&lt;strong>Enforced by.&lt;/strong> L8.2 GPU resource model — capability negotiation rejects compute submission without the active grant; L4.1 Policy Kernel constitutional hard-deny `GpuComputeOutsideAuthorisedClass` (§27.2.2) which fires before bundle rules; L4.3 capability binding records the grant with TTL, scope, and grant-evidence pointer; L9 telemetry (`gpu_compute_class_total`) reports per-class submission counts so out-of-class usage is visible operationally.&lt;/p>&lt;p>&lt;strong>Verified by.&lt;/strong> S2.4 property `GPU_COMPUTE_GATED` (added to the closed `PropertyType` enum). The audit walks active GPU compute submissions and confirms every one has a live `gpu.compute_heavy` capability binding for the submitting subject; absence triggers `TAMPER_DETECTED` evidence with `invariant_id = INV_024_GPU_COMPUTE_GATED`. Scheduled audit will be wired in S2.4 at consolidation.&lt;/p>"/>
         <ownedOperationalCapabilities xsi:type="org.polarsys.capella.core.data.oa:OperationalCapability"
-            id="67d497a9-7b2b-5e8c-b33b-bc8eb54b867d" name="S6.1 — Status Taxonomy (Rev.2)"
-            description="&lt;p>&lt;strong>Layer.&lt;/strong> L0&lt;/p>&lt;p>&lt;strong>Status.&lt;/strong> CONTRACT (initial; written 2026-05-09)&lt;/p>&lt;p>&lt;strong>Schema package.&lt;/strong> aios.governance.v1alpha1&lt;/p>&lt;p>&lt;strong>Source.&lt;/strong> L0_Governance_Evidence_Safety/01_status_taxonomy.md&lt;/p>"/>
-        <ownedOperationalCapabilities xsi:type="org.polarsys.capella.core.data.oa:OperationalCapability"
-            id="c1c4ef6b-cb34-54b0-bee8-797a2ec749ce" name="S6.2 — Evidence Grades (Rev.2)"
-            description="&lt;p>&lt;strong>Layer.&lt;/strong> L0&lt;/p>&lt;p>&lt;strong>Status.&lt;/strong> CONTRACT (initial; written 2026-05-09)&lt;/p>&lt;p>&lt;strong>Schema package.&lt;/strong> aios.governance.v1alpha1&lt;/p>&lt;p>&lt;strong>Source.&lt;/strong> L0_Governance_Evidence_Safety/02_evidence_grades.md&lt;/p>"/>
-        <ownedOperationalCapabilities xsi:type="org.polarsys.capella.core.data.oa:OperationalCapability"
             id="abc5d422-722a-5ab6-85da-baed09fcfdd2" name="S6.3 — Evidence Receipt Schema (Rev.2)"
-            description="&lt;p>&lt;strong>Layer.&lt;/strong> L0&lt;/p>&lt;p>&lt;strong>Status.&lt;/strong> REAL (initial; written 2026-05-09)&lt;/p>&lt;p>&lt;strong>Schema package.&lt;/strong> aios.evidence.v1alpha1 (binds to S3.1's package; this contract owns the receipt envelope, S3.1 owns the log container around it)&lt;/p>&lt;p>&lt;strong>Source.&lt;/strong> L0_Governance_Evidence_Safety/03_evidence_receipt_schema.md&lt;/p>"/>
-        <ownedOperationalCapabilities xsi:type="org.polarsys.capella.core.data.oa:OperationalCapability"
-            id="facb2ed1-6972-5aef-a9c1-4d2e6b411be1" name="S6.4 — Constitutional Invariants (Rev.2)"
-            description="&lt;p>&lt;strong>Layer.&lt;/strong> L0&lt;/p>&lt;p>&lt;strong>Status.&lt;/strong> CONTRACT (initial; written 2026-05-09)&lt;/p>&lt;p>&lt;strong>Schema package.&lt;/strong> aios.governance.v1alpha1&lt;/p>&lt;p>&lt;strong>Source.&lt;/strong> L0_Governance_Evidence_Safety/04_invariants.md&lt;/p>"/>
+            description="&lt;p>&lt;strong>Layer.&lt;/strong> L0&lt;/p>&lt;p>&lt;strong>Status.&lt;/strong> REAL (initial; written 2026-05-09)&lt;/p>&lt;p>&lt;strong>Schema package.&lt;/strong> aios.evidence.v1alpha1 (binds to S3.1's package; this contract owns the receipt envelope, S3.1 owns the log container around it)&lt;/p>&lt;p>&lt;strong>Source.&lt;/strong> L0_Governance_Evidence_Safety/03_evidence_receipt_schema.md&lt;/p>">
+          <ownedTraces xsi:type="org.polarsys.capella.core.data.oa:OperationalCapability"
+              id="c1c4ef6b-cb34-54b0-bee8-797a2ec749ce" name="S6.2 — Evidence Grades (Rev.2)"
+              description="&lt;p>&lt;strong>Layer.&lt;/strong> L0&lt;/p>&lt;p>&lt;strong>Status.&lt;/strong> CONTRACT (initial; written 2026-05-09)&lt;/p>&lt;p>&lt;strong>Schema package.&lt;/strong> aios.governance.v1alpha1&lt;/p>&lt;p>&lt;strong>Source.&lt;/strong> L0_Governance_Evidence_Safety/02_evidence_grades.md&lt;/p>"/>
+          <ownedTraces xsi:type="org.polarsys.capella.core.data.oa:OperationalCapability"
+              id="facb2ed1-6972-5aef-a9c1-4d2e6b411be1" name="S6.4 — Constitutional Invariants (Rev.2)"
+              description="&lt;p>&lt;strong>Layer.&lt;/strong> L0&lt;/p>&lt;p>&lt;strong>Status.&lt;/strong> CONTRACT (initial; written 2026-05-09)&lt;/p>&lt;p>&lt;strong>Schema package.&lt;/strong> aios.governance.v1alpha1&lt;/p>&lt;p>&lt;strong>Source.&lt;/strong> L0_Governance_Evidence_Safety/04_invariants.md&lt;/p>">
+            <ownedAbstractCapabilityRealizations xsi:type="org.polarsys.capella.core.data.interaction:AbstractCapabilityRealization"
+                id="23c5956b-83da-4e5f-a09d-3722ecd40a9b" targetElement="#176eeef6-8c59-53a9-a203-c1814e940ea3"/>
+            <ownedAbstractCapabilityRealizations xsi:type="org.polarsys.capella.core.data.interaction:AbstractCapabilityRealization"
+                id="9e31fd9d-dc2d-4dc7-92ff-f606eb0d3a5e" targetElement="#3d1d2cb2-91ed-5113-ba39-7396bc45fe4b"/>
+            <ownedAbstractCapabilityRealizations xsi:type="org.polarsys.capella.core.data.interaction:AbstractCapabilityRealization"
+                id="6520d1be-3438-42dc-a87e-2b8424e441aa" targetElement="#720c502e-14a7-5bc6-a653-775aafdf19d7"/>
+            <ownedAbstractCapabilityRealizations xsi:type="org.polarsys.capella.core.data.interaction:AbstractCapabilityRealization"
+                id="58a625aa-8783-4dd5-800f-babd1df7a526" targetElement="#cb3e3446-1fa8-586a-a7ab-f41ed9f03f1a"/>
+            <ownedAbstractCapabilityRealizations xsi:type="org.polarsys.capella.core.data.interaction:AbstractCapabilityRealization"
+                id="c12bd4bb-8102-4b79-b2f1-dcefe80eb1b5" targetElement="#813ea4ba-fb84-53cc-ac47-0b24f8e78e65"/>
+            <ownedAbstractCapabilityRealizations xsi:type="org.polarsys.capella.core.data.interaction:AbstractCapabilityRealization"
+                id="ad9258e6-01ed-45a2-a543-fa8913780ad9" targetElement="#53ba7f0b-51a5-5b95-a58b-19a4263bbaba"/>
+            <ownedAbstractCapabilityRealizations xsi:type="org.polarsys.capella.core.data.interaction:AbstractCapabilityRealization"
+                id="677e880a-d295-4926-85bf-bf6cb75a48a4" targetElement="#c643d6b6-f03b-53c7-bad3-80ccb8caf77f"/>
+            <ownedAbstractCapabilityRealizations xsi:type="org.polarsys.capella.core.data.interaction:AbstractCapabilityRealization"
+                id="0aee5dc5-5b67-4695-8f46-b1254328f242" targetElement="#4127520f-26a1-5ed8-8770-1f9eb6d9b58a"/>
+            <ownedAbstractCapabilityRealizations xsi:type="org.polarsys.capella.core.data.interaction:AbstractCapabilityRealization"
+                id="5589c907-59c9-45a8-8edf-5e978a8a32ee" targetElement="#83cdfb98-d1e0-5d04-85f3-cf5f655335f6"/>
+            <ownedAbstractCapabilityRealizations xsi:type="org.polarsys.capella.core.data.interaction:AbstractCapabilityRealization"
+                id="abc46f2e-d878-454c-8b6e-499013c1cffc" targetElement="#dc6436b2-2fae-53d1-822f-fc849a056c9b"/>
+            <ownedAbstractCapabilityRealizations xsi:type="org.polarsys.capella.core.data.interaction:AbstractCapabilityRealization"
+                id="cabf2e98-4548-4e8f-8e84-22742cbc2134" targetElement="#fa2ee763-ec45-5ce3-be0e-fda2085066b8"/>
+            <ownedAbstractCapabilityRealizations xsi:type="org.polarsys.capella.core.data.interaction:AbstractCapabilityRealization"
+                id="062bdb41-34f4-44a0-ae9b-bbd27a8523eb" targetElement="#f97cda66-bee8-5f57-bd26-ac7f5a313bc3"/>
+            <ownedAbstractCapabilityRealizations xsi:type="org.polarsys.capella.core.data.interaction:AbstractCapabilityRealization"
+                id="f6898257-afb1-4195-8543-986a47aa6b4c" targetElement="#eb972166-7e61-5e2e-805c-95f780b6cc99"/>
+            <ownedAbstractCapabilityRealizations xsi:type="org.polarsys.capella.core.data.interaction:AbstractCapabilityRealization"
+                id="8a113e14-f06f-4143-af2d-9c8213243375" targetElement="#ba937ceb-e1c9-5114-992d-c680b842a504"/>
+            <ownedAbstractCapabilityRealizations xsi:type="org.polarsys.capella.core.data.interaction:AbstractCapabilityRealization"
+                id="221e9d70-845b-4f8f-b49b-a9734c2fd9e1" targetElement="#c794b7c5-4b64-5535-8995-46716aca5c04"/>
+            <ownedAbstractCapabilityRealizations xsi:type="org.polarsys.capella.core.data.interaction:AbstractCapabilityRealization"
+                id="92e5ce40-cfa4-46ba-8d31-14cf490afc89" targetElement="#bfe499d0-2fe2-531e-b420-5e278c011fae"/>
+            <ownedAbstractCapabilityRealizations xsi:type="org.polarsys.capella.core.data.interaction:AbstractCapabilityRealization"
+                id="ef89933a-31f1-4ead-af75-d739f78f7ad2" targetElement="#e993019a-8348-5343-a657-9346780b32a0"/>
+            <ownedAbstractCapabilityRealizations xsi:type="org.polarsys.capella.core.data.interaction:AbstractCapabilityRealization"
+                id="99610e6e-d135-416d-a67e-f69373339bc8" targetElement="#da3e7575-d002-504f-811e-d3dc03c93126"/>
+            <ownedAbstractCapabilityRealizations xsi:type="org.polarsys.capella.core.data.interaction:AbstractCapabilityRealization"
+                id="f8f45b55-15c0-449b-bf9a-4ef478faf7a5" targetElement="#11c37e9b-56c5-5865-b8db-4cb80840f7f6"/>
+            <ownedAbstractCapabilityRealizations xsi:type="org.polarsys.capella.core.data.interaction:AbstractCapabilityRealization"
+                id="088147db-a7da-4296-a945-cf7aa64817f3" targetElement="#54f9810e-8870-57df-b33c-ca9882c77d0f"/>
+            <ownedAbstractCapabilityRealizations xsi:type="org.polarsys.capella.core.data.interaction:AbstractCapabilityRealization"
+                id="b7bacc5a-fe33-4a5a-9ec0-56b05002f8a0" targetElement="#e1da91b5-5e7e-57b9-98de-2a9f754ca4e4"/>
+            <ownedAbstractCapabilityRealizations xsi:type="org.polarsys.capella.core.data.interaction:AbstractCapabilityRealization"
+                id="9793a016-e3af-4e41-b88d-cab0b2bafd60" targetElement="#ce53aeb7-fc7c-54c7-9e84-719722c5f06a"/>
+            <ownedAbstractCapabilityRealizations xsi:type="org.polarsys.capella.core.data.interaction:AbstractCapabilityRealization"
+                id="3b447248-4688-48d8-aa19-e127d4b05189" targetElement="#9e7cd71a-4563-51b4-901e-ab4ccf20e4fb"/>
+            <ownedAbstractCapabilityRealizations xsi:type="org.polarsys.capella.core.data.interaction:AbstractCapabilityRealization"
+                id="0f3d3eec-d216-4919-8f28-f2004d4766c6" targetElement="#45618019-cd88-5635-8d94-3151daeecbbf"/>
+          </ownedTraces>
+          <ownedAbstractCapabilityRealizations xsi:type="org.polarsys.capella.core.data.interaction:AbstractCapabilityRealization"
+              id="f5a3d883-3e43-4685-b57b-9b98ecd7a919" targetElement="#3d1d2cb2-91ed-5113-ba39-7396bc45fe4b"/>
+          <ownedAbstractCapabilityRealizations xsi:type="org.polarsys.capella.core.data.interaction:AbstractCapabilityRealization"
+              id="6f7a64ce-f4ee-4533-b034-ac4394b234b9" targetElement="#813ea4ba-fb84-53cc-ac47-0b24f8e78e65"/>
+          <ownedAbstractCapabilityRealizations xsi:type="org.polarsys.capella.core.data.interaction:AbstractCapabilityRealization"
+              id="499dc452-9157-4c73-a4b5-839a19d8d0df" targetElement="#dc6436b2-2fae-53d1-822f-fc849a056c9b"/>
+          <ownedAbstractCapabilityRealizations xsi:type="org.polarsys.capella.core.data.interaction:AbstractCapabilityRealization"
+              id="72bc428c-44e4-417e-af09-e8fcd8a029af" targetElement="#ba937ceb-e1c9-5114-992d-c680b842a504"/>
+          <ownedAbstractCapabilityRealizations xsi:type="org.polarsys.capella.core.data.interaction:AbstractCapabilityRealization"
+              id="896ec1df-c40c-4622-b097-f874a00ae15d" targetElement="#c794b7c5-4b64-5535-8995-46716aca5c04"/>
+          <ownedAbstractCapabilityRealizations xsi:type="org.polarsys.capella.core.data.interaction:AbstractCapabilityRealization"
+              id="eefa6976-74b8-4f1e-8f71-bcee1ffea4a1" targetElement="#bfe499d0-2fe2-531e-b420-5e278c011fae"/>
+          <ownedAbstractCapabilityRealizations xsi:type="org.polarsys.capella.core.data.interaction:AbstractCapabilityRealization"
+              id="1d7d380c-6398-41b4-aef2-037742f6600c" targetElement="#da3e7575-d002-504f-811e-d3dc03c93126"/>
+        </ownedOperationalCapabilities>
       </ownedAbstractCapabilityPkg>
       <ownedInterfacePkg xsi:type="org.polarsys.capella.core.data.cs:InterfacePkg"
           id="4f9b6def-388f-4006-a97a-4aa7e8f9f5fd" name="Interfaces"/>
@@ -155,17 +217,69 @@
       <ownedAbstractCapabilityPkg xsi:type="org.polarsys.capella.core.data.ctx:CapabilityPkg"
           id="bc7f17c6-57a9-4adf-8f01-5f71e830b6fa" name="Capabilities">
         <ownedCapabilities xsi:type="org.polarsys.capella.core.data.ctx:Capability"
-            id="c1636be8-2d97-5a7b-82cc-f88eb68a0c68" name="S0.1 — Action Envelope + Lifecycle (Rev.2)"
-            description="&lt;p>&lt;strong>Layer.&lt;/strong> XX&lt;/p>&lt;p>&lt;strong>Status.&lt;/strong> CONTRACT (rev.2 design approved; awaiting implementation evidence)&lt;/p>&lt;p>&lt;strong>Schema package.&lt;/strong> —&lt;/p>&lt;p>&lt;strong>Source.&lt;/strong> XX_Cross_Cutting/01_action_envelope_lifecycle.md&lt;/p>"/>
-        <ownedCapabilities xsi:type="org.polarsys.capella.core.data.ctx:Capability"
             id="d6f97d87-da92-5aeb-accc-fe9c348d550b" name="Rev.2 reference donor / system app candidate — ProxGuard Reference Model Notes (Rev.2)"
             description="&lt;p>&lt;strong>Layer.&lt;/strong> XX&lt;/p>&lt;p>&lt;strong>Status.&lt;/strong> CONTRACT reference note&lt;/p>&lt;p>&lt;strong>Schema package.&lt;/strong> —&lt;/p>&lt;p>&lt;strong>Source.&lt;/strong> XX_Cross_Cutting/02_proxguard_reference_model.md&lt;/p>"/>
         <ownedCapabilities xsi:type="org.polarsys.capella.core.data.ctx:Capability"
             id="e464b4d1-6158-5034-b3d0-94524bf00529" name="S0.3 — MVP Golden Path Contract (Rev.2)"
-            description="&lt;p>&lt;strong>Layer.&lt;/strong> XX&lt;/p>&lt;p>&lt;strong>Status.&lt;/strong> REAL (initial; written 2026-05-09; E1 evidence — file exists; structural contract complete; trace walks every layer of the L0..L10 stack)&lt;/p>&lt;p>&lt;strong>Schema package.&lt;/strong> n/a — this contract is a trace and acceptance test, not a service&lt;/p>&lt;p>&lt;strong>Source.&lt;/strong> XX_Cross_Cutting/03_mvp_golden_path.md&lt;/p>"/>
+            description="&lt;p>&lt;strong>Layer.&lt;/strong> XX&lt;/p>&lt;p>&lt;strong>Status.&lt;/strong> REAL (initial; written 2026-05-09; E1 evidence — file exists; structural contract complete; trace walks every layer of the L0..L10 stack)&lt;/p>&lt;p>&lt;strong>Schema package.&lt;/strong> n/a — this contract is a trace and acceptance test, not a service&lt;/p>&lt;p>&lt;strong>Source.&lt;/strong> XX_Cross_Cutting/03_mvp_golden_path.md&lt;/p>">
+          <ownedTraces xsi:type="org.polarsys.capella.core.data.oa:OperationalCapability"
+              id="67d497a9-7b2b-5e8c-b33b-bc8eb54b867d" name="S6.1 — Status Taxonomy (Rev.2)"
+              description="&lt;p>&lt;strong>Layer.&lt;/strong> L0&lt;/p>&lt;p>&lt;strong>Status.&lt;/strong> CONTRACT (initial; written 2026-05-09)&lt;/p>&lt;p>&lt;strong>Schema package.&lt;/strong> aios.governance.v1alpha1&lt;/p>&lt;p>&lt;strong>Source.&lt;/strong> L0_Governance_Evidence_Safety/01_status_taxonomy.md&lt;/p>"/>
+          <ownedAbstractCapabilityRealizations xsi:type="org.polarsys.capella.core.data.interaction:AbstractCapabilityRealization"
+              id="ab875b06-0978-4a08-bcfa-87032c5053f0" targetElement="#176eeef6-8c59-53a9-a203-c1814e940ea3"/>
+          <ownedAbstractCapabilityRealizations xsi:type="org.polarsys.capella.core.data.interaction:AbstractCapabilityRealization"
+              id="24dfe6ab-f2f2-4ce2-ba48-583a00e55007" targetElement="#3d1d2cb2-91ed-5113-ba39-7396bc45fe4b"/>
+          <ownedAbstractCapabilityRealizations xsi:type="org.polarsys.capella.core.data.interaction:AbstractCapabilityRealization"
+              id="e99828c4-8410-4220-8ec8-85e7c985f1e7" targetElement="#cb3e3446-1fa8-586a-a7ab-f41ed9f03f1a"/>
+          <ownedAbstractCapabilityRealizations xsi:type="org.polarsys.capella.core.data.interaction:AbstractCapabilityRealization"
+              id="a55b3d59-8482-43f4-9557-8ba539649aca" targetElement="#813ea4ba-fb84-53cc-ac47-0b24f8e78e65"/>
+          <ownedAbstractCapabilityRealizations xsi:type="org.polarsys.capella.core.data.interaction:AbstractCapabilityRealization"
+              id="58c09c7b-2b1c-4f83-a016-9dabdd7fa418" targetElement="#c643d6b6-f03b-53c7-bad3-80ccb8caf77f"/>
+          <ownedAbstractCapabilityRealizations xsi:type="org.polarsys.capella.core.data.interaction:AbstractCapabilityRealization"
+              id="dbf013b7-c1e9-4b41-88e8-7ab238224bbb" targetElement="#4127520f-26a1-5ed8-8770-1f9eb6d9b58a"/>
+          <ownedAbstractCapabilityRealizations xsi:type="org.polarsys.capella.core.data.interaction:AbstractCapabilityRealization"
+              id="ffb03a28-96b7-4fd3-88c3-d2916f208604" targetElement="#83cdfb98-d1e0-5d04-85f3-cf5f655335f6"/>
+          <ownedAbstractCapabilityRealizations xsi:type="org.polarsys.capella.core.data.interaction:AbstractCapabilityRealization"
+              id="f65ce8a9-3700-4f36-9a89-64e71b7455cb" targetElement="#dc6436b2-2fae-53d1-822f-fc849a056c9b"/>
+          <ownedAbstractCapabilityRealizations xsi:type="org.polarsys.capella.core.data.interaction:AbstractCapabilityRealization"
+              id="6395e416-3ce5-4958-9477-4557f6e89045" targetElement="#fa2ee763-ec45-5ce3-be0e-fda2085066b8"/>
+          <ownedAbstractCapabilityRealizations xsi:type="org.polarsys.capella.core.data.interaction:AbstractCapabilityRealization"
+              id="41243a30-2e9d-4403-b67e-4563b0cabaa1" targetElement="#f97cda66-bee8-5f57-bd26-ac7f5a313bc3"/>
+          <ownedAbstractCapabilityRealizations xsi:type="org.polarsys.capella.core.data.interaction:AbstractCapabilityRealization"
+              id="f5df7f08-2f91-4cd9-9c5d-41c2da997176" targetElement="#eb972166-7e61-5e2e-805c-95f780b6cc99"/>
+          <ownedAbstractCapabilityRealizations xsi:type="org.polarsys.capella.core.data.interaction:AbstractCapabilityRealization"
+              id="304f052d-3f15-4234-890f-66d0aa41433b" targetElement="#ba937ceb-e1c9-5114-992d-c680b842a504"/>
+          <ownedAbstractCapabilityRealizations xsi:type="org.polarsys.capella.core.data.interaction:AbstractCapabilityRealization"
+              id="e9362d3d-70c5-4659-8a1e-fd73911e00c2" targetElement="#c794b7c5-4b64-5535-8995-46716aca5c04"/>
+          <ownedAbstractCapabilityRealizations xsi:type="org.polarsys.capella.core.data.interaction:AbstractCapabilityRealization"
+              id="bf0f5d9f-2734-48c2-8619-dd2c6db8084f" targetElement="#da3e7575-d002-504f-811e-d3dc03c93126"/>
+          <ownedAbstractCapabilityRealizations xsi:type="org.polarsys.capella.core.data.interaction:AbstractCapabilityRealization"
+              id="a8a1b377-bb95-4672-aa38-b0d7f0934823" targetElement="#11c37e9b-56c5-5865-b8db-4cb80840f7f6"/>
+          <ownedAbstractCapabilityRealizations xsi:type="org.polarsys.capella.core.data.interaction:AbstractCapabilityRealization"
+              id="8320cf7f-2c7d-4b7c-8e4a-8c19d21bf674" targetElement="#54f9810e-8870-57df-b33c-ca9882c77d0f"/>
+          <ownedAbstractCapabilityRealizations xsi:type="org.polarsys.capella.core.data.interaction:AbstractCapabilityRealization"
+              id="a1037134-2ebd-4ceb-b746-0d590c2d1c05" targetElement="#e1da91b5-5e7e-57b9-98de-2a9f754ca4e4"/>
+          <ownedAbstractCapabilityRealizations xsi:type="org.polarsys.capella.core.data.interaction:AbstractCapabilityRealization"
+              id="334a12e7-d698-40ea-8328-6b670d1046c3" targetElement="#ce53aeb7-fc7c-54c7-9e84-719722c5f06a"/>
+          <ownedAbstractCapabilityRealizations xsi:type="org.polarsys.capella.core.data.interaction:AbstractCapabilityRealization"
+              id="d37eff56-a1fe-414b-9fba-0bb08a3cfdac" targetElement="#9e7cd71a-4563-51b4-901e-ab4ccf20e4fb"/>
+          <ownedAbstractCapabilityRealizations xsi:type="org.polarsys.capella.core.data.interaction:AbstractCapabilityRealization"
+              id="a414b688-1b9f-4abe-a777-313add21fdca" targetElement="#45618019-cd88-5635-8d94-3151daeecbbf"/>
+        </ownedCapabilities>
         <ownedCapabilities xsi:type="org.polarsys.capella.core.data.ctx:Capability"
             id="7e83629f-613a-53a7-b4f8-4dba49175c04" name="S0.4 — Constitutional Meta-Principles (Rev.2)"
-            description="&lt;p>&lt;strong>Layer.&lt;/strong> XX&lt;/p>&lt;p>&lt;strong>Status.&lt;/strong> CONTRACT (initial; written 2026-05-11)&lt;/p>&lt;p>&lt;strong>Schema package.&lt;/strong> n/a (this contract is meta-narrative; it documents principles, not service shapes)&lt;/p>&lt;p>&lt;strong>Source.&lt;/strong> XX_Cross_Cutting/04_constitutional_meta_principles.md&lt;/p>"/>
+            description="&lt;p>&lt;strong>Layer.&lt;/strong> XX&lt;/p>&lt;p>&lt;strong>Status.&lt;/strong> CONTRACT (initial; written 2026-05-11)&lt;/p>&lt;p>&lt;strong>Schema package.&lt;/strong> n/a (this contract is meta-narrative; it documents principles, not service shapes)&lt;/p>&lt;p>&lt;strong>Source.&lt;/strong> XX_Cross_Cutting/04_constitutional_meta_principles.md&lt;/p>">
+          <ownedAbstractCapabilityRealizations xsi:type="org.polarsys.capella.core.data.interaction:AbstractCapabilityRealization"
+              id="fb0aaf61-4af9-443b-98b4-1311a0786169" targetElement="#3d1d2cb2-91ed-5113-ba39-7396bc45fe4b"/>
+          <ownedAbstractCapabilityRealizations xsi:type="org.polarsys.capella.core.data.interaction:AbstractCapabilityRealization"
+              id="e9b58d8a-b556-474f-a57b-1ab7bf5832be" targetElement="#813ea4ba-fb84-53cc-ac47-0b24f8e78e65"/>
+          <ownedAbstractCapabilityRealizations xsi:type="org.polarsys.capella.core.data.interaction:AbstractCapabilityRealization"
+              id="e457efd2-8076-48c7-9386-1da30700352c" targetElement="#c643d6b6-f03b-53c7-bad3-80ccb8caf77f"/>
+          <ownedAbstractCapabilityRealizations xsi:type="org.polarsys.capella.core.data.interaction:AbstractCapabilityRealization"
+              id="4ee236e3-c480-48f5-a90c-6d31d68bb932" targetElement="#ba937ceb-e1c9-5114-992d-c680b842a504"/>
+          <ownedAbstractCapabilityRealizations xsi:type="org.polarsys.capella.core.data.interaction:AbstractCapabilityRealization"
+              id="e4bb4489-529d-444d-b217-df79123a1675" targetElement="#bfe499d0-2fe2-531e-b420-5e278c011fae"/>
+        </ownedCapabilities>
       </ownedAbstractCapabilityPkg>
       <ownedInterfacePkg xsi:type="org.polarsys.capella.core.data.cs:InterfacePkg"
           id="004f3475-1923-4206-97c5-8207a9d42b92" name="Interfaces"/>
@@ -300,68 +414,142 @@
             id="53fde7e2-4098-5981-ad09-d0e8f5e69997" name="S1.3 — AIOS-FS Object Model (Rev.2)"
             description="&lt;p>&lt;strong>Layer.&lt;/strong> L2&lt;/p>&lt;p>&lt;strong>Status.&lt;/strong> CONTRACT (refined 2026-05-08; awaiting implementation evidence)&lt;/p>&lt;p>&lt;strong>Schema package.&lt;/strong> —&lt;/p>&lt;p>&lt;strong>Source.&lt;/strong> L2_AIOS_FS/01_object_model.md&lt;/p>"/>
         <ownedCapabilityRealizations xsi:type="org.polarsys.capella.core.data.la:CapabilityRealization"
-            id="7564db82-90ab-542a-ad55-71a8266fcb38" name="S2.1 — AIOS-FS Query and View Language (Rev.2)"
-            description="&lt;p>&lt;strong>Layer.&lt;/strong> L2&lt;/p>&lt;p>&lt;strong>Status.&lt;/strong> CONTRACT (refined 2026-05-08; awaiting implementation evidence)&lt;/p>&lt;p>&lt;strong>Schema package.&lt;/strong> —&lt;/p>&lt;p>&lt;strong>Source.&lt;/strong> L2_AIOS_FS/02_query_view_language.md&lt;/p>"/>
-        <ownedCapabilityRealizations xsi:type="org.polarsys.capella.core.data.la:CapabilityRealization"
-            id="0a6e6150-a3cc-515b-9e35-ba02398eefd8" name="S1.3 — AIOS-FS Conflict Resolution (Rev.2)"
-            description="&lt;p>&lt;strong>Layer.&lt;/strong> L2&lt;/p>&lt;p>&lt;strong>Status.&lt;/strong> CONTRACT (refined 2026-05-08; awaiting implementation evidence)&lt;/p>&lt;p>&lt;strong>Schema package.&lt;/strong> —&lt;/p>&lt;p>&lt;strong>Source.&lt;/strong> L2_AIOS_FS/03_conflict_resolution.md&lt;/p>"/>
-        <ownedCapabilityRealizations xsi:type="org.polarsys.capella.core.data.la:CapabilityRealization"
             id="d9bccc94-ecf9-52e3-bee3-45fc4537364a" name="S2.2 — AIOS-FS Implementation Space (Rev.2)"
             description="&lt;p>&lt;strong>Layer.&lt;/strong> L2&lt;/p>&lt;p>&lt;strong>Status.&lt;/strong> CONTRACT (refined 2026-05-08; awaiting implementation evidence)&lt;/p>&lt;p>&lt;strong>Schema package.&lt;/strong> —&lt;/p>&lt;p>&lt;strong>Source.&lt;/strong> L2_AIOS_FS/04_implementation_space.md&lt;/p>"/>
         <ownedCapabilityRealizations xsi:type="org.polarsys.capella.core.data.la:CapabilityRealization"
-            id="129d061c-7cd1-548a-bfaa-6af39b321163" name="S4.1 — AIOS-FS Namespace Layout (Rev.2)"
-            description="&lt;p>&lt;strong>Layer.&lt;/strong> L2&lt;/p>&lt;p>&lt;strong>Status.&lt;/strong> CONTRACT (promoted 2026-05-09 from DRAFT NOTES)&lt;/p>&lt;p>&lt;strong>Schema package.&lt;/strong> aios.namespace.v1alpha1&lt;/p>&lt;p>&lt;strong>Source.&lt;/strong> L2_AIOS_FS/05_namespace_layout.md&lt;/p>"/>
-        <ownedCapabilityRealizations xsi:type="org.polarsys.capella.core.data.la:CapabilityRealization"
-            id="3a87761d-f2fa-5358-b0b2-0368e37ee361" name="S15.1 — AIOS-SGR Unit Manifest (Rev.2)"
-            description="&lt;p>&lt;strong>Layer.&lt;/strong> L3&lt;/p>&lt;p>&lt;strong>Status.&lt;/strong> REAL (initial; written 2026-05-09; E1 evidence — file exists; structural contract complete)&lt;/p>&lt;p>&lt;strong>Schema package.&lt;/strong> aios.unit.v1alpha1&lt;/p>&lt;p>&lt;strong>Source.&lt;/strong> L3_AIOS_SGR_Service_Graph_Runtime/01_unit_manifest.md&lt;/p>"/>
-        <ownedCapabilityRealizations xsi:type="org.polarsys.capella.core.data.la:CapabilityRealization"
             id="152d8f31-7309-59ab-ac93-2e557a4b7410" name="S15.2 — AIOS-SGR State Transitions and Graph Evaluation (Rev.2)"
-            description="&lt;p>&lt;strong>Layer.&lt;/strong> L3&lt;/p>&lt;p>&lt;strong>Status.&lt;/strong> REAL (initial; written 2026-05-09; E1 evidence — file exists; structural contract complete)&lt;/p>&lt;p>&lt;strong>Schema package.&lt;/strong> aios.sgr.v1alpha1&lt;/p>&lt;p>&lt;strong>Source.&lt;/strong> L3_AIOS_SGR_Service_Graph_Runtime/02_state_transitions.md&lt;/p>"/>
-        <ownedCapabilityRealizations xsi:type="org.polarsys.capella.core.data.la:CapabilityRealization"
-            id="6e39c1c7-1e7f-5461-bfa3-b10642bc890b" name="S10.1 — Capability Runtime gRPC (Rev.2)"
-            description="&lt;p>&lt;strong>Layer.&lt;/strong> L3&lt;/p>&lt;p>&lt;strong>Status.&lt;/strong> REAL (initial; written 2026-05-09; E1 evidence — file exists; structural contract complete)&lt;/p>&lt;p>&lt;strong>Schema package.&lt;/strong> aios.runtime.v1alpha1&lt;/p>&lt;p>&lt;strong>Source.&lt;/strong> L3_AIOS_SGR_Service_Graph_Runtime/03_capability_runtime_grpc.md&lt;/p>"/>
+            description="&lt;p>&lt;strong>Layer.&lt;/strong> L3&lt;/p>&lt;p>&lt;strong>Status.&lt;/strong> REAL (initial; written 2026-05-09; E1 evidence — file exists; structural contract complete)&lt;/p>&lt;p>&lt;strong>Schema package.&lt;/strong> aios.sgr.v1alpha1&lt;/p>&lt;p>&lt;strong>Source.&lt;/strong> L3_AIOS_SGR_Service_Graph_Runtime/02_state_transitions.md&lt;/p>">
+          <ownedTraces xsi:type="org.polarsys.capella.core.data.la:CapabilityRealization"
+              id="3a87761d-f2fa-5358-b0b2-0368e37ee361" name="S15.1 — AIOS-SGR Unit Manifest (Rev.2)"
+              description="&lt;p>&lt;strong>Layer.&lt;/strong> L3&lt;/p>&lt;p>&lt;strong>Status.&lt;/strong> REAL (initial; written 2026-05-09; E1 evidence — file exists; structural contract complete)&lt;/p>&lt;p>&lt;strong>Schema package.&lt;/strong> aios.unit.v1alpha1&lt;/p>&lt;p>&lt;strong>Source.&lt;/strong> L3_AIOS_SGR_Service_Graph_Runtime/01_unit_manifest.md&lt;/p>">
+            <ownedAbstractCapabilityRealizations xsi:type="org.polarsys.capella.core.data.interaction:AbstractCapabilityRealization"
+                id="ccd809a6-17aa-4fd0-a2f1-470bd865a30a" targetElement="#3d1d2cb2-91ed-5113-ba39-7396bc45fe4b"/>
+            <ownedAbstractCapabilityRealizations xsi:type="org.polarsys.capella.core.data.interaction:AbstractCapabilityRealization"
+                id="a5818e4c-3c5a-4fcf-9e17-eee2a7b4800c" targetElement="#813ea4ba-fb84-53cc-ac47-0b24f8e78e65"/>
+            <ownedAbstractCapabilityRealizations xsi:type="org.polarsys.capella.core.data.interaction:AbstractCapabilityRealization"
+                id="708f4b0b-dea7-4763-bef9-717eeebceca7" targetElement="#c643d6b6-f03b-53c7-bad3-80ccb8caf77f"/>
+            <ownedAbstractCapabilityRealizations xsi:type="org.polarsys.capella.core.data.interaction:AbstractCapabilityRealization"
+                id="ae4d815d-e69e-44b8-b400-21d761ef21d3" targetElement="#f97cda66-bee8-5f57-bd26-ac7f5a313bc3"/>
+            <ownedAbstractCapabilityRealizations xsi:type="org.polarsys.capella.core.data.interaction:AbstractCapabilityRealization"
+                id="edfce4d9-9741-4960-b217-e399df110762" targetElement="#eb972166-7e61-5e2e-805c-95f780b6cc99"/>
+            <ownedAbstractCapabilityRealizations xsi:type="org.polarsys.capella.core.data.interaction:AbstractCapabilityRealization"
+                id="a36a3b1c-49cd-4cfc-a86f-51aa1824881f" targetElement="#ba937ceb-e1c9-5114-992d-c680b842a504"/>
+            <ownedAbstractCapabilityRealizations xsi:type="org.polarsys.capella.core.data.interaction:AbstractCapabilityRealization"
+                id="3f3b435f-626a-47e9-b86f-d9003eddefbb" targetElement="#bfe499d0-2fe2-531e-b420-5e278c011fae"/>
+            <ownedAbstractCapabilityRealizations xsi:type="org.polarsys.capella.core.data.interaction:AbstractCapabilityRealization"
+                id="a2743fce-3587-4e4b-8197-a1acfc46bbe0" targetElement="#e993019a-8348-5343-a657-9346780b32a0"/>
+            <ownedAbstractCapabilityRealizations xsi:type="org.polarsys.capella.core.data.interaction:AbstractCapabilityRealization"
+                id="6b6b8de3-abe8-4de8-9348-92e545147952" targetElement="#9e7cd71a-4563-51b4-901e-ab4ccf20e4fb"/>
+            <ownedAbstractCapabilityRealizations xsi:type="org.polarsys.capella.core.data.interaction:AbstractCapabilityRealization"
+                id="405410c1-c675-402a-b80f-63f198ae1652" targetElement="#45618019-cd88-5635-8d94-3151daeecbbf"/>
+          </ownedTraces>
+          <ownedAbstractCapabilityRealizations xsi:type="org.polarsys.capella.core.data.interaction:AbstractCapabilityRealization"
+              id="4a0ce039-e504-46a5-9c92-f4352fc66316" targetElement="#c643d6b6-f03b-53c7-bad3-80ccb8caf77f"/>
+          <ownedAbstractCapabilityRealizations xsi:type="org.polarsys.capella.core.data.interaction:AbstractCapabilityRealization"
+              id="20144a9e-7afb-4a0c-90d3-525d26a7c69d" targetElement="#ba937ceb-e1c9-5114-992d-c680b842a504"/>
+          <ownedAbstractCapabilityRealizations xsi:type="org.polarsys.capella.core.data.interaction:AbstractCapabilityRealization"
+              id="05b92922-f0ed-4c2f-91db-26f91329aa60" targetElement="#45618019-cd88-5635-8d94-3151daeecbbf"/>
+        </ownedCapabilityRealizations>
         <ownedCapabilityRealizations xsi:type="org.polarsys.capella.core.data.la:CapabilityRealization"
             id="38f1993a-b60b-505a-9c8c-96fae5b4c386" name="S15.3 — Adapter Model — Manifest, Registration, Capability Declaration, Fail-Closed Semantics (Rev.2)"
-            description="&lt;p>&lt;strong>Layer.&lt;/strong> L3&lt;/p>&lt;p>&lt;strong>Status.&lt;/strong> REAL (initial; written 2026-05-09; E1 evidence — file exists; structural contract complete)&lt;/p>&lt;p>&lt;strong>Schema package.&lt;/strong> aios.adapter.v1alpha1&lt;/p>&lt;p>&lt;strong>Source.&lt;/strong> L3_AIOS_SGR_Service_Graph_Runtime/04_adapter_model.md&lt;/p>"/>
-        <ownedCapabilityRealizations xsi:type="org.polarsys.capella.core.data.la:CapabilityRealization"
-            id="7b3a2ef6-c564-5e8f-b876-925d963dfd48" name="S2.3 — Policy Kernel (Rev.2)"
-            description="&lt;p>&lt;strong>Layer.&lt;/strong> L4&lt;/p>&lt;p>&lt;strong>Status.&lt;/strong> CONTRACT (refined 2026-05-08; awaiting implementation evidence)&lt;/p>&lt;p>&lt;strong>Schema package.&lt;/strong> —&lt;/p>&lt;p>&lt;strong>Source.&lt;/strong> L4_Policy_Identity_Vault/01_policy_kernel.md&lt;/p>"/>
-        <ownedCapabilityRealizations xsi:type="org.polarsys.capella.core.data.la:CapabilityRealization"
-            id="12e14c75-0cca-5ddf-b6f7-a0e3554891f4" name="S5.2 — Vault Broker (Rev.2)"
-            description="&lt;p>&lt;strong>Layer.&lt;/strong> L4&lt;/p>&lt;p>&lt;strong>Status.&lt;/strong> CONTRACT (initial; written 2026-05-11)&lt;/p>&lt;p>&lt;strong>Schema package.&lt;/strong> aios.vault.v1alpha1&lt;/p>&lt;p>&lt;strong>Source.&lt;/strong> L4_Policy_Identity_Vault/02_vault_broker.md&lt;/p>"/>
-        <ownedCapabilityRealizations xsi:type="org.polarsys.capella.core.data.la:CapabilityRealization"
-            id="c02049ab-6f2f-52af-8221-fcfc778377f0" name="S5.1 — Identity Model (Rev.2)"
-            description="&lt;p>&lt;strong>Layer.&lt;/strong> L4&lt;/p>&lt;p>&lt;strong>Status.&lt;/strong> CONTRACT (initial; written 2026-05-09)&lt;/p>&lt;p>&lt;strong>Schema package.&lt;/strong> aios.identity.v1alpha1&lt;/p>&lt;p>&lt;strong>Source.&lt;/strong> L4_Policy_Identity_Vault/03_identity_model.md&lt;/p>"/>
-        <ownedCapabilityRealizations xsi:type="org.polarsys.capella.core.data.la:CapabilityRealization"
-            id="00a55325-221e-5deb-af7c-d356e99e931f" name="S5.3 — Approval Mechanics (Rev.2)"
-            description="&lt;p>&lt;strong>Layer.&lt;/strong> L4&lt;/p>&lt;p>&lt;strong>Status.&lt;/strong> REAL (E1 — file exists; structural contract complete; written 2026-05-09)&lt;/p>&lt;p>&lt;strong>Schema package.&lt;/strong> aios.approval.v1alpha1&lt;/p>&lt;p>&lt;strong>Source.&lt;/strong> L4_Policy_Identity_Vault/04_approval_mechanics.md&lt;/p>"/>
-        <ownedCapabilityRealizations xsi:type="org.polarsys.capella.core.data.la:CapabilityRealization"
-            id="f23c9773-e4d3-5638-ba85-6a6a023b30f0" name="S5.4 — Emergency Override (Rev.2)"
-            description="&lt;p>&lt;strong>Layer.&lt;/strong> L4&lt;/p>&lt;p>&lt;strong>Status.&lt;/strong> REAL (initial; written 2026-05-09; E1 evidence — file exists)&lt;/p>&lt;p>&lt;strong>Schema package.&lt;/strong> aios.override.v1alpha1&lt;/p>&lt;p>&lt;strong>Source.&lt;/strong> L4_Policy_Identity_Vault/05_emergency_override.md&lt;/p>"/>
-        <ownedCapabilityRealizations xsi:type="org.polarsys.capella.core.data.la:CapabilityRealization"
-            id="d00347c6-2c73-5686-a59b-9f9daa16e884" name="S13.1 — Cognitive Core Model (Rev.2)"
-            description="&lt;p>&lt;strong>Layer.&lt;/strong> L5&lt;/p>&lt;p>&lt;strong>Status.&lt;/strong> REAL (initial; written 2026-05-09)&lt;/p>&lt;p>&lt;strong>Schema package.&lt;/strong> aios.cognitive.v1alpha1&lt;/p>&lt;p>&lt;strong>Source.&lt;/strong> L5_Cognitive_Core/01_cognitive_core_model.md&lt;/p>"/>
-        <ownedCapabilityRealizations xsi:type="org.polarsys.capella.core.data.la:CapabilityRealization"
-            id="f39cf46d-80e7-5bcf-858f-531394693161" name="S1.1 — Capability Translator (Rev.2)"
-            description="&lt;p>&lt;strong>Layer.&lt;/strong> L5&lt;/p>&lt;p>&lt;strong>Status.&lt;/strong> CONTRACT (refined 2026-05-08; awaiting implementation evidence)&lt;/p>&lt;p>&lt;strong>Schema package.&lt;/strong> —&lt;/p>&lt;p>&lt;strong>Source.&lt;/strong> L5_Cognitive_Core/02_capability_translator.md&lt;/p>"/>
-        <ownedCapabilityRealizations xsi:type="org.polarsys.capella.core.data.la:CapabilityRealization"
-            id="1bc1165b-02e2-5693-823f-27b9794d4ce9" name="S1.2 — Latency Tiering (Rev.2)"
-            description="&lt;p>&lt;strong>Layer.&lt;/strong> L5&lt;/p>&lt;p>&lt;strong>Status.&lt;/strong> CONTRACT (refined 2026-05-08; awaiting implementation evidence)&lt;/p>&lt;p>&lt;strong>Schema package.&lt;/strong> —&lt;/p>&lt;p>&lt;strong>Source.&lt;/strong> L5_Cognitive_Core/03_latency_tiering.md&lt;/p>"/>
+            description="&lt;p>&lt;strong>Layer.&lt;/strong> L3&lt;/p>&lt;p>&lt;strong>Status.&lt;/strong> REAL (initial; written 2026-05-09; E1 evidence — file exists; structural contract complete)&lt;/p>&lt;p>&lt;strong>Schema package.&lt;/strong> aios.adapter.v1alpha1&lt;/p>&lt;p>&lt;strong>Source.&lt;/strong> L3_AIOS_SGR_Service_Graph_Runtime/04_adapter_model.md&lt;/p>">
+          <ownedAbstractCapabilityRealizations xsi:type="org.polarsys.capella.core.data.interaction:AbstractCapabilityRealization"
+              id="3c848572-f045-4c18-bbca-8bb1834167fe" targetElement="#3d1d2cb2-91ed-5113-ba39-7396bc45fe4b"/>
+          <ownedAbstractCapabilityRealizations xsi:type="org.polarsys.capella.core.data.interaction:AbstractCapabilityRealization"
+              id="d8181095-9856-4704-bc7f-adf880c4bda3" targetElement="#4127520f-26a1-5ed8-8770-1f9eb6d9b58a"/>
+          <ownedAbstractCapabilityRealizations xsi:type="org.polarsys.capella.core.data.interaction:AbstractCapabilityRealization"
+              id="221048fe-620b-44a4-a309-bdb1076a7e21" targetElement="#eb972166-7e61-5e2e-805c-95f780b6cc99"/>
+          <ownedAbstractCapabilityRealizations xsi:type="org.polarsys.capella.core.data.interaction:AbstractCapabilityRealization"
+              id="dcb2ca44-3962-4707-884f-c0e2fd0f0016" targetElement="#ba937ceb-e1c9-5114-992d-c680b842a504"/>
+          <ownedAbstractCapabilityRealizations xsi:type="org.polarsys.capella.core.data.interaction:AbstractCapabilityRealization"
+              id="22f2736f-3d31-4a59-985e-b751561e1884" targetElement="#c794b7c5-4b64-5535-8995-46716aca5c04"/>
+          <ownedAbstractCapabilityRealizations xsi:type="org.polarsys.capella.core.data.interaction:AbstractCapabilityRealization"
+              id="3fd30521-8774-4fa0-96d8-d24458acde25" targetElement="#e993019a-8348-5343-a657-9346780b32a0"/>
+          <ownedAbstractCapabilityRealizations xsi:type="org.polarsys.capella.core.data.interaction:AbstractCapabilityRealization"
+              id="cb216edd-1466-489d-a413-56cf5d80f59d" targetElement="#45618019-cd88-5635-8d94-3151daeecbbf"/>
+        </ownedCapabilityRealizations>
         <ownedCapabilityRealizations xsi:type="org.polarsys.capella.core.data.la:CapabilityRealization"
             id="209b30ce-049e-57aa-af87-dd1d0a800208" name="S13.2 — Model Router (Rev.2)"
-            description="&lt;p>&lt;strong>Layer.&lt;/strong> L5&lt;/p>&lt;p>&lt;strong>Status.&lt;/strong> REAL (initial; written 2026-05-09)&lt;/p>&lt;p>&lt;strong>Schema package.&lt;/strong> aios.modelrouter.v1alpha1&lt;/p>&lt;p>&lt;strong>Source.&lt;/strong> L5_Cognitive_Core/05_model_router.md&lt;/p>"/>
-        <ownedCapabilityRealizations xsi:type="org.polarsys.capella.core.data.la:CapabilityRealization"
-            id="e16ec754-f5c6-5eec-9728-9f4dffd406f4" name="S3.1 — Evidence Log Architecture (Rev.2)"
-            description="&lt;p>&lt;strong>Layer.&lt;/strong> L9&lt;/p>&lt;p>&lt;strong>Status.&lt;/strong> CONTRACT (refined 2026-05-08; awaiting implementation evidence)&lt;/p>&lt;p>&lt;strong>Schema package.&lt;/strong> —&lt;/p>&lt;p>&lt;strong>Source.&lt;/strong> L9_Observability_Admin_Operations/01_evidence_log.md&lt;/p>"/>
-        <ownedCapabilityRealizations xsi:type="org.polarsys.capella.core.data.la:CapabilityRealization"
-            id="d8600f7d-19fc-57aa-92dd-529e5b1537fd" name="S2.4 — Verification Grammar (Rev.2)"
-            description="&lt;p>&lt;strong>Layer.&lt;/strong> L9&lt;/p>&lt;p>&lt;strong>Status.&lt;/strong> CONTRACT (refined 2026-05-08; awaiting implementation evidence)&lt;/p>&lt;p>&lt;strong>Schema package.&lt;/strong> —&lt;/p>&lt;p>&lt;strong>Source.&lt;/strong> L9_Observability_Admin_Operations/02_verification_grammar.md&lt;/p>"/>
-        <ownedCapabilityRealizations xsi:type="org.polarsys.capella.core.data.la:CapabilityRealization"
-            id="28ef7c3b-c0c2-5311-85f2-94b26a3928b1" name="S14.1 — Failure Handling and Degradation (Rev.2)"
-            description="&lt;p>&lt;strong>Layer.&lt;/strong> L9&lt;/p>&lt;p>&lt;strong>Status.&lt;/strong> REAL (initial; written 2026-05-09; E1 evidence — file exists, structural contract complete)&lt;/p>&lt;p>&lt;strong>Schema package.&lt;/strong> aios.failure.v1alpha1&lt;/p>&lt;p>&lt;strong>Source.&lt;/strong> L9_Observability_Admin_Operations/03_failure_handling.md&lt;/p>"/>
+            description="&lt;p>&lt;strong>Layer.&lt;/strong> L5&lt;/p>&lt;p>&lt;strong>Status.&lt;/strong> REAL (initial; written 2026-05-09)&lt;/p>&lt;p>&lt;strong>Schema package.&lt;/strong> aios.modelrouter.v1alpha1&lt;/p>&lt;p>&lt;strong>Source.&lt;/strong> L5_Cognitive_Core/05_model_router.md&lt;/p>">
+          <ownedAbstractCapabilityRealizations xsi:type="org.polarsys.capella.core.data.interaction:AbstractCapabilityRealization"
+              id="cf56f58f-3994-4a46-89c5-15f525975050" targetElement="#3d1d2cb2-91ed-5113-ba39-7396bc45fe4b"/>
+          <ownedAbstractCapabilityRealizations xsi:type="org.polarsys.capella.core.data.interaction:AbstractCapabilityRealization"
+              id="ec479f4a-7c0d-40e9-8138-1ea4df8fc4dc" targetElement="#720c502e-14a7-5bc6-a653-775aafdf19d7"/>
+          <ownedAbstractCapabilityRealizations xsi:type="org.polarsys.capella.core.data.interaction:AbstractCapabilityRealization"
+              id="73265842-c0e9-4ff2-84ad-d53f08adc4c4" targetElement="#fa2ee763-ec45-5ce3-be0e-fda2085066b8"/>
+          <ownedAbstractCapabilityRealizations xsi:type="org.polarsys.capella.core.data.interaction:AbstractCapabilityRealization"
+              id="a1951562-0685-40bf-818d-b7dde10f8bd5" targetElement="#ba937ceb-e1c9-5114-992d-c680b842a504"/>
+          <ownedAbstractCapabilityRealizations xsi:type="org.polarsys.capella.core.data.interaction:AbstractCapabilityRealization"
+              id="a217ed39-52b3-4c0f-ae19-414f0f39df1d" targetElement="#c794b7c5-4b64-5535-8995-46716aca5c04"/>
+          <ownedAbstractCapabilityRealizations xsi:type="org.polarsys.capella.core.data.interaction:AbstractCapabilityRealization"
+              id="1560c208-3559-4616-971d-954a3daf06c3" targetElement="#da3e7575-d002-504f-811e-d3dc03c93126"/>
+          <ownedAbstractCapabilityRealizations xsi:type="org.polarsys.capella.core.data.interaction:AbstractCapabilityRealization"
+              id="db5aac98-4bd4-47ee-8ca5-322795876883" targetElement="#54f9810e-8870-57df-b33c-ca9882c77d0f"/>
+          <ownedAbstractCapabilityRealizations xsi:type="org.polarsys.capella.core.data.interaction:AbstractCapabilityRealization"
+              id="0c2257d9-a311-4891-94e7-c3bbc5f185c9" targetElement="#45618019-cd88-5635-8d94-3151daeecbbf"/>
+        </ownedCapabilityRealizations>
         <ownedCapabilityRealizations xsi:type="org.polarsys.capella.core.data.la:CapabilityRealization"
             id="f78d00d8-3f8a-5456-a94c-68ddce32e7d7" name="S14.2 — Telemetry Pipeline (Rev.2)"
-            description="&lt;p>&lt;strong>Layer.&lt;/strong> L9&lt;/p>&lt;p>&lt;strong>Status.&lt;/strong> REAL (initial; written 2026-05-09; E1 evidence — file exists, structural contract complete)&lt;/p>&lt;p>&lt;strong>Schema package.&lt;/strong> aios.telemetry.v1alpha1&lt;/p>&lt;p>&lt;strong>Source.&lt;/strong> L9_Observability_Admin_Operations/04_telemetry_pipeline.md&lt;/p>"/>
+            description="&lt;p>&lt;strong>Layer.&lt;/strong> L9&lt;/p>&lt;p>&lt;strong>Status.&lt;/strong> REAL (initial; written 2026-05-09; E1 evidence — file exists, structural contract complete)&lt;/p>&lt;p>&lt;strong>Schema package.&lt;/strong> aios.telemetry.v1alpha1&lt;/p>&lt;p>&lt;strong>Source.&lt;/strong> L9_Observability_Admin_Operations/04_telemetry_pipeline.md&lt;/p>">
+          <ownedTraces xsi:type="org.polarsys.capella.core.data.la:CapabilityRealization"
+              id="28ef7c3b-c0c2-5311-85f2-94b26a3928b1" name="S14.1 — Failure Handling and Degradation (Rev.2)"
+              description="&lt;p>&lt;strong>Layer.&lt;/strong> L9&lt;/p>&lt;p>&lt;strong>Status.&lt;/strong> REAL (initial; written 2026-05-09; E1 evidence — file exists, structural contract complete)&lt;/p>&lt;p>&lt;strong>Schema package.&lt;/strong> aios.failure.v1alpha1&lt;/p>&lt;p>&lt;strong>Source.&lt;/strong> L9_Observability_Admin_Operations/03_failure_handling.md&lt;/p>">
+            <ownedTraces xsi:type="org.polarsys.capella.core.data.la:CapabilityRealization"
+                id="d00347c6-2c73-5686-a59b-9f9daa16e884" name="S13.1 — Cognitive Core Model (Rev.2)"
+                description="&lt;p>&lt;strong>Layer.&lt;/strong> L5&lt;/p>&lt;p>&lt;strong>Status.&lt;/strong> REAL (initial; written 2026-05-09)&lt;/p>&lt;p>&lt;strong>Schema package.&lt;/strong> aios.cognitive.v1alpha1&lt;/p>&lt;p>&lt;strong>Source.&lt;/strong> L5_Cognitive_Core/01_cognitive_core_model.md&lt;/p>">
+              <ownedAbstractCapabilityRealizations xsi:type="org.polarsys.capella.core.data.interaction:AbstractCapabilityRealization"
+                  id="bda4e9e4-04d1-44eb-8547-4241f44e2bb5" targetElement="#176eeef6-8c59-53a9-a203-c1814e940ea3"/>
+              <ownedAbstractCapabilityRealizations xsi:type="org.polarsys.capella.core.data.interaction:AbstractCapabilityRealization"
+                  id="c13eb235-ee7f-48f4-a9e5-0650bd03e027" targetElement="#3d1d2cb2-91ed-5113-ba39-7396bc45fe4b"/>
+              <ownedAbstractCapabilityRealizations xsi:type="org.polarsys.capella.core.data.interaction:AbstractCapabilityRealization"
+                  id="6b3177de-11d6-4ff9-9f7b-156d23a78f6c" targetElement="#dc6436b2-2fae-53d1-822f-fc849a056c9b"/>
+              <ownedAbstractCapabilityRealizations xsi:type="org.polarsys.capella.core.data.interaction:AbstractCapabilityRealization"
+                  id="367f475d-0746-46d5-bbc7-58cc022df044" targetElement="#fa2ee763-ec45-5ce3-be0e-fda2085066b8"/>
+              <ownedAbstractCapabilityRealizations xsi:type="org.polarsys.capella.core.data.interaction:AbstractCapabilityRealization"
+                  id="031f20db-cac4-4405-908a-cbe720c466ee" targetElement="#f97cda66-bee8-5f57-bd26-ac7f5a313bc3"/>
+              <ownedAbstractCapabilityRealizations xsi:type="org.polarsys.capella.core.data.interaction:AbstractCapabilityRealization"
+                  id="c56be730-55d5-4061-9c77-dda976621980" targetElement="#eb972166-7e61-5e2e-805c-95f780b6cc99"/>
+              <ownedAbstractCapabilityRealizations xsi:type="org.polarsys.capella.core.data.interaction:AbstractCapabilityRealization"
+                  id="9afe0192-6b80-4fcd-bd2d-37f4be80ba66" targetElement="#bfe499d0-2fe2-531e-b420-5e278c011fae"/>
+              <ownedAbstractCapabilityRealizations xsi:type="org.polarsys.capella.core.data.interaction:AbstractCapabilityRealization"
+                  id="18459496-1571-4df4-a0c8-a0eb3600ccd7" targetElement="#e993019a-8348-5343-a657-9346780b32a0"/>
+              <ownedAbstractCapabilityRealizations xsi:type="org.polarsys.capella.core.data.interaction:AbstractCapabilityRealization"
+                  id="4fc0560b-52c1-4211-a16b-8bc6ef727da2" targetElement="#da3e7575-d002-504f-811e-d3dc03c93126"/>
+              <ownedAbstractCapabilityRealizations xsi:type="org.polarsys.capella.core.data.interaction:AbstractCapabilityRealization"
+                  id="4d35f031-774e-43d8-abe2-c0fa86e06f53" targetElement="#54f9810e-8870-57df-b33c-ca9882c77d0f"/>
+              <ownedAbstractCapabilityRealizations xsi:type="org.polarsys.capella.core.data.interaction:AbstractCapabilityRealization"
+                  id="0cedd548-31bf-4f93-8860-89b2fd87a430" targetElement="#9e7cd71a-4563-51b4-901e-ab4ccf20e4fb"/>
+            </ownedTraces>
+            <ownedAbstractCapabilityRealizations xsi:type="org.polarsys.capella.core.data.interaction:AbstractCapabilityRealization"
+                id="055ac715-8260-425f-a06a-00f734b940b7" targetElement="#176eeef6-8c59-53a9-a203-c1814e940ea3"/>
+            <ownedAbstractCapabilityRealizations xsi:type="org.polarsys.capella.core.data.interaction:AbstractCapabilityRealization"
+                id="afcb78e9-de57-4491-89e5-69568966cd45" targetElement="#3d1d2cb2-91ed-5113-ba39-7396bc45fe4b"/>
+            <ownedAbstractCapabilityRealizations xsi:type="org.polarsys.capella.core.data.interaction:AbstractCapabilityRealization"
+                id="8441260a-0549-4543-b16e-1a4aa1dc46fd" targetElement="#c643d6b6-f03b-53c7-bad3-80ccb8caf77f"/>
+            <ownedAbstractCapabilityRealizations xsi:type="org.polarsys.capella.core.data.interaction:AbstractCapabilityRealization"
+                id="428d72f9-b420-4b74-a911-a37bff9d64d1" targetElement="#4127520f-26a1-5ed8-8770-1f9eb6d9b58a"/>
+            <ownedAbstractCapabilityRealizations xsi:type="org.polarsys.capella.core.data.interaction:AbstractCapabilityRealization"
+                id="bd90944f-3f31-4f87-ae54-348899fedda7" targetElement="#ba937ceb-e1c9-5114-992d-c680b842a504"/>
+            <ownedAbstractCapabilityRealizations xsi:type="org.polarsys.capella.core.data.interaction:AbstractCapabilityRealization"
+                id="6d14a5ef-b45b-4970-b282-f2c9e9904b05" targetElement="#54f9810e-8870-57df-b33c-ca9882c77d0f"/>
+          </ownedTraces>
+          <ownedAbstractCapabilityRealizations xsi:type="org.polarsys.capella.core.data.interaction:AbstractCapabilityRealization"
+              id="08c72198-c690-4552-8383-3b9653da182b" targetElement="#176eeef6-8c59-53a9-a203-c1814e940ea3"/>
+          <ownedAbstractCapabilityRealizations xsi:type="org.polarsys.capella.core.data.interaction:AbstractCapabilityRealization"
+              id="5bed92e4-b694-42f8-b661-855a584ac6d3" targetElement="#3d1d2cb2-91ed-5113-ba39-7396bc45fe4b"/>
+          <ownedAbstractCapabilityRealizations xsi:type="org.polarsys.capella.core.data.interaction:AbstractCapabilityRealization"
+              id="69323c08-e14c-4007-a497-613c2bbad50f" targetElement="#813ea4ba-fb84-53cc-ac47-0b24f8e78e65"/>
+          <ownedAbstractCapabilityRealizations xsi:type="org.polarsys.capella.core.data.interaction:AbstractCapabilityRealization"
+              id="72402f7a-c2df-4c9b-b70e-af0bb7de43bf" targetElement="#53ba7f0b-51a5-5b95-a58b-19a4263bbaba"/>
+          <ownedAbstractCapabilityRealizations xsi:type="org.polarsys.capella.core.data.interaction:AbstractCapabilityRealization"
+              id="2a82b879-aaa6-4238-aa96-455597ede5e5" targetElement="#eb972166-7e61-5e2e-805c-95f780b6cc99"/>
+          <ownedAbstractCapabilityRealizations xsi:type="org.polarsys.capella.core.data.interaction:AbstractCapabilityRealization"
+              id="f3318949-a7cd-4d2d-ba14-19ac3bdfe1c1" targetElement="#ba937ceb-e1c9-5114-992d-c680b842a504"/>
+          <ownedAbstractCapabilityRealizations xsi:type="org.polarsys.capella.core.data.interaction:AbstractCapabilityRealization"
+              id="983d3e03-2dd2-4341-bc99-5aba9480aba5" targetElement="#c794b7c5-4b64-5535-8995-46716aca5c04"/>
+          <ownedAbstractCapabilityRealizations xsi:type="org.polarsys.capella.core.data.interaction:AbstractCapabilityRealization"
+              id="4cafeead-4fbd-493f-b219-e5a6bf83b2c3" targetElement="#da3e7575-d002-504f-811e-d3dc03c93126"/>
+        </ownedCapabilityRealizations>
       </ownedAbstractCapabilityPkg>
       <ownedInterfacePkg xsi:type="org.polarsys.capella.core.data.cs:InterfacePkg"
           id="1ed34c92-799e-48fe-9f5b-247242151f09" name="Interfaces"/>
@@ -373,6 +561,65 @@
             name="Logical System" abstractType="#495208df-e9d1-48b8-8258-17f62184ab90"/>
         <ownedLogicalComponents xsi:type="org.polarsys.capella.core.data.la:LogicalComponent"
             id="495208df-e9d1-48b8-8258-17f62184ab90" name="AIOS Logical Platform">
+          <ownedLogicalComponents xsi:type="org.polarsys.capella.core.data.la:LogicalComponent"
+              id="9aca00d7-b3fb-5490-bf0e-6ea25c260021" name="L0 — L0_Governance_Evidence_Safety"
+              description="&lt;p>status taxonomy, evidence grades, gates, invariants&lt;/p>"/>
+          <ownedLogicalComponents xsi:type="org.polarsys.capella.core.data.la:LogicalComponent"
+              id="cdc231e8-1ec8-5917-8e00-e7d049a937fd" name="L1 — L1_Kernel_Bootstrap_Recovery"
+              description="&lt;p>Linux substrate, recovery path, dedicated kernel candidate&lt;/p>"/>
+          <ownedLogicalComponents xsi:type="org.polarsys.capella.core.data.la:LogicalComponent"
+              id="a17c8e97-c5e3-5645-bc4d-04f7d09a1b0d" name="L2 — L2_AIOS_FS" description="&lt;p>semantic object filesystem, `/aios`, versions, views&lt;/p>"/>
+          <ownedLogicalComponents xsi:type="org.polarsys.capella.core.data.la:LogicalComponent"
+              id="4b14c9ea-d697-5188-9c15-003f430f2e2c" name="L3 — L3_AIOS_SGR_Service_Graph_Runtime"
+              description="&lt;p>desired-state service graph, runtime transitions&lt;/p>"/>
+          <ownedLogicalComponents xsi:type="org.polarsys.capella.core.data.la:LogicalComponent"
+              id="7e9b2e80-1c6f-5e99-b5b8-3b51465e9862" name="L4 — L4_Policy_Identity_Vault"
+              description="&lt;p>subjects, capabilities, approvals, secrets, policy packages&lt;/p>"/>
+          <ownedLogicalComponents xsi:type="org.polarsys.capella.core.data.la:LogicalComponent"
+              id="673964eb-8381-5e5f-9bad-0702da0bf08d" name="L5 — L5_Cognitive_Core"
+              description="&lt;p>intent, planning, memory, model routing, agent coordination&lt;/p>"/>
+          <ownedLogicalComponents xsi:type="org.polarsys.capella.core.data.la:LogicalComponent"
+              id="bf506f34-599f-5523-985f-d875acd4a8a5" name="L6 — L6_Apps_Packages_Compatibility"
+              description="&lt;p>AIOS packages, apps, Windows/Android/Linux compatibility&lt;/p>"/>
+          <ownedLogicalComponents xsi:type="org.polarsys.capella.core.data.la:LogicalComponent"
+              id="5a0ac659-e66b-59df-8f9b-d3a628ac1f93" name="L7 — L7_Interaction_Renderers"
+              description="&lt;p>KDE, Web, CLI, Voice, Mobile, shared UI schema&lt;/p>"/>
+          <ownedLogicalComponents xsi:type="org.polarsys.capella.core.data.la:LogicalComponent"
+              id="6767d634-ad82-53fb-8434-9a3a906c0ee4" name="L8 — L8_Network_Hardware_Devices"
+              description="&lt;p>network policy, hardware graph, drivers, firmware&lt;/p>"/>
+          <ownedLogicalComponents xsi:type="org.polarsys.capella.core.data.la:LogicalComponent"
+              id="33c5d532-e294-5130-9eea-c7ea4ad3966c" name="L9 — L9_Observability_Admin_Operations"
+              description="&lt;p>health, logs, metrics, evidence viewer, recovery operations&lt;/p>"/>
+          <ownedLogicalComponents xsi:type="org.polarsys.capella.core.data.la:LogicalComponent"
+              id="a70d82ef-3be9-565e-b8af-5311242454e9" name="L10 — L10_Distribution_Ecosystem_Marketplace"
+              description="&lt;p>publishing, repositories, marketplace, external integrations&lt;/p>"/>
+          <ownedLogicalComponents xsi:type="org.polarsys.capella.core.data.la:LogicalComponent"
+              id="d58a4ae2-92d7-5a32-9e98-048041fd1443" name="XX — XX_Cross_Cutting"
+              description="&lt;p>cross-layer contracts shared by L0..L10 (S0.1 action envelope, S0.3 MVP golden path, S0.4 constitutional meta-principles, ProxGuard reference donor)&lt;/p>"/>
+          <ownedFeatures xsi:type="org.polarsys.capella.core.data.cs:Part" id="cd37cdc8-f8b6-4ea4-856e-0711a602b917"
+              name="L0 — L0_Governance_Evidence_Safety" abstractType="#9aca00d7-b3fb-5490-bf0e-6ea25c260021"/>
+          <ownedFeatures xsi:type="org.polarsys.capella.core.data.cs:Part" id="fac8f0db-e750-4487-8c36-7ae5c24deab5"
+              name="L1 — L1_Kernel_Bootstrap_Recovery" abstractType="#cdc231e8-1ec8-5917-8e00-e7d049a937fd"/>
+          <ownedFeatures xsi:type="org.polarsys.capella.core.data.cs:Part" id="bfe45a7e-8e39-4684-a86b-967e6017b7cd"
+              name="L2 — L2_AIOS_FS" abstractType="#a17c8e97-c5e3-5645-bc4d-04f7d09a1b0d"/>
+          <ownedFeatures xsi:type="org.polarsys.capella.core.data.cs:Part" id="0d7477af-c2e4-476c-aa2c-e0c466e9d7be"
+              name="L3 — L3_AIOS_SGR_Service_Graph_Runtime" abstractType="#4b14c9ea-d697-5188-9c15-003f430f2e2c"/>
+          <ownedFeatures xsi:type="org.polarsys.capella.core.data.cs:Part" id="a57bf77b-26cd-44a4-b7fe-322ea21114ac"
+              name="L4 — L4_Policy_Identity_Vault" abstractType="#7e9b2e80-1c6f-5e99-b5b8-3b51465e9862"/>
+          <ownedFeatures xsi:type="org.polarsys.capella.core.data.cs:Part" id="e00ae6e6-0054-4e71-9916-5d712ab52fb0"
+              name="L5 — L5_Cognitive_Core" abstractType="#673964eb-8381-5e5f-9bad-0702da0bf08d"/>
+          <ownedFeatures xsi:type="org.polarsys.capella.core.data.cs:Part" id="ee0f69d9-059b-4f93-b346-c76d82ee96a3"
+              name="L6 — L6_Apps_Packages_Compatibility" abstractType="#bf506f34-599f-5523-985f-d875acd4a8a5"/>
+          <ownedFeatures xsi:type="org.polarsys.capella.core.data.cs:Part" id="64b5b1b1-c3f5-4fdc-a03a-aba22764df18"
+              name="L7 — L7_Interaction_Renderers" abstractType="#5a0ac659-e66b-59df-8f9b-d3a628ac1f93"/>
+          <ownedFeatures xsi:type="org.polarsys.capella.core.data.cs:Part" id="bccb9860-29ea-4139-bb72-5806e9536f74"
+              name="L8 — L8_Network_Hardware_Devices" abstractType="#6767d634-ad82-53fb-8434-9a3a906c0ee4"/>
+          <ownedFeatures xsi:type="org.polarsys.capella.core.data.cs:Part" id="a006af46-acf5-4a39-9159-5917f885075b"
+              name="L9 — L9_Observability_Admin_Operations" abstractType="#33c5d532-e294-5130-9eea-c7ea4ad3966c"/>
+          <ownedFeatures xsi:type="org.polarsys.capella.core.data.cs:Part" id="f7118309-84c4-48a1-97c5-df3508f6885f"
+              name="L10 — L10_Distribution_Ecosystem_Marketplace" abstractType="#a70d82ef-3be9-565e-b8af-5311242454e9"/>
+          <ownedFeatures xsi:type="org.polarsys.capella.core.data.cs:Part" id="26c828dd-8188-45a9-9f10-913823f2c6e4"
+              name="XX — XX_Cross_Cutting" abstractType="#d58a4ae2-92d7-5a32-9e98-048041fd1443"/>
           <ownedComponentRealizations xsi:type="org.polarsys.capella.core.data.cs:ComponentRealization"
               id="6d7e2a8a-43f7-4aa8-b331-ddc3cba3191e" targetElement="#7af5971f-1a6c-47d3-b9a8-4e709444113e"
               sourceElement="#495208df-e9d1-48b8-8258-17f62184ab90"/>
@@ -396,74 +643,592 @@
       <ownedAbstractCapabilityPkg xsi:type="org.polarsys.capella.core.data.la:CapabilityRealizationPkg"
           id="82a7a1de-9410-477e-aa78-c641b373a423" name="Capabilities">
         <ownedCapabilityRealizations xsi:type="org.polarsys.capella.core.data.la:CapabilityRealization"
-            id="97593eeb-077a-5d6b-874c-6b2624bd24ee" name="S11.1 — Repository Model + Trust Roots (Rev.2)"
-            description="&lt;p>&lt;strong>Layer.&lt;/strong> L10&lt;/p>&lt;p>&lt;strong>Status.&lt;/strong> REAL (initial; written 2026-05-09; E1 evidence — file exists, structural contract complete)&lt;/p>&lt;p>&lt;strong>Schema package.&lt;/strong> aios.distribution.v1alpha1&lt;/p>&lt;p>&lt;strong>Source.&lt;/strong> L10_Distribution_Ecosystem_Marketplace/01_repository_model.md&lt;/p>"/>
-        <ownedCapabilityRealizations xsi:type="org.polarsys.capella.core.data.la:CapabilityRealization"
             id="8a118a0e-90a5-557f-b3f4-b44311eb4aff" name="S11.2 — Marketplace — Publisher Onboarding, Capability Review, Listings (Rev.2)"
-            description="&lt;p>&lt;strong>Layer.&lt;/strong> L10&lt;/p>&lt;p>&lt;strong>Status.&lt;/strong> REAL (initial; written 2026-05-09; E1 evidence — file exists, structural contract complete)&lt;/p>&lt;p>&lt;strong>Schema package.&lt;/strong> aios.marketplace.v1alpha1&lt;/p>&lt;p>&lt;strong>Source.&lt;/strong> L10_Distribution_Ecosystem_Marketplace/02_marketplace.md&lt;/p>"/>
+            description="&lt;p>&lt;strong>Layer.&lt;/strong> L10&lt;/p>&lt;p>&lt;strong>Status.&lt;/strong> REAL (initial; written 2026-05-09; E1 evidence — file exists, structural contract complete)&lt;/p>&lt;p>&lt;strong>Schema package.&lt;/strong> aios.marketplace.v1alpha1&lt;/p>&lt;p>&lt;strong>Source.&lt;/strong> L10_Distribution_Ecosystem_Marketplace/02_marketplace.md&lt;/p>">
+          <ownedAbstractCapabilityRealizations xsi:type="org.polarsys.capella.core.data.interaction:AbstractCapabilityRealization"
+              id="457226a4-1aa0-4894-82e5-fb19c5ff2b78" targetElement="#3d1d2cb2-91ed-5113-ba39-7396bc45fe4b"/>
+          <ownedAbstractCapabilityRealizations xsi:type="org.polarsys.capella.core.data.interaction:AbstractCapabilityRealization"
+              id="8bfcdf1e-1114-45fd-9efc-8bda45f80b4a" targetElement="#4127520f-26a1-5ed8-8770-1f9eb6d9b58a"/>
+          <ownedAbstractCapabilityRealizations xsi:type="org.polarsys.capella.core.data.interaction:AbstractCapabilityRealization"
+              id="473eddc6-7855-49e7-8f4d-0ff0c92b98a1" targetElement="#eb972166-7e61-5e2e-805c-95f780b6cc99"/>
+          <ownedAbstractCapabilityRealizations xsi:type="org.polarsys.capella.core.data.interaction:AbstractCapabilityRealization"
+              id="e4336b6f-8af0-4b6a-9d11-1e052045fcb7" targetElement="#ba937ceb-e1c9-5114-992d-c680b842a504"/>
+        </ownedCapabilityRealizations>
         <ownedCapabilityRealizations xsi:type="org.polarsys.capella.core.data.la:CapabilityRealization"
             id="09c01ea2-0d42-53e3-95cf-0cdd61d6fa51" name="S11.3 — External Integrations — Bridges to Flathub, OCI Registries, Distro Repos (Rev.2)"
-            description="&lt;p>&lt;strong>Layer.&lt;/strong> L10&lt;/p>&lt;p>&lt;strong>Status.&lt;/strong> REAL (initial; written 2026-05-09; E1 evidence — file exists, structural contract complete)&lt;/p>&lt;p>&lt;strong>Schema package.&lt;/strong> aios.bridge.v1alpha1&lt;/p>&lt;p>&lt;strong>Source.&lt;/strong> L10_Distribution_Ecosystem_Marketplace/03_external_integrations.md&lt;/p>"/>
-        <ownedCapabilityRealizations xsi:type="org.polarsys.capella.core.data.la:CapabilityRealization"
-            id="a0472ccd-fae4-532b-9eab-73d696be12a7" name="S9.1 — Recovery Boundary (Rev.2)"
-            description="&lt;p>&lt;strong>Layer.&lt;/strong> L1&lt;/p>&lt;p>&lt;strong>Status.&lt;/strong> REAL (initial; written 2026-05-09; E1 evidence — file exists, structural contract complete)&lt;/p>&lt;p>&lt;strong>Schema package.&lt;/strong> aios.recovery.v1alpha1&lt;/p>&lt;p>&lt;strong>Source.&lt;/strong> L1_Kernel_Bootstrap_Recovery/01_recovery_boundary.md&lt;/p>"/>
+            description="&lt;p>&lt;strong>Layer.&lt;/strong> L10&lt;/p>&lt;p>&lt;strong>Status.&lt;/strong> REAL (initial; written 2026-05-09; E1 evidence — file exists, structural contract complete)&lt;/p>&lt;p>&lt;strong>Schema package.&lt;/strong> aios.bridge.v1alpha1&lt;/p>&lt;p>&lt;strong>Source.&lt;/strong> L10_Distribution_Ecosystem_Marketplace/03_external_integrations.md&lt;/p>">
+          <ownedAbstractCapabilityRealizations xsi:type="org.polarsys.capella.core.data.interaction:AbstractCapabilityRealization"
+              id="08fe293b-203d-4b70-8cbe-57d327ac5bf9" targetElement="#3d1d2cb2-91ed-5113-ba39-7396bc45fe4b"/>
+          <ownedAbstractCapabilityRealizations xsi:type="org.polarsys.capella.core.data.interaction:AbstractCapabilityRealization"
+              id="aed4472c-e85f-467f-8dd2-b4a697a60251" targetElement="#4127520f-26a1-5ed8-8770-1f9eb6d9b58a"/>
+          <ownedAbstractCapabilityRealizations xsi:type="org.polarsys.capella.core.data.interaction:AbstractCapabilityRealization"
+              id="82ec14c5-83bd-4eea-8538-43349b74da42" targetElement="#eb972166-7e61-5e2e-805c-95f780b6cc99"/>
+          <ownedAbstractCapabilityRealizations xsi:type="org.polarsys.capella.core.data.interaction:AbstractCapabilityRealization"
+              id="b9c9444b-4381-4a2a-87c3-13c50b681373" targetElement="#ba937ceb-e1c9-5114-992d-c680b842a504"/>
+          <ownedAbstractCapabilityRealizations xsi:type="org.polarsys.capella.core.data.interaction:AbstractCapabilityRealization"
+              id="f5594a66-00d5-47e5-80ba-db52cb0104be" targetElement="#e993019a-8348-5343-a657-9346780b32a0"/>
+        </ownedCapabilityRealizations>
         <ownedCapabilityRealizations xsi:type="org.polarsys.capella.core.data.la:CapabilityRealization"
             id="f2f5a66c-56bf-5853-928e-c8ba1896f993" name="S9.2 — First-Boot Flow (Rev.2)"
-            description="&lt;p>&lt;strong>Layer.&lt;/strong> L1&lt;/p>&lt;p>&lt;strong>Status.&lt;/strong> REAL (initial; written 2026-05-09; E1 evidence — file exists; structural contract complete)&lt;/p>&lt;p>&lt;strong>Schema package.&lt;/strong> aios.firstboot.v1alpha1&lt;/p>&lt;p>&lt;strong>Source.&lt;/strong> L1_Kernel_Bootstrap_Recovery/02_first_boot_flow.md&lt;/p>"/>
-        <ownedCapabilityRealizations xsi:type="org.polarsys.capella.core.data.la:CapabilityRealization"
-            id="89a3c9d8-5f35-572c-bcb7-0b882892b786" name="S9.3 — Dedicated Kernel Pipeline (Rev.2)"
-            description="&lt;p>&lt;strong>Layer.&lt;/strong> L1&lt;/p>&lt;p>&lt;strong>Status.&lt;/strong> REAL (initial; written 2026-05-09; E1 evidence — file exists; structural contract complete)&lt;/p>&lt;p>&lt;strong>Schema package.&lt;/strong> aios.kernel.v1alpha1&lt;/p>&lt;p>&lt;strong>Source.&lt;/strong> L1_Kernel_Bootstrap_Recovery/03_dedicated_kernel_pipeline.md&lt;/p>"/>
-        <ownedCapabilityRealizations xsi:type="org.polarsys.capella.core.data.la:CapabilityRealization"
-            id="0131d10d-6af4-5c1b-9d7e-11b20bfdd1e5" name="S12.1 — App Runtime Model + Cross-Ecosystem Compatibility (Rev.2)"
-            description="&lt;p>&lt;strong>Layer.&lt;/strong> L6&lt;/p>&lt;p>&lt;strong>Status.&lt;/strong> REAL (initial; written 2026-05-09; E1 evidence — file exists, structural contract complete)&lt;/p>&lt;p>&lt;strong>Schema package.&lt;/strong> aios.appcompat.v1alpha1&lt;/p>&lt;p>&lt;strong>Source.&lt;/strong> L6_Apps_Packages_Compatibility/01_app_runtime_model.md&lt;/p>"/>
+            description="&lt;p>&lt;strong>Layer.&lt;/strong> L1&lt;/p>&lt;p>&lt;strong>Status.&lt;/strong> REAL (initial; written 2026-05-09; E1 evidence — file exists; structural contract complete)&lt;/p>&lt;p>&lt;strong>Schema package.&lt;/strong> aios.firstboot.v1alpha1&lt;/p>&lt;p>&lt;strong>Source.&lt;/strong> L1_Kernel_Bootstrap_Recovery/02_first_boot_flow.md&lt;/p>">
+          <ownedTraces xsi:type="org.polarsys.capella.core.data.la:CapabilityRealization"
+              id="e16ec754-f5c6-5eec-9728-9f4dffd406f4" name="S3.1 — Evidence Log Architecture (Rev.2)"
+              description="&lt;p>&lt;strong>Layer.&lt;/strong> L9&lt;/p>&lt;p>&lt;strong>Status.&lt;/strong> CONTRACT (refined 2026-05-08; awaiting implementation evidence)&lt;/p>&lt;p>&lt;strong>Schema package.&lt;/strong> —&lt;/p>&lt;p>&lt;strong>Source.&lt;/strong> L9_Observability_Admin_Operations/01_evidence_log.md&lt;/p>">
+            <ownedTraces xsi:type="org.polarsys.capella.core.data.la:CapabilityRealization"
+                id="f39cf46d-80e7-5bcf-858f-531394693161" name="S1.1 — Capability Translator (Rev.2)"
+                description="&lt;p>&lt;strong>Layer.&lt;/strong> L5&lt;/p>&lt;p>&lt;strong>Status.&lt;/strong> CONTRACT (refined 2026-05-08; awaiting implementation evidence)&lt;/p>&lt;p>&lt;strong>Schema package.&lt;/strong> —&lt;/p>&lt;p>&lt;strong>Source.&lt;/strong> L5_Cognitive_Core/02_capability_translator.md&lt;/p>"/>
+            <ownedTraces xsi:type="org.polarsys.capella.core.data.la:CapabilityRealization"
+                id="1bc1165b-02e2-5693-823f-27b9794d4ce9" name="S1.2 — Latency Tiering (Rev.2)"
+                description="&lt;p>&lt;strong>Layer.&lt;/strong> L5&lt;/p>&lt;p>&lt;strong>Status.&lt;/strong> CONTRACT (refined 2026-05-08; awaiting implementation evidence)&lt;/p>&lt;p>&lt;strong>Schema package.&lt;/strong> —&lt;/p>&lt;p>&lt;strong>Source.&lt;/strong> L5_Cognitive_Core/03_latency_tiering.md&lt;/p>"/>
+            <ownedAbstractCapabilityRealizations xsi:type="org.polarsys.capella.core.data.interaction:AbstractCapabilityRealization"
+                id="376cd07c-2f18-4380-9d01-71014eadd18c" targetElement="#176eeef6-8c59-53a9-a203-c1814e940ea3"/>
+            <ownedAbstractCapabilityRealizations xsi:type="org.polarsys.capella.core.data.interaction:AbstractCapabilityRealization"
+                id="1a88a82d-1fd2-40dd-ba82-b72df77e9003" targetElement="#3d1d2cb2-91ed-5113-ba39-7396bc45fe4b"/>
+            <ownedAbstractCapabilityRealizations xsi:type="org.polarsys.capella.core.data.interaction:AbstractCapabilityRealization"
+                id="b42b8ebc-f689-4124-ac24-00c32348c0eb" targetElement="#cb3e3446-1fa8-586a-a7ab-f41ed9f03f1a"/>
+            <ownedAbstractCapabilityRealizations xsi:type="org.polarsys.capella.core.data.interaction:AbstractCapabilityRealization"
+                id="6f8e2371-47ed-4c31-90c7-15b6cd6a3f1a" targetElement="#813ea4ba-fb84-53cc-ac47-0b24f8e78e65"/>
+            <ownedAbstractCapabilityRealizations xsi:type="org.polarsys.capella.core.data.interaction:AbstractCapabilityRealization"
+                id="de14e088-6983-46a8-9ce1-80b29a0332b6" targetElement="#53ba7f0b-51a5-5b95-a58b-19a4263bbaba"/>
+            <ownedAbstractCapabilityRealizations xsi:type="org.polarsys.capella.core.data.interaction:AbstractCapabilityRealization"
+                id="73568dac-b8f2-4a10-ae96-306189b73ba6" targetElement="#83cdfb98-d1e0-5d04-85f3-cf5f655335f6"/>
+            <ownedAbstractCapabilityRealizations xsi:type="org.polarsys.capella.core.data.interaction:AbstractCapabilityRealization"
+                id="e2da6ae3-1751-43f4-990d-a3a7f3ad673f" targetElement="#fa2ee763-ec45-5ce3-be0e-fda2085066b8"/>
+            <ownedAbstractCapabilityRealizations xsi:type="org.polarsys.capella.core.data.interaction:AbstractCapabilityRealization"
+                id="32185c6c-8107-45ba-a3ce-6026d4e7cfbc" targetElement="#f97cda66-bee8-5f57-bd26-ac7f5a313bc3"/>
+            <ownedAbstractCapabilityRealizations xsi:type="org.polarsys.capella.core.data.interaction:AbstractCapabilityRealization"
+                id="ee0cda25-fd6e-40c1-bb43-d4813e6a3148" targetElement="#eb972166-7e61-5e2e-805c-95f780b6cc99"/>
+            <ownedAbstractCapabilityRealizations xsi:type="org.polarsys.capella.core.data.interaction:AbstractCapabilityRealization"
+                id="08ee9e6d-1851-43c8-b173-e00bb4488610" targetElement="#c794b7c5-4b64-5535-8995-46716aca5c04"/>
+            <ownedAbstractCapabilityRealizations xsi:type="org.polarsys.capella.core.data.interaction:AbstractCapabilityRealization"
+                id="227cdb9a-3cd8-4614-b7e2-c6ae6cd23b5a" targetElement="#bfe499d0-2fe2-531e-b420-5e278c011fae"/>
+            <ownedAbstractCapabilityRealizations xsi:type="org.polarsys.capella.core.data.interaction:AbstractCapabilityRealization"
+                id="6b15c7bf-1594-453f-881e-11372de34d18" targetElement="#11c37e9b-56c5-5865-b8db-4cb80840f7f6"/>
+          </ownedTraces>
+          <ownedTraces xsi:type="org.polarsys.capella.core.data.la:CapabilityRealization"
+              id="129d061c-7cd1-548a-bfaa-6af39b321163" name="S4.1 — AIOS-FS Namespace Layout (Rev.2)"
+              description="&lt;p>&lt;strong>Layer.&lt;/strong> L2&lt;/p>&lt;p>&lt;strong>Status.&lt;/strong> CONTRACT (promoted 2026-05-09 from DRAFT NOTES)&lt;/p>&lt;p>&lt;strong>Schema package.&lt;/strong> aios.namespace.v1alpha1&lt;/p>&lt;p>&lt;strong>Source.&lt;/strong> L2_AIOS_FS/05_namespace_layout.md&lt;/p>">
+            <ownedAbstractCapabilityRealizations xsi:type="org.polarsys.capella.core.data.interaction:AbstractCapabilityRealization"
+                id="a916bc0f-2f88-4385-8541-629d93a1ff9a" targetElement="#f97cda66-bee8-5f57-bd26-ac7f5a313bc3"/>
+          </ownedTraces>
+          <ownedTraces xsi:type="org.polarsys.capella.core.data.la:CapabilityRealization"
+              id="c02049ab-6f2f-52af-8221-fcfc778377f0" name="S5.1 — Identity Model (Rev.2)"
+              description="&lt;p>&lt;strong>Layer.&lt;/strong> L4&lt;/p>&lt;p>&lt;strong>Status.&lt;/strong> CONTRACT (initial; written 2026-05-09)&lt;/p>&lt;p>&lt;strong>Schema package.&lt;/strong> aios.identity.v1alpha1&lt;/p>&lt;p>&lt;strong>Source.&lt;/strong> L4_Policy_Identity_Vault/03_identity_model.md&lt;/p>"/>
+          <ownedTraces xsi:type="org.polarsys.capella.core.data.la:CapabilityRealization"
+              id="12e14c75-0cca-5ddf-b6f7-a0e3554891f4" name="S5.2 — Vault Broker (Rev.2)"
+              description="&lt;p>&lt;strong>Layer.&lt;/strong> L4&lt;/p>&lt;p>&lt;strong>Status.&lt;/strong> CONTRACT (initial; written 2026-05-11)&lt;/p>&lt;p>&lt;strong>Schema package.&lt;/strong> aios.vault.v1alpha1&lt;/p>&lt;p>&lt;strong>Source.&lt;/strong> L4_Policy_Identity_Vault/02_vault_broker.md&lt;/p>">
+            <ownedAbstractCapabilityRealizations xsi:type="org.polarsys.capella.core.data.interaction:AbstractCapabilityRealization"
+                id="9ae6b3fd-e07d-4347-8569-bbed03165c20" targetElement="#720c502e-14a7-5bc6-a653-775aafdf19d7"/>
+            <ownedAbstractCapabilityRealizations xsi:type="org.polarsys.capella.core.data.interaction:AbstractCapabilityRealization"
+                id="7f0bb817-c5a4-4e73-9235-fcdd3700049b" targetElement="#c794b7c5-4b64-5535-8995-46716aca5c04"/>
+            <ownedAbstractCapabilityRealizations xsi:type="org.polarsys.capella.core.data.interaction:AbstractCapabilityRealization"
+                id="23b106be-b924-4c92-aca6-7478f6188f45" targetElement="#da3e7575-d002-504f-811e-d3dc03c93126"/>
+          </ownedTraces>
+          <ownedTraces xsi:type="org.polarsys.capella.core.data.la:CapabilityRealization"
+              id="a0472ccd-fae4-532b-9eab-73d696be12a7" name="S9.1 — Recovery Boundary (Rev.2)"
+              description="&lt;p>&lt;strong>Layer.&lt;/strong> L1&lt;/p>&lt;p>&lt;strong>Status.&lt;/strong> REAL (initial; written 2026-05-09; E1 evidence — file exists, structural contract complete)&lt;/p>&lt;p>&lt;strong>Schema package.&lt;/strong> aios.recovery.v1alpha1&lt;/p>&lt;p>&lt;strong>Source.&lt;/strong> L1_Kernel_Bootstrap_Recovery/01_recovery_boundary.md&lt;/p>">
+            <ownedTraces xsi:type="org.polarsys.capella.core.data.la:CapabilityRealization"
+                id="7b3a2ef6-c564-5e8f-b876-925d963dfd48" name="S2.3 — Policy Kernel (Rev.2)"
+                description="&lt;p>&lt;strong>Layer.&lt;/strong> L4&lt;/p>&lt;p>&lt;strong>Status.&lt;/strong> CONTRACT (refined 2026-05-08; awaiting implementation evidence)&lt;/p>&lt;p>&lt;strong>Schema package.&lt;/strong> —&lt;/p>&lt;p>&lt;strong>Source.&lt;/strong> L4_Policy_Identity_Vault/01_policy_kernel.md&lt;/p>">
+              <ownedAbstractCapabilityRealizations xsi:type="org.polarsys.capella.core.data.interaction:AbstractCapabilityRealization"
+                  id="72fc5deb-ebf7-4330-8c06-88023ff8a5e5" targetElement="#3d1d2cb2-91ed-5113-ba39-7396bc45fe4b"/>
+              <ownedAbstractCapabilityRealizations xsi:type="org.polarsys.capella.core.data.interaction:AbstractCapabilityRealization"
+                  id="ea8c73da-ec90-4dee-99fc-a8c4b137eb0b" targetElement="#f97cda66-bee8-5f57-bd26-ac7f5a313bc3"/>
+              <ownedAbstractCapabilityRealizations xsi:type="org.polarsys.capella.core.data.interaction:AbstractCapabilityRealization"
+                  id="27c3ae90-3fc5-443c-9b3a-f2b966b1806d" targetElement="#da3e7575-d002-504f-811e-d3dc03c93126"/>
+              <ownedAbstractCapabilityRealizations xsi:type="org.polarsys.capella.core.data.interaction:AbstractCapabilityRealization"
+                  id="3d624eda-cbfd-4d6f-a3a7-beec26e5a158" targetElement="#11c37e9b-56c5-5865-b8db-4cb80840f7f6"/>
+              <ownedAbstractCapabilityRealizations xsi:type="org.polarsys.capella.core.data.interaction:AbstractCapabilityRealization"
+                  id="694d895e-6ba9-4cd7-b58d-cfcf40e2ada9" targetElement="#54f9810e-8870-57df-b33c-ca9882c77d0f"/>
+              <ownedAbstractCapabilityRealizations xsi:type="org.polarsys.capella.core.data.interaction:AbstractCapabilityRealization"
+                  id="3920bc85-4773-4266-86ef-91e3e4fdd313" targetElement="#e1da91b5-5e7e-57b9-98de-2a9f754ca4e4"/>
+              <ownedAbstractCapabilityRealizations xsi:type="org.polarsys.capella.core.data.interaction:AbstractCapabilityRealization"
+                  id="80730252-1e29-4ccd-85a8-6b9fb83e5b49" targetElement="#9e7cd71a-4563-51b4-901e-ab4ccf20e4fb"/>
+              <ownedAbstractCapabilityRealizations xsi:type="org.polarsys.capella.core.data.interaction:AbstractCapabilityRealization"
+                  id="0ebc894e-fc45-4be4-9e00-a0091567fd52" targetElement="#45618019-cd88-5635-8d94-3151daeecbbf"/>
+            </ownedTraces>
+            <ownedTraces xsi:type="org.polarsys.capella.core.data.la:CapabilityRealization"
+                id="f23c9773-e4d3-5638-ba85-6a6a023b30f0" name="S5.4 — Emergency Override (Rev.2)"
+                description="&lt;p>&lt;strong>Layer.&lt;/strong> L4&lt;/p>&lt;p>&lt;strong>Status.&lt;/strong> REAL (initial; written 2026-05-09; E1 evidence — file exists)&lt;/p>&lt;p>&lt;strong>Schema package.&lt;/strong> aios.override.v1alpha1&lt;/p>&lt;p>&lt;strong>Source.&lt;/strong> L4_Policy_Identity_Vault/05_emergency_override.md&lt;/p>">
+              <ownedAbstractCapabilityRealizations xsi:type="org.polarsys.capella.core.data.interaction:AbstractCapabilityRealization"
+                  id="844bcd42-9623-49a3-bb3f-4861dd08de31" targetElement="#176eeef6-8c59-53a9-a203-c1814e940ea3"/>
+              <ownedAbstractCapabilityRealizations xsi:type="org.polarsys.capella.core.data.interaction:AbstractCapabilityRealization"
+                  id="7a5b73d0-efef-4a29-affd-d85ccc1934b6" targetElement="#3d1d2cb2-91ed-5113-ba39-7396bc45fe4b"/>
+              <ownedAbstractCapabilityRealizations xsi:type="org.polarsys.capella.core.data.interaction:AbstractCapabilityRealization"
+                  id="1c1a62a0-07dc-4e80-af2d-5107295ea533" targetElement="#720c502e-14a7-5bc6-a653-775aafdf19d7"/>
+              <ownedAbstractCapabilityRealizations xsi:type="org.polarsys.capella.core.data.interaction:AbstractCapabilityRealization"
+                  id="b77d8564-c459-410b-8031-ba8f3fe150fc" targetElement="#cb3e3446-1fa8-586a-a7ab-f41ed9f03f1a"/>
+              <ownedAbstractCapabilityRealizations xsi:type="org.polarsys.capella.core.data.interaction:AbstractCapabilityRealization"
+                  id="3f599872-b448-4b45-9b5a-137c9905b810" targetElement="#813ea4ba-fb84-53cc-ac47-0b24f8e78e65"/>
+              <ownedAbstractCapabilityRealizations xsi:type="org.polarsys.capella.core.data.interaction:AbstractCapabilityRealization"
+                  id="734908b1-1e9f-4fef-b10b-e95a85e2e993" targetElement="#4127520f-26a1-5ed8-8770-1f9eb6d9b58a"/>
+              <ownedAbstractCapabilityRealizations xsi:type="org.polarsys.capella.core.data.interaction:AbstractCapabilityRealization"
+                  id="a939e1a3-2e30-4ddc-b08e-d9485c6d9502" targetElement="#ba937ceb-e1c9-5114-992d-c680b842a504"/>
+              <ownedAbstractCapabilityRealizations xsi:type="org.polarsys.capella.core.data.interaction:AbstractCapabilityRealization"
+                  id="b05bfab5-165f-4104-b46f-5c2c51c9c0e9" targetElement="#bfe499d0-2fe2-531e-b420-5e278c011fae"/>
+              <ownedAbstractCapabilityRealizations xsi:type="org.polarsys.capella.core.data.interaction:AbstractCapabilityRealization"
+                  id="bbf185da-c9a8-4a75-a680-bd26f5a799f6" targetElement="#da3e7575-d002-504f-811e-d3dc03c93126"/>
+              <ownedAbstractCapabilityRealizations xsi:type="org.polarsys.capella.core.data.interaction:AbstractCapabilityRealization"
+                  id="7775cb55-2c35-4bae-998c-fcc72ee66e88" targetElement="#11c37e9b-56c5-5865-b8db-4cb80840f7f6"/>
+              <ownedAbstractCapabilityRealizations xsi:type="org.polarsys.capella.core.data.interaction:AbstractCapabilityRealization"
+                  id="83c2b5e4-f478-4d0e-b72c-271c3850c339" targetElement="#54f9810e-8870-57df-b33c-ca9882c77d0f"/>
+              <ownedAbstractCapabilityRealizations xsi:type="org.polarsys.capella.core.data.interaction:AbstractCapabilityRealization"
+                  id="ac4799c9-04bb-43b4-bfe8-7e2b2846ac1c" targetElement="#ce53aeb7-fc7c-54c7-9e84-719722c5f06a"/>
+            </ownedTraces>
+            <ownedAbstractCapabilityRealizations xsi:type="org.polarsys.capella.core.data.interaction:AbstractCapabilityRealization"
+                id="ede3bf00-eec1-49ac-8da6-b902cd95bcfb" targetElement="#176eeef6-8c59-53a9-a203-c1814e940ea3"/>
+            <ownedAbstractCapabilityRealizations xsi:type="org.polarsys.capella.core.data.interaction:AbstractCapabilityRealization"
+                id="2e82dd92-3ebd-4ccc-a875-ce31fb0686aa" targetElement="#3d1d2cb2-91ed-5113-ba39-7396bc45fe4b"/>
+            <ownedAbstractCapabilityRealizations xsi:type="org.polarsys.capella.core.data.interaction:AbstractCapabilityRealization"
+                id="103b8600-4c0c-498b-b561-7be975d47c48" targetElement="#cb3e3446-1fa8-586a-a7ab-f41ed9f03f1a"/>
+            <ownedAbstractCapabilityRealizations xsi:type="org.polarsys.capella.core.data.interaction:AbstractCapabilityRealization"
+                id="5c6f2577-da80-4397-bcbe-fe112176a266" targetElement="#813ea4ba-fb84-53cc-ac47-0b24f8e78e65"/>
+            <ownedAbstractCapabilityRealizations xsi:type="org.polarsys.capella.core.data.interaction:AbstractCapabilityRealization"
+                id="004ac71d-1043-4ed8-b355-95d0e42aea70" targetElement="#53ba7f0b-51a5-5b95-a58b-19a4263bbaba"/>
+            <ownedAbstractCapabilityRealizations xsi:type="org.polarsys.capella.core.data.interaction:AbstractCapabilityRealization"
+                id="b7b1a47a-b104-4cec-945e-ccb69a82a980" targetElement="#f97cda66-bee8-5f57-bd26-ac7f5a313bc3"/>
+            <ownedAbstractCapabilityRealizations xsi:type="org.polarsys.capella.core.data.interaction:AbstractCapabilityRealization"
+                id="206fc87f-684f-44e4-abed-3713bb8b9e87" targetElement="#da3e7575-d002-504f-811e-d3dc03c93126"/>
+            <ownedAbstractCapabilityRealizations xsi:type="org.polarsys.capella.core.data.interaction:AbstractCapabilityRealization"
+                id="f955818e-3dec-4188-a2ea-ee46f7abe612" targetElement="#ce53aeb7-fc7c-54c7-9e84-719722c5f06a"/>
+            <ownedAbstractCapabilityRealizations xsi:type="org.polarsys.capella.core.data.interaction:AbstractCapabilityRealization"
+                id="e830dd23-224f-4653-a292-6ae8e0080e8c" targetElement="#45618019-cd88-5635-8d94-3151daeecbbf"/>
+          </ownedTraces>
+          <ownedTraces xsi:type="org.polarsys.capella.core.data.la:CapabilityRealization"
+              id="89a3c9d8-5f35-572c-bcb7-0b882892b786" name="S9.3 — Dedicated Kernel Pipeline (Rev.2)"
+              description="&lt;p>&lt;strong>Layer.&lt;/strong> L1&lt;/p>&lt;p>&lt;strong>Status.&lt;/strong> REAL (initial; written 2026-05-09; E1 evidence — file exists; structural contract complete)&lt;/p>&lt;p>&lt;strong>Schema package.&lt;/strong> aios.kernel.v1alpha1&lt;/p>&lt;p>&lt;strong>Source.&lt;/strong> L1_Kernel_Bootstrap_Recovery/03_dedicated_kernel_pipeline.md&lt;/p>">
+            <ownedTraces xsi:type="org.polarsys.capella.core.data.la:CapabilityRealization"
+                id="6e39c1c7-1e7f-5461-bfa3-b10642bc890b" name="S10.1 — Capability Runtime gRPC (Rev.2)"
+                description="&lt;p>&lt;strong>Layer.&lt;/strong> L3&lt;/p>&lt;p>&lt;strong>Status.&lt;/strong> REAL (initial; written 2026-05-09; E1 evidence — file exists; structural contract complete)&lt;/p>&lt;p>&lt;strong>Schema package.&lt;/strong> aios.runtime.v1alpha1&lt;/p>&lt;p>&lt;strong>Source.&lt;/strong> L3_AIOS_SGR_Service_Graph_Runtime/03_capability_runtime_grpc.md&lt;/p>">
+              <ownedAbstractCapabilityRealizations xsi:type="org.polarsys.capella.core.data.interaction:AbstractCapabilityRealization"
+                  id="189d2695-58bf-4d39-9e7a-4125aa80a2b9" targetElement="#3d1d2cb2-91ed-5113-ba39-7396bc45fe4b"/>
+              <ownedAbstractCapabilityRealizations xsi:type="org.polarsys.capella.core.data.interaction:AbstractCapabilityRealization"
+                  id="76a40676-3d24-4cdf-9107-1f8604eb88f9" targetElement="#813ea4ba-fb84-53cc-ac47-0b24f8e78e65"/>
+              <ownedAbstractCapabilityRealizations xsi:type="org.polarsys.capella.core.data.interaction:AbstractCapabilityRealization"
+                  id="e2819ed8-feae-46ca-8ded-637723fb3b27" targetElement="#c643d6b6-f03b-53c7-bad3-80ccb8caf77f"/>
+              <ownedAbstractCapabilityRealizations xsi:type="org.polarsys.capella.core.data.interaction:AbstractCapabilityRealization"
+                  id="45f8a46c-c3ac-4c3d-a355-a9555327e4fe" targetElement="#83cdfb98-d1e0-5d04-85f3-cf5f655335f6"/>
+              <ownedAbstractCapabilityRealizations xsi:type="org.polarsys.capella.core.data.interaction:AbstractCapabilityRealization"
+                  id="968cdd0b-4852-4a44-bb37-0a4c38e444cd" targetElement="#f97cda66-bee8-5f57-bd26-ac7f5a313bc3"/>
+              <ownedAbstractCapabilityRealizations xsi:type="org.polarsys.capella.core.data.interaction:AbstractCapabilityRealization"
+                  id="33e5c677-0909-4908-b13d-341e534db9ab" targetElement="#eb972166-7e61-5e2e-805c-95f780b6cc99"/>
+              <ownedAbstractCapabilityRealizations xsi:type="org.polarsys.capella.core.data.interaction:AbstractCapabilityRealization"
+                  id="40b29e45-9d83-4d68-a560-35ef14510622" targetElement="#ba937ceb-e1c9-5114-992d-c680b842a504"/>
+              <ownedAbstractCapabilityRealizations xsi:type="org.polarsys.capella.core.data.interaction:AbstractCapabilityRealization"
+                  id="89044d1b-cfa6-4561-96c1-bd74c9c9cb0f" targetElement="#c794b7c5-4b64-5535-8995-46716aca5c04"/>
+              <ownedAbstractCapabilityRealizations xsi:type="org.polarsys.capella.core.data.interaction:AbstractCapabilityRealization"
+                  id="4857caae-364e-4eb1-8d1c-fbbfbf15cfaf" targetElement="#da3e7575-d002-504f-811e-d3dc03c93126"/>
+              <ownedAbstractCapabilityRealizations xsi:type="org.polarsys.capella.core.data.interaction:AbstractCapabilityRealization"
+                  id="b4e79129-2f30-4956-bb84-193fa80d2574" targetElement="#ce53aeb7-fc7c-54c7-9e84-719722c5f06a"/>
+            </ownedTraces>
+            <ownedTraces xsi:type="org.polarsys.capella.core.data.la:CapabilityRealization"
+                id="97593eeb-077a-5d6b-874c-6b2624bd24ee" name="S11.1 — Repository Model + Trust Roots (Rev.2)"
+                description="&lt;p>&lt;strong>Layer.&lt;/strong> L10&lt;/p>&lt;p>&lt;strong>Status.&lt;/strong> REAL (initial; written 2026-05-09; E1 evidence — file exists, structural contract complete)&lt;/p>&lt;p>&lt;strong>Schema package.&lt;/strong> aios.distribution.v1alpha1&lt;/p>&lt;p>&lt;strong>Source.&lt;/strong> L10_Distribution_Ecosystem_Marketplace/01_repository_model.md&lt;/p>">
+              <ownedTraces xsi:type="org.polarsys.capella.core.data.la:CapabilityRealization"
+                  id="35cac9f6-cc0c-55ba-8a04-0a700c0fc5a5" name="S8.5 — Firmware Trust + Signed Update Paths (Rev.2)"
+                  description="&lt;p>&lt;strong>Layer.&lt;/strong> L8&lt;/p>&lt;p>&lt;strong>Status.&lt;/strong> REAL (initial; written 2026-05-09; E1 evidence — file exists, structural contract complete)&lt;/p>&lt;p>&lt;strong>Schema package.&lt;/strong> aios.firmware.v1alpha1&lt;/p>&lt;p>&lt;strong>Source.&lt;/strong> L8_Network_Hardware_Devices/04_firmware_trust.md&lt;/p>">
+                <ownedTraces xsi:type="org.polarsys.capella.core.data.ctx:Capability"
+                    id="c1636be8-2d97-5a7b-82cc-f88eb68a0c68" name="S0.1 — Action Envelope + Lifecycle (Rev.2)"
+                    description="&lt;p>&lt;strong>Layer.&lt;/strong> XX&lt;/p>&lt;p>&lt;strong>Status.&lt;/strong> CONTRACT (rev.2 design approved; awaiting implementation evidence)&lt;/p>&lt;p>&lt;strong>Schema package.&lt;/strong> —&lt;/p>&lt;p>&lt;strong>Source.&lt;/strong> XX_Cross_Cutting/01_action_envelope_lifecycle.md&lt;/p>"/>
+                <ownedTraces xsi:type="org.polarsys.capella.core.data.la:CapabilityRealization"
+                    id="00a55325-221e-5deb-af7c-d356e99e931f" name="S5.3 — Approval Mechanics (Rev.2)"
+                    description="&lt;p>&lt;strong>Layer.&lt;/strong> L4&lt;/p>&lt;p>&lt;strong>Status.&lt;/strong> REAL (E1 — file exists; structural contract complete; written 2026-05-09)&lt;/p>&lt;p>&lt;strong>Schema package.&lt;/strong> aios.approval.v1alpha1&lt;/p>&lt;p>&lt;strong>Source.&lt;/strong> L4_Policy_Identity_Vault/04_approval_mechanics.md&lt;/p>">
+                  <ownedAbstractCapabilityRealizations xsi:type="org.polarsys.capella.core.data.interaction:AbstractCapabilityRealization"
+                      id="c92de4f5-9943-4a2c-934e-38635013a6bd" targetElement="#3d1d2cb2-91ed-5113-ba39-7396bc45fe4b"/>
+                  <ownedAbstractCapabilityRealizations xsi:type="org.polarsys.capella.core.data.interaction:AbstractCapabilityRealization"
+                      id="64185a3c-e74b-4e22-89a1-1b09805d129d" targetElement="#813ea4ba-fb84-53cc-ac47-0b24f8e78e65"/>
+                  <ownedAbstractCapabilityRealizations xsi:type="org.polarsys.capella.core.data.interaction:AbstractCapabilityRealization"
+                      id="fa892f41-79af-40af-a481-11035e1bbac1" targetElement="#53ba7f0b-51a5-5b95-a58b-19a4263bbaba"/>
+                  <ownedAbstractCapabilityRealizations xsi:type="org.polarsys.capella.core.data.interaction:AbstractCapabilityRealization"
+                      id="d9eca69e-1b3d-46a1-ba21-4655c5ab65c0" targetElement="#4127520f-26a1-5ed8-8770-1f9eb6d9b58a"/>
+                  <ownedAbstractCapabilityRealizations xsi:type="org.polarsys.capella.core.data.interaction:AbstractCapabilityRealization"
+                      id="a1852c94-5d64-4266-bac8-36a217292711" targetElement="#83cdfb98-d1e0-5d04-85f3-cf5f655335f6"/>
+                  <ownedAbstractCapabilityRealizations xsi:type="org.polarsys.capella.core.data.interaction:AbstractCapabilityRealization"
+                      id="05ac8bff-7e29-4e23-8227-f214e6b19251" targetElement="#dc6436b2-2fae-53d1-822f-fc849a056c9b"/>
+                  <ownedAbstractCapabilityRealizations xsi:type="org.polarsys.capella.core.data.interaction:AbstractCapabilityRealization"
+                      id="d30ec804-842d-483d-95fc-c9e4ad266928" targetElement="#c794b7c5-4b64-5535-8995-46716aca5c04"/>
+                  <ownedAbstractCapabilityRealizations xsi:type="org.polarsys.capella.core.data.interaction:AbstractCapabilityRealization"
+                      id="cce60d5b-acde-4e13-9c64-df920c451b1c" targetElement="#54f9810e-8870-57df-b33c-ca9882c77d0f"/>
+                  <ownedAbstractCapabilityRealizations xsi:type="org.polarsys.capella.core.data.interaction:AbstractCapabilityRealization"
+                      id="608616fa-7b7b-4253-8e23-7b8115c6969a" targetElement="#e1da91b5-5e7e-57b9-98de-2a9f754ca4e4"/>
+                  <ownedAbstractCapabilityRealizations xsi:type="org.polarsys.capella.core.data.interaction:AbstractCapabilityRealization"
+                      id="dd1765c7-829e-4624-91c4-eff983ec1110" targetElement="#ce53aeb7-fc7c-54c7-9e84-719722c5f06a"/>
+                </ownedTraces>
+                <ownedAbstractCapabilityRealizations xsi:type="org.polarsys.capella.core.data.interaction:AbstractCapabilityRealization"
+                    id="f2804c62-bbca-4b7f-9b1f-5c82deac85b5" targetElement="#176eeef6-8c59-53a9-a203-c1814e940ea3"/>
+                <ownedAbstractCapabilityRealizations xsi:type="org.polarsys.capella.core.data.interaction:AbstractCapabilityRealization"
+                    id="e15a457f-c66a-4dbd-bc53-bcb8d21e161c" targetElement="#3d1d2cb2-91ed-5113-ba39-7396bc45fe4b"/>
+                <ownedAbstractCapabilityRealizations xsi:type="org.polarsys.capella.core.data.interaction:AbstractCapabilityRealization"
+                    id="f90f34f8-2308-4755-a829-40dbb5508aa5" targetElement="#cb3e3446-1fa8-586a-a7ab-f41ed9f03f1a"/>
+                <ownedAbstractCapabilityRealizations xsi:type="org.polarsys.capella.core.data.interaction:AbstractCapabilityRealization"
+                    id="7970e953-6065-45d7-9791-a8446a0e443e" targetElement="#813ea4ba-fb84-53cc-ac47-0b24f8e78e65"/>
+                <ownedAbstractCapabilityRealizations xsi:type="org.polarsys.capella.core.data.interaction:AbstractCapabilityRealization"
+                    id="d6f72452-e912-422f-be59-b0977eb35778" targetElement="#4127520f-26a1-5ed8-8770-1f9eb6d9b58a"/>
+                <ownedAbstractCapabilityRealizations xsi:type="org.polarsys.capella.core.data.interaction:AbstractCapabilityRealization"
+                    id="17a34370-4363-40ac-b015-8a1a0d6600c1" targetElement="#eb972166-7e61-5e2e-805c-95f780b6cc99"/>
+                <ownedAbstractCapabilityRealizations xsi:type="org.polarsys.capella.core.data.interaction:AbstractCapabilityRealization"
+                    id="6ecd8333-1acd-4f5f-a962-ad20c17655da" targetElement="#ba937ceb-e1c9-5114-992d-c680b842a504"/>
+                <ownedAbstractCapabilityRealizations xsi:type="org.polarsys.capella.core.data.interaction:AbstractCapabilityRealization"
+                    id="328f6111-20f5-4bda-8d51-54031ebbc0c1" targetElement="#da3e7575-d002-504f-811e-d3dc03c93126"/>
+                <ownedAbstractCapabilityRealizations xsi:type="org.polarsys.capella.core.data.interaction:AbstractCapabilityRealization"
+                    id="b580d162-70bd-476e-9fd5-4f79afab3e78" targetElement="#45618019-cd88-5635-8d94-3151daeecbbf"/>
+              </ownedTraces>
+              <ownedAbstractCapabilityRealizations xsi:type="org.polarsys.capella.core.data.interaction:AbstractCapabilityRealization"
+                  id="d623c574-def1-429a-99e0-964396349dbd" targetElement="#176eeef6-8c59-53a9-a203-c1814e940ea3"/>
+              <ownedAbstractCapabilityRealizations xsi:type="org.polarsys.capella.core.data.interaction:AbstractCapabilityRealization"
+                  id="a8b62f88-db81-4925-9ef8-856a3954ab1e" targetElement="#3d1d2cb2-91ed-5113-ba39-7396bc45fe4b"/>
+              <ownedAbstractCapabilityRealizations xsi:type="org.polarsys.capella.core.data.interaction:AbstractCapabilityRealization"
+                  id="0ec00f46-e26f-4f9d-886b-005be2a77847" targetElement="#4127520f-26a1-5ed8-8770-1f9eb6d9b58a"/>
+              <ownedAbstractCapabilityRealizations xsi:type="org.polarsys.capella.core.data.interaction:AbstractCapabilityRealization"
+                  id="dd5b50c5-5ddf-4bd8-9b35-229328763b15" targetElement="#f97cda66-bee8-5f57-bd26-ac7f5a313bc3"/>
+              <ownedAbstractCapabilityRealizations xsi:type="org.polarsys.capella.core.data.interaction:AbstractCapabilityRealization"
+                  id="f8c29896-8aa3-4311-a775-e7e935e969ed" targetElement="#eb972166-7e61-5e2e-805c-95f780b6cc99"/>
+              <ownedAbstractCapabilityRealizations xsi:type="org.polarsys.capella.core.data.interaction:AbstractCapabilityRealization"
+                  id="d89fa850-2e3a-49c9-8497-9ac13c211b6e" targetElement="#ba937ceb-e1c9-5114-992d-c680b842a504"/>
+              <ownedAbstractCapabilityRealizations xsi:type="org.polarsys.capella.core.data.interaction:AbstractCapabilityRealization"
+                  id="31c81e5c-b459-4547-bbee-c510cec779f9" targetElement="#e993019a-8348-5343-a657-9346780b32a0"/>
+              <ownedAbstractCapabilityRealizations xsi:type="org.polarsys.capella.core.data.interaction:AbstractCapabilityRealization"
+                  id="6123516f-d0f4-4ed0-b034-9a718693c78f" targetElement="#9e7cd71a-4563-51b4-901e-ab4ccf20e4fb"/>
+            </ownedTraces>
+            <ownedTraces xsi:type="org.polarsys.capella.core.data.la:CapabilityRealization"
+                id="cbfa52b4-252e-50ed-a89a-ac1da4781015" name="S3.2 — Sandbox Composition Language (Rev.2)"
+                description="&lt;p>&lt;strong>Layer.&lt;/strong> L6&lt;/p>&lt;p>&lt;strong>Status.&lt;/strong> CONTRACT (refined 2026-05-08)&lt;/p>&lt;p>&lt;strong>Schema package.&lt;/strong> aios.sandbox.v1alpha1&lt;/p>&lt;p>&lt;strong>Source.&lt;/strong> L6_Apps_Packages_Compatibility/04_sandbox_composition.md&lt;/p>">
+              <ownedAbstractCapabilityRealizations xsi:type="org.polarsys.capella.core.data.interaction:AbstractCapabilityRealization"
+                  id="a6fc493a-bba6-4f08-a999-1218c752f3c3" targetElement="#11c37e9b-56c5-5865-b8db-4cb80840f7f6"/>
+            </ownedTraces>
+            <ownedTraces xsi:type="org.polarsys.capella.core.data.la:CapabilityRealization"
+                id="f84c6b08-cf21-5a90-b422-61d32e44461f" name="S8.2 — GPU Resource Model (Rev.2)"
+                description="&lt;p>&lt;strong>Layer.&lt;/strong> L8&lt;/p>&lt;p>&lt;strong>Status.&lt;/strong> CONTRACT (initial; written 2026-05-10)&lt;/p>&lt;p>&lt;strong>Schema package.&lt;/strong> aios.gpu.v1alpha1&lt;/p>&lt;p>&lt;strong>Source.&lt;/strong> L8_Network_Hardware_Devices/05_gpu_resource_model.md&lt;/p>">
+              <ownedTraces xsi:type="org.polarsys.capella.core.data.la:CapabilityRealization"
+                  id="117f0f38-febf-52c9-aa19-de7e98ed608d" name="S7.1 — Surface + Composition Model (Rev.2)"
+                  description="&lt;p>&lt;strong>Layer.&lt;/strong> L7&lt;/p>&lt;p>&lt;strong>Status.&lt;/strong> CONTRACT (initial; written 2026-05-10)&lt;/p>&lt;p>&lt;strong>Schema package.&lt;/strong> aios.surface.v1alpha1&lt;/p>&lt;p>&lt;strong>Source.&lt;/strong> L7_Interaction_Renderers/01_surface_composition.md&lt;/p>">
+                <ownedAbstractCapabilityRealizations xsi:type="org.polarsys.capella.core.data.interaction:AbstractCapabilityRealization"
+                    id="84cbe349-605a-46f5-b50c-b168e990bdfd" targetElement="#11c37e9b-56c5-5865-b8db-4cb80840f7f6"/>
+                <ownedAbstractCapabilityRealizations xsi:type="org.polarsys.capella.core.data.interaction:AbstractCapabilityRealization"
+                    id="6e7b6974-43f2-4349-aa82-e852147a6c36" targetElement="#54f9810e-8870-57df-b33c-ca9882c77d0f"/>
+                <ownedAbstractCapabilityRealizations xsi:type="org.polarsys.capella.core.data.interaction:AbstractCapabilityRealization"
+                    id="94e04357-14aa-4780-8a8b-b674d2fe344a" targetElement="#e1da91b5-5e7e-57b9-98de-2a9f754ca4e4"/>
+                <ownedAbstractCapabilityRealizations xsi:type="org.polarsys.capella.core.data.interaction:AbstractCapabilityRealization"
+                    id="519b7158-e181-458f-bee5-f2a3628f1503" targetElement="#ce53aeb7-fc7c-54c7-9e84-719722c5f06a"/>
+              </ownedTraces>
+              <ownedAbstractCapabilityRealizations xsi:type="org.polarsys.capella.core.data.interaction:AbstractCapabilityRealization"
+                  id="275fb6af-6a61-4697-a1dc-a8b1a2536d25" targetElement="#c643d6b6-f03b-53c7-bad3-80ccb8caf77f"/>
+            </ownedTraces>
+            <ownedAbstractCapabilityRealizations xsi:type="org.polarsys.capella.core.data.interaction:AbstractCapabilityRealization"
+                id="18932c5b-aeb3-4b51-9b71-6dc6cccc8764" targetElement="#176eeef6-8c59-53a9-a203-c1814e940ea3"/>
+            <ownedAbstractCapabilityRealizations xsi:type="org.polarsys.capella.core.data.interaction:AbstractCapabilityRealization"
+                id="6be0e9ba-9b7b-488e-8c1d-0791366a4a44" targetElement="#3d1d2cb2-91ed-5113-ba39-7396bc45fe4b"/>
+            <ownedAbstractCapabilityRealizations xsi:type="org.polarsys.capella.core.data.interaction:AbstractCapabilityRealization"
+                id="a9413145-a90f-4404-a7a1-ee6f15d2204f" targetElement="#cb3e3446-1fa8-586a-a7ab-f41ed9f03f1a"/>
+            <ownedAbstractCapabilityRealizations xsi:type="org.polarsys.capella.core.data.interaction:AbstractCapabilityRealization"
+                id="143c5a16-9a2a-4186-a501-4f4138c6cfed" targetElement="#813ea4ba-fb84-53cc-ac47-0b24f8e78e65"/>
+            <ownedAbstractCapabilityRealizations xsi:type="org.polarsys.capella.core.data.interaction:AbstractCapabilityRealization"
+                id="518068e5-9a55-44c0-9679-660d2b5ce277" targetElement="#fa2ee763-ec45-5ce3-be0e-fda2085066b8"/>
+            <ownedAbstractCapabilityRealizations xsi:type="org.polarsys.capella.core.data.interaction:AbstractCapabilityRealization"
+                id="647d17c9-4f1a-4ea7-b1b4-5e456cb37f63" targetElement="#f97cda66-bee8-5f57-bd26-ac7f5a313bc3"/>
+            <ownedAbstractCapabilityRealizations xsi:type="org.polarsys.capella.core.data.interaction:AbstractCapabilityRealization"
+                id="5f1fef8f-c389-42d0-94e5-f506381e8e59" targetElement="#eb972166-7e61-5e2e-805c-95f780b6cc99"/>
+            <ownedAbstractCapabilityRealizations xsi:type="org.polarsys.capella.core.data.interaction:AbstractCapabilityRealization"
+                id="f994da03-bf1f-4c85-b7d8-1bf4aa773609" targetElement="#ba937ceb-e1c9-5114-992d-c680b842a504"/>
+            <ownedAbstractCapabilityRealizations xsi:type="org.polarsys.capella.core.data.interaction:AbstractCapabilityRealization"
+                id="6b85a3f0-ef6b-4db9-8198-a72f5076196a" targetElement="#da3e7575-d002-504f-811e-d3dc03c93126"/>
+          </ownedTraces>
+          <ownedAbstractCapabilityRealizations xsi:type="org.polarsys.capella.core.data.interaction:AbstractCapabilityRealization"
+              id="96567ea3-5568-43b1-a7b9-bd3326caf322" targetElement="#176eeef6-8c59-53a9-a203-c1814e940ea3"/>
+          <ownedAbstractCapabilityRealizations xsi:type="org.polarsys.capella.core.data.interaction:AbstractCapabilityRealization"
+              id="24b926d9-a775-4025-addc-a0e76453d8ac" targetElement="#3d1d2cb2-91ed-5113-ba39-7396bc45fe4b"/>
+          <ownedAbstractCapabilityRealizations xsi:type="org.polarsys.capella.core.data.interaction:AbstractCapabilityRealization"
+              id="fc80c42c-7b6c-4ea0-a496-4f3ebaba1243" targetElement="#720c502e-14a7-5bc6-a653-775aafdf19d7"/>
+          <ownedAbstractCapabilityRealizations xsi:type="org.polarsys.capella.core.data.interaction:AbstractCapabilityRealization"
+              id="bb057d28-79ad-4d85-85d5-a42dff243897" targetElement="#cb3e3446-1fa8-586a-a7ab-f41ed9f03f1a"/>
+          <ownedAbstractCapabilityRealizations xsi:type="org.polarsys.capella.core.data.interaction:AbstractCapabilityRealization"
+              id="8cd3b8bc-79a4-4cc2-9177-1422f61063fe" targetElement="#813ea4ba-fb84-53cc-ac47-0b24f8e78e65"/>
+          <ownedAbstractCapabilityRealizations xsi:type="org.polarsys.capella.core.data.interaction:AbstractCapabilityRealization"
+              id="da0a4abb-1ae3-4704-aaf0-d6717c1742fb" targetElement="#53ba7f0b-51a5-5b95-a58b-19a4263bbaba"/>
+          <ownedAbstractCapabilityRealizations xsi:type="org.polarsys.capella.core.data.interaction:AbstractCapabilityRealization"
+              id="1ceb02c2-617b-4305-91e6-5a5643f6658a" targetElement="#4127520f-26a1-5ed8-8770-1f9eb6d9b58a"/>
+          <ownedAbstractCapabilityRealizations xsi:type="org.polarsys.capella.core.data.interaction:AbstractCapabilityRealization"
+              id="9f05a183-495c-4b9d-bee9-5eaddfc72a26" targetElement="#f97cda66-bee8-5f57-bd26-ac7f5a313bc3"/>
+          <ownedAbstractCapabilityRealizations xsi:type="org.polarsys.capella.core.data.interaction:AbstractCapabilityRealization"
+              id="2752b1c2-6c81-4645-98ce-f445da659fe2" targetElement="#eb972166-7e61-5e2e-805c-95f780b6cc99"/>
+          <ownedAbstractCapabilityRealizations xsi:type="org.polarsys.capella.core.data.interaction:AbstractCapabilityRealization"
+              id="e29e1283-8e6f-489e-ae86-ad9dae867edb" targetElement="#ba937ceb-e1c9-5114-992d-c680b842a504"/>
+          <ownedAbstractCapabilityRealizations xsi:type="org.polarsys.capella.core.data.interaction:AbstractCapabilityRealization"
+              id="679e70cc-a6f0-4bf8-93ac-430202717929" targetElement="#c794b7c5-4b64-5535-8995-46716aca5c04"/>
+          <ownedAbstractCapabilityRealizations xsi:type="org.polarsys.capella.core.data.interaction:AbstractCapabilityRealization"
+              id="b1a21a50-0ea4-4c3f-89a8-8c1077619d83" targetElement="#da3e7575-d002-504f-811e-d3dc03c93126"/>
+          <ownedAbstractCapabilityRealizations xsi:type="org.polarsys.capella.core.data.interaction:AbstractCapabilityRealization"
+              id="5b0b48d3-491b-4a5e-9ab7-f6bd626c4f09" targetElement="#ce53aeb7-fc7c-54c7-9e84-719722c5f06a"/>
+          <ownedAbstractCapabilityRealizations xsi:type="org.polarsys.capella.core.data.interaction:AbstractCapabilityRealization"
+              id="af672c43-fbc8-4b38-8063-a8213a7715fa" targetElement="#45618019-cd88-5635-8d94-3151daeecbbf"/>
+        </ownedCapabilityRealizations>
         <ownedCapabilityRealizations xsi:type="org.polarsys.capella.core.data.la:CapabilityRealization"
             id="82978137-ac6a-56ba-b7bb-33df5c90574f" name="S12.2 — Package Object Model — On-Disk Layout, Versioning, Update, Rollback (Rev.2)"
-            description="&lt;p>&lt;strong>Layer.&lt;/strong> L6&lt;/p>&lt;p>&lt;strong>Status.&lt;/strong> REAL (initial; written 2026-05-09; E1 evidence — file exists, structural contract complete)&lt;/p>&lt;p>&lt;strong>Schema package.&lt;/strong> aios.package.v1alpha1&lt;/p>&lt;p>&lt;strong>Source.&lt;/strong> L6_Apps_Packages_Compatibility/02_package_model.md&lt;/p>"/>
+            description="&lt;p>&lt;strong>Layer.&lt;/strong> L6&lt;/p>&lt;p>&lt;strong>Status.&lt;/strong> REAL (initial; written 2026-05-09; E1 evidence — file exists, structural contract complete)&lt;/p>&lt;p>&lt;strong>Schema package.&lt;/strong> aios.package.v1alpha1&lt;/p>&lt;p>&lt;strong>Source.&lt;/strong> L6_Apps_Packages_Compatibility/02_package_model.md&lt;/p>">
+          <ownedAbstractCapabilityRealizations xsi:type="org.polarsys.capella.core.data.interaction:AbstractCapabilityRealization"
+              id="ba1bcd28-a990-4bd5-84e6-95c3d25ef805" targetElement="#cb3e3446-1fa8-586a-a7ab-f41ed9f03f1a"/>
+          <ownedAbstractCapabilityRealizations xsi:type="org.polarsys.capella.core.data.interaction:AbstractCapabilityRealization"
+              id="9afb7ccd-1813-4570-9a0b-ef461238495f" targetElement="#fa2ee763-ec45-5ce3-be0e-fda2085066b8"/>
+          <ownedAbstractCapabilityRealizations xsi:type="org.polarsys.capella.core.data.interaction:AbstractCapabilityRealization"
+              id="db089046-f4e2-41bd-9bfe-9292b8fedc60" targetElement="#f97cda66-bee8-5f57-bd26-ac7f5a313bc3"/>
+          <ownedAbstractCapabilityRealizations xsi:type="org.polarsys.capella.core.data.interaction:AbstractCapabilityRealization"
+              id="1b13eea5-02d4-4348-93d2-62c927072c18" targetElement="#ba937ceb-e1c9-5114-992d-c680b842a504"/>
+          <ownedAbstractCapabilityRealizations xsi:type="org.polarsys.capella.core.data.interaction:AbstractCapabilityRealization"
+              id="7862d116-a57e-4e62-83f7-43ac5b75cfd8" targetElement="#e993019a-8348-5343-a657-9346780b32a0"/>
+        </ownedCapabilityRealizations>
         <ownedCapabilityRealizations xsi:type="org.polarsys.capella.core.data.la:CapabilityRealization"
             id="3cec5b2a-ff8a-579d-bf53-7356582dd242" name="S12.3 — Compatibility Runtime — Orchestration of EcosystemRuntime Adapters (Rev.2)"
-            description="&lt;p>&lt;strong>Layer.&lt;/strong> L6&lt;/p>&lt;p>&lt;strong>Status.&lt;/strong> REAL (initial; written 2026-05-09; E1 evidence — file exists, structural contract complete)&lt;/p>&lt;p>&lt;strong>Schema package.&lt;/strong> aios.compatruntime.v1alpha1&lt;/p>&lt;p>&lt;strong>Source.&lt;/strong> L6_Apps_Packages_Compatibility/03_compatibility_runtime.md&lt;/p>"/>
-        <ownedCapabilityRealizations xsi:type="org.polarsys.capella.core.data.la:CapabilityRealization"
-            id="cbfa52b4-252e-50ed-a89a-ac1da4781015" name="S3.2 — Sandbox Composition Language (Rev.2)"
-            description="&lt;p>&lt;strong>Layer.&lt;/strong> L6&lt;/p>&lt;p>&lt;strong>Status.&lt;/strong> CONTRACT (refined 2026-05-08)&lt;/p>&lt;p>&lt;strong>Schema package.&lt;/strong> aios.sandbox.v1alpha1&lt;/p>&lt;p>&lt;strong>Source.&lt;/strong> L6_Apps_Packages_Compatibility/04_sandbox_composition.md&lt;/p>"/>
+            description="&lt;p>&lt;strong>Layer.&lt;/strong> L6&lt;/p>&lt;p>&lt;strong>Status.&lt;/strong> REAL (initial; written 2026-05-09; E1 evidence — file exists, structural contract complete)&lt;/p>&lt;p>&lt;strong>Schema package.&lt;/strong> aios.compatruntime.v1alpha1&lt;/p>&lt;p>&lt;strong>Source.&lt;/strong> L6_Apps_Packages_Compatibility/03_compatibility_runtime.md&lt;/p>">
+          <ownedTraces xsi:type="org.polarsys.capella.core.data.la:CapabilityRealization"
+              id="0131d10d-6af4-5c1b-9d7e-11b20bfdd1e5" name="S12.1 — App Runtime Model + Cross-Ecosystem Compatibility (Rev.2)"
+              description="&lt;p>&lt;strong>Layer.&lt;/strong> L6&lt;/p>&lt;p>&lt;strong>Status.&lt;/strong> REAL (initial; written 2026-05-09; E1 evidence — file exists, structural contract complete)&lt;/p>&lt;p>&lt;strong>Schema package.&lt;/strong> aios.appcompat.v1alpha1&lt;/p>&lt;p>&lt;strong>Source.&lt;/strong> L6_Apps_Packages_Compatibility/01_app_runtime_model.md&lt;/p>">
+            <ownedAbstractCapabilityRealizations xsi:type="org.polarsys.capella.core.data.interaction:AbstractCapabilityRealization"
+                id="4e7fa12a-a0ab-43fe-ad65-75500f572a3a" targetElement="#3d1d2cb2-91ed-5113-ba39-7396bc45fe4b"/>
+            <ownedAbstractCapabilityRealizations xsi:type="org.polarsys.capella.core.data.interaction:AbstractCapabilityRealization"
+                id="5a97408e-7057-407e-86bf-824042806d98" targetElement="#4127520f-26a1-5ed8-8770-1f9eb6d9b58a"/>
+            <ownedAbstractCapabilityRealizations xsi:type="org.polarsys.capella.core.data.interaction:AbstractCapabilityRealization"
+                id="4ac0b66f-8dbb-45b8-8e27-8667070eaa63" targetElement="#fa2ee763-ec45-5ce3-be0e-fda2085066b8"/>
+            <ownedAbstractCapabilityRealizations xsi:type="org.polarsys.capella.core.data.interaction:AbstractCapabilityRealization"
+                id="e4d83187-347a-4cfe-a593-26bc33a6ef6c" targetElement="#eb972166-7e61-5e2e-805c-95f780b6cc99"/>
+            <ownedAbstractCapabilityRealizations xsi:type="org.polarsys.capella.core.data.interaction:AbstractCapabilityRealization"
+                id="f6aec90c-acb4-44d7-b87a-20a91b275fa1" targetElement="#c794b7c5-4b64-5535-8995-46716aca5c04"/>
+            <ownedAbstractCapabilityRealizations xsi:type="org.polarsys.capella.core.data.interaction:AbstractCapabilityRealization"
+                id="dc631474-bd38-424f-a354-9c130a78100f" targetElement="#e993019a-8348-5343-a657-9346780b32a0"/>
+            <ownedAbstractCapabilityRealizations xsi:type="org.polarsys.capella.core.data.interaction:AbstractCapabilityRealization"
+                id="d0116a86-8a7c-475a-b9b7-acc5c9781f04" targetElement="#45618019-cd88-5635-8d94-3151daeecbbf"/>
+          </ownedTraces>
+          <ownedAbstractCapabilityRealizations xsi:type="org.polarsys.capella.core.data.interaction:AbstractCapabilityRealization"
+              id="33263b76-30e1-4aff-a56b-b2e0146ad7aa" targetElement="#3d1d2cb2-91ed-5113-ba39-7396bc45fe4b"/>
+          <ownedAbstractCapabilityRealizations xsi:type="org.polarsys.capella.core.data.interaction:AbstractCapabilityRealization"
+              id="85f2bb36-5c64-4573-9782-0651765c0820" targetElement="#4127520f-26a1-5ed8-8770-1f9eb6d9b58a"/>
+          <ownedAbstractCapabilityRealizations xsi:type="org.polarsys.capella.core.data.interaction:AbstractCapabilityRealization"
+              id="ec871d82-7307-4a25-b842-d8cdf0ca430d" targetElement="#fa2ee763-ec45-5ce3-be0e-fda2085066b8"/>
+          <ownedAbstractCapabilityRealizations xsi:type="org.polarsys.capella.core.data.interaction:AbstractCapabilityRealization"
+              id="ca929f30-950c-429f-8e34-b0c5f1935ec3" targetElement="#eb972166-7e61-5e2e-805c-95f780b6cc99"/>
+          <ownedAbstractCapabilityRealizations xsi:type="org.polarsys.capella.core.data.interaction:AbstractCapabilityRealization"
+              id="61915cdd-3b43-4d94-a516-4ebd8922a2dc" targetElement="#ba937ceb-e1c9-5114-992d-c680b842a504"/>
+          <ownedAbstractCapabilityRealizations xsi:type="org.polarsys.capella.core.data.interaction:AbstractCapabilityRealization"
+              id="a0ddd732-61e5-483c-aea5-aadb9f86b870" targetElement="#c794b7c5-4b64-5535-8995-46716aca5c04"/>
+          <ownedAbstractCapabilityRealizations xsi:type="org.polarsys.capella.core.data.interaction:AbstractCapabilityRealization"
+              id="f3e66f4d-dabb-4e8a-9108-2cb7ea74a7e4" targetElement="#e993019a-8348-5343-a657-9346780b32a0"/>
+        </ownedCapabilityRealizations>
         <ownedCapabilityRealizations xsi:type="org.polarsys.capella.core.data.la:CapabilityRealization"
             id="cd2e213e-6acf-5860-b4e3-2556143a082c" name="S12.4 — Compatibility Knowledge — Per-App Profile Database (Rev.2)"
-            description="&lt;p>&lt;strong>Layer.&lt;/strong> L6&lt;/p>&lt;p>&lt;strong>Status.&lt;/strong> REAL (initial; written 2026-05-09; E1 evidence — file exists, structural contract complete)&lt;/p>&lt;p>&lt;strong>Schema package.&lt;/strong> aios.compatknowledge.v1alpha1&lt;/p>&lt;p>&lt;strong>Source.&lt;/strong> L6_Apps_Packages_Compatibility/05_compatibility_knowledge.md&lt;/p>"/>
+            description="&lt;p>&lt;strong>Layer.&lt;/strong> L6&lt;/p>&lt;p>&lt;strong>Status.&lt;/strong> REAL (initial; written 2026-05-09; E1 evidence — file exists, structural contract complete)&lt;/p>&lt;p>&lt;strong>Schema package.&lt;/strong> aios.compatknowledge.v1alpha1&lt;/p>&lt;p>&lt;strong>Source.&lt;/strong> L6_Apps_Packages_Compatibility/05_compatibility_knowledge.md&lt;/p>">
+          <ownedAbstractCapabilityRealizations xsi:type="org.polarsys.capella.core.data.interaction:AbstractCapabilityRealization"
+              id="5d6f3e1b-a2e6-4e7d-b6cf-863c66251d7c" targetElement="#3d1d2cb2-91ed-5113-ba39-7396bc45fe4b"/>
+          <ownedAbstractCapabilityRealizations xsi:type="org.polarsys.capella.core.data.interaction:AbstractCapabilityRealization"
+              id="4f6cb5d6-ac68-4853-b032-945173255a7e" targetElement="#4127520f-26a1-5ed8-8770-1f9eb6d9b58a"/>
+          <ownedAbstractCapabilityRealizations xsi:type="org.polarsys.capella.core.data.interaction:AbstractCapabilityRealization"
+              id="11835ba6-a1bc-4c95-8fc9-2d146ffe3ca1" targetElement="#fa2ee763-ec45-5ce3-be0e-fda2085066b8"/>
+          <ownedAbstractCapabilityRealizations xsi:type="org.polarsys.capella.core.data.interaction:AbstractCapabilityRealization"
+              id="73b89954-58a2-4301-8caa-c6e1d9aa14ad" targetElement="#ba937ceb-e1c9-5114-992d-c680b842a504"/>
+          <ownedAbstractCapabilityRealizations xsi:type="org.polarsys.capella.core.data.interaction:AbstractCapabilityRealization"
+              id="c0070b84-b438-46c1-b66c-6df594e90ae3" targetElement="#c794b7c5-4b64-5535-8995-46716aca5c04"/>
+          <ownedAbstractCapabilityRealizations xsi:type="org.polarsys.capella.core.data.interaction:AbstractCapabilityRealization"
+              id="db218298-b233-47b0-898e-3cadbfd44a7a" targetElement="#e993019a-8348-5343-a657-9346780b32a0"/>
+        </ownedCapabilityRealizations>
         <ownedCapabilityRealizations xsi:type="org.polarsys.capella.core.data.la:CapabilityRealization"
             id="49b2e90d-5c1b-5776-87f4-05c05ed3db4d" name="S6.5 — Session Container Model — per-group containerized KDE Plasma sessions streamed to browser (Rev.2)"
-            description="&lt;p>&lt;strong>Layer.&lt;/strong> L6&lt;/p>&lt;p>&lt;strong>Status.&lt;/strong> CONTRACT (initial; written 2026-05-23; E1 — file exists, structural contract complete)&lt;/p>&lt;p>&lt;strong>Schema package.&lt;/strong> aios.session.v1alpha1&lt;/p>&lt;p>&lt;strong>Source.&lt;/strong> L6_Apps_Packages_Compatibility/06_session_container_model.md&lt;/p>"/>
-        <ownedCapabilityRealizations xsi:type="org.polarsys.capella.core.data.la:CapabilityRealization"
-            id="117f0f38-febf-52c9-aa19-de7e98ed608d" name="S7.1 — Surface + Composition Model (Rev.2)"
-            description="&lt;p>&lt;strong>Layer.&lt;/strong> L7&lt;/p>&lt;p>&lt;strong>Status.&lt;/strong> CONTRACT (initial; written 2026-05-10)&lt;/p>&lt;p>&lt;strong>Schema package.&lt;/strong> aios.surface.v1alpha1&lt;/p>&lt;p>&lt;strong>Source.&lt;/strong> L7_Interaction_Renderers/01_surface_composition.md&lt;/p>"/>
-        <ownedCapabilityRealizations xsi:type="org.polarsys.capella.core.data.la:CapabilityRealization"
-            id="243c13ae-9c48-57dc-8327-d3da0ecf32a1" name="S7.2 — Shared UI Schema (Rev.2)"
-            description="&lt;p>&lt;strong>Layer.&lt;/strong> L7&lt;/p>&lt;p>&lt;strong>Status.&lt;/strong> CONTRACT (initial; written 2026-05-10)&lt;/p>&lt;p>&lt;strong>Schema package.&lt;/strong> aios.ui.v1alpha1&lt;/p>&lt;p>&lt;strong>Source.&lt;/strong> L7_Interaction_Renderers/02_shared_ui_schema.md&lt;/p>"/>
-        <ownedCapabilityRealizations xsi:type="org.polarsys.capella.core.data.la:CapabilityRealization"
-            id="b0110fcf-473f-58fc-b216-83bc08f0628a" name="S7.3 — Visual Language (Rev.2)"
-            description="&lt;p>&lt;strong>Layer.&lt;/strong> L7&lt;/p>&lt;p>&lt;strong>Status.&lt;/strong> CONTRACT (initial; written 2026-05-10)&lt;/p>&lt;p>&lt;strong>Schema package.&lt;/strong> aios.visual.v1alpha1&lt;/p>&lt;p>&lt;strong>Source.&lt;/strong> L7_Interaction_Renderers/03_visual_language.md&lt;/p>"/>
-        <ownedCapabilityRealizations xsi:type="org.polarsys.capella.core.data.la:CapabilityRealization"
-            id="c3d39c82-2081-5278-970c-40919a801484" name="S7.4 — KDE Plasma Renderer (Rev.2)"
-            description="&lt;p>&lt;strong>Layer.&lt;/strong> L7&lt;/p>&lt;p>&lt;strong>Status.&lt;/strong> CONTRACT (initial; written 2026-05-10)&lt;/p>&lt;p>&lt;strong>Schema package.&lt;/strong> aios.renderer.kde.v1alpha1&lt;/p>&lt;p>&lt;strong>Source.&lt;/strong> L7_Interaction_Renderers/04_kde_renderer.md&lt;/p>"/>
-        <ownedCapabilityRealizations xsi:type="org.polarsys.capella.core.data.la:CapabilityRealization"
-            id="4340efd0-da17-5593-ab8a-9cbf54969b1f" name="S7.5 — Web Renderer (Rev.2)"
-            description="&lt;p>&lt;strong>Layer.&lt;/strong> L7&lt;/p>&lt;p>&lt;strong>Status.&lt;/strong> CONTRACT (initial; written 2026-05-10)&lt;/p>&lt;p>&lt;strong>Schema package.&lt;/strong> aios.renderer.web.v1alpha1&lt;/p>&lt;p>&lt;strong>Source.&lt;/strong> L7_Interaction_Renderers/05_web_renderer.md&lt;/p>"/>
+            description="&lt;p>&lt;strong>Layer.&lt;/strong> L6&lt;/p>&lt;p>&lt;strong>Status.&lt;/strong> CONTRACT (initial; written 2026-05-23; E1 — file exists, structural contract complete)&lt;/p>&lt;p>&lt;strong>Schema package.&lt;/strong> aios.session.v1alpha1&lt;/p>&lt;p>&lt;strong>Source.&lt;/strong> L6_Apps_Packages_Compatibility/06_session_container_model.md&lt;/p>">
+          <ownedTraces xsi:type="org.polarsys.capella.core.data.la:CapabilityRealization"
+              id="c3d39c82-2081-5278-970c-40919a801484" name="S7.4 — KDE Plasma Renderer (Rev.2)"
+              description="&lt;p>&lt;strong>Layer.&lt;/strong> L7&lt;/p>&lt;p>&lt;strong>Status.&lt;/strong> CONTRACT (initial; written 2026-05-10)&lt;/p>&lt;p>&lt;strong>Schema package.&lt;/strong> aios.renderer.kde.v1alpha1&lt;/p>&lt;p>&lt;strong>Source.&lt;/strong> L7_Interaction_Renderers/04_kde_renderer.md&lt;/p>">
+            <ownedAbstractCapabilityRealizations xsi:type="org.polarsys.capella.core.data.interaction:AbstractCapabilityRealization"
+                id="ed531152-084d-4041-8e7a-964c33f447c2" targetElement="#11c37e9b-56c5-5865-b8db-4cb80840f7f6"/>
+            <ownedAbstractCapabilityRealizations xsi:type="org.polarsys.capella.core.data.interaction:AbstractCapabilityRealization"
+                id="b8b758ee-0afc-4f0f-a93b-b3275925eb1a" targetElement="#54f9810e-8870-57df-b33c-ca9882c77d0f"/>
+            <ownedAbstractCapabilityRealizations xsi:type="org.polarsys.capella.core.data.interaction:AbstractCapabilityRealization"
+                id="53ddddac-aa7f-47a2-ae4a-a21d8f8e2572" targetElement="#e1da91b5-5e7e-57b9-98de-2a9f754ca4e4"/>
+            <ownedAbstractCapabilityRealizations xsi:type="org.polarsys.capella.core.data.interaction:AbstractCapabilityRealization"
+                id="0bfe8b63-4373-4a47-a12d-41f5dc0edec3" targetElement="#ce53aeb7-fc7c-54c7-9e84-719722c5f06a"/>
+          </ownedTraces>
+          <ownedTraces xsi:type="org.polarsys.capella.core.data.la:CapabilityRealization"
+              id="4340efd0-da17-5593-ab8a-9cbf54969b1f" name="S7.5 — Web Renderer (Rev.2)"
+              description="&lt;p>&lt;strong>Layer.&lt;/strong> L7&lt;/p>&lt;p>&lt;strong>Status.&lt;/strong> CONTRACT (initial; written 2026-05-10)&lt;/p>&lt;p>&lt;strong>Schema package.&lt;/strong> aios.renderer.web.v1alpha1&lt;/p>&lt;p>&lt;strong>Source.&lt;/strong> L7_Interaction_Renderers/05_web_renderer.md&lt;/p>">
+            <ownedAbstractCapabilityRealizations xsi:type="org.polarsys.capella.core.data.interaction:AbstractCapabilityRealization"
+                id="3d81c645-3659-461a-ba75-badd55a90f79" targetElement="#53ba7f0b-51a5-5b95-a58b-19a4263bbaba"/>
+            <ownedAbstractCapabilityRealizations xsi:type="org.polarsys.capella.core.data.interaction:AbstractCapabilityRealization"
+                id="fdae6524-36f2-4847-a55e-31db2f8ccd91" targetElement="#11c37e9b-56c5-5865-b8db-4cb80840f7f6"/>
+            <ownedAbstractCapabilityRealizations xsi:type="org.polarsys.capella.core.data.interaction:AbstractCapabilityRealization"
+                id="64215997-66e4-4ff7-81e8-1f1570de3ffe" targetElement="#54f9810e-8870-57df-b33c-ca9882c77d0f"/>
+            <ownedAbstractCapabilityRealizations xsi:type="org.polarsys.capella.core.data.interaction:AbstractCapabilityRealization"
+                id="98806eb1-c2a3-4ab7-87c4-0dffdbae7db4" targetElement="#e1da91b5-5e7e-57b9-98de-2a9f754ca4e4"/>
+            <ownedAbstractCapabilityRealizations xsi:type="org.polarsys.capella.core.data.interaction:AbstractCapabilityRealization"
+                id="f83d5151-b58c-464d-9352-cb75a5589f69" targetElement="#ce53aeb7-fc7c-54c7-9e84-719722c5f06a"/>
+          </ownedTraces>
+          <ownedTraces xsi:type="org.polarsys.capella.core.data.la:CapabilityRealization"
+              id="89487a6a-3a9f-5a01-8cfc-b3c66e9d9fbf" name="S8.1 — Network Policy (Rev.2)"
+              description="&lt;p>&lt;strong>Layer.&lt;/strong> L8&lt;/p>&lt;p>&lt;strong>Status.&lt;/strong> REAL (initial; written 2026-05-09)&lt;/p>&lt;p>&lt;strong>Schema package.&lt;/strong> aios.network.v1alpha1&lt;/p>&lt;p>&lt;strong>Source.&lt;/strong> L8_Network_Hardware_Devices/02_network_policy.md&lt;/p>">
+            <ownedAbstractCapabilityRealizations xsi:type="org.polarsys.capella.core.data.interaction:AbstractCapabilityRealization"
+                id="7d1c5c19-2431-4278-844c-eb1b187caa10" targetElement="#3d1d2cb2-91ed-5113-ba39-7396bc45fe4b"/>
+            <ownedAbstractCapabilityRealizations xsi:type="org.polarsys.capella.core.data.interaction:AbstractCapabilityRealization"
+                id="c20cfc82-26e7-4a13-9654-7d8539796ec4" targetElement="#720c502e-14a7-5bc6-a653-775aafdf19d7"/>
+            <ownedAbstractCapabilityRealizations xsi:type="org.polarsys.capella.core.data.interaction:AbstractCapabilityRealization"
+                id="7a72d218-f69c-4f08-ab61-aed80481a120" targetElement="#53ba7f0b-51a5-5b95-a58b-19a4263bbaba"/>
+            <ownedAbstractCapabilityRealizations xsi:type="org.polarsys.capella.core.data.interaction:AbstractCapabilityRealization"
+                id="eb1ae310-a64b-4a3d-bf54-386790db95bb" targetElement="#4127520f-26a1-5ed8-8770-1f9eb6d9b58a"/>
+            <ownedAbstractCapabilityRealizations xsi:type="org.polarsys.capella.core.data.interaction:AbstractCapabilityRealization"
+                id="ec46279b-6df6-4452-be59-084f54e9d796" targetElement="#fa2ee763-ec45-5ce3-be0e-fda2085066b8"/>
+            <ownedAbstractCapabilityRealizations xsi:type="org.polarsys.capella.core.data.interaction:AbstractCapabilityRealization"
+                id="065ffc7e-b72f-4a50-8329-015ec2be6afa" targetElement="#da3e7575-d002-504f-811e-d3dc03c93126"/>
+          </ownedTraces>
+          <ownedAbstractCapabilityRealizations xsi:type="org.polarsys.capella.core.data.interaction:AbstractCapabilityRealization"
+              id="4b4eb3c2-1c04-4a08-a1c9-c0a152d66c43" targetElement="#176eeef6-8c59-53a9-a203-c1814e940ea3"/>
+          <ownedAbstractCapabilityRealizations xsi:type="org.polarsys.capella.core.data.interaction:AbstractCapabilityRealization"
+              id="0421916d-8da3-4f81-98bf-f8a93483ba06" targetElement="#3d1d2cb2-91ed-5113-ba39-7396bc45fe4b"/>
+          <ownedAbstractCapabilityRealizations xsi:type="org.polarsys.capella.core.data.interaction:AbstractCapabilityRealization"
+              id="0f2af74a-61dd-43a4-9378-e46ff77e42d3" targetElement="#cb3e3446-1fa8-586a-a7ab-f41ed9f03f1a"/>
+          <ownedAbstractCapabilityRealizations xsi:type="org.polarsys.capella.core.data.interaction:AbstractCapabilityRealization"
+              id="ce2fd8dd-8307-4b65-8380-fd59fefae29b" targetElement="#fa2ee763-ec45-5ce3-be0e-fda2085066b8"/>
+          <ownedAbstractCapabilityRealizations xsi:type="org.polarsys.capella.core.data.interaction:AbstractCapabilityRealization"
+              id="31443bd6-e675-40b0-9427-311e0b4d4bd6" targetElement="#eb972166-7e61-5e2e-805c-95f780b6cc99"/>
+          <ownedAbstractCapabilityRealizations xsi:type="org.polarsys.capella.core.data.interaction:AbstractCapabilityRealization"
+              id="1198d1d6-94c3-4c3c-bb3f-f033c9b21d06" targetElement="#e993019a-8348-5343-a657-9346780b32a0"/>
+          <ownedAbstractCapabilityRealizations xsi:type="org.polarsys.capella.core.data.interaction:AbstractCapabilityRealization"
+              id="bb328ae7-54a6-49ff-a42f-d93a4b8dbc47" targetElement="#54f9810e-8870-57df-b33c-ca9882c77d0f"/>
+          <ownedAbstractCapabilityRealizations xsi:type="org.polarsys.capella.core.data.interaction:AbstractCapabilityRealization"
+              id="d0aa34bc-73bb-48c2-bcc8-2c812be61552" targetElement="#9e7cd71a-4563-51b4-901e-ab4ccf20e4fb"/>
+          <ownedAbstractCapabilityRealizations xsi:type="org.polarsys.capella.core.data.interaction:AbstractCapabilityRealization"
+              id="e6754b26-5341-4c86-8c03-e1c87d432fea" targetElement="#45618019-cd88-5635-8d94-3151daeecbbf"/>
+        </ownedCapabilityRealizations>
         <ownedCapabilityRealizations xsi:type="org.polarsys.capella.core.data.la:CapabilityRealization"
             id="bc1dc085-824c-53c6-a543-80dc1d61c460" name="S7.6 — CLI Renderer (Rev.2)"
-            description="&lt;p>&lt;strong>Layer.&lt;/strong> L7&lt;/p>&lt;p>&lt;strong>Status.&lt;/strong> REAL (initial; written 2026-05-12; E1 evidence — file exists, structural contract complete)&lt;/p>&lt;p>&lt;strong>Schema package.&lt;/strong> aios.renderer.cli.v1alpha1&lt;/p>&lt;p>&lt;strong>Source.&lt;/strong> L7_Interaction_Renderers/06_cli_renderer.md&lt;/p>"/>
+            description="&lt;p>&lt;strong>Layer.&lt;/strong> L7&lt;/p>&lt;p>&lt;strong>Status.&lt;/strong> REAL (initial; written 2026-05-12; E1 evidence — file exists, structural contract complete)&lt;/p>&lt;p>&lt;strong>Schema package.&lt;/strong> aios.renderer.cli.v1alpha1&lt;/p>&lt;p>&lt;strong>Source.&lt;/strong> L7_Interaction_Renderers/06_cli_renderer.md&lt;/p>">
+          <ownedTraces xsi:type="org.polarsys.capella.core.data.la:CapabilityRealization"
+              id="243c13ae-9c48-57dc-8327-d3da0ecf32a1" name="S7.2 — Shared UI Schema (Rev.2)"
+              description="&lt;p>&lt;strong>Layer.&lt;/strong> L7&lt;/p>&lt;p>&lt;strong>Status.&lt;/strong> CONTRACT (initial; written 2026-05-10)&lt;/p>&lt;p>&lt;strong>Schema package.&lt;/strong> aios.ui.v1alpha1&lt;/p>&lt;p>&lt;strong>Source.&lt;/strong> L7_Interaction_Renderers/02_shared_ui_schema.md&lt;/p>">
+            <ownedTraces xsi:type="org.polarsys.capella.core.data.la:CapabilityRealization"
+                id="7564db82-90ab-542a-ad55-71a8266fcb38" name="S2.1 — AIOS-FS Query and View Language (Rev.2)"
+                description="&lt;p>&lt;strong>Layer.&lt;/strong> L2&lt;/p>&lt;p>&lt;strong>Status.&lt;/strong> CONTRACT (refined 2026-05-08; awaiting implementation evidence)&lt;/p>&lt;p>&lt;strong>Schema package.&lt;/strong> —&lt;/p>&lt;p>&lt;strong>Source.&lt;/strong> L2_AIOS_FS/02_query_view_language.md&lt;/p>">
+              <ownedAbstractCapabilityRealizations xsi:type="org.polarsys.capella.core.data.interaction:AbstractCapabilityRealization"
+                  id="fdd28fc8-4122-45b7-bd80-9e45883dbc62" targetElement="#3d1d2cb2-91ed-5113-ba39-7396bc45fe4b"/>
+              <ownedAbstractCapabilityRealizations xsi:type="org.polarsys.capella.core.data.interaction:AbstractCapabilityRealization"
+                  id="c055923e-ed55-470c-a9df-626aba2de073" targetElement="#53ba7f0b-51a5-5b95-a58b-19a4263bbaba"/>
+              <ownedAbstractCapabilityRealizations xsi:type="org.polarsys.capella.core.data.interaction:AbstractCapabilityRealization"
+                  id="4d189c46-3e94-4e6b-9d19-3916cc44a2e8" targetElement="#11c37e9b-56c5-5865-b8db-4cb80840f7f6"/>
+              <ownedAbstractCapabilityRealizations xsi:type="org.polarsys.capella.core.data.interaction:AbstractCapabilityRealization"
+                  id="c2a81189-c408-4220-bde8-cd9a99eabf09" targetElement="#54f9810e-8870-57df-b33c-ca9882c77d0f"/>
+              <ownedAbstractCapabilityRealizations xsi:type="org.polarsys.capella.core.data.interaction:AbstractCapabilityRealization"
+                  id="7d972949-8b1a-4151-85d9-e4518c23c8fd" targetElement="#e1da91b5-5e7e-57b9-98de-2a9f754ca4e4"/>
+            </ownedTraces>
+            <ownedAbstractCapabilityRealizations xsi:type="org.polarsys.capella.core.data.interaction:AbstractCapabilityRealization"
+                id="5712177b-4546-447e-ada9-9406e4188d46" targetElement="#11c37e9b-56c5-5865-b8db-4cb80840f7f6"/>
+            <ownedAbstractCapabilityRealizations xsi:type="org.polarsys.capella.core.data.interaction:AbstractCapabilityRealization"
+                id="06564ad1-9176-4518-aeb7-079758b3e571" targetElement="#54f9810e-8870-57df-b33c-ca9882c77d0f"/>
+            <ownedAbstractCapabilityRealizations xsi:type="org.polarsys.capella.core.data.interaction:AbstractCapabilityRealization"
+                id="423e7fdd-e38a-47b8-a43d-2fa48828a836" targetElement="#e1da91b5-5e7e-57b9-98de-2a9f754ca4e4"/>
+            <ownedAbstractCapabilityRealizations xsi:type="org.polarsys.capella.core.data.interaction:AbstractCapabilityRealization"
+                id="ffffb2f4-d7f2-4ce6-b84f-9996d60b3cd8" targetElement="#ce53aeb7-fc7c-54c7-9e84-719722c5f06a"/>
+          </ownedTraces>
+          <ownedTraces xsi:type="org.polarsys.capella.core.data.la:CapabilityRealization"
+              id="b0110fcf-473f-58fc-b216-83bc08f0628a" name="S7.3 — Visual Language (Rev.2)"
+              description="&lt;p>&lt;strong>Layer.&lt;/strong> L7&lt;/p>&lt;p>&lt;strong>Status.&lt;/strong> CONTRACT (initial; written 2026-05-10)&lt;/p>&lt;p>&lt;strong>Schema package.&lt;/strong> aios.visual.v1alpha1&lt;/p>&lt;p>&lt;strong>Source.&lt;/strong> L7_Interaction_Renderers/03_visual_language.md&lt;/p>">
+            <ownedAbstractCapabilityRealizations xsi:type="org.polarsys.capella.core.data.interaction:AbstractCapabilityRealization"
+                id="023a8ef1-a859-4cf5-b56b-89bc15af2766" targetElement="#11c37e9b-56c5-5865-b8db-4cb80840f7f6"/>
+            <ownedAbstractCapabilityRealizations xsi:type="org.polarsys.capella.core.data.interaction:AbstractCapabilityRealization"
+                id="c7e4da9b-a55c-4412-9a0a-c82e9f953ebc" targetElement="#54f9810e-8870-57df-b33c-ca9882c77d0f"/>
+            <ownedAbstractCapabilityRealizations xsi:type="org.polarsys.capella.core.data.interaction:AbstractCapabilityRealization"
+                id="ddcc052e-5b83-4938-96d4-799171ce76c8" targetElement="#e1da91b5-5e7e-57b9-98de-2a9f754ca4e4"/>
+            <ownedAbstractCapabilityRealizations xsi:type="org.polarsys.capella.core.data.interaction:AbstractCapabilityRealization"
+                id="ded2c4d5-f17c-4215-8a4f-4ff7311f99ca" targetElement="#ce53aeb7-fc7c-54c7-9e84-719722c5f06a"/>
+          </ownedTraces>
+          <ownedAbstractCapabilityRealizations xsi:type="org.polarsys.capella.core.data.interaction:AbstractCapabilityRealization"
+              id="a52ef06b-0660-48c8-99e6-f0d3a9302f6b" targetElement="#176eeef6-8c59-53a9-a203-c1814e940ea3"/>
+          <ownedAbstractCapabilityRealizations xsi:type="org.polarsys.capella.core.data.interaction:AbstractCapabilityRealization"
+              id="906a53f5-92f9-42e0-b134-948e49d1c71c" targetElement="#3d1d2cb2-91ed-5113-ba39-7396bc45fe4b"/>
+          <ownedAbstractCapabilityRealizations xsi:type="org.polarsys.capella.core.data.interaction:AbstractCapabilityRealization"
+              id="476fb303-7c31-4b9a-ac94-8f3a57c3643b" targetElement="#83cdfb98-d1e0-5d04-85f3-cf5f655335f6"/>
+          <ownedAbstractCapabilityRealizations xsi:type="org.polarsys.capella.core.data.interaction:AbstractCapabilityRealization"
+              id="50d5eedd-c956-4f35-878b-70b9d42a5383" targetElement="#11c37e9b-56c5-5865-b8db-4cb80840f7f6"/>
+          <ownedAbstractCapabilityRealizations xsi:type="org.polarsys.capella.core.data.interaction:AbstractCapabilityRealization"
+              id="3a674faf-0765-46d3-8ec1-51216e3460a2" targetElement="#54f9810e-8870-57df-b33c-ca9882c77d0f"/>
+          <ownedAbstractCapabilityRealizations xsi:type="org.polarsys.capella.core.data.interaction:AbstractCapabilityRealization"
+              id="db64c66a-c0c7-4feb-9411-daadc6fc5cac" targetElement="#e1da91b5-5e7e-57b9-98de-2a9f754ca4e4"/>
+          <ownedAbstractCapabilityRealizations xsi:type="org.polarsys.capella.core.data.interaction:AbstractCapabilityRealization"
+              id="60d120fc-2eb1-4612-8009-8aa6cac53372" targetElement="#ce53aeb7-fc7c-54c7-9e84-719722c5f06a"/>
+          <ownedAbstractCapabilityRealizations xsi:type="org.polarsys.capella.core.data.interaction:AbstractCapabilityRealization"
+              id="d8004057-0c42-4336-8de6-8dfbeac1cc7e" targetElement="#9e7cd71a-4563-51b4-901e-ab4ccf20e4fb"/>
+        </ownedCapabilityRealizations>
         <ownedCapabilityRealizations xsi:type="org.polarsys.capella.core.data.la:CapabilityRealization"
             id="6eaf7222-e174-50b9-94b8-86aa1230b850" name="S8.3 — Hardware Graph (Rev.2)"
-            description="&lt;p>&lt;strong>Layer.&lt;/strong> L8&lt;/p>&lt;p>&lt;strong>Status.&lt;/strong> REAL (initial; written 2026-05-09; E1 evidence — file exists; structural contract complete)&lt;/p>&lt;p>&lt;strong>Schema package.&lt;/strong> aios.hardware.v1alpha1&lt;/p>&lt;p>&lt;strong>Source.&lt;/strong> L8_Network_Hardware_Devices/01_hardware_graph.md&lt;/p>"/>
-        <ownedCapabilityRealizations xsi:type="org.polarsys.capella.core.data.la:CapabilityRealization"
-            id="89487a6a-3a9f-5a01-8cfc-b3c66e9d9fbf" name="S8.1 — Network Policy (Rev.2)"
-            description="&lt;p>&lt;strong>Layer.&lt;/strong> L8&lt;/p>&lt;p>&lt;strong>Status.&lt;/strong> REAL (initial; written 2026-05-09)&lt;/p>&lt;p>&lt;strong>Schema package.&lt;/strong> aios.network.v1alpha1&lt;/p>&lt;p>&lt;strong>Source.&lt;/strong> L8_Network_Hardware_Devices/02_network_policy.md&lt;/p>"/>
+            description="&lt;p>&lt;strong>Layer.&lt;/strong> L8&lt;/p>&lt;p>&lt;strong>Status.&lt;/strong> REAL (initial; written 2026-05-09; E1 evidence — file exists; structural contract complete)&lt;/p>&lt;p>&lt;strong>Schema package.&lt;/strong> aios.hardware.v1alpha1&lt;/p>&lt;p>&lt;strong>Source.&lt;/strong> L8_Network_Hardware_Devices/01_hardware_graph.md&lt;/p>">
+          <ownedAbstractCapabilityRealizations xsi:type="org.polarsys.capella.core.data.interaction:AbstractCapabilityRealization"
+              id="e1db112b-6a20-44e2-95c1-811e75b5af7e" targetElement="#3d1d2cb2-91ed-5113-ba39-7396bc45fe4b"/>
+          <ownedAbstractCapabilityRealizations xsi:type="org.polarsys.capella.core.data.interaction:AbstractCapabilityRealization"
+              id="25e031d1-d8c3-450f-b930-50be19668452" targetElement="#cb3e3446-1fa8-586a-a7ab-f41ed9f03f1a"/>
+          <ownedAbstractCapabilityRealizations xsi:type="org.polarsys.capella.core.data.interaction:AbstractCapabilityRealization"
+              id="a4fd316d-c78b-4468-93a5-be819099453e" targetElement="#813ea4ba-fb84-53cc-ac47-0b24f8e78e65"/>
+          <ownedAbstractCapabilityRealizations xsi:type="org.polarsys.capella.core.data.interaction:AbstractCapabilityRealization"
+              id="51da3a0f-1982-4e18-94b9-4fec5954cc8c" targetElement="#c643d6b6-f03b-53c7-bad3-80ccb8caf77f"/>
+          <ownedAbstractCapabilityRealizations xsi:type="org.polarsys.capella.core.data.interaction:AbstractCapabilityRealization"
+              id="c983fe08-e415-4fc2-a7c2-57be5bc8764a" targetElement="#4127520f-26a1-5ed8-8770-1f9eb6d9b58a"/>
+          <ownedAbstractCapabilityRealizations xsi:type="org.polarsys.capella.core.data.interaction:AbstractCapabilityRealization"
+              id="40ba278e-3a8e-489b-b7fa-f89f7db88fec" targetElement="#f97cda66-bee8-5f57-bd26-ac7f5a313bc3"/>
+          <ownedAbstractCapabilityRealizations xsi:type="org.polarsys.capella.core.data.interaction:AbstractCapabilityRealization"
+              id="e33d614d-eef5-43f3-b867-fad55b57ce53" targetElement="#eb972166-7e61-5e2e-805c-95f780b6cc99"/>
+          <ownedAbstractCapabilityRealizations xsi:type="org.polarsys.capella.core.data.interaction:AbstractCapabilityRealization"
+              id="91efd412-9848-42a9-8f13-534fc7c6e188" targetElement="#ba937ceb-e1c9-5114-992d-c680b842a504"/>
+          <ownedAbstractCapabilityRealizations xsi:type="org.polarsys.capella.core.data.interaction:AbstractCapabilityRealization"
+              id="0b9ea5bf-a11c-45c8-8447-520be7f0cb37" targetElement="#45618019-cd88-5635-8d94-3151daeecbbf"/>
+        </ownedCapabilityRealizations>
         <ownedCapabilityRealizations xsi:type="org.polarsys.capella.core.data.la:CapabilityRealization"
             id="e8bdff4f-0869-512c-87df-c4f70fd6dd74" name="S8.4 — DNS / VPN Management (Rev.2)"
-            description="&lt;p>&lt;strong>Layer.&lt;/strong> L8&lt;/p>&lt;p>&lt;strong>Status.&lt;/strong> REAL (initial; written 2026-05-09)&lt;/p>&lt;p>&lt;strong>Schema package.&lt;/strong> aios.dnsvpn.v1alpha1&lt;/p>&lt;p>&lt;strong>Source.&lt;/strong> L8_Network_Hardware_Devices/03_dns_vpn_management.md&lt;/p>"/>
-        <ownedCapabilityRealizations xsi:type="org.polarsys.capella.core.data.la:CapabilityRealization"
-            id="35cac9f6-cc0c-55ba-8a04-0a700c0fc5a5" name="S8.5 — Firmware Trust + Signed Update Paths (Rev.2)"
-            description="&lt;p>&lt;strong>Layer.&lt;/strong> L8&lt;/p>&lt;p>&lt;strong>Status.&lt;/strong> REAL (initial; written 2026-05-09; E1 evidence — file exists, structural contract complete)&lt;/p>&lt;p>&lt;strong>Schema package.&lt;/strong> aios.firmware.v1alpha1&lt;/p>&lt;p>&lt;strong>Source.&lt;/strong> L8_Network_Hardware_Devices/04_firmware_trust.md&lt;/p>"/>
-        <ownedCapabilityRealizations xsi:type="org.polarsys.capella.core.data.la:CapabilityRealization"
-            id="f84c6b08-cf21-5a90-b422-61d32e44461f" name="S8.2 — GPU Resource Model (Rev.2)"
-            description="&lt;p>&lt;strong>Layer.&lt;/strong> L8&lt;/p>&lt;p>&lt;strong>Status.&lt;/strong> CONTRACT (initial; written 2026-05-10)&lt;/p>&lt;p>&lt;strong>Schema package.&lt;/strong> aios.gpu.v1alpha1&lt;/p>&lt;p>&lt;strong>Source.&lt;/strong> L8_Network_Hardware_Devices/05_gpu_resource_model.md&lt;/p>"/>
+            description="&lt;p>&lt;strong>Layer.&lt;/strong> L8&lt;/p>&lt;p>&lt;strong>Status.&lt;/strong> REAL (initial; written 2026-05-09)&lt;/p>&lt;p>&lt;strong>Schema package.&lt;/strong> aios.dnsvpn.v1alpha1&lt;/p>&lt;p>&lt;strong>Source.&lt;/strong> L8_Network_Hardware_Devices/03_dns_vpn_management.md&lt;/p>">
+          <ownedTraces xsi:type="org.polarsys.capella.core.data.la:CapabilityRealization"
+              id="0a6e6150-a3cc-515b-9e35-ba02398eefd8" name="S1.3 — AIOS-FS Conflict Resolution (Rev.2)"
+              description="&lt;p>&lt;strong>Layer.&lt;/strong> L2&lt;/p>&lt;p>&lt;strong>Status.&lt;/strong> CONTRACT (refined 2026-05-08; awaiting implementation evidence)&lt;/p>&lt;p>&lt;strong>Schema package.&lt;/strong> —&lt;/p>&lt;p>&lt;strong>Source.&lt;/strong> L2_AIOS_FS/03_conflict_resolution.md&lt;/p>"/>
+          <ownedTraces xsi:type="org.polarsys.capella.core.data.la:CapabilityRealization"
+              id="d8600f7d-19fc-57aa-92dd-529e5b1537fd" name="S2.4 — Verification Grammar (Rev.2)"
+              description="&lt;p>&lt;strong>Layer.&lt;/strong> L9&lt;/p>&lt;p>&lt;strong>Status.&lt;/strong> CONTRACT (refined 2026-05-08; awaiting implementation evidence)&lt;/p>&lt;p>&lt;strong>Schema package.&lt;/strong> —&lt;/p>&lt;p>&lt;strong>Source.&lt;/strong> L9_Observability_Admin_Operations/02_verification_grammar.md&lt;/p>">
+            <ownedAbstractCapabilityRealizations xsi:type="org.polarsys.capella.core.data.interaction:AbstractCapabilityRealization"
+                id="6aab85ef-b678-455e-9193-f754bbfe6f18" targetElement="#176eeef6-8c59-53a9-a203-c1814e940ea3"/>
+            <ownedAbstractCapabilityRealizations xsi:type="org.polarsys.capella.core.data.interaction:AbstractCapabilityRealization"
+                id="c51963a4-586b-4908-af74-b33c30c1fecf" targetElement="#3d1d2cb2-91ed-5113-ba39-7396bc45fe4b"/>
+            <ownedAbstractCapabilityRealizations xsi:type="org.polarsys.capella.core.data.interaction:AbstractCapabilityRealization"
+                id="8520c4ce-5aec-499e-b02d-92f58067c842" targetElement="#cb3e3446-1fa8-586a-a7ab-f41ed9f03f1a"/>
+            <ownedAbstractCapabilityRealizations xsi:type="org.polarsys.capella.core.data.interaction:AbstractCapabilityRealization"
+                id="83346c34-b0ae-42d0-bea3-fee09b09396e" targetElement="#53ba7f0b-51a5-5b95-a58b-19a4263bbaba"/>
+            <ownedAbstractCapabilityRealizations xsi:type="org.polarsys.capella.core.data.interaction:AbstractCapabilityRealization"
+                id="872ca981-d9ea-4837-895b-6327c6b94704" targetElement="#c643d6b6-f03b-53c7-bad3-80ccb8caf77f"/>
+            <ownedAbstractCapabilityRealizations xsi:type="org.polarsys.capella.core.data.interaction:AbstractCapabilityRealization"
+                id="8ddeab8c-cf12-4966-a743-be2fffc19d8f" targetElement="#83cdfb98-d1e0-5d04-85f3-cf5f655335f6"/>
+            <ownedAbstractCapabilityRealizations xsi:type="org.polarsys.capella.core.data.interaction:AbstractCapabilityRealization"
+                id="f0f3db84-36f1-472d-81d2-470db72e8a7a" targetElement="#dc6436b2-2fae-53d1-822f-fc849a056c9b"/>
+            <ownedAbstractCapabilityRealizations xsi:type="org.polarsys.capella.core.data.interaction:AbstractCapabilityRealization"
+                id="1fcff028-866b-48f0-b7ee-30b06e44753e" targetElement="#f97cda66-bee8-5f57-bd26-ac7f5a313bc3"/>
+            <ownedAbstractCapabilityRealizations xsi:type="org.polarsys.capella.core.data.interaction:AbstractCapabilityRealization"
+                id="63d6a7f1-885a-412e-98e5-296a3d719845" targetElement="#eb972166-7e61-5e2e-805c-95f780b6cc99"/>
+            <ownedAbstractCapabilityRealizations xsi:type="org.polarsys.capella.core.data.interaction:AbstractCapabilityRealization"
+                id="1e24b018-d305-4cc2-be35-71ce4a28c9c5" targetElement="#c794b7c5-4b64-5535-8995-46716aca5c04"/>
+            <ownedAbstractCapabilityRealizations xsi:type="org.polarsys.capella.core.data.interaction:AbstractCapabilityRealization"
+                id="b83aba95-34ac-4e20-8ea4-a4d374babca3" targetElement="#da3e7575-d002-504f-811e-d3dc03c93126"/>
+            <ownedAbstractCapabilityRealizations xsi:type="org.polarsys.capella.core.data.interaction:AbstractCapabilityRealization"
+                id="934d2afb-7fe0-4675-8d9c-ee9bc847f110" targetElement="#11c37e9b-56c5-5865-b8db-4cb80840f7f6"/>
+            <ownedAbstractCapabilityRealizations xsi:type="org.polarsys.capella.core.data.interaction:AbstractCapabilityRealization"
+                id="c305f63e-6a9f-4b9c-9cc7-f023aaa04496" targetElement="#54f9810e-8870-57df-b33c-ca9882c77d0f"/>
+            <ownedAbstractCapabilityRealizations xsi:type="org.polarsys.capella.core.data.interaction:AbstractCapabilityRealization"
+                id="5a35619d-73cb-49bc-810c-42d482ae5f80" targetElement="#e1da91b5-5e7e-57b9-98de-2a9f754ca4e4"/>
+            <ownedAbstractCapabilityRealizations xsi:type="org.polarsys.capella.core.data.interaction:AbstractCapabilityRealization"
+                id="f73acd3b-4793-43ee-ba29-fc6177cf415e" targetElement="#ce53aeb7-fc7c-54c7-9e84-719722c5f06a"/>
+            <ownedAbstractCapabilityRealizations xsi:type="org.polarsys.capella.core.data.interaction:AbstractCapabilityRealization"
+                id="db696bb5-07bb-4fb3-abe0-59cf1a68267a" targetElement="#9e7cd71a-4563-51b4-901e-ab4ccf20e4fb"/>
+            <ownedAbstractCapabilityRealizations xsi:type="org.polarsys.capella.core.data.interaction:AbstractCapabilityRealization"
+                id="692b4c53-397a-4729-973e-1d84139d1e0f" targetElement="#45618019-cd88-5635-8d94-3151daeecbbf"/>
+          </ownedTraces>
+          <ownedAbstractCapabilityRealizations xsi:type="org.polarsys.capella.core.data.interaction:AbstractCapabilityRealization"
+              id="d9cfdafe-f0f1-4f1e-9246-1ba3962dd33d" targetElement="#3d1d2cb2-91ed-5113-ba39-7396bc45fe4b"/>
+          <ownedAbstractCapabilityRealizations xsi:type="org.polarsys.capella.core.data.interaction:AbstractCapabilityRealization"
+              id="581a94f2-2455-4987-8ec2-e5fb1f320a2d" targetElement="#53ba7f0b-51a5-5b95-a58b-19a4263bbaba"/>
+          <ownedAbstractCapabilityRealizations xsi:type="org.polarsys.capella.core.data.interaction:AbstractCapabilityRealization"
+              id="f5dac2e4-7870-40c9-917e-b9908a36f3b7" targetElement="#4127520f-26a1-5ed8-8770-1f9eb6d9b58a"/>
+          <ownedAbstractCapabilityRealizations xsi:type="org.polarsys.capella.core.data.interaction:AbstractCapabilityRealization"
+              id="64e69dd2-7dff-40fd-aa93-8d606d6322ba" targetElement="#fa2ee763-ec45-5ce3-be0e-fda2085066b8"/>
+          <ownedAbstractCapabilityRealizations xsi:type="org.polarsys.capella.core.data.interaction:AbstractCapabilityRealization"
+              id="0598af91-f31d-4935-b196-d8a35ed5badf" targetElement="#f97cda66-bee8-5f57-bd26-ac7f5a313bc3"/>
+          <ownedAbstractCapabilityRealizations xsi:type="org.polarsys.capella.core.data.interaction:AbstractCapabilityRealization"
+              id="7c1d94c0-9659-47f9-bafa-c907a256266d" targetElement="#eb972166-7e61-5e2e-805c-95f780b6cc99"/>
+        </ownedCapabilityRealizations>
       </ownedAbstractCapabilityPkg>
       <ownedInterfacePkg xsi:type="org.polarsys.capella.core.data.cs:InterfacePkg"
           id="4228c41b-05c7-4c99-a248-d742a04bcfa5" name="Interfaces"/>

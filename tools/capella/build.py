@@ -206,6 +206,109 @@ def import_invariants(model, invariants: list[dict]) -> list[dict]:
     return imported
 
 
+def import_layers(model, layers: list[dict]) -> list[dict]:
+    """Create one LogicalComponent per AIOS layer under la.root_component.
+
+    Layers are the 11 AIOS architecture layers (L0..L10) + XX cross-cutting.
+    In Capella they appear as sub-components of the Logical Platform root,
+    giving an at-a-glance layer view in the Logical Architecture diagram.
+    """
+    la_root = model.la.root_component
+    imported = []
+    for layer in layers:
+        layer_id = layer["layer_id"]
+        comp_uuid = _stable_uuid("layer", layer_id)
+        comp = la_root.components.create(
+            name=f"{layer_id} — {layer['name']}",
+            uuid=comp_uuid,
+        )
+        if hasattr(comp, "description"):
+            comp.description = f"<p>{layer['responsibility']}</p>"
+        imported.append({"layer_id": layer_id, "uuid": comp_uuid, "name": layer["name"]})
+    return imported
+
+
+def wire_inv_traces(model, inv_records: list[dict], spec_records: list[dict], trace_rows: list[dict]) -> int:
+    """For each sub-spec that cites an INV, create a capability-realization link
+    from the sub-spec capability (SA/LA/PA) to the INV operational capability (OA).
+
+    Capella semantic: the sub-spec REALIZES the operational capability — i.e.,
+    a constitutional INV is realized through the sub-spec's concrete contract.
+    """
+    inv_lookup = {r["id"]: r["uuid"] for r in inv_records}
+    spec_lookup = {r["phase_tag"]: r["uuid"] for r in spec_records}
+
+    # Build a uuid → capability cache for O(1) lookup
+    cap_by_uuid = {}
+    for layer in ("oa", "sa", "la", "pa"):
+        for cap in getattr(model, layer).all_capabilities:
+            cap_by_uuid[cap.uuid] = cap
+
+    wired = 0
+    skipped = []
+    for row in trace_rows:
+        inv_id = row["invariant_id"]
+        phase_tag = row["sub_spec_phase_tag"]
+        if inv_id not in inv_lookup or phase_tag not in spec_lookup:
+            skipped.append((inv_id, phase_tag))
+            continue
+        inv_cap = cap_by_uuid.get(inv_lookup[inv_id])
+        spec_cap = cap_by_uuid.get(spec_lookup[phase_tag])
+        if inv_cap is None or spec_cap is None:
+            skipped.append((inv_id, phase_tag))
+            continue
+        # Sub-spec realizes the INV operational capability via an explicit
+        # CapabilityRealization object (capellambse correct API — not the
+        # derived `realized_capabilities` accessor which is read-only).
+        try:
+            spec_cap.capability_realizations.create(target=inv_cap)
+            wired += 1
+        except Exception as e:
+            skipped.append((inv_id, phase_tag, str(e)[:80]))
+    if skipped:
+        print(f"      Skipped {len(skipped)} trace rows (first 3: {skipped[:3]})")
+    return wired
+
+
+def wire_consumes_traces(model, spec_records: list[dict], consumes_rows: list[dict]) -> int:
+    """For each sub-spec X that consumes from sub-spec Y, create a generic
+    trace link X → Y. Captures the cross-spec vocabulary-import dependency
+    graph (the 238 edges from manifests/trace_consumes.csv).
+
+    Capella semantic: traces are generic "is related to" links; we use them
+    here as the consumer→producer dependency. NOT capability realization
+    (those go INV → sub-spec, not sub-spec → sub-spec) and NOT functional
+    chains (those require typed exchanges we don't yet model).
+    """
+    spec_lookup = {r["phase_tag"]: r["uuid"] for r in spec_records}
+    cap_by_uuid = {}
+    for layer in ("oa", "sa", "la", "pa"):
+        for cap in getattr(model, layer).all_capabilities:
+            cap_by_uuid[cap.uuid] = cap
+
+    wired = 0
+    skipped = []
+    for row in consumes_rows:
+        consumer = row["consumer"]
+        producer = row["producer"]
+        if consumer not in spec_lookup or producer not in spec_lookup:
+            skipped.append((consumer, producer))
+            continue
+        consumer_cap = cap_by_uuid.get(spec_lookup[consumer])
+        producer_cap = cap_by_uuid.get(spec_lookup[producer])
+        if consumer_cap is None or producer_cap is None:
+            skipped.append((consumer, producer))
+            continue
+        try:
+            consumer_cap.traces.append(producer_cap)
+            wired += 1
+        except Exception as e:
+            skipped.append((consumer, producer, str(e)[:80]))
+    if skipped:
+        print(f"      Skipped {len(skipped)} consumes rows (first 3: {skipped[:3]})")
+    return wired
+
+
 def import_sub_specs(model, sub_specs: list[dict]) -> tuple[list[dict], list[dict]]:
     """Create one Operational/System/Logical/Physical Capability per sub-spec,
     routed by AIOS layer → ARCADIA target mapping."""
@@ -282,6 +385,21 @@ def main() -> int:
     arcadia_dist = Counter(r["arcadia_target"] for r in (inv_records + spec_records))
     print(f"      ARCADIA distribution: {dict(arcadia_dist)}")
 
+    print("[4b/5] Importing 12 layers as Logical Components...")
+    layers = _read_csv(MANIFESTS_DIR / "layers.csv")
+    layer_records = import_layers(model, layers)
+    print(f"      Imported {len(layer_records)} layers under la.root_component")
+
+    print("[4c/5] Wiring INV traceability (sub-spec realizes INV)...")
+    trace_rows = _read_csv(MANIFESTS_DIR / "trace_inv_to_subspec.csv")
+    inv_links = wire_inv_traces(model, inv_records, spec_records, trace_rows)
+    print(f"      Wired {inv_links}/{len(trace_rows)} INV realization links")
+
+    print("[4d/5] Wiring Consumes traces (consumer → producer)...")
+    consumes_rows = _read_csv(MANIFESTS_DIR / "trace_consumes.csv")
+    consumes_links = wire_consumes_traces(model, spec_records, consumes_rows)
+    print(f"      Wired {consumes_links}/{len(consumes_rows)} Consumes traces")
+
     print("[5/5] Saving model...")
     model.save()
     saved_aird_size = aird_path.stat().st_size
@@ -297,6 +415,9 @@ def main() -> int:
         "imported_invariants": len(inv_records),
         "imported_sub_specs": len(spec_records),
         "skipped_sub_specs": spec_skipped,
+        "imported_layers": len(layer_records),
+        "wired_inv_realization_links": inv_links,
+        "wired_consumes_traces": consumes_links,
         "arcadia_distribution": dict(arcadia_dist),
         "file_sizes": {
             "aird": saved_aird_size,

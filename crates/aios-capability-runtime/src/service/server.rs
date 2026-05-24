@@ -247,11 +247,28 @@ impl proto::capability_runtime_server::CapabilityRuntime for CapabilityRuntimeSe
         let r = request.into_inner();
         let envelope = envelope_from_bytes(&r.envelope_proto)?;
         let context = self.build_context(&envelope);
+        // T-034 — if the caller supplied an approval_binding_id AND a
+        // previously-validated action_request_id, route through the
+        // resume path: consume the binding atomically (S5.3 §13.1) and
+        // drive the pipeline past APPROVAL_PENDING.
+        if !r.approval_binding_id.trim().is_empty() && !r.action_request_id.trim().is_empty() {
+            let action_id = aios_action::ActionId::parse(&r.action_request_id).map_err(|e| {
+                Status::invalid_argument(format!(
+                    "action_request_id={} is not a valid action id: {e}",
+                    r.action_request_id
+                ))
+            })?;
+            let ctx = self
+                .inner
+                .resume_with_binding(&action_id, &envelope, &context, &r.approval_binding_id)
+                .await
+                .map_err(|e| runtime_error_to_status(&e))?;
+            return Ok(Response::new(execute_response_from_context(&ctx)));
+        }
         // T-033 baseline: ExecuteAction drives the full submit_action
         // pipeline. The runtime mints its own action_id internally; any
         // action_request_id supplied by the caller from a prior
-        // ValidateAction call is currently informational (T-034 binds it
-        // through the validate -> execute boundary).
+        // ValidateAction call is currently informational.
         let ctx = self
             .inner
             .submit_action(&envelope, &context)

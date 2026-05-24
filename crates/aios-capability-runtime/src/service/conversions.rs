@@ -769,6 +769,21 @@ pub fn runtime_error_to_status(e: &RuntimeError) -> tonic::Status {
         RuntimeError::Internal(msg) => {
             tonic::Status::internal(format!("runtime internal error: {msg}"))
         }
+        RuntimeError::ApprovalBindingInvalid(detail) => {
+            tonic::Status::failed_precondition(format!("approval binding invalid: {detail}"))
+        }
+        RuntimeError::ApprovalBindingConsumed => tonic::Status::failed_precondition(
+            "approval binding already consumed (single-use anti-replay)",
+        ),
+        RuntimeError::ApprovalBindingExpired => {
+            tonic::Status::failed_precondition("approval binding expired (TTL elapsed)")
+        }
+        RuntimeError::ApprovalRequestNotFound(id) => {
+            tonic::Status::not_found(format!("approval request not found: {id}"))
+        }
+        RuntimeError::ApprovalApproverClassMismatch => tonic::Status::permission_denied(
+            "approval approver class mismatch (defense-in-depth: includes AI self-approval)",
+        ),
     }
 }
 
@@ -791,6 +806,11 @@ pub const fn runtime_error_to_code(e: &RuntimeError) -> RuntimeErrorCode {
         }
         RuntimeError::PolicyEvalFailed(_) => RuntimeErrorCode::PolicyDecisionUnavailable,
         RuntimeError::EvidenceEmitFailed(_) => RuntimeErrorCode::EvidenceLogUnavailable,
+        RuntimeError::ApprovalBindingInvalid(_)
+        | RuntimeError::ApprovalBindingConsumed
+        | RuntimeError::ApprovalBindingExpired
+        | RuntimeError::ApprovalApproverClassMismatch
+        | RuntimeError::ApprovalRequestNotFound(_) => RuntimeErrorCode::ApprovalBindingInvalid,
     }
 }
 

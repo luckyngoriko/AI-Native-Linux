@@ -254,6 +254,12 @@ message ExecuteActionRequest {
   //   and execute into independent transitions.
   string action_request_id = 1;
   bytes envelope_proto     = 2;
+  // T-034 — when the action is in APPROVAL_PENDING and the operator has
+  // granted an ApprovalBinding via the Approval Mechanics service (S5.3),
+  // the caller resumes execution by passing the binding handle here. Empty
+  // string means "no binding presented" — the runtime drives the normal
+  // submit_action flow.
+  string approval_binding_id = 3;
 }
 
 message ExecuteActionResponse {

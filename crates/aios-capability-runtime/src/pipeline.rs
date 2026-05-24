@@ -318,7 +318,9 @@ impl ActionLifecyclePipeline {
             PipelineState::ShortCircuit(c) => return Ok(c),
         };
         let state = match state {
-            PipelineState::Continue(c) => self.step_request_approval(envelope, c, now)?,
+            PipelineState::Continue(c) => {
+                self.step_request_approval_passthrough(envelope, c, now)?
+            }
             PipelineState::ShortCircuit(c) => return Ok(c),
         };
         let state = match state {
@@ -391,7 +393,9 @@ impl ActionLifecyclePipeline {
             PipelineState::ShortCircuit(c) => return Ok(c),
         };
         let state = match state {
-            PipelineState::Continue(c) => self.step_request_approval(envelope, c, now)?,
+            PipelineState::Continue(c) => {
+                self.step_request_approval_passthrough(envelope, c, now)?
+            }
             PipelineState::ShortCircuit(c) => return Ok(c),
         };
         let state = match state {
@@ -510,7 +514,9 @@ impl ActionLifecyclePipeline {
             PipelineState::ShortCircuit(c) => return Ok(c),
         };
         let state = match state {
-            PipelineState::Continue(c) => self.step_request_approval(envelope, c, now)?,
+            PipelineState::Continue(c) => {
+                self.step_request_approval_passthrough(envelope, c, now)?
+            }
             PipelineState::ShortCircuit(c) => return Ok(c),
         };
         let state = match state {
@@ -628,7 +634,9 @@ impl ActionLifecyclePipeline {
 
         // ── Step 3: approval (T-034 stub today). No emission. ──
         let state = match state {
-            PipelineState::Continue(c) => self.step_request_approval(envelope, c, now)?,
+            PipelineState::Continue(c) => {
+                self.step_request_approval_passthrough(envelope, c, now)?
+            }
             PipelineState::ShortCircuit(c) => return Ok(c),
         };
 
@@ -746,7 +754,9 @@ impl ActionLifecyclePipeline {
 
         // ── Step 3: approval (T-034 stub today). ──
         let state = match state {
-            PipelineState::Continue(c) => self.step_request_approval(envelope, c, now)?,
+            PipelineState::Continue(c) => {
+                self.step_request_approval_passthrough(envelope, c, now)?
+            }
             PipelineState::ShortCircuit(c) => return Ok(c),
         };
 
@@ -857,6 +867,7 @@ impl ActionLifecyclePipeline {
                     Decision::Allow => {
                         apply_transition(&mut ctx, ActionLifecycleState::Approved, now)?;
                         rctx.install_policy_constraints(Some(decision.constraints.clone()));
+                        rctx.install_policy_approval(Some(decision.approval.clone()));
                         if rctx.subject.is_ai
                             && !decision.approval.approver_classes.iter().any(|c| {
                                 matches!(c, ApproverClass::Human | ApproverClass::Operator)
@@ -871,11 +882,13 @@ impl ActionLifecyclePipeline {
                     Decision::RequireApproval => {
                         apply_transition(&mut ctx, ActionLifecycleState::ApprovalPending, now)?;
                         rctx.install_policy_constraints(Some(decision.constraints.clone()));
+                        rctx.install_policy_approval(Some(decision.approval.clone()));
                         PipelineState::ShortCircuit(ctx)
                     }
                     Decision::Deny => {
                         apply_transition(&mut ctx, ActionLifecycleState::PolicyDenied, now)?;
                         rctx.install_policy_constraints(None);
+                        rctx.install_policy_approval(None);
                         PipelineState::ShortCircuit(ctx)
                     }
                     Decision::Unspecified => {
@@ -903,6 +916,7 @@ impl ActionLifecyclePipeline {
                 apply_transition(&mut ctx, ActionLifecycleState::PolicyDenied, now)?;
                 ctx.error = Some(ExecutionFailureReason::EnvelopeValidationFailed);
                 rctx.install_policy_constraints(None);
+                rctx.install_policy_approval(None);
                 // No POLICY_DECISION evidence — the kernel did not produce
                 // a decision. The terminal state alone is the audit
                 // signal; T-031 elects not to synthesise a phantom
@@ -1100,6 +1114,7 @@ impl ActionLifecyclePipeline {
                         // §10 constraints to the RuntimeContext for downstream
                         // dispatcher / verify steps.
                         rctx.install_policy_constraints(Some(decision.constraints));
+                        rctx.install_policy_approval(Some(decision.approval.clone()));
                         // §17 defense-in-depth tripwire: AI subject + ALLOW
                         // without a human approver class.
                         if rctx.subject.is_ai
@@ -1119,6 +1134,7 @@ impl ActionLifecyclePipeline {
                         // from here.
                         apply_transition(&mut ctx, ActionLifecycleState::ApprovalPending, now)?;
                         rctx.install_policy_constraints(Some(decision.constraints));
+                        rctx.install_policy_approval(Some(decision.approval));
                         Ok(PipelineState::ShortCircuit(ctx))
                     }
                     Decision::Deny => {
@@ -1133,6 +1149,7 @@ impl ActionLifecyclePipeline {
                         // here means no override path was authored.
                         apply_transition(&mut ctx, ActionLifecycleState::PolicyDenied, now)?;
                         rctx.install_policy_constraints(None);
+                        rctx.install_policy_approval(None);
                         Ok(PipelineState::ShortCircuit(ctx))
                     }
                     Decision::Unspecified => {
@@ -1160,6 +1177,7 @@ impl ActionLifecyclePipeline {
                 apply_transition(&mut ctx, ActionLifecycleState::PolicyDenied, now)?;
                 ctx.error = Some(ExecutionFailureReason::EnvelopeValidationFailed);
                 rctx.install_policy_constraints(None);
+                rctx.install_policy_approval(None);
                 Ok(PipelineState::ShortCircuit(ctx))
             }
             Err(other) => Err(RuntimeError::PolicyEvalFailed(other.to_string())),
@@ -1363,29 +1381,291 @@ impl ActionLifecyclePipeline {
     // Step 3 — RequestApprovalForAction (STUB; T-034 owns approval orchestration).
     // -----------------------------------------------------------------------
 
-    /// Step 3 — issue an `ApprovalRequest` and wait for a binding.
+    /// Step 3 — issue an `ApprovalRequest` to the Approval Mechanics service
+    /// and park the action at [`ActionLifecycleState::ApprovalPending`].
     ///
-    /// **T-034 owns approval orchestration (S5.3).** Today's stub is a no-op
-    /// because step 2's T-030 stub never produces `APPROVAL_PENDING`. Step
-    /// authors that land T-034 must drive `APPROVAL_PENDING → APPROVED` (T8)
-    /// or `APPROVAL_PENDING → FAILED` (T9) here.
+    /// **T-034 — approval orchestration (S10.1 §6 + S5.3 + S2.3 §11.2).**
+    ///
+    /// This step is invoked **after** [`Self::step_policy_evaluate_with_kernel_and_emit`]
+    /// has driven T5 (`POLICY_PENDING → APPROVAL_PENDING`). It does not
+    /// drive a §4.2 transition itself — the policy step has already
+    /// short-circuited the lifecycle into `APPROVAL_PENDING`. Step 3's job
+    /// is to:
+    ///
+    /// 1. Mint a fresh `actrq_<ULID>` runtime request handle.
+    /// 2. Compose the [`crate::ApprovalRequest`] from the policy decision's
+    ///    [`aios_policy::ApprovalRequirement`].
+    /// 3. Submit the request to the [`crate::ApprovalBindingSink`].
+    /// 4. Emit `APPROVAL_REQUESTED` evidence (when an emitter is wired).
+    ///
+    /// The action is then returned in `ShortCircuit`: `submit_action`
+    /// terminates here and the caller resumes via `ExecuteAction` once the
+    /// operator has granted the binding through the Approval Mechanics
+    /// service.
+    ///
+    /// When `sink` is `None`, this step is a no-op: the action stays
+    /// `ApprovalPending` and the caller observes the short-circuit per the
+    /// T-027 baseline (this preserves backwards compatibility for callers
+    /// that wire a kernel without yet wiring an approval sink).
+    ///
+    /// Synchronous structural pass-through used by the legacy pipeline
+    /// drivers (`run_with_registry`, `run_with_engines`, `run_with_full_engines`,
+    /// `run_with_full_engines_and_evidence`,
+    /// `run_with_full_engines_and_evidence_and_rollback`).
+    ///
+    /// These drivers do not engage approval orchestration (no
+    /// [`crate::ApprovalBindingSink`] is threaded); when the policy step
+    /// has not short-circuited, the action's lifecycle is `APPROVED` and
+    /// there is nothing for step 3 to do. The async
+    /// [`Self::step_request_approval`] supersedes this pass-through on
+    /// the T-034 entry points that thread a sink.
     ///
     /// # Errors
     ///
-    /// Currently infallible; the signature carries `Result` for forward
-    /// compatibility with T-034's transition driver.
+    /// Currently infallible; the `Result` is kept for signature parity
+    /// with sibling pipeline steps.
     #[allow(
         clippy::unused_self,
         clippy::unnecessary_wraps,
         clippy::missing_const_for_fn,
-        reason = "stub for T-034; signature stable across the trait surface and must accept `mut ctx` once approval orchestration lands"
+        reason = "structural pass-through; signature kept stable across the trait surface so the legacy drivers can chain through step 3 without async colour"
     )]
-    pub fn step_request_approval(
+    pub fn step_request_approval_passthrough(
         &self,
         _envelope: &ActionEnvelope,
         ctx: ActionContext,
         _now: DateTime<Utc>,
     ) -> Result<PipelineState, RuntimeError> {
+        Ok(PipelineState::Continue(ctx))
+    }
+
+    /// T-034 — submit an [`crate::ApprovalRequest`] to the configured
+    /// [`crate::ApprovalBindingSink`] and emit `APPROVAL_REQUESTED`
+    /// evidence. Parks the action at
+    /// [`ActionLifecycleState::ApprovalPending`].
+    ///
+    /// # Errors
+    ///
+    /// - [`RuntimeError::EvidenceEmitFailed`] — emitter rejected the
+    ///   `APPROVAL_REQUESTED` receipt.
+    /// - Sink-specific errors propagate from
+    ///   [`crate::ApprovalBindingSink::submit_request`].
+    #[allow(clippy::too_many_arguments)]
+    pub async fn step_request_approval(
+        &self,
+        envelope: &ActionEnvelope,
+        ctx: ActionContext,
+        _now: DateTime<Utc>,
+        sink: Option<&dyn crate::ApprovalBindingSink>,
+        requirement: Option<&aios_policy::ApprovalRequirement>,
+        emitter: Option<&EvidenceEmitter>,
+    ) -> Result<PipelineState, RuntimeError> {
+        // Only meaningful at APPROVAL_PENDING; for any other state pass
+        // through unchanged so the eight-step driver loop can still call
+        // this step as a structural slot when the policy step has not
+        // short-circuited.
+        if ctx.status != ActionLifecycleState::ApprovalPending {
+            return Ok(PipelineState::Continue(ctx));
+        }
+
+        // No sink wired → keep the T-027 baseline (action parks at
+        // ApprovalPending and the caller resumes externally). Tests
+        // exercise this branch explicitly.
+        let Some(sink) = sink else {
+            return Ok(PipelineState::ShortCircuit(ctx));
+        };
+
+        // Build the request. The requirement is sourced from the policy
+        // decision; when absent (caller wired the sink without a kernel)
+        // fall back to a default that demands a Human approver — the
+        // safest fail-closed posture.
+        let default_requirement = aios_policy::ApprovalRequirement {
+            required: true,
+            approval_scope: aios_policy::ApprovalScope::ExactRequestHash,
+            ttl_seconds: 300,
+            approver_classes: vec![aios_policy::ApproverClass::Human],
+            require_human_co_signer: false,
+        };
+        let req = requirement.unwrap_or(&default_requirement).clone();
+
+        let request_id = aios_action::ActionRuntimeRequestId::new().to_string();
+        let canonical_hash = aios_action::canonical::jcs_canonicalize(&envelope.request)
+            .ok()
+            .map(|s| aios_action::canonical::blake3_truncated(s.as_bytes()))
+            .unwrap_or_default();
+
+        let approval_request = crate::ApprovalRequest {
+            request_id: request_id.clone(),
+            action_id: ctx.action_id.clone(),
+            requirement: req.clone(),
+            proposing_subject_id: envelope.identity.subject_canonical_id.clone(),
+            proposing_subject_is_ai: envelope.identity.is_ai,
+            bound_action_canonical_hash: canonical_hash,
+            requested_at: ctx.last_updated_at,
+        };
+
+        sink.submit_request(approval_request).await?;
+
+        let mut ctx = ctx;
+        if let Some(emitter) = emitter {
+            emitter
+                .emit_approval_requested(
+                    envelope,
+                    &mut ctx,
+                    &request_id,
+                    &envelope.identity.subject_canonical_id,
+                    envelope.identity.is_ai,
+                    req.ttl_seconds,
+                    req.require_human_co_signer,
+                )
+                .await?;
+        }
+
+        Ok(PipelineState::ShortCircuit(ctx))
+    }
+
+    /// Consume an approval binding atomically and drive
+    /// `APPROVAL_PENDING → APPROVED` (T8).
+    ///
+    /// **T-034 — `ExecuteAction` resume path (S10.1 §6.1 step 3 + S5.3 §13.1).**
+    ///
+    /// Fails closed per the closed-vocabulary discipline:
+    /// - Unknown binding → [`RuntimeError::ApprovalBindingInvalid`].
+    /// - State `Pending` / `Denied` → [`RuntimeError::ApprovalBindingInvalid`].
+    /// - State `Consumed` (anti-replay) → [`RuntimeError::ApprovalBindingConsumed`].
+    /// - State `Expired` (TTL elapsed) → [`RuntimeError::ApprovalBindingExpired`].
+    /// - `granted_by_class` not in the policy's `required_approver_classes`
+    ///   filter → [`RuntimeError::ApprovalApproverClassMismatch`].
+    /// - AI self-approval (`envelope.identity.is_ai` AND
+    ///   `binding.granted_by == envelope.identity.subject_canonical_id`)
+    ///   → [`RuntimeError::ApprovalApproverClassMismatch`] (defense-in-depth
+    ///   per S2.3 §17 and S5.3 §14.3 — already enforced at the policy and
+    ///   identity layers; this is the constitutional backstop).
+    ///
+    /// On success, drives T8 (`APPROVAL_PENDING → APPROVED`) and emits
+    /// `APPROVAL_GRANTED` evidence (when an emitter is wired).
+    ///
+    /// # Errors
+    ///
+    /// See the variants enumerated above.
+    #[allow(clippy::too_many_arguments)]
+    pub async fn step_consume_binding(
+        &self,
+        envelope: &ActionEnvelope,
+        ctx: ActionContext,
+        now: DateTime<Utc>,
+        sink: &dyn crate::ApprovalBindingSink,
+        binding_id: &str,
+        requirement: Option<&aios_policy::ApprovalRequirement>,
+        emitter: Option<&EvidenceEmitter>,
+    ) -> Result<PipelineState, RuntimeError> {
+        // Pre-flight: the action must be in APPROVAL_PENDING to consume a
+        // binding. The caller (gRPC ExecuteAction handler) is responsible
+        // for routing only ApprovalPending actions through this gate.
+        if ctx.status != ActionLifecycleState::ApprovalPending {
+            return Err(RuntimeError::InvalidTransition {
+                from: ctx.status,
+                to: ActionLifecycleState::Approved,
+            });
+        }
+
+        // Atomic consume — fails closed on every non-Granted state.
+        let binding = sink.consume_binding(binding_id).await?;
+
+        // §13.2 action-revision invariant — recompute the canonical hash
+        // of the envelope's `request` and compare against the binding's
+        // frozen hash. Divergence voids the binding.
+        let current_hash = aios_action::canonical::jcs_canonicalize(&envelope.request)
+            .ok()
+            .map(|s| aios_action::canonical::blake3_truncated(s.as_bytes()))
+            .unwrap_or_default();
+        if !binding.bound_action_canonical_hash.is_empty()
+            && current_hash != binding.bound_action_canonical_hash
+        {
+            if let Some(emitter) = emitter {
+                let mut ctx_e = ctx.clone();
+                emitter
+                    .emit_approval_denied(
+                        envelope,
+                        &mut ctx_e,
+                        Some(binding.request_id.clone()),
+                        Some(binding.binding_id.clone()),
+                        "ACTION_REVISED",
+                        "binding voided: action canonical hash changed between grant and execute",
+                    )
+                    .await?;
+            }
+            return Err(RuntimeError::ApprovalBindingInvalid(format!(
+                "binding {binding_id} bound to a different canonical hash"
+            )));
+        }
+
+        // AI self-approval defense-in-depth (S2.3 §17 / S5.3 §14.3).
+        // The policy kernel already enforces this, and the identity
+        // service refuses to sign an AI grant; the runtime double-checks
+        // to make INV-002 self-evident at the L3 consume gate.
+        if envelope.identity.is_ai && binding.granted_by == envelope.identity.subject_canonical_id {
+            if let Some(emitter) = emitter {
+                let mut ctx_e = ctx.clone();
+                emitter
+                    .emit_approval_denied(
+                        envelope,
+                        &mut ctx_e,
+                        Some(binding.request_id.clone()),
+                        Some(binding.binding_id.clone()),
+                        "AI_SELF_APPROVAL_BLOCKED",
+                        "AI subject cannot approve its own action (INV-002 defense-in-depth)",
+                    )
+                    .await?;
+            }
+            return Err(RuntimeError::ApprovalApproverClassMismatch);
+        }
+
+        // Approver class filter — match the binding's `granted_by_class`
+        // against the requirement's `approver_classes`. When no
+        // requirement is supplied, the default policy is "any approver
+        // class except AI" (defense-in-depth — the AI case is already
+        // filtered above).
+        let class_matches = match requirement {
+            Some(req) if !req.approver_classes.is_empty() => {
+                req.approver_classes.contains(&binding.granted_by_class)
+            }
+            _ => !matches!(binding.granted_by_class, aios_policy::ApproverClass::Agent),
+        };
+        if !class_matches {
+            if let Some(emitter) = emitter {
+                let mut ctx_e = ctx.clone();
+                emitter
+                    .emit_approval_denied(
+                        envelope,
+                        &mut ctx_e,
+                        Some(binding.request_id.clone()),
+                        Some(binding.binding_id.clone()),
+                        "APPROVER_CLASS_MISMATCH",
+                        "binding granted_by_class is not in the policy's required approver classes",
+                    )
+                    .await?;
+            }
+            return Err(RuntimeError::ApprovalApproverClassMismatch);
+        }
+
+        // T8 — APPROVAL_PENDING → APPROVED.
+        let mut ctx = ctx;
+        apply_transition(&mut ctx, ActionLifecycleState::Approved, now)?;
+
+        if let Some(emitter) = emitter {
+            emitter
+                .emit_approval_granted(
+                    envelope,
+                    &mut ctx,
+                    &binding.request_id,
+                    &binding.binding_id,
+                    &binding.granted_by,
+                    &binding.bound_action_canonical_hash,
+                )
+                .await?;
+        }
+
         Ok(PipelineState::Continue(ctx))
     }
 

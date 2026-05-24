@@ -130,4 +130,39 @@ pub enum RuntimeError {
     /// [`crate::RuntimeErrorCode::EvidenceLogUnavailable`].
     #[error("evidence emission failed: {0}")]
     EvidenceEmitFailed(String),
+
+    /// The presented `approval_binding_id` is unknown to the
+    /// [`crate::ApprovalBindingSink`], or is in a non-consumable state
+    /// other than `Consumed` / `Expired` (which have dedicated variants).
+    /// T-034 surface. Maps to `Status::failed_precondition` at the gRPC
+    /// surface; an `ExecuteAction` with an invalid binding fails closed
+    /// per S5.3 §13.1.
+    #[error("approval binding invalid: {0}")]
+    ApprovalBindingInvalid(String),
+
+    /// The presented `approval_binding_id` is already in the `Consumed`
+    /// terminal state. Anti-replay (S5.3 §13.1 single-use semantics).
+    /// T-034 surface. Maps to `Status::failed_precondition`.
+    #[error("approval binding already consumed (single-use anti-replay)")]
+    ApprovalBindingConsumed,
+
+    /// The presented `approval_binding_id` has elapsed its TTL window
+    /// (S5.3 §8 TTL discipline) and is in the `Expired` terminal state.
+    /// T-034 surface. Maps to `Status::failed_precondition`.
+    #[error("approval binding expired (TTL elapsed)")]
+    ApprovalBindingExpired,
+
+    /// The runtime emitted an approval request but the
+    /// [`crate::ApprovalBindingSink`] has no record of it. Most often
+    /// raised by [`crate::ApprovalBindingSink::poll_state`] against an
+    /// unknown id. T-034 surface. Maps to `Status::not_found`.
+    #[error("approval request not found: {0}")]
+    ApprovalRequestNotFound(String),
+
+    /// The binding's `granted_by` subject's class is not in the policy
+    /// decision's `required_approver_classes` filter (S2.3 §11.2). T-034
+    /// surface; fails closed at consume time. Maps to
+    /// `Status::failed_precondition`.
+    #[error("approval approver class mismatch (granted_by_class not in policy filter)")]
+    ApprovalApproverClassMismatch,
 }

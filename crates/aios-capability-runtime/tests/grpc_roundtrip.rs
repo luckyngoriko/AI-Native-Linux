@@ -248,6 +248,7 @@ async fn execute_action_happy_path_drives_pipeline_to_succeeded() {
     let req = proto::ExecuteActionRequest {
         action_request_id: String::new(),
         envelope_proto: envelope_to_bytes(&env).expect("encode envelope"),
+        approval_binding_id: String::new(),
     };
     let resp = client.execute_action(req).await.expect("ok").into_inner();
     let p_state = proto::ActionLifecycleState::try_from(resp.state).expect("known state");
@@ -319,6 +320,7 @@ async fn execute_action_with_deny_kernel_returns_policy_denied() {
     let req = proto::ExecuteActionRequest {
         action_request_id: String::new(),
         envelope_proto: envelope_to_bytes(&env).expect("encode envelope"),
+        approval_binding_id: String::new(),
     };
     let resp = client.execute_action(req).await.expect("ok").into_inner();
     let p_state = proto::ActionLifecycleState::try_from(resp.state).expect("known state");
@@ -351,6 +353,7 @@ async fn get_action_status_happy_path_and_not_found() {
         .execute_action(proto::ExecuteActionRequest {
             action_request_id: String::new(),
             envelope_proto: envelope_to_bytes(&env).expect("encode envelope"),
+            approval_binding_id: String::new(),
         })
         .await
         .expect("ok")

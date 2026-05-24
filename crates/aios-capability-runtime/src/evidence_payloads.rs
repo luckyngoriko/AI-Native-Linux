@@ -265,6 +265,84 @@ pub struct AiInteractiveQueueDowngradePayload {
     pub effective_queue_class: QueueClass,
 }
 
+// ---------------------------------------------------------------------------
+// APPROVAL_REQUESTED (S3.1 §4 ID 5).
+// ---------------------------------------------------------------------------
+
+/// Payload for `RecordType::ApprovalRequested` — S10.1 §6 ↔ S5.3 §10.1.
+///
+/// Emitted by pipeline step 3 (`step_request_approval`) when the policy
+/// decision was `REQUIRE_APPROVAL` and an [`crate::ApprovalBindingSink`]
+/// is wired. Carries the runtime's frozen view of the request handed to
+/// the Approval Mechanics service.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct ApprovalRequestedPayload {
+    /// Approval request handle (`actrq_<ULID>`).
+    pub approval_request_id: String,
+    /// Proposing subject canonical id (S5.1).
+    pub proposing_subject_id: String,
+    /// `true` iff the proposing subject is AI.
+    pub proposing_subject_is_ai: bool,
+    /// Approval TTL in seconds (from `ApprovalRequirement.ttl_seconds`).
+    pub ttl_seconds: u32,
+    /// `true` iff the policy demands a second human co-signer (S5.3 §12).
+    pub require_human_co_signer: bool,
+    /// Lifecycle state the runtime moved into (always `APPROVAL_PENDING`).
+    pub lifecycle_state_after: ActionLifecycleState,
+}
+
+// ---------------------------------------------------------------------------
+// APPROVAL_GRANTED (S3.1 §4 ID 6).
+// ---------------------------------------------------------------------------
+
+/// Payload for `RecordType::ApprovalGranted` — S10.1 §6 ↔ S5.3 §10.1.
+///
+/// Emitted when `ExecuteAction` successfully consumes a `Granted` binding
+/// and the action proceeds past `APPROVAL_PENDING`.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct ApprovalGrantedPayload {
+    /// Approval request handle.
+    pub approval_request_id: String,
+    /// Binding handle (`appb_<ULID>`).
+    pub binding_id: String,
+    /// Canonical subject id of the granting operator.
+    pub granting_subject_id: String,
+    /// Frozen action canonical hash (S5.3 §5).
+    pub bound_action_canonical_hash: String,
+    /// Lifecycle state the runtime moved into (always `APPROVED`).
+    pub lifecycle_state_after: ActionLifecycleState,
+}
+
+// ---------------------------------------------------------------------------
+// APPROVAL_DENIED (S3.1 §4 ID 7).
+// ---------------------------------------------------------------------------
+
+/// Payload for `RecordType::ApprovalDenied` — S10.1 §6 ↔ S5.3 §10.1.
+///
+/// Emitted when an `ExecuteAction` fails the consume gate (invalid /
+/// consumed / expired binding, approver-class mismatch, AI self-approval
+/// defense-in-depth). The runtime fails the action closed and emits this
+/// receipt; the binding's authoritative FSM record lives in the Approval
+/// Mechanics service evidence stream.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct ApprovalDeniedPayload {
+    /// Approval request handle, when known.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub approval_request_id: Option<String>,
+    /// Binding handle that was attempted, when known.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub binding_id: Option<String>,
+    /// Closed denial reason code — one of `BINDING_INVALID`,
+    /// `BINDING_CONSUMED`, `BINDING_EXPIRED`, `APPROVER_CLASS_MISMATCH`,
+    /// `AI_SELF_APPROVAL_BLOCKED`.
+    pub reason_code: String,
+    /// English plain-text detail; never contains secrets (INV-015).
+    pub reason_message: String,
+}
+
 #[cfg(test)]
 #[allow(
     clippy::expect_used,
@@ -387,6 +465,48 @@ mod tests {
         };
         let s = serde_json::to_string(&p).expect("ser");
         let back: AiInteractiveQueueDowngradePayload = serde_json::from_str(&s).expect("de");
+        assert_eq!(back, p);
+    }
+
+    #[test]
+    fn approval_requested_round_trips_through_json() {
+        let p = ApprovalRequestedPayload {
+            approval_request_id: "actrq_01HX0000000000000000000000".into(),
+            proposing_subject_id: "ai:agent-1".into(),
+            proposing_subject_is_ai: true,
+            ttl_seconds: 300,
+            require_human_co_signer: false,
+            lifecycle_state_after: ActionLifecycleState::ApprovalPending,
+        };
+        let s = serde_json::to_string(&p).expect("ser");
+        let back: ApprovalRequestedPayload = serde_json::from_str(&s).expect("de");
+        assert_eq!(back, p);
+    }
+
+    #[test]
+    fn approval_granted_round_trips_through_json() {
+        let p = ApprovalGrantedPayload {
+            approval_request_id: "actrq_01HX0000000000000000000000".into(),
+            binding_id: "appb_01HX0000000000000000000000".into(),
+            granting_subject_id: "human:lucky".into(),
+            bound_action_canonical_hash: "a".repeat(32),
+            lifecycle_state_after: ActionLifecycleState::Approved,
+        };
+        let s = serde_json::to_string(&p).expect("ser");
+        let back: ApprovalGrantedPayload = serde_json::from_str(&s).expect("de");
+        assert_eq!(back, p);
+    }
+
+    #[test]
+    fn approval_denied_round_trips_through_json() {
+        let p = ApprovalDeniedPayload {
+            approval_request_id: Some("actrq_01HX0000000000000000000000".into()),
+            binding_id: Some("appb_01HX0000000000000000000000".into()),
+            reason_code: "BINDING_CONSUMED".into(),
+            reason_message: "binding already consumed".into(),
+        };
+        let s = serde_json::to_string(&p).expect("ser");
+        let back: ApprovalDeniedPayload = serde_json::from_str(&s).expect("de");
         assert_eq!(back, p);
     }
 }

@@ -43,6 +43,10 @@
 pub mod adapter_handle;
 pub mod adapter_manifest;
 pub mod adapter_registry;
+/// T-034 — Approval orchestration types (S10.1 §6 ↔ S5.3).
+pub mod approval;
+/// T-034 — Approval binding sink (S10.1 ↔ S5.3 Approval Mechanics).
+pub mod approval_sink;
 pub mod context;
 pub mod dispatch;
 pub mod dispatch_queue;
@@ -66,6 +70,8 @@ pub use adapter_registry::{
     canonical_signed_manifest_bytes, encode_hex_signature, InMemoryAdapterRegistry,
     RegisteredAdapter,
 };
+pub use approval::{ApprovalBinding, ApprovalBindingState, ApprovalRequest};
+pub use approval_sink::{ApprovalBindingSink, InMemoryApprovalSink};
 pub use context::ActionContext;
 pub use dispatch::{ActionDispatchKind, AdapterIOMode, AdapterStability, QueueClass};
 pub use dispatch_queue::{

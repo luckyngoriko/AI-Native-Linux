@@ -68,6 +68,7 @@ use crate::dispatch::{ActionDispatchKind, QueueClass};
 use crate::error::RuntimeError;
 use crate::evidence_payloads::{
     ActionQueuedPayload, ActionReceivedPayload, AiInteractiveQueueDowngradePayload,
+    ApprovalDeniedPayload, ApprovalGrantedPayload, ApprovalRequestedPayload,
     ExecutionCompletedPayload, ExecutionStartedPayload, PolicyDecisionPayload,
     RollbackCompletedPayload, RoutingDecisionPayload, VerificationResultPayload,
 };
@@ -498,6 +499,87 @@ impl EvidenceEmitter {
             self.emit(RecordType::RollbackCompleted, envelope, ctx, &payload)
                 .await
         }
+    }
+
+    /// Emit `APPROVAL_REQUESTED` (S3.1 §4 ID 5) at pipeline step 3 when
+    /// the policy decision short-circuits with `REQUIRE_APPROVAL` and an
+    /// [`crate::ApprovalBindingSink`] is wired.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`RuntimeError::EvidenceEmitFailed`] on sink failure.
+    #[allow(clippy::too_many_arguments)]
+    pub async fn emit_approval_requested(
+        &self,
+        envelope: &ActionEnvelope,
+        ctx: &mut ActionContext,
+        approval_request_id: &str,
+        proposing_subject_id: &str,
+        proposing_subject_is_ai: bool,
+        ttl_seconds: u32,
+        require_human_co_signer: bool,
+    ) -> Result<String, RuntimeError> {
+        let payload = ApprovalRequestedPayload {
+            approval_request_id: approval_request_id.to_string(),
+            proposing_subject_id: proposing_subject_id.to_string(),
+            proposing_subject_is_ai,
+            ttl_seconds,
+            require_human_co_signer,
+            lifecycle_state_after: ctx.status,
+        };
+        self.emit(RecordType::ApprovalRequested, envelope, ctx, &payload)
+            .await
+    }
+
+    /// Emit `APPROVAL_GRANTED` (S3.1 §4 ID 6) when `ExecuteAction`
+    /// successfully consumes a `Granted` binding.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`RuntimeError::EvidenceEmitFailed`] on sink failure.
+    pub async fn emit_approval_granted(
+        &self,
+        envelope: &ActionEnvelope,
+        ctx: &mut ActionContext,
+        approval_request_id: &str,
+        binding_id: &str,
+        granting_subject_id: &str,
+        bound_action_canonical_hash: &str,
+    ) -> Result<String, RuntimeError> {
+        let payload = ApprovalGrantedPayload {
+            approval_request_id: approval_request_id.to_string(),
+            binding_id: binding_id.to_string(),
+            granting_subject_id: granting_subject_id.to_string(),
+            bound_action_canonical_hash: bound_action_canonical_hash.to_string(),
+            lifecycle_state_after: ctx.status,
+        };
+        self.emit(RecordType::ApprovalGranted, envelope, ctx, &payload)
+            .await
+    }
+
+    /// Emit `APPROVAL_DENIED` (S3.1 §4 ID 7) when `ExecuteAction` fails
+    /// the consume gate.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`RuntimeError::EvidenceEmitFailed`] on sink failure.
+    pub async fn emit_approval_denied(
+        &self,
+        envelope: &ActionEnvelope,
+        ctx: &mut ActionContext,
+        approval_request_id: Option<String>,
+        binding_id: Option<String>,
+        reason_code: &str,
+        reason_message: &str,
+    ) -> Result<String, RuntimeError> {
+        let payload = ApprovalDeniedPayload {
+            approval_request_id,
+            binding_id,
+            reason_code: reason_code.to_string(),
+            reason_message: reason_message.to_string(),
+        };
+        self.emit(RecordType::ApprovalDenied, envelope, ctx, &payload)
+            .await
     }
 
     /// Emit `AI_INTERACTIVE_QUEUE_DOWNGRADE` (S3.1 §25.2 ID 129) when an

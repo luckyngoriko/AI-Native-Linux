@@ -36,7 +36,7 @@ use tokio::sync::RwLock;
 
 use aios_action::{ActionEnvelope, ActionId};
 
-use aios_policy::{Constraints, HydratedSubject, PolicyKernel, SubjectType};
+use aios_policy::{ApprovalRequirement, Constraints, HydratedSubject, PolicyKernel, SubjectType};
 
 use crate::adapter_registry::InMemoryAdapterRegistry;
 use crate::context::ActionContext;
@@ -161,6 +161,13 @@ pub struct RuntimeContext {
     /// etc. The `Arc<Mutex<...>>` wrap is the minimal interior-mutability
     /// shape that lets the pipeline write through a `&RuntimeContext`.
     pub policy_constraints: Arc<Mutex<Option<Constraints>>>,
+    /// T-034 — projected [`ApprovalRequirement`] from the policy decision.
+    /// Populated alongside [`Self::policy_constraints`] when the decision
+    /// is `Allow` or `RequireApproval`; consumed by pipeline step 3 to
+    /// drive the [`crate::ApprovalBindingSink`] submission and by
+    /// `ExecuteAction` to validate the binding's `granted_by_class`
+    /// against the policy's `approver_classes` filter.
+    pub policy_approval: Arc<Mutex<Option<ApprovalRequirement>>>,
 }
 
 /// Build the constitutional-default [`HydratedSubject`] for the T-027
@@ -209,6 +216,7 @@ impl RuntimeContext {
             code_version: code_version.into(),
             adapter_registry: None,
             policy_constraints: Arc::new(Mutex::new(None)),
+            policy_approval: Arc::new(Mutex::new(None)),
         }
     }
 
@@ -230,6 +238,7 @@ impl RuntimeContext {
             code_version: code_version.into(),
             adapter_registry: None,
             policy_constraints: Arc::new(Mutex::new(None)),
+            policy_approval: Arc::new(Mutex::new(None)),
         }
     }
 
@@ -283,6 +292,29 @@ impl RuntimeContext {
             Err(poisoned) => poisoned.into_inner(),
         };
         *guard = constraints;
+    }
+
+    /// Snapshot the projected approval requirement, if any.
+    ///
+    /// Returns `Some(...)` after a `Decision::Allow` /
+    /// `Decision::RequireApproval` evaluation; `None` otherwise.
+    #[must_use]
+    pub fn policy_approval_snapshot(&self) -> Option<ApprovalRequirement> {
+        let guard = match self.policy_approval.lock() {
+            Ok(g) => g,
+            Err(poisoned) => poisoned.into_inner(),
+        };
+        guard.clone()
+    }
+
+    /// Internal writer for the projected approval requirement — used by
+    /// [`crate::ActionLifecyclePipeline::step_policy_evaluate_with_kernel`].
+    pub(crate) fn install_policy_approval(&self, approval: Option<ApprovalRequirement>) {
+        let mut guard = match self.policy_approval.lock() {
+            Ok(g) => g,
+            Err(poisoned) => poisoned.into_inner(),
+        };
+        *guard = approval;
     }
 
     /// Attach an adapter registry handle. Returns `self` for chaining.
@@ -465,6 +497,20 @@ pub struct InMemoryCapabilityRuntime {
     /// runtime preserves the T-027 / T-028 / T-029 / T-030 / T-031
     /// baselines: `step_rollback` is the structural no-op stub.
     rollback_driver: Option<Arc<RollbackDriver>>,
+    /// T-034 — optional [`crate::ApprovalBindingSink`] handle.
+    ///
+    /// When wired together with a [`PolicyKernel`], a policy decision of
+    /// [`aios_policy::Decision::RequireApproval`] causes `submit_action`
+    /// to mint an [`crate::ApprovalRequest`], submit it through the sink,
+    /// emit `APPROVAL_REQUESTED` evidence (when an emitter is also wired),
+    /// and return at [`crate::ActionLifecycleState::ApprovalPending`].
+    /// Callers resume the flow via the gRPC `ExecuteAction` RPC after the
+    /// operator grants the binding through the Approval Mechanics service.
+    ///
+    /// When `None`, the T-027..T-033 baseline is preserved: a
+    /// `REQUIRE_APPROVAL` decision short-circuits at `APPROVAL_PENDING`
+    /// without any sink-side bookkeeping.
+    approval_sink: Option<Arc<dyn crate::ApprovalBindingSink>>,
     /// T-032 — `ROLLBACK_FAILED` operator-alert counter.
     ///
     /// Per S10.1 §7.4 every `ROLLBACK_FAILED` transition raises a
@@ -525,7 +571,38 @@ impl InMemoryCapabilityRuntime {
             policy_double_check_warnings: Arc::new(AtomicU64::new(0)),
             rollback_driver: None,
             operator_alerts: Arc::new(AtomicU64::new(0)),
+            approval_sink: None,
         }
+    }
+
+    /// Attach an [`crate::ApprovalBindingSink`] to the runtime. Returns
+    /// `self` for chaining.
+    ///
+    /// **T-034 entry point.** With a sink attached, a
+    /// [`aios_policy::Decision::RequireApproval`] outcome from pipeline
+    /// step 2 triggers an `ApprovalRequest` submission through the sink
+    /// (S5.3 §4) and the action parks at
+    /// [`crate::ActionLifecycleState::ApprovalPending`]. The
+    /// `ExecuteAction` gRPC resume path then consumes the operator's
+    /// `ApprovalBinding` atomically (S5.3 §13.1) before the pipeline
+    /// proceeds past T8 (`APPROVAL_PENDING → APPROVED`).
+    ///
+    /// Without a sink attached, the T-033 baseline is preserved: the
+    /// action short-circuits at `APPROVAL_PENDING` without any sink-side
+    /// bookkeeping (no request emitted, no resume path; callers can still
+    /// observe the lifecycle state via `get_action_status`).
+    #[must_use]
+    pub fn with_approval_sink(mut self, sink: Arc<dyn crate::ApprovalBindingSink>) -> Self {
+        self.approval_sink = Some(sink);
+        self
+    }
+
+    /// Borrow the attached approval sink, if any. Used by the gRPC
+    /// `ExecuteAction` handler to route the resume path through the
+    /// `step_consume_binding` gate.
+    #[must_use]
+    pub fn approval_sink(&self) -> Option<&Arc<dyn crate::ApprovalBindingSink>> {
+        self.approval_sink.as_ref()
     }
 
     /// Attach an [`InMemoryAdapterRegistry`] to the runtime. Returns `self`
@@ -772,11 +849,40 @@ impl CapabilityRuntime for InMemoryCapabilityRuntime {
                 .await?
         };
 
+        // T-034 — approval submission. When pipeline step 2 short-circuited
+        // at APPROVAL_PENDING (Decision::RequireApproval) AND an
+        // ApprovalBindingSink is wired, mint the ApprovalRequest, submit
+        // it through the sink, and emit APPROVAL_REQUESTED evidence (when
+        // an emitter is wired). The action's lifecycle stays at
+        // APPROVAL_PENDING; resume happens via ExecuteAction with a
+        // consumed binding.
+        let final_ctx = if final_ctx.status == crate::ActionLifecycleState::ApprovalPending
+            && self.approval_sink.is_some()
+        {
+            let sink = self.approval_sink.as_deref();
+            let requirement = context.policy_approval_snapshot();
+            let emitter_ref = self.evidence_emitter.as_deref();
+            let state = self
+                .pipeline
+                .step_request_approval(
+                    envelope,
+                    final_ctx,
+                    now,
+                    sink,
+                    requirement.as_ref(),
+                    emitter_ref,
+                )
+                .await?;
+            state.into_context()
+        } else {
+            final_ctx
+        };
+
         // Persist for subsequent `get_action_status` reads.
         self.contexts
             .write()
             .await
-            .insert(action_id, final_ctx.clone());
+            .insert(action_id.clone(), final_ctx.clone());
 
         Ok(final_ctx)
     }
@@ -788,5 +894,123 @@ impl CapabilityRuntime for InMemoryCapabilityRuntime {
             .get(action_id)
             .cloned()
             .ok_or_else(|| RuntimeError::ActionNotFound(action_id.clone()))
+    }
+}
+
+impl InMemoryCapabilityRuntime {
+    /// T-034 — resume an `APPROVAL_PENDING` action by consuming an
+    /// operator-granted `ApprovalBinding`.
+    ///
+    /// Called by the gRPC `ExecuteAction` handler when the caller
+    /// supplies an `approval_binding_id`. Fails closed per S5.3 §13.1 on
+    /// every non-`Granted` binding state and on approver-class /
+    /// AI-self-approval mismatches.
+    ///
+    /// # Errors
+    ///
+    /// See [`ActionLifecyclePipeline::step_consume_binding`].
+    pub async fn resume_with_binding(
+        &self,
+        action_id: &ActionId,
+        envelope: &ActionEnvelope,
+        context: &RuntimeContext,
+        binding_id: &str,
+    ) -> Result<ActionContext, RuntimeError> {
+        let Some(sink) = self.approval_sink.as_deref() else {
+            return Err(RuntimeError::Internal(
+                "no approval sink wired; cannot consume binding".to_string(),
+            ));
+        };
+        // Load the stored context.
+        let stored = {
+            let guard = self.contexts.read().await;
+            guard
+                .get(action_id)
+                .cloned()
+                .ok_or_else(|| RuntimeError::ActionNotFound(action_id.clone()))?
+        };
+        if stored.status != crate::ActionLifecycleState::ApprovalPending {
+            return Err(RuntimeError::InvalidTransition {
+                from: stored.status,
+                to: crate::ActionLifecycleState::Approved,
+            });
+        }
+        let now = Utc::now();
+        let requirement = context.policy_approval_snapshot();
+        let emitter_ref = self.evidence_emitter.as_deref();
+        let state = self
+            .pipeline
+            .step_consume_binding(
+                envelope,
+                stored,
+                now,
+                sink,
+                binding_id,
+                requirement.as_ref(),
+                emitter_ref,
+            )
+            .await?;
+        let ctx_after_consume = state.into_context();
+        // Drive the remainder of the pipeline from APPROVED forward.
+        // The resume path manually walks steps 4..6 (queue, execute,
+        // verify). T-035 will fold this into a dedicated pipeline driver
+        // method; T-034 keeps it inline so the resume contract is
+        // explicit at the runtime boundary.
+        let registry_ref = self.adapter_registry.as_deref();
+        let queue_ref = self.dispatch_queue.as_deref();
+        let final_ctx = {
+            let ctx = ctx_after_consume;
+            // Step 4 — queue enrolment. With an emitter wired, route
+            // through the emit-aware variant; otherwise use the plain one.
+            let state = if let Some(emitter) = emitter_ref {
+                self.pipeline
+                    .step_queue_with_engine_and_emit(envelope, ctx, now, queue_ref, emitter)
+                    .await?
+            } else {
+                self.pipeline
+                    .step_queue_with_engine(envelope, ctx, now, queue_ref)
+                    .await?
+            };
+            let ctx = state.into_context();
+            if matches!(ctx.status, crate::ActionLifecycleState::Queued) {
+                // Step 5 — execute.
+                let state = if let Some(emitter) = emitter_ref {
+                    self.pipeline
+                        .step_execute_with_engines_and_emit(
+                            envelope,
+                            ctx,
+                            now,
+                            registry_ref,
+                            emitter,
+                        )
+                        .await?
+                } else {
+                    self.pipeline
+                        .step_execute_with_engines(envelope, ctx, now, registry_ref)?
+                };
+                let ctx2 = state.into_context();
+                if matches!(ctx2.status, crate::ActionLifecycleState::Executing) {
+                    // Step 6 — verify (stub drives SUCCEEDED).
+                    let state = if let Some(emitter) = emitter_ref {
+                        self.pipeline
+                            .step_verify_and_emit(envelope, ctx2, now, emitter)
+                            .await?
+                    } else {
+                        self.pipeline.step_verify(envelope, ctx2, now)?
+                    };
+                    state.into_context()
+                } else {
+                    ctx2
+                }
+            } else {
+                ctx
+            }
+        };
+        // Persist updated context.
+        self.contexts
+            .write()
+            .await
+            .insert(action_id.clone(), final_ctx.clone());
+        Ok(final_ctx)
     }
 }

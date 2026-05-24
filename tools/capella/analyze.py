@@ -205,7 +205,7 @@ def analyze(model_path: Path) -> dict:
 
     consumes_cycles = find_cycles(graph)
 
-    # ── Gap 6: Orphan RecordTypes ───────────────────────────────────────
+    # ── Gap 6: Orphan RecordTypes (CSV-derived) ─────────────────────────
     # Cross-reference manifests/record_types.csv (427 defined in S3.1
     # Appendix A) against manifests/record_type_emitters.csv (RecordTypes
     # cited by at least one sub-spec other than S3.1 itself). RecordTypes
@@ -232,6 +232,47 @@ def analyze(model_path: Path) -> dict:
     except FileNotFoundError as e:
         print(f"  (skipped orphan-RecordType gap: {e})")
 
+    # ── Gap 6b: Orphan RecordTypes (MODEL-derived integrity check) ──────
+    # Walk RecordType Class entities under la.data_pkg.RecordTypes/* and
+    # count incoming emitter traces from project.traces. This proves the
+    # built model itself surfaces the same orphans as the CSV, i.e. the
+    # Capella IDE traceability matrix view will visually show them.
+    # If model-derived ≠ CSV-derived, the build pipeline lost data.
+    rt_class_by_uuid: dict = {}
+    rt_class_by_name: dict = {}
+    try:
+        for cls in model.la.all_classes:
+            # Filter to our 427 RecordType classes by checking package ancestry
+            owner = getattr(cls, "parent", None)
+            owner_path: list[str] = []
+            cur = owner
+            for _ in range(6):
+                if cur is None:
+                    break
+                if hasattr(cur, "name") and cur.name:
+                    owner_path.append(cur.name)
+                cur = getattr(cur, "parent", None)
+            if "RecordTypes" in owner_path:
+                rt_class_by_uuid[cls.uuid] = cls
+                rt_class_by_name[cls.name] = cls
+    except Exception as e:
+        print(f"  (RecordType model walk failed: {e})")
+
+    incoming_emitters_per_rt: Counter = Counter()
+    for trace in model.project.traces:
+        tgt = getattr(trace, "target", None)
+        if tgt is None:
+            continue
+        if tgt.uuid in rt_class_by_uuid:
+            incoming_emitters_per_rt[tgt.name] += 1
+
+    model_orphan_record_types = sorted(
+        name for name in rt_class_by_name if incoming_emitters_per_rt[name] == 0
+    )
+    rt_emitter_distribution = dict(Counter(incoming_emitters_per_rt.values()))
+    # Add bucket for zero-emitter RTs (Counter doesn't surface them otherwise)
+    rt_emitter_distribution[0] = len(model_orphan_record_types)
+
     # ── Gap 5: Hot spots ────────────────────────────────────────────────
     in_degree = Counter(producer for _, producer in consumes_edges)
     out_degree = Counter(consumer for consumer, _ in consumes_edges)
@@ -245,6 +286,8 @@ def analyze(model_path: Path) -> dict:
             "sub_specs": len(spec_caps),
             "consumes_edges": len(consumes_edges),
             "inv_realization_links": sum(inv_realization_count.values()),
+            "record_type_classes": len(rt_class_by_uuid),
+            "emitter_traces": sum(incoming_emitters_per_rt.values()),
         },
         "gaps": {
             "orphan_invariants": orphan_invs,
@@ -252,6 +295,7 @@ def analyze(model_path: Path) -> dict:
             "layer_inversions": layer_inversions,
             "consumes_cycles": consumes_cycles,
             "orphan_record_types": orphan_record_types,
+            "orphan_record_types_model_derived": model_orphan_record_types,
         },
         "hot_spots": {
             "top_consumers": [{"name": n, "out_degree": d} for n, d in top_consumers],
@@ -260,6 +304,7 @@ def analyze(model_path: Path) -> dict:
         "distributions": {
             "inv_realizations_histogram": dict(Counter(inv_realization_count.values())),
             "spec_realizations_histogram": dict(Counter(spec_realization_count.values())),
+            "record_type_emitter_histogram": rt_emitter_distribution,
         },
     }
 
@@ -280,6 +325,8 @@ def render_markdown(summary: dict) -> str:
         f"  - Sub-specs (SA/LA/PA): {summary['totals']['sub_specs']}",
         f"- Consumes edges: {summary['totals']['consumes_edges']}",
         f"- INV realization links: {summary['totals']['inv_realization_links']}",
+        f"- RecordType classes: {summary['totals'].get('record_type_classes', 0)}",
+        f"- Emitter traces (sub-spec → RecordType): {summary['totals'].get('emitter_traces', 0)}",
         "",
         "## Gaps detected",
         "",
@@ -351,6 +398,28 @@ def render_markdown(summary: dict) -> str:
                 lines.append(f"  - hint from S3.1: {rt['retention_hint'][:120]}")
         lines.append("")
 
+        # Integrity cross-check: CSV-derived vs model-derived orphan set
+        csv_names = {r["wire_name"] for r in g["orphan_record_types"]}
+        model_names = set(g.get("orphan_record_types_model_derived", []))
+        if csv_names == model_names:
+            lines.append(
+                f"**Model integrity OK** — model-derived orphan set "
+                f"({len(model_names)}) exactly matches CSV-derived set "
+                f"({len(csv_names)}). The Capella IDE traceability matrix view "
+                f"(rows = sub-specs, cols = RecordType classes under "
+                f"`la.data_pkg.RecordTypes/*`) will visually show these "
+                f"RecordTypes as empty columns."
+            )
+        else:
+            only_csv = csv_names - model_names
+            only_model = model_names - csv_names
+            lines.append("**Model integrity MISMATCH** — re-run `build.py`:")
+            if only_csv:
+                lines.append(f"- in CSV but not model orphans: {sorted(only_csv)}")
+            if only_model:
+                lines.append(f"- in model orphans but not CSV: {sorted(only_model)}")
+        lines.append("")
+
     lines += [
         "## Hot spots",
         "",
@@ -405,7 +474,10 @@ def main() -> int:
     print(f"  Orphan sub-specs:      {len(g['orphan_sub_specs']):>3}")
     print(f"  Layer inversions:      {len(g['layer_inversions']):>3}")
     print(f"  Consumes cycles:       {len(g['consumes_cycles']):>3}")
-    print(f"  Orphan RecordTypes:    {len(g.get('orphan_record_types', [])):>3}")
+    print(f"  Orphan RecordTypes:    {len(g.get('orphan_record_types', [])):>3} (CSV-derived)")
+    print(f"  Orphan RecordTypes:    {len(g.get('orphan_record_types_model_derived', [])):>3} (model-derived)")
+    print(f"  RecordType classes:    {summary['totals'].get('record_type_classes', 0):>3}")
+    print(f"  Emitter traces:        {summary['totals'].get('emitter_traces', 0):>3}")
 
     return 0
 

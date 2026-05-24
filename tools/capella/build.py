@@ -206,6 +206,138 @@ def import_invariants(model, invariants: list[dict]) -> list[dict]:
     return imported
 
 
+def import_record_types(model, record_types: list[dict]) -> list[dict]:
+    """Create one Capella Class per RecordType under the LA data_pkg, grouped
+    by Wave-of-introduction sub-package for IDE navigability.
+
+    The 427 RecordType variants come from S3.1 Appendix A Wave 13 IDL
+    reconciliation (DEC-051). Their canonical ID ranges per Wave:
+      Wave 1 (Base):    1..22   (22 entries)  — original Appendix A
+      §23 Namespace:   23..24   (2 entries)   — S4.1 namespace records
+      Wave 5:          25..82   (58 entries)  — surface / theme / GPU
+      Wave 6:          83..150  (68 entries)  — capability runtime / S8.1
+      Wave 7:         151..196  (46 entries)  — kernel pipeline / repo
+      Wave 8:         197..387  (191 entries) — full cross-spec catalog
+      Wave 10:        388..427  (40 entries)  — vocabulary roll-up
+
+    Wave 14+ additions (>=1000) are folded into a "Wave_14_Plus" package.
+    """
+    la_dp = model.la.data_pkg
+
+    def wave_for(id_: int) -> str:
+        if 1 <= id_ <= 22:
+            return "Wave_1_Base"
+        if 23 <= id_ <= 24:
+            return "S23_Namespace"
+        if 25 <= id_ <= 82:
+            return "Wave_5_Surface_Theme_GPU"
+        if 83 <= id_ <= 150:
+            return "Wave_6_Capability_Runtime_Network"
+        if 151 <= id_ <= 196:
+            return "Wave_7_Kernel_Repository"
+        if 197 <= id_ <= 387:
+            return "Wave_8_Full_Catalog"
+        if 388 <= id_ <= 427:
+            return "Wave_10_Vocabulary_Rollup"
+        if id_ >= 1000:
+            return "Wave_14_Plus_Extensions"
+        return "Wave_Other"
+
+    # Create the umbrella RecordTypes data package + one sub-package per wave
+    rt_pkg = la_dp.packages.create(
+        name="RecordTypes",
+        uuid=_stable_uuid("data_pkg", "RecordTypes"),
+    )
+    if hasattr(rt_pkg, "description"):
+        rt_pkg.description = (
+            "<p>S3.1 closed RecordType vocabulary materialized as Capella Classes "
+            "for visual orphan-detection and emitter-traceability views. "
+            "427 entries per Wave 13 IDL roll-up (DEC-051); grouped by Wave-of-"
+            "introduction for IDE navigability. Each Class corresponds to one "
+            "RecordType wire name; emitter traceability links from sub-spec "
+            "capabilities arrive via project.traces.</p>"
+        )
+
+    wave_pkgs = {}
+
+    imported = []
+    for rt in record_types:
+        rt_id = int(rt["id"])
+        wave = wave_for(rt_id)
+        if wave not in wave_pkgs:
+            wave_pkgs[wave] = rt_pkg.packages.create(
+                name=wave,
+                uuid=_stable_uuid("data_pkg", f"RecordTypes/{wave}"),
+            )
+        cls_uuid = _stable_uuid("record_type", rt["wire_name"])
+        cls = wave_pkgs[wave].classes.create(
+            name=rt["wire_name"],
+            uuid=cls_uuid,
+        )
+        if hasattr(cls, "description"):
+            hint = rt.get("retention_hint") or ""
+            cls.description = (
+                f"<p><strong>RecordType ID.</strong> {rt_id}</p>"
+                f"<p><strong>Wave.</strong> {wave.replace('_', ' ')}</p>"
+                + (f"<p><strong>Retention/source hint.</strong> {hint[:200]}</p>" if hint else "")
+            )
+        imported.append(
+            {"id": rt_id, "wire_name": rt["wire_name"], "wave": wave, "uuid": cls_uuid}
+        )
+    return imported
+
+
+def wire_emitter_traces(
+    model, rt_records: list[dict], spec_records: list[dict], emitter_rows: list[dict]
+) -> int:
+    """For each (RecordType, sub-spec) emitter mention, create a MergeLink
+    trace from the sub-spec capability to the RecordType Class. Lets the
+    Capella IDE traceability matrix view (rows=sub-specs, cols=RecordTypes)
+    visually surface orphan RecordTypes as empty columns and over-emitting
+    sub-specs as densely-filled rows.
+
+    Same project.traces.create(source=, target=) pattern as Consumes (iter 3a).
+    """
+    rt_by_wire = {r["wire_name"]: r["uuid"] for r in rt_records}
+    spec_by_phase = {r["phase_tag"]: r["uuid"] for r in spec_records}
+
+    # uuid → model element cache
+    elem_by_uuid = {}
+    for cap in model.oa.all_capabilities:
+        elem_by_uuid[cap.uuid] = cap
+    for cap in model.sa.all_capabilities:
+        elem_by_uuid[cap.uuid] = cap
+    for cap in model.la.all_capabilities:
+        elem_by_uuid[cap.uuid] = cap
+    for cap in model.pa.all_capabilities:
+        elem_by_uuid[cap.uuid] = cap
+    for cls in model.la.all_classes:
+        elem_by_uuid[cls.uuid] = cls
+
+    traces_collection = model.project.traces
+    wired = 0
+    skipped = []
+    for row in emitter_rows:
+        wire = row["wire_name"]
+        phase = row["sub_spec_phase_tag"]
+        if wire not in rt_by_wire or phase not in spec_by_phase:
+            skipped.append((wire, phase))
+            continue
+        rt_cls = elem_by_uuid.get(rt_by_wire[wire])
+        spec_cap = elem_by_uuid.get(spec_by_phase[phase])
+        if rt_cls is None or spec_cap is None:
+            skipped.append((wire, phase))
+            continue
+        try:
+            traces_collection.create(source=spec_cap, target=rt_cls)
+            wired += 1
+        except Exception as e:
+            skipped.append((wire, phase, str(e)[:80]))
+    if skipped:
+        print(f"      Skipped {len(skipped)} emitter rows (first 3: {skipped[:3]})")
+    return wired
+
+
 def import_layers(model, layers: list[dict]) -> list[dict]:
     """Create one LogicalComponent per AIOS layer under la.root_component.
 
@@ -562,6 +694,17 @@ def main() -> int:
     print("[4e/5] Authoring 4 operational scenarios...")
     scenarios_created = author_scenarios(model, inv_records, spec_records)
     print(f"      Created {scenarios_created}/4 scenarios")
+
+    print("[4f/5] Importing 427 RecordTypes as LA data Classes (Wave-grouped)...")
+    rt_csv = _read_csv(MANIFESTS_DIR / "record_types.csv")
+    rt_records = import_record_types(model, rt_csv)
+    rt_wave_dist = Counter(r["wave"] for r in rt_records)
+    print(f"      Imported {len(rt_records)} RecordType Classes; wave distribution: {dict(rt_wave_dist)}")
+
+    print("[4g/5] Wiring RecordType emitter traces (sub-spec → RecordType)...")
+    emitter_rows = _read_csv(MANIFESTS_DIR / "record_type_emitters.csv")
+    emitter_links = wire_emitter_traces(model, rt_records, spec_records, emitter_rows)
+    print(f"      Wired {emitter_links}/{len(emitter_rows)} emitter traces")
 
     print("[5/5] Saving model...")
     model.save()

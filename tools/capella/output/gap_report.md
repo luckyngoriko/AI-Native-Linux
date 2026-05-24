@@ -9,6 +9,8 @@ Source model: `tools/capella/output/aios-rev2/`
   - Sub-specs (SA/LA/PA): 53
 - Consumes edges: 238
 - INV realization links: 331
+- RecordType classes: 427
+- Emitter traces (sub-spec → RecordType): 676
 
 ## Gaps detected
 
@@ -122,6 +124,8 @@ These RecordType variants are defined in S3.1 Appendix A closed enum (Wave 13 ID
 - **ROLLBACK_COMPLETED** (ID 11)
 - **QUARANTINE_EVENT** (ID 16)
 - **CONFLICT_EVENT** (ID 17)
+
+**Model integrity OK** — model-derived orphan set (4) exactly matches CSV-derived set (4). The Capella IDE traceability matrix view (rows = sub-specs, cols = RecordType classes under `la.data_pkg.RecordTypes/*`) will visually show these RecordTypes as empty columns.
 
 ## Hot spots
 

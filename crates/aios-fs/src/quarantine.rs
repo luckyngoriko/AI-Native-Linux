@@ -9,8 +9,10 @@ use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use strum_macros::{EnumCount, EnumIter};
 
+use crate::chunk::ChunkId;
 use crate::error::FsError;
 use crate::fs_trait::AiosFs;
+use crate::gc::VersionPurgeReason;
 use crate::id::fresh_prefixed_ulid;
 use crate::object::SubjectRef;
 use crate::version::VersionId;
@@ -89,6 +91,54 @@ pub trait MutableAiosFs: AiosFs {
         disposition: QuarantineDisposition,
         operator: &SubjectRef,
     ) -> Result<QuarantineReceipt, FsError>;
+
+    /// Decrement one chunk reference count and return the new count.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`FsError::ChunkUnknown`] when `chunk_id` is not present.
+    fn decrement_chunk_refcount(&self, chunk_id: &ChunkId) -> Result<u32, FsError>;
+
+    /// Remove one zero-ref chunk from storage.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`FsError::ChunkUnknown`] when `chunk_id` is not present and
+    /// [`FsError::ChunkStillReferenced`] when its reference count is non-zero.
+    fn reclaim_chunk(&self, chunk_id: &ChunkId) -> Result<(), FsError>;
+
+    /// Purge one version and decrement every referenced chunk as a side effect.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`FsError::VersionNotFound`] for an unknown version,
+    /// [`FsError::VersionAlreadyPurged`] when the version was already purged,
+    /// and [`FsError::ChunkUnknown`] if the version references a missing chunk.
+    fn purge_version(
+        &self,
+        version_id: &VersionId,
+        reason: VersionPurgeReason,
+    ) -> Result<Vec<ChunkId>, FsError>;
+
+    /// Return retired version ids eligible for a GC purge pass.
+    ///
+    /// # Errors
+    ///
+    /// Backends may return [`FsError::Internal`] for catalog scan failures.
+    #[doc(hidden)]
+    fn retired_version_ids_for_gc(&self, _max_versions: usize) -> Result<Vec<VersionId>, FsError> {
+        Ok(Vec::new())
+    }
+
+    /// Return zero-ref chunk ids eligible for a GC reclaim pass.
+    ///
+    /// # Errors
+    ///
+    /// Backends may return [`FsError::Internal`] for catalog scan failures.
+    #[doc(hidden)]
+    fn zero_ref_chunk_ids_for_gc(&self, _max_chunks: usize) -> Result<Vec<ChunkId>, FsError> {
+        Ok(Vec::new())
+    }
 }
 
 /// Driver for S1.3 §12 quarantine entry/exit transitions.

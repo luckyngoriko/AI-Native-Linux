@@ -19,15 +19,16 @@
 //! - [`AiosFs`] async trait, [`SnapshotId`], and the [`InMemoryAiosFs`] harness
 //!   for SNAPSHOT-consistent reads and quarantine read denial.
 //!
-//! Persistence, RPC/proto codegen, transaction execution, quarantine operations,
-//! garbage collection, and POSIX/FUSE projection are explicitly out of scope for
-//! T-036/T-037 and queued for T-038..T-045.
+//! Persistence, RPC/proto codegen, transaction execution, and POSIX/FUSE
+//! projection are explicitly out of scope for T-036/T-039 and queued for later
+//! M5 tasks.
 
 #![forbid(unsafe_code)]
 
 pub mod chunk;
 pub mod error;
 pub mod fs_trait;
+pub mod gc;
 mod id;
 pub mod in_memory;
 pub mod lifecycle;
@@ -44,6 +45,7 @@ pub use error::FsError;
 pub use fs_trait::{
     AiosFs, FsContext, ObjectReadResult, ObjectWriteRequest, ObjectWriteResult, SnapshotSummary,
 };
+pub use gc::{GcPassDriver, GcPassReport, GcReason, VersionPurgeReason};
 pub use in_memory::InMemoryAiosFs;
 pub use lifecycle::LifecycleState;
 pub use namespace::{AiosPath, NamespaceClass};

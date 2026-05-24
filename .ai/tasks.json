@@ -204,6 +204,12 @@
       "title": "aios-fs \u2014 QuarantineDriver entry/exit + pointer atomic move (S1.3 \u00a712)",
       "completed_at": "2026-05-24",
       "evidence": "859 tests workspace (+12 new quarantine tests over T-037 target scope). New crates/aios-fs/src/quarantine.rs with QuarantineDriver, MutableAiosFs, QuarantineTrigger, QuarantineDisposition, QuarantineReceipt. InMemoryAiosFs implements quarantine entry/exit mutation and S1.3 \u00a712.2 pointer move: ROLLBACK target first, otherwise prior stable fallback. FsError additions: QuarantineAlreadyApplied, QuarantineNotApplied, NoPriorStablePointer. Gates PASS: cargo check --workspace + cargo test --workspace + cargo clippy --workspace --all-targets -- -D warnings + cargo fmt --all -- --check. Scope guard held: no GC, no Query/View, no gRPC, no evidence emission."
+    },
+    {
+      "id": "T-039",
+      "title": "aios-fs \u2014 GC pass + chunk refcounting (S1.3 \u00a77.3)",
+      "completed_at": "2026-05-24",
+      "evidence": "871 tests workspace (+12 over T-038 baseline 859). New crates/aios-fs/src/gc.rs with GcPassDriver, GcPassReport, GcReason, VersionPurgeReason. MutableAiosFs gained decrement_chunk_refcount, reclaim_chunk, purge_version plus hidden bounded GC candidate scans for the driver. InMemoryAiosFs tracks purged_versions, preserves write_object refcount increments, decrements refs on purge_version, rejects live chunk reclaim with ChunkStillReferenced, and reclaims zero-ref chunks. FsError additions: ChunkStillReferenced, VersionAlreadyPurged. Gates PASS: cargo check --workspace + cargo test --workspace + cargo clippy --workspace --all-targets -- -D warnings + cargo fmt --all -- --check. Scope guard held: no Query/View, no implementation space, no namespace expansion, no gRPC, no evidence emission."
     }
   ],
   "blocked": [],
@@ -303,9 +309,10 @@
       "tasks": [
         "T-036",
         "T-037",
-        "T-038"
+        "T-038",
+        "T-039"
       ],
-      "current_test_count": 859,
+      "current_test_count": 871,
       "rationale": "Closes \u00a722 phase-2 (mount /aios + versioned object + semantic view). Unblocks M4 enrichment stub."
     },
     "M6": {

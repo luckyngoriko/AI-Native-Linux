@@ -5,7 +5,7 @@
     reason = "AIOS-FS public names mirror the spec vocabulary"
 )]
 
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::sync::{Arc, RwLock, RwLockReadGuard, RwLockWriteGuard};
 
 use async_trait::async_trait;
@@ -19,6 +19,7 @@ use crate::error::FsError;
 use crate::fs_trait::{
     AiosFs, FsContext, ObjectReadResult, ObjectWriteRequest, ObjectWriteResult, SnapshotSummary,
 };
+use crate::gc::VersionPurgeReason;
 use crate::object::{
     Object, ObjectId, ObjectInit, ObjectKind, ObjectMetadata, PrivacyClass, ScopeBinding,
     ScopeKind, SubjectRef,
@@ -495,6 +496,134 @@ impl MutableAiosFs for InMemoryAiosFs {
             reason: format!("operator={}", operator.0),
         })
     }
+
+    fn decrement_chunk_refcount(&self, chunk_id: &ChunkId) -> Result<u32, FsError> {
+        let mut store = self.write_state();
+        let new_refcount = {
+            let chunk = store
+                .chunks
+                .get_mut(chunk_id)
+                .ok_or_else(|| FsError::ChunkUnknown(chunk_id.clone()))?;
+            if chunk.ref_count > 0 {
+                chunk.ref_count -= 1;
+            }
+            chunk.ref_count
+        };
+
+        store.capture_snapshot();
+        drop(store);
+
+        Ok(new_refcount)
+    }
+
+    fn reclaim_chunk(&self, chunk_id: &ChunkId) -> Result<(), FsError> {
+        let mut store = self.write_state();
+        let refcount = store
+            .chunks
+            .get(chunk_id)
+            .ok_or_else(|| FsError::ChunkUnknown(chunk_id.clone()))?
+            .ref_count;
+
+        if refcount != 0 {
+            return Err(FsError::ChunkStillReferenced {
+                chunk_id: chunk_id.clone(),
+                refcount,
+            });
+        }
+
+        store.chunks.remove(chunk_id);
+        store.capture_snapshot();
+        drop(store);
+
+        Ok(())
+    }
+
+    fn purge_version(
+        &self,
+        version_id: &VersionId,
+        _reason: VersionPurgeReason,
+    ) -> Result<Vec<ChunkId>, FsError> {
+        let mut store = self.write_state();
+        if store.purged_versions.contains(version_id) {
+            return Err(FsError::VersionAlreadyPurged(version_id.clone()));
+        }
+
+        let chunk_ids: Vec<ChunkId> = store
+            .versions
+            .get(version_id)
+            .ok_or_else(|| FsError::VersionNotFound(version_id.clone()))?
+            .chunk_refs
+            .iter()
+            .map(|chunk_ref| chunk_ref.0.clone())
+            .collect();
+
+        for chunk_id in &chunk_ids {
+            if !store.chunks.contains_key(chunk_id) {
+                return Err(FsError::ChunkUnknown(chunk_id.clone()));
+            }
+        }
+
+        {
+            let version = store
+                .versions
+                .get_mut(version_id)
+                .ok_or_else(|| FsError::VersionNotFound(version_id.clone()))?;
+            version.state = VersionState::RetiredVersion;
+            version.quarantined_at = None;
+            version.quarantine_reason = None;
+        }
+
+        for chunk_id in &chunk_ids {
+            let chunk = store
+                .chunks
+                .get_mut(chunk_id)
+                .ok_or_else(|| FsError::ChunkUnknown(chunk_id.clone()))?;
+            if chunk.ref_count > 0 {
+                chunk.ref_count -= 1;
+            }
+        }
+
+        store.purged_versions.insert(version_id.clone());
+        store.capture_snapshot();
+        drop(store);
+
+        Ok(chunk_ids)
+    }
+
+    fn retired_version_ids_for_gc(&self, max_versions: usize) -> Result<Vec<VersionId>, FsError> {
+        let store = self.read_state();
+        let mut version_ids: Vec<VersionId> = store
+            .versions
+            .values()
+            .filter(|version| {
+                version.state == VersionState::RetiredVersion
+                    && !store.purged_versions.contains(&version.version_id)
+            })
+            .map(|version| version.version_id.clone())
+            .collect();
+        drop(store);
+
+        version_ids.sort_by(|left, right| left.as_str().cmp(right.as_str()));
+        version_ids.truncate(max_versions);
+
+        Ok(version_ids)
+    }
+
+    fn zero_ref_chunk_ids_for_gc(&self, max_chunks: usize) -> Result<Vec<ChunkId>, FsError> {
+        let store = self.read_state();
+        let mut chunk_ids: Vec<ChunkId> = store
+            .chunks
+            .values()
+            .filter(|chunk| chunk.ref_count == 0)
+            .map(|chunk| chunk.chunk_id.clone())
+            .collect();
+        drop(store);
+
+        chunk_ids.sort_by(|left, right| left.as_str().cmp(right.as_str()));
+        chunk_ids.truncate(max_chunks);
+
+        Ok(chunk_ids)
+    }
 }
 
 #[derive(Debug, Default)]
@@ -502,6 +631,7 @@ struct State {
     objects: HashMap<ObjectId, Object>,
     versions: HashMap<VersionId, Version>,
     chunks: HashMap<ChunkId, Chunk>,
+    purged_versions: HashSet<VersionId>,
     pointers: HashMap<PointerId, Pointer>,
     transactions: HashMap<TransactionId, Transaction>,
     snapshots: HashMap<SnapshotId, SnapshotSummary>,

@@ -40,6 +40,19 @@ pub enum FsError {
     #[error("chunk unknown: {0}")]
     ChunkUnknown(ChunkId),
 
+    /// Chunk cannot be reclaimed while active references remain.
+    #[error("chunk still referenced: {chunk_id} (refcount={refcount})")]
+    ChunkStillReferenced {
+        /// Chunk that was requested for reclaim.
+        chunk_id: ChunkId,
+        /// Current non-zero reference count.
+        refcount: u32,
+    },
+
+    /// Version has already had its chunk refs purged.
+    #[error("version already purged: {0}")]
+    VersionAlreadyPurged(VersionId),
+
     /// Path failed namespace validation.
     #[error("invalid AIOS path: {0}")]
     InvalidPath(String),

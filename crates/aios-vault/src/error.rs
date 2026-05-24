@@ -2,7 +2,8 @@
 
 use thiserror::Error;
 
-use crate::capability::{CapabilityId, CapabilityState};
+use crate::broker::VaultOperation;
+use crate::capability::{CapabilityClass, CapabilityId, CapabilityState};
 
 /// Typed vault error surface.
 #[derive(Debug, Error, Clone, PartialEq, Eq)]
@@ -43,6 +44,19 @@ pub enum VaultError {
         /// Requested capability state.
         to: CapabilityState,
     },
+
+    /// Requested operation is not valid for the capability's class.
+    #[error("operation class mismatch: {capability_class:?} cannot run {operation_kind}")]
+    OperationClassMismatch {
+        /// Capability class on the stored capability.
+        capability_class: CapabilityClass,
+        /// Operation kind requested by the caller.
+        operation_kind: String,
+    },
+
+    /// Operation is typed but intentionally not implemented until T-049+.
+    #[error("operation unsupported in T-047: {0}")]
+    OperationUnsupportedInT047(VaultOperation),
 
     /// Internal broker failure.
     #[error("vault internal error: {0}")]

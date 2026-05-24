@@ -252,6 +252,12 @@
       "title": "aios-vault crate skeleton - S5.1 + S5.2 typed core + S5.4 override types skeleton",
       "completed_at": "2026-05-24",
       "evidence": "1008 tests workspace (+11 over T-045 baseline 997). New crates/aios-vault v0.0.1 registered after aios-fs. Types-only skeleton: VaultCapability + cap_<ULID> CapabilityId + S5.2 nine-value CapabilityClass + six-state CapabilityState, KeyMaterial + KeyAlgorithm with Debug-redact and serialization-blocking leak guard, KeyMaterialHandle Display-redact, Subject/Session/SessionState + S5.1 SubjectType including LOCAL_OPERATOR, OverrideBinding + three-value S5.4 OverrideClass/strength + OverrideBindingState, VaultError taxonomy. Tests: crates/aios-vault/tests/types_roundtrip.rs (11). Gates PASS: cargo check --workspace + cargo test --workspace + cargo clippy --workspace --all-targets -- -D warnings + cargo fmt --all -- --check. Spec deviations from brief are TRUST SPEC choices: CapabilityClass is the S5.2 nine-value set including KEY_DECRYPT/RANDOM_GENERATE/SECRET_GET/BOOTSTRAP_KEY_SIGN, CapabilityState includes ROTATED and DISCARDED, override class follows S5.4 OverrideStrength names STRONG_SOLO/DUAL_HUMAN/TRIPLE_HUMAN rather than STRONG_PAIR/OPERATOR."
+    },
+    {
+      "id": "T-047",
+      "title": "aios-vault - VaultBroker trait + InMemory impl + INV-018 use-without-reveal",
+      "completed_at": "2026-05-24",
+      "evidence": "1024 tests workspace (+16 over T-046 baseline 1008). Added VaultBroker async trait, issue/use/list/revoke DTOs, closed VaultOperation and UseCapabilityResult enums, InMemoryVaultBroker with private (VaultCapability, KeyMaterial) storage, operation/class mismatch enforcement, deterministic T-047 operation placeholders, SecretGet unsupported-before-reveal guard, and INV-018 serde/Debug/list/result leak checks. VaultError gained OperationClassMismatch and OperationUnsupportedInT047. Gates PASS: cargo check --workspace + cargo test --workspace + cargo clippy --workspace --all-targets -- -D warnings + cargo fmt --all -- --check. Scope guard: no real crypto, no gRPC, no evidence emission, no identity catalog, no override broker."
     }
   ],
   "blocked": [],
@@ -377,9 +383,10 @@
       "layer": "L4",
       "target_crate": "aios-vault",
       "tasks": [
-        "T-046"
+        "T-046",
+        "T-047"
       ],
-      "current_test_count": 1008,
+      "current_test_count": 1024,
       "crate_version_target": "aios-vault/0.1.0",
       "rationale": "Secrets-as-capabilities (INV-018). Unblocks signed bundle/manifest infra + external model calls."
     },

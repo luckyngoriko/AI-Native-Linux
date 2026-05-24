@@ -40,6 +40,9 @@
 
 #![forbid(unsafe_code)]
 
+pub mod conditions;
+pub mod conditions_eval;
+pub mod conditions_parser;
 pub mod constraints;
 pub mod decision;
 pub mod error;
@@ -50,6 +53,11 @@ pub mod pipeline;
 pub mod precedence;
 pub mod subject;
 
+pub use conditions::{ClosedField, CompareOp, Condition, Namespace, Predicate, Value};
+pub use conditions_eval::{
+    evaluate as evaluate_condition, ClockSnapshot, ConditionEvalError, EvalContext,
+};
+pub use conditions_parser::{parse as parse_condition, ConditionParseError};
 pub use constraints::{
     ApprovalRequirement, ApprovalScope, ApproverClass, Constraints, EvidenceGrade, NetworkPolicy,
     SandboxProfileId, SessionClass, VaultCapabilityId,

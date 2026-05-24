@@ -101,7 +101,13 @@
       "id": "T-018",
       "title": "aios-policy — HardDenyEngine (S2.3 §6, 10 classes enforced)",
       "completed_at": "2026-05-24",
-      "evidence": "407 tests workspace (+24 over T-020 baseline 383: 5 inline unit tests in hard_deny_engine module + 19 integration tests in tests/hard_deny.rs). New src/hard_deny_engine.rs (~620 LoC): HardDenyEngineConfig 14 closed sets + HardDenyEngine::{new, new_with_defaults, check(envelope, &HydratedSubject) -> Option<HardDenyClass>} + 10 private detect_<row>() methods (1 per §6 row) run in §6 table order, first match wins. Free fns reason_code_for(class) -> 'HardDeny:<Variant>', reason_message_for(class) (appends '(override path: recovery-mode operator approval)' on ModifyBootChain + AiosFsPointerRollbackOnRecovery), has_recovery_override_path(class) const. Pipeline wired: added step_4_evaluate_hard_denies_with_engine(envelope, ctx, request_hash, Option<&HardDenyEngine>) + evaluate_with_hard_deny_engine driver in pipeline.rs; zero-arg stub step_4_evaluate_hard_denies() preserved for T-017 test compat. InMemoryPolicyKernel gained hard_deny_engine: Option<Arc<HardDenyEngine>> + new_with_hard_deny ctor + has_hard_deny_engine inspector; bare new() unchanged. Dropped Copy on InMemoryPolicyKernel (Arc field forces it; Clone retained). All 4 gates PASS: cargo check + test (407) + clippy --workspace --all-targets -D warnings + fmt --all -- --check. Scope guard: hard_deny.rs enum + precedence.rs + constraints.rs + subject.rs untouched. T-019 (conditions parser), T-022 (bundle loader), T-021 (subject hydration), T-023 (gRPC), T-024 (cache), T-025 (override boundary) deferred per brief."
+      "evidence": "407 tests workspace (+24 over T-020 baseline 383). HardDenyEngine + 10 §6 detect rows + pipeline step-4 wiring."
+    },
+    {
+      "id": "T-019",
+      "title": "aios-policy — conditions vocabulary + EBNF parser + evaluator (S2.3 §9)",
+      "completed_at": "2026-05-24",
+      "evidence": "464 tests workspace (+57 over T-018 407). New crates/aios-policy/src/conditions.rs (~700 LoC) — closed AST: Condition (AND-only conjunction per §9.1; TRUST SPEC deviation from brief — §9.1 has no Or/Not/parens), Predicate (Compare/In/Contains/Exists), CompareOp (Eq/Neq/Lt/Lte/Gt/Gte), Namespace (6 closed), ClosedField (48 typed variants covering §9.2 base + Wave 4 §26.1 + Wave 9 §26.6 + Wave 5 §27.1 + Wave 6 §28.1 + Wave 17 §29.1 + TargetAdapterDeclared escape hatch per §9.2), Value (String/Identifier/Int/Bool/Timestamp). New conditions_parser.rs (~700 LoC) — hand-written recursive-descent (no pest/nom/combine per §21), pub fn parse(&str) -> Result<Condition, ConditionParseError>; 9-variant error enum all carrying 1-based (line, column); time.recovery_mode bare boolean sugar per §9.1; determinism §13.1 contract pinned by 100-iter round-trip test. New conditions_eval.rs (~600 LoC) — EvalContext borrows (HydratedSubject, ActionEnvelope, EnrichmentSnapshot, ClockSnapshot); pub fn evaluate(&Condition, &EvalContext) -> Result<bool, ConditionEvalError>; AND short-circuits on first false; target.<subpath> resolves against envelope.request.target serde_json::Value. PolicyError +2 variants. lib.rs re-exports. Tests: 16 module-level + 41 integration (26 parser + 15 eval). All 4 gates PASS. Scope guard: pipeline.rs / kernel.rs / precedence.rs / hard_deny.rs / hard_deny_engine.rs / constraints.rs / subject.rs UNTOUCHED."
     }
   ],
   "blocked": [],
@@ -135,8 +141,8 @@
       "status": "in_progress",
       "title": "Policy Kernel skeleton (S2.3 aios-policy crate)",
       "started_at": "2026-05-24",
-      "tasks": ["T-016", "T-017", "T-020", "T-018"],
-      "running_test_count": 407,
+      "tasks": ["T-016", "T-017", "T-020", "T-018", "T-019"],
+      "running_test_count": 464,
       "crate_version": "aios-policy/0.0.1"
     }
   }

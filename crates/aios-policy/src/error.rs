@@ -51,4 +51,20 @@ pub enum PolicyError {
     /// past `expires_at`). Raised by [`crate::Constraints::validate`].
     #[error("constraints invalid: {0}")]
     ConstraintsInvalid(String),
+
+    /// A §9 condition source string failed to parse — unknown field, unknown
+    /// namespace, unknown operator, malformed value list, disallowed `or` / `not`
+    /// / parens. Raised by [`crate::conditions_parser::parse`].
+    ///
+    /// Carries the rendered [`crate::conditions_parser::ConditionParseError`]
+    /// message verbatim so the pipeline can include it in
+    /// [`crate::decision::PolicyDecision::reason`].
+    #[error("condition parse failed: {0}")]
+    ConditionParse(String),
+
+    /// A parsed §9 condition could not be evaluated against the runtime context
+    /// (type-mismatched comparison, ordering operator on a bool field, mixed-type
+    /// `in` value list). Raised by [`crate::conditions_eval::evaluate`].
+    #[error("condition eval failed: {0}")]
+    ConditionEval(String),
 }

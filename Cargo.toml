@@ -103,6 +103,15 @@ tempfile    = "3.10"
 # the policy bundle JSON envelope (S2.3 §12). Pinned 0.22 — the current 0.22.x
 # line uses the `Engine` trait API; MIT/Apache-2.0; zero transitive deps.
 base64      = "0.22"
+# T-024: LRU decision cache (S2.3 §13.2 / §13.3). 0.12 is the current stable
+# line; matches aios-evidence-style discipline of pinning to the latest
+# verified-buildable minor. MIT-licensed; pure-Rust no_std-compatible.
+lru         = "0.12"
+# T-024: criterion microbench framework for the §18.1 perf-budget probe.
+# Dev-dep only (consumed via [dev-dependencies] from aios-policy). 0.5 is the
+# current stable line; "html_reports" feature is omitted because the CI
+# integration that consumes the reports lands in T-025+.
+criterion   = { version = "0.5", default-features = false, features = ["cargo_bench_support"] }
 
 [profile.dev]
 opt-level = 0

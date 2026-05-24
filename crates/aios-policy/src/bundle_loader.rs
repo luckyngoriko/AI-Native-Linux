@@ -177,6 +177,67 @@ impl BundleLoader {
         Ok(bundle)
     }
 
+    /// Verify a pre-parsed [`PolicyBundle`] (T-024 — `LoadBundle` RPC swap
+    /// helper).
+    ///
+    /// Runs the same steps 2 (version pin) → 3 (authority lookup) → 4
+    /// (signature verify) → 5 (per-rule condition parse + effect check) as
+    /// [`Self::load_from_bytes`], but skips the JSON parse step because the
+    /// caller has already deserialised the bundle from a different wire form
+    /// (the gRPC proto bundle is structured, not JSON-bytes).
+    ///
+    /// Existence: the `LoadBundle` RPC at `service/server.rs` receives a
+    /// structured `proto::PolicyBundle`, bridges it to a Rust
+    /// [`PolicyBundle`], and feeds it here. The signature contract is
+    /// identical to `load_from_bytes` — the publisher must have signed the
+    /// canonical body bytes of the resulting bundle.
+    ///
+    /// # Errors
+    ///
+    /// Same as [`Self::load_from_bytes`] minus `InvalidPolicyBundle("JSON
+    /// deserialise: ...")` (no JSON parse step on this path).
+    pub fn accept_bundle(&self, bundle: PolicyBundle) -> Result<PolicyBundle, PolicyError> {
+        if let Some(expected) = &self.expected_bundle_version {
+            if &bundle.bundle_version != expected {
+                return Err(PolicyError::BundleVersionMismatch {
+                    expected: expected.clone(),
+                    found: bundle.bundle_version,
+                });
+            }
+        }
+        let verifying_key = self
+            .trusted_authorities
+            .get(&bundle.signing_authority)
+            .ok_or_else(|| PolicyError::BundleUnknownAuthority(bundle.signing_authority.clone()))?;
+        let sig_bytes: [u8; 64] = bundle
+            .signature_ed25519
+            .as_slice()
+            .try_into()
+            .map_err(|_| PolicyError::BundleSignatureInvalid)?;
+        let signature = Signature::from_bytes(&sig_bytes);
+        let body = bundle.canonical_signed_body_bytes()?;
+        verifying_key
+            .verify(&body, &signature)
+            .map_err(|_| PolicyError::BundleSignatureInvalid)?;
+        for rule in &bundle.rules {
+            if matches!(rule.effect, RuleEffect::Unspecified) {
+                return Err(PolicyError::InvalidPolicyBundle(format!(
+                    "rule {} effect: UNSPECIFIED is reserved for proto3 wire compatibility",
+                    rule.rule_id
+                )));
+            }
+            for cond in &rule.conditions {
+                parse_condition(cond).map_err(|e| {
+                    PolicyError::InvalidPolicyBundle(format!(
+                        "rule {} condition: {e}",
+                        rule.rule_id
+                    ))
+                })?;
+            }
+        }
+        Ok(bundle)
+    }
+
     /// Convenience wrapper that reads the file at `path` and delegates to
     /// [`Self::load_from_bytes`].
     ///

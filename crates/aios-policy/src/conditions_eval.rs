@@ -34,7 +34,7 @@ use thiserror::Error;
 use aios_action::ActionEnvelope;
 
 use crate::conditions::{ClosedField, CompareOp, Condition, Predicate, Value};
-use crate::kernel::EnrichmentSnapshot;
+use crate::snapshot::EnrichmentSnapshot;
 use crate::subject::{HydratedSubject, SubjectType};
 
 /// Per-evaluation read-only context for the conditions evaluator.
@@ -509,7 +509,9 @@ mod tests {
 
     fn make_enrichment() -> EnrichmentSnapshot {
         EnrichmentSnapshot {
-            snapshot_id: "snap_test".to_owned(),
+            snapshot_id: "polb_snap_test".to_owned(),
+            object: crate::snapshot::ObjectEnrichment::default(),
+            adapter: crate::snapshot::AdapterEnrichment::default(),
         }
     }
 

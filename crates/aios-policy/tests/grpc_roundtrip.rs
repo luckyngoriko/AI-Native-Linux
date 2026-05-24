@@ -437,12 +437,19 @@ async fn get_policy_engine_info_returns_schema_list_and_bundle_version() {
 // 10. LoadBundle / RollbackBundle / ExplainDecision return Unimplemented.
 // ===========================================================================
 #[tokio::test]
-async fn deferred_rpcs_return_unimplemented_until_t024_t025_land() {
+async fn deferred_rpcs_return_unimplemented_until_t025_lands() {
+    // T-024 turned LoadBundle + ExplainDecision into real RPCs; RollbackBundle
+    // remains Unimplemented (T-025 owns it). LoadBundle on a bare service
+    // (no BundleLoader attached) now returns InvalidArgument when `bundle`
+    // is None (input validation hits before the loader check) — this is
+    // the new contract. ExplainDecision on a bare service (no decision
+    // log) returns Unimplemented per the T-024 opt-in discipline.
     let (addr, shutdown, handle) = spawn_server(make_service_bare()).await;
     let mut client = PolicyKernelClient::connect(format!("http://{addr}"))
         .await
         .unwrap();
 
+    // LoadBundle without a bundle field → InvalidArgument (T-024).
     let err = client
         .load_bundle(LoadBundleRequest {
             bundle: None,
@@ -450,8 +457,9 @@ async fn deferred_rpcs_return_unimplemented_until_t024_t025_land() {
         })
         .await
         .unwrap_err();
-    assert_eq!(err.code(), tonic::Code::Unimplemented);
+    assert_eq!(err.code(), tonic::Code::InvalidArgument);
 
+    // RollbackBundle → Unimplemented (T-025).
     let err = client
         .rollback_bundle(RollbackBundleRequest {
             target_bundle_version: "polb_old".into(),
@@ -462,6 +470,8 @@ async fn deferred_rpcs_return_unimplemented_until_t024_t025_land() {
         .unwrap_err();
     assert_eq!(err.code(), tonic::Code::Unimplemented);
 
+    // ExplainDecision on a bare service (no SharedDecisionLog) →
+    // Unimplemented per the T-024 opt-in.
     let err = client
         .explain_decision(ExplainDecisionRequest {
             policy_decision_id: "poldec_unknown".into(),

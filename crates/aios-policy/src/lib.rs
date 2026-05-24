@@ -42,23 +42,27 @@
 
 pub mod bundle;
 pub mod bundle_loader;
+pub mod cache;
 pub mod conditions;
 pub mod conditions_eval;
 pub mod conditions_parser;
 pub mod constraints;
 pub mod decision;
 pub mod error;
+pub mod explain;
 pub mod hard_deny;
 pub mod hard_deny_engine;
 pub mod kernel;
 pub mod pipeline;
 pub mod precedence;
 pub mod service;
+pub mod snapshot;
 pub mod subject;
 pub mod subject_hydration;
 
 pub use bundle::{PolicyBundle, PolicyRule, RuleEffect, RuleScope};
 pub use bundle_loader::BundleLoader;
+pub use cache::{CacheKey, DecisionCache, SharedDecisionCache, DEFAULT_CAPACITY};
 pub use conditions::{ClosedField, CompareOp, Condition, Namespace, Predicate, Value};
 pub use conditions_eval::{
     evaluate as evaluate_condition, ClockSnapshot, ConditionEvalError, EvalContext,
@@ -70,15 +74,17 @@ pub use constraints::{
 };
 pub use decision::{Decision, PolicyDecision};
 pub use error::PolicyError;
+pub use explain::{DecisionLog, DecisionPath, SharedDecisionLog, DEFAULT_LOG_CAPACITY};
 pub use hard_deny::HardDenyClass;
 pub use hard_deny_engine::{
     has_recovery_override_path, reason_code_for, reason_message_for, HardDenyEngine,
     HardDenyEngineConfig,
 };
-pub use kernel::{EnrichmentSnapshot, InMemoryPolicyKernel, PolicyContext, PolicyKernel};
+pub use kernel::{InMemoryPolicyKernel, PolicyContext, PolicyKernel};
 pub use pipeline::{
     evaluate_ai_self_approval_prevention, reason_code, DecisionPipeline, PipelineState,
 };
 pub use precedence::RulePrecedence;
+pub use snapshot::{AdapterEnrichment, EnrichmentSnapshot, ObjectEnrichment};
 pub use subject::{HydratedSubject, SubjectType};
 pub use subject_hydration::{HydratedRecord, InMemoryHydrator, SubjectHydrator};

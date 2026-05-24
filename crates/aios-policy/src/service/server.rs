@@ -52,12 +52,16 @@ use async_trait::async_trait;
 use tonic::transport::server::{Router, Server};
 use tonic::{Request, Response, Status};
 
-use crate::kernel::{EnrichmentSnapshot, PolicyContext, PolicyKernel};
+use crate::bundle_loader::BundleLoader;
+use crate::cache::SharedDecisionCache;
+use crate::explain::SharedDecisionLog;
+use crate::kernel::{InMemoryPolicyKernel, PolicyContext, PolicyKernel};
 use crate::service::conversions::{
     envelope_from_bytes, policy_decision_to_proto, policy_error_to_status,
 };
 use crate::service::proto;
 use crate::service::SCHEMA_VERSION;
+use crate::snapshot::EnrichmentSnapshot;
 use crate::subject::{HydratedSubject, SubjectType};
 
 /// Default engine id reported by `GetPolicyEngineInfo`. Production binaries
@@ -82,15 +86,40 @@ pub const DEFAULT_BUNDLE_VERSION: &str = "polb_default";
 #[derive(Clone)]
 pub struct PolicyKernelService {
     inner: Arc<dyn PolicyKernel>,
+    /// Sibling handle on the same kernel when it's an
+    /// [`InMemoryPolicyKernel`]; used by `LoadBundle` to call
+    /// `set_active_bundle`. The trait object `Arc<dyn PolicyKernel>` has
+    /// no `Any` supertrait, so we keep a typed shadow pointer here when
+    /// constructed via [`Self::new_in_memory`]. Production wiring uses
+    /// `new_in_memory` exclusively; `new(dyn PolicyKernel)` is for tests
+    /// that exercise mock kernels.
+    in_memory_kernel: Option<Arc<InMemoryPolicyKernel>>,
     engine_id: String,
     code_version: String,
-    active_bundle_version: String,
+    /// Currently active bundle version, held behind `Arc<RwLock<>>` so the
+    /// `LoadBundle` RPC can swap it atomically with the kernel's own
+    /// active-bundle pointer (§12.4 hot reload).
+    active_bundle_version: Arc<std::sync::RwLock<String>>,
     /// The placeholder subject used to populate the `PolicyContext` until
     /// per-RPC mTLS-derived identity lands in T-024. The default value
     /// matches the canonical `agent:dev` test fixture (§22). Callers can
     /// override it via [`PolicyKernelService::with_default_subject`].
     default_subject: HydratedSubject,
     started_at: chrono::DateTime<chrono::Utc>,
+    /// Optional bundle loader (T-024). When `Some`, the `LoadBundle` RPC
+    /// uses it to verify incoming bundles; when `None`, `LoadBundle`
+    /// returns `Unimplemented` (operators must opt-in to the load path by
+    /// constructing the service with [`PolicyKernelService::with_bundle_loader`]).
+    bundle_loader: Option<Arc<BundleLoader>>,
+    /// Optional decision-cache handle (T-024). Used to invalidate the
+    /// old bundle's cached decisions on `LoadBundle`. Independent from
+    /// the kernel's cache attachment so the service can wire one cache
+    /// across a multi-kernel deployment if needed.
+    cache: Option<SharedDecisionCache>,
+    /// Optional decision log for the `ExplainDecision` RPC (T-024). When
+    /// `None`, `ExplainDecision` returns `NotFound`. The pipeline writes
+    /// every successful decision into this log.
+    decision_log: Option<SharedDecisionLog>,
 }
 
 impl std::fmt::Debug for PolicyKernelService {
@@ -98,9 +127,12 @@ impl std::fmt::Debug for PolicyKernelService {
         f.debug_struct("PolicyKernelService")
             .field("engine_id", &self.engine_id)
             .field("code_version", &self.code_version)
-            .field("active_bundle_version", &self.active_bundle_version)
+            .field("active_bundle_version", &self.read_active_bundle_version())
             .field("default_subject", &self.default_subject)
             .field("started_at", &self.started_at)
+            .field("bundle_loader", &self.bundle_loader.is_some())
+            .field("cache", &self.cache.is_some())
+            .field("decision_log", &self.decision_log.is_some())
             .finish_non_exhaustive()
     }
 }
@@ -116,11 +148,39 @@ impl PolicyKernelService {
     pub fn new(inner: Arc<dyn PolicyKernel>) -> Self {
         Self {
             inner,
+            in_memory_kernel: None,
             engine_id: DEFAULT_ENGINE_ID.to_owned(),
             code_version: DEFAULT_CODE_VERSION.to_owned(),
-            active_bundle_version: DEFAULT_BUNDLE_VERSION.to_owned(),
+            active_bundle_version: Arc::new(std::sync::RwLock::new(
+                DEFAULT_BUNDLE_VERSION.to_owned(),
+            )),
             default_subject: default_placeholder_subject(),
             started_at: chrono::Utc::now(),
+            bundle_loader: None,
+            cache: None,
+            decision_log: None,
+        }
+    }
+
+    /// Construct an adapter around an [`InMemoryPolicyKernel`] (T-024 —
+    /// the canonical production ctor; preserves the typed pointer so
+    /// `LoadBundle` can swap the kernel's active bundle in place).
+    #[must_use]
+    pub fn new_in_memory(kernel: Arc<InMemoryPolicyKernel>) -> Self {
+        let dyn_handle: Arc<dyn PolicyKernel> = kernel.clone();
+        Self {
+            inner: dyn_handle,
+            in_memory_kernel: Some(kernel),
+            engine_id: DEFAULT_ENGINE_ID.to_owned(),
+            code_version: DEFAULT_CODE_VERSION.to_owned(),
+            active_bundle_version: Arc::new(std::sync::RwLock::new(
+                DEFAULT_BUNDLE_VERSION.to_owned(),
+            )),
+            default_subject: default_placeholder_subject(),
+            started_at: chrono::Utc::now(),
+            bundle_loader: None,
+            cache: None,
+            decision_log: None,
         }
     }
 
@@ -134,9 +194,56 @@ impl PolicyKernelService {
     /// Override the active bundle version reported by decisions and
     /// `GetPolicyEngineInfo`.
     #[must_use]
-    pub fn with_bundle_version(mut self, v: impl Into<String>) -> Self {
-        self.active_bundle_version = v.into();
+    pub fn with_bundle_version(self, v: impl Into<String>) -> Self {
+        if let Ok(mut guard) = self.active_bundle_version.write() {
+            *guard = v.into();
+        }
         self
+    }
+
+    /// Attach a [`BundleLoader`] (T-024 — enables the `LoadBundle` RPC).
+    #[must_use]
+    pub fn with_bundle_loader(mut self, loader: BundleLoader) -> Self {
+        self.bundle_loader = Some(Arc::new(loader));
+        self
+    }
+
+    /// Attach a [`SharedDecisionCache`] handle (T-024).
+    ///
+    /// The service uses this only to invalidate cached decisions on
+    /// `LoadBundle`; the kernel attaches its own cache via
+    /// [`InMemoryPolicyKernel::new_with_cache`] for the read-side hits.
+    /// Production wiring passes the SAME handle to both so the
+    /// invalidate-on-reload path lines up with the read-side hits.
+    #[must_use]
+    pub fn with_cache(mut self, cache: SharedDecisionCache) -> Self {
+        self.cache = Some(cache);
+        self
+    }
+
+    /// Attach a [`SharedDecisionLog`] handle (T-024 — enables
+    /// `ExplainDecision`). The pipeline records every successful decision
+    /// here; the RPC reads by `policy_decision_id`.
+    #[must_use]
+    pub fn with_decision_log(mut self, log: SharedDecisionLog) -> Self {
+        self.decision_log = Some(log);
+        self
+    }
+
+    /// Read the currently active bundle version. Poisoned-lock tolerant.
+    fn read_active_bundle_version(&self) -> String {
+        match self.active_bundle_version.read() {
+            Ok(g) => g.clone(),
+            Err(poisoned) => poisoned.into_inner().clone(),
+        }
+    }
+
+    /// Swap the active bundle version (T-024 — `LoadBundle` integration).
+    fn swap_active_bundle_version(&self, new_version: String) -> String {
+        match self.active_bundle_version.write() {
+            Ok(mut g) => std::mem::replace(&mut *g, new_version),
+            Err(poisoned) => std::mem::replace(&mut *poisoned.into_inner(), new_version),
+        }
     }
 
     /// Override the default subject used to populate `PolicyContext` when
@@ -177,14 +284,20 @@ impl PolicyKernelService {
         // anchor's first component anyway, so using it as the snapshot id
         // collapses two of the three triple components into the same content
         // address until T-024 attaches the real AIOS-FS enrichment snapshot.
-        let snapshot_id = env
-            .request
-            .request_hash()
-            .unwrap_or_else(|_| "snap_unknown".to_owned());
+        // T-024: the snapshot is now real (content-addressed); the gRPC
+        // adapter still mints an empty snapshot until the M4 AIOS-FS read-
+        // path lands. `compute_id` produces a deterministic anchor over
+        // the empty `(object, adapter)` tuple — the same id for every
+        // request until M4 wires per-object enrichment.
+        let snapshot = EnrichmentSnapshot::with_fields(
+            crate::snapshot::ObjectEnrichment::default(),
+            crate::snapshot::AdapterEnrichment::default(),
+        )
+        .unwrap_or_default();
         PolicyContext::new(
             subject,
-            EnrichmentSnapshot { snapshot_id },
-            self.active_bundle_version.clone(),
+            snapshot,
+            self.read_active_bundle_version(),
             self.code_version.clone(),
         )
     }
@@ -207,6 +320,14 @@ impl PolicyKernelService {
             .map_err(|e| policy_error_to_status(&e))?;
         if simulated {
             decision.simulated = true;
+        }
+        // T-024 — record the decision into the explain log when one is
+        // attached. The log is a bounded ring-buffer; `record` evicts the
+        // oldest entry on overflow per §20 / Appendix A.
+        if let Some(log) = self.decision_log.as_ref() {
+            log.record(crate::explain::DecisionPath::from_decision(
+                decision.clone(),
+            ));
         }
         Ok(policy_decision_to_proto(&decision))
     }
@@ -252,15 +373,80 @@ impl proto::policy_kernel_server::PolicyKernel for PolicyKernelService {
 
     async fn load_bundle(
         &self,
-        _request: Request<proto::LoadBundleRequest>,
+        request: Request<proto::LoadBundleRequest>,
     ) -> Result<Response<proto::LoadBundleResponse>, Status> {
-        // T-024 lands the bundle activation path. T-023 declines to fake it
-        // — a stub that accepted-but-ignored the bundle would silently
-        // diverge the wire-level "active bundle" from the in-memory state
-        // and break the §13 determinism contract.
-        Err(Status::unimplemented(
-            "LoadBundle is not yet wired (queued for T-024 / T-025 — bundle activation + override boundary)",
-        ))
+        // T-024 — full bundle activation path (S2.3 §12.4 hot reload).
+        // Flow:
+        //   1. Extract the proto bundle from the request.
+        //   2. Verify the loader is configured; reject `Unimplemented`
+        //      otherwise (the service is opted-out of LoadBundle by
+        //      default, per the operator-explicit-opt-in discipline).
+        //   3. Bridge proto::PolicyBundle to the Rust shape via
+        //      `proto_bundle_to_rust`.
+        //   4. Verify via `BundleLoader::accept_bundle` — version pin,
+        //      authority lookup, Ed25519 signature, per-rule condition
+        //      parse. Failure ⇒ `FailedPrecondition` per §18.2.
+        //   5. On `stage_only = true`, return without activating.
+        //   6. Otherwise: swap kernel's active bundle pointer + service's
+        //      active_bundle_version atomically; then invalidate the
+        //      decision cache for the OLD version (§13.2). Return
+        //      `LoadBundleResponse { active = true }`.
+        let r = request.into_inner();
+        let proto_bundle = r
+            .bundle
+            .ok_or_else(|| Status::invalid_argument("LoadBundleRequest.bundle is required"))?;
+        let loader = self.bundle_loader.as_ref().ok_or_else(|| {
+            Status::unimplemented(
+                "LoadBundle disabled — service constructed without a BundleLoader (T-024 opt-in)",
+            )
+        })?;
+        let rust_bundle = crate::service::conversions::proto_bundle_to_rust(&proto_bundle)
+            .map_err(|e| policy_error_to_status(&e))?;
+        let verified = loader
+            .accept_bundle(rust_bundle)
+            .map_err(|e| policy_error_to_status(&e))?;
+        let new_version = verified.bundle_version.clone();
+        let activated_at = chrono::Utc::now();
+
+        if r.stage_only {
+            return Ok(Response::new(proto::LoadBundleResponse {
+                bundle_version: new_version,
+                active: false,
+                status_message: "bundle verified; not activated (stage_only=true)".into(),
+                activated_at: Some(crate::service::conversions::datetime_to_proto(activated_at)),
+            }));
+        }
+
+        // T-024 — bundle activation is best-effort coordinated across the
+        // two pointers (service-level version label + kernel-level active
+        // bundle). Both swaps use lock-and-replace primitives so the
+        // window between them is bounded by lock acquisition only.
+        let previous_version = self.swap_active_bundle_version(new_version.clone());
+        // Try to swap the kernel's active bundle when the kernel is in
+        // fact an `InMemoryPolicyKernel`. The trait object route via
+        // `Any` would force a downcast; instead we route via the kernel's
+        // own `set_active_bundle` method when accessible. Production
+        // wiring always uses an `InMemoryPolicyKernel`, so the downcast
+        // succeeds; otherwise the swap is silently best-effort (the
+        // service-level pointer is the authoritative one for decisions).
+        if let Some(in_mem) = self.in_memory_kernel.as_ref() {
+            in_mem.set_active_bundle(verified);
+        }
+        // §13.2: bundle flip ⇒ invalidate every cached decision for the
+        // old version. Counts go onto the status_message for operator
+        // visibility.
+        let invalidated = self
+            .cache
+            .as_ref()
+            .map_or(0, |c| c.invalidate_for_bundle(&previous_version));
+        Ok(Response::new(proto::LoadBundleResponse {
+            bundle_version: new_version,
+            active: true,
+            status_message: format!(
+                "bundle activated; previous={previous_version}; cache entries invalidated={invalidated}"
+            ),
+            activated_at: Some(crate::service::conversions::datetime_to_proto(activated_at)),
+        }))
     }
 
     async fn rollback_bundle(
@@ -274,13 +460,32 @@ impl proto::policy_kernel_server::PolicyKernel for PolicyKernelService {
 
     async fn explain_decision(
         &self,
-        _request: Request<proto::ExplainDecisionRequest>,
+        request: Request<proto::ExplainDecisionRequest>,
     ) -> Result<Response<proto::ExplainDecisionResponse>, Status> {
-        // ExplainDecision requires a decision cache keyed by
-        // policy_decision_id. T-024 lands the cache + this RPC together.
-        Err(Status::unimplemented(
-            "ExplainDecision requires the decision cache (queued for T-024)",
-        ))
+        // T-024 — explain trail lookup. The pipeline writes each
+        // successful decision to the [`SharedDecisionLog`]; this RPC
+        // looks up by `policy_decision_id`. Missing log handle ⇒
+        // `Unimplemented` (operator opt-in). Unknown id ⇒ `NotFound`.
+        let req = request.into_inner();
+        let log = self.decision_log.as_ref().ok_or_else(|| {
+            Status::unimplemented(
+                "ExplainDecision disabled — service constructed without a SharedDecisionLog (T-024 opt-in)",
+            )
+        })?;
+        let path = log.get(&req.policy_decision_id).ok_or_else(|| {
+            Status::not_found(format!(
+                "no decision found for policy_decision_id={}",
+                req.policy_decision_id
+            ))
+        })?;
+        Ok(Response::new(proto::ExplainDecisionResponse {
+            decision: Some(crate::service::conversions::policy_decision_to_proto(
+                &path.decision,
+            )),
+            rule_chain: path.rule_chain,
+            narrative: path.narrative,
+            enrichment_snapshot: None,
+        }))
     }
 
     async fn get_policy_engine_info(
@@ -291,7 +496,7 @@ impl proto::policy_kernel_server::PolicyKernel for PolicyKernelService {
             engine_id: self.engine_id.clone(),
             supported_schema_versions: vec![SCHEMA_VERSION.to_owned()],
             default_schema_version: SCHEMA_VERSION.to_owned(),
-            active_bundle_version: self.active_bundle_version.clone(),
+            active_bundle_version: self.read_active_bundle_version(),
             // T-024 lifts this onto real bundle-state inspection. T-023
             // returns `degraded = false` because no bundle activation
             // path exists yet — the engine is on the default-deny floor

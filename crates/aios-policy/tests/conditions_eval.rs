@@ -48,6 +48,7 @@ fn envelope(action: &str, target: serde_json::Value) -> ActionEnvelope {
 fn enrich() -> EnrichmentSnapshot {
     EnrichmentSnapshot {
         snapshot_id: "snap_eval".to_owned(),
+        ..Default::default()
     }
 }
 

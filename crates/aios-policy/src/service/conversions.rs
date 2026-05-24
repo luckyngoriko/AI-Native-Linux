@@ -52,6 +52,9 @@
 use chrono::{DateTime, TimeZone, Utc};
 use prost_types::Timestamp;
 
+use crate::bundle::{
+    PolicyBundle as RustPolicyBundle, PolicyRule as RustPolicyRule, RuleEffect, RuleScope,
+};
 use crate::constraints::{
     ApprovalRequirement, ApprovalScope, ApproverClass, Constraints, EvidenceGrade, NetworkPolicy,
     SandboxProfileId, SessionClass, VaultCapabilityId,
@@ -537,6 +540,97 @@ pub fn envelope_from_bytes(bytes: &[u8]) -> Result<aios_action::ActionEnvelope, 
         tonic::Status::invalid_argument(format!(
             "envelope_proto deserialize failed (JSON placeholder per task #26): {e}"
         ))
+    })
+}
+
+// ---------------------------------------------------------------------------
+// proto::PolicyBundle  ->  Rust PolicyBundle  (T-024 LoadBundle bridge)
+// ---------------------------------------------------------------------------
+
+/// Map the proto `RuleEffect` enum onto the Rust closed enum (T-024 — the
+/// `LoadBundle` bridge).
+#[must_use]
+pub const fn rule_effect_from_proto(e: i32) -> RuleEffect {
+    // proto enum: 0 unspecified, 1 allow, 2 deny
+    match e {
+        1 => RuleEffect::Allow,
+        2 => RuleEffect::Deny,
+        _ => RuleEffect::Unspecified,
+    }
+}
+
+/// Bridge a `proto::PolicyRule` onto the Rust [`crate::PolicyRule`]
+/// (T-024 — the `LoadBundle` bridge).
+///
+/// The proto rule has no `scope` / `reason_code` field; both are
+/// synthesised from the proto rule's existing fields:
+///
+/// - `scope` defaults to [`RuleScope::Global`] (the broadest matcher;
+///   future revs of the proto schema will carry an explicit field).
+/// - `reason_code` is taken from `metadata.policy_pack` when present, or
+///   from `rule_id` as a fallback so the audit chain still resolves.
+#[must_use]
+pub fn proto_rule_to_rust(p: &proto::PolicyRule) -> RustPolicyRule {
+    let reason_code = p
+        .metadata
+        .as_ref()
+        .map(|m| m.policy_pack.clone())
+        .filter(|s| !s.is_empty())
+        .unwrap_or_else(|| p.rule_id.clone());
+    RustPolicyRule {
+        rule_id: p.rule_id.clone(),
+        scope: RuleScope::Global,
+        effect: rule_effect_from_proto(p.effect),
+        priority: p.priority,
+        subjects: p.subjects.clone(),
+        actions: p.actions.clone(),
+        conditions: p.conditions.clone(),
+        constraints: p.constraints.as_ref().map(constraints_from_proto),
+        approval: p.approval.as_ref().map(approval_from_proto),
+        reason_code,
+    }
+}
+
+/// Bridge a `proto::PolicyBundle` onto the Rust
+/// [`crate::PolicyBundle`] (T-024 — the `LoadBundle` bridge).
+///
+/// Field aliasing:
+///
+/// - `publisher_id`         → `signing_authority`
+/// - `publisher_signature`  → `signature_ed25519`
+/// - `bundle_version`       → `bundle_version` (identical)
+/// - `created_at`           → `created_at`; falls back to Unix epoch when
+///   the proto timestamp is missing.
+/// - `bundle_id`            is synthesised from `bundle_version` (the
+///   proto schema does not yet carry a separate `bundle_id` field; T-025
+///   adds it).
+///
+/// The rules list is converted via [`proto_rule_to_rust`]; the
+/// `group_definitions` / `aios_root_signature` / `hard_denies` proto
+/// fields are not yet represented on the Rust side and are dropped.
+///
+/// # Errors
+///
+/// Returns [`PolicyError::InvalidPolicyBundle`] when the publisher
+/// signature is not the canonical 64-byte Ed25519 length.
+pub fn proto_bundle_to_rust(p: &proto::PolicyBundle) -> Result<RustPolicyBundle, PolicyError> {
+    let created_at = p.created_at.as_ref().map_or_else(
+        || Utc.timestamp_opt(0, 0).single().unwrap_or_default(),
+        |t| datetime_from_proto(*t),
+    );
+    if p.publisher_signature.len() != 64 {
+        return Err(PolicyError::InvalidPolicyBundle(format!(
+            "publisher_signature must be 64 bytes (got {})",
+            p.publisher_signature.len()
+        )));
+    }
+    Ok(RustPolicyBundle {
+        bundle_version: p.bundle_version.clone(),
+        bundle_id: p.bundle_version.clone(),
+        created_at,
+        signing_authority: p.publisher_id.clone(),
+        signature_ed25519: p.publisher_signature.clone(),
+        rules: p.rules.iter().map(proto_rule_to_rust).collect(),
     })
 }
 

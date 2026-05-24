@@ -80,6 +80,7 @@ fn make_context(subject: HydratedSubject) -> PolicyContext {
         subject,
         EnrichmentSnapshot {
             snapshot_id: "snap_t018".to_owned(),
+            ..Default::default()
         },
         "polb_t018_test_bundle_v1",
         "code_t018_test",

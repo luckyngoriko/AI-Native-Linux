@@ -47,6 +47,7 @@ fn make_context() -> PolicyContext {
         make_subject(),
         EnrichmentSnapshot {
             snapshot_id: "snap_01HXY8K2JPQ7N3M4R5S6T7V8W9".to_owned(),
+            ..Default::default()
         },
         "polb_t017_test_bundle_v1",
         "code_t017_test",
@@ -239,6 +240,7 @@ async fn bundle_version_reflects_policy_context_input() {
         make_subject(),
         EnrichmentSnapshot {
             snapshot_id: "snap_custom".to_owned(),
+            ..Default::default()
         },
         "polb_alt_bundle_42",
         "code_alt",

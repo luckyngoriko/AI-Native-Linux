@@ -24,35 +24,20 @@
 use std::sync::Arc;
 
 use async_trait::async_trait;
-use serde::{Deserialize, Serialize};
 
 use aios_action::ActionEnvelope;
 
+use crate::cache::SharedDecisionCache;
 use crate::decision::PolicyDecision;
 use crate::error::PolicyError;
 use crate::hard_deny_engine::HardDenyEngine;
 use crate::pipeline::DecisionPipeline;
+use crate::snapshot::EnrichmentSnapshot;
 use crate::subject::HydratedSubject;
 use crate::subject_hydration::SubjectHydrator;
+use std::sync::RwLock;
 
-/// Resource-enrichment snapshot — S2.3 §8.
-///
-/// **STUB** — T-018 (hard-deny enforcement) and T-019 (conditions vocabulary) expand
-/// this into the full SNAPSHOT-consistent read set (`privacy_class`, `policy_tags`,
-/// `kind`, `lifecycle_state`, `created_by`, adapter manifest `risk_template`,
-/// `sandbox_profile_id`, …). For T-017 the snapshot is identified by a single
-/// `snapshot_id` string and carries no fields — the [`crate::pipeline::DecisionPipeline`]
-/// reads nothing out of it.
-///
-/// The shape is fixed at the trait level today so downstream tasks can grow the struct
-/// without touching the [`PolicyKernel`] signature.
-#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
-pub struct EnrichmentSnapshot {
-    /// Stable id for the snapshot (S2.3 §8). Per S2.3 §13 the triple
-    /// `(request_hash, bundle_version, enrichment_snapshot_id)` must produce a
-    /// deterministic decision; this id is the third component of that triple.
-    pub snapshot_id: String,
-}
+use crate::bundle::PolicyBundle;
 
 /// Per-evaluation context the Policy Kernel needs alongside the [`ActionEnvelope`].
 ///
@@ -150,6 +135,23 @@ pub struct InMemoryPolicyKernel {
     /// The hydrator is held behind an `Arc<dyn ...>` so production wiring can
     /// swap implementations without touching this struct.
     subject_hydrator: Option<Arc<dyn SubjectHydrator + Send + Sync>>,
+    /// `None` = T-024 baseline (every evaluation hits the pipeline).
+    /// `Some(cache)` = §13.2 cache attached; on evaluation the cache is
+    /// consulted by `(request_hash, bundle_version)` per §13.3 before the
+    /// pipeline runs, and the result is inserted on a miss. Held behind an
+    /// `Arc<RwLock<...>>` ([`SharedDecisionCache`]) so the gRPC adapter can
+    /// share one cache across tokio worker tasks.
+    decision_cache: Option<SharedDecisionCache>,
+    /// Optional active bundle pointer for the `LoadBundle` RPC path
+    /// (T-024 — see [`Self::set_active_bundle`]). Held behind
+    /// `Arc<RwLock<Option<PolicyBundle>>>` so bundle hot-reload (§12.4) is
+    /// atomic w.r.t. in-flight evaluations. `None` = no bundle activated
+    /// (the kernel runs on the §11 default-deny floor). The pipeline does
+    /// not yet consult this field — bundle-aware steps 6 / 7 land in T-025.
+    /// The bundle is held here so the `LoadBundle` RPC can update one
+    /// canonical location instead of the gRPC adapter carrying its own
+    /// shadow copy that drifts from the kernel state.
+    active_bundle: Arc<RwLock<Option<PolicyBundle>>>,
 }
 
 impl std::fmt::Debug for InMemoryPolicyKernel {
@@ -158,6 +160,8 @@ impl std::fmt::Debug for InMemoryPolicyKernel {
             .field("pipeline", &self.pipeline)
             .field("hard_deny_engine", &self.hard_deny_engine)
             .field("subject_hydrator", &self.subject_hydrator.is_some())
+            .field("decision_cache", &self.decision_cache.is_some())
+            .field("active_bundle", &"<RwLock<Option<PolicyBundle>>>")
             .finish()
     }
 }
@@ -169,11 +173,13 @@ impl InMemoryPolicyKernel {
     /// every evaluation flows to the default-deny floor (S2.3 §11). This is
     /// the ctor the T-017 baseline tests use; T-018 keeps it stable.
     #[must_use]
-    pub const fn new() -> Self {
+    pub fn new() -> Self {
         Self {
             pipeline: DecisionPipeline::new(),
             hard_deny_engine: None,
             subject_hydrator: None,
+            decision_cache: None,
+            active_bundle: Arc::new(RwLock::new(None)),
         }
     }
 
@@ -190,6 +196,8 @@ impl InMemoryPolicyKernel {
             pipeline: DecisionPipeline::new(),
             hard_deny_engine: Some(Arc::new(engine)),
             subject_hydrator: None,
+            decision_cache: None,
+            active_bundle: Arc::new(RwLock::new(None)),
         }
     }
 
@@ -210,6 +218,8 @@ impl InMemoryPolicyKernel {
             pipeline: DecisionPipeline::new(),
             hard_deny_engine: Some(Arc::new(engine)),
             subject_hydrator: Some(hydrator),
+            decision_cache: None,
+            active_bundle: Arc::new(RwLock::new(None)),
         }
     }
 
@@ -222,7 +232,90 @@ impl InMemoryPolicyKernel {
             pipeline: DecisionPipeline::new(),
             hard_deny_engine: None,
             subject_hydrator: Some(hydrator),
+            decision_cache: None,
+            active_bundle: Arc::new(RwLock::new(None)),
         }
+    }
+
+    /// Construct a kernel with a [`SharedDecisionCache`] attached (T-024).
+    ///
+    /// Cache hits return the cached decision verbatim except for
+    /// `evaluated_at`, which is refreshed to "now" so callers can tell when
+    /// the decision was last served (the §13.2 TTL is still measured against
+    /// the original constraints, not the refreshed timestamp). The cache is
+    /// keyed by `(request_hash, bundle_version)` per §13.3.
+    #[must_use]
+    pub fn new_with_cache(cache: SharedDecisionCache) -> Self {
+        Self {
+            pipeline: DecisionPipeline::new(),
+            hard_deny_engine: None,
+            subject_hydrator: None,
+            decision_cache: Some(cache),
+            active_bundle: Arc::new(RwLock::new(None)),
+        }
+    }
+
+    /// Construct a kernel with hard-deny + hydrator + cache all attached
+    /// (T-024).
+    ///
+    /// This is the canonical production ctor: every §3 pipeline step that
+    /// has a real implementation by T-024 is wired. T-025 attaches the
+    /// override-boundary engine on top of this same shape.
+    #[must_use]
+    pub fn new_with_full_chain_and_cache(
+        hydrator: Arc<dyn SubjectHydrator + Send + Sync>,
+        engine: HardDenyEngine,
+        cache: SharedDecisionCache,
+    ) -> Self {
+        Self {
+            pipeline: DecisionPipeline::new(),
+            hard_deny_engine: Some(Arc::new(engine)),
+            subject_hydrator: Some(hydrator),
+            decision_cache: Some(cache),
+            active_bundle: Arc::new(RwLock::new(None)),
+        }
+    }
+
+    /// Swap the active policy bundle pointer (called by the `LoadBundle` RPC
+    /// in `service/server.rs` after a successful `BundleLoader` round-trip).
+    ///
+    /// The previous bundle (if any) is returned so the caller can fire the
+    /// §13.2 cache invalidation pass on the **old** bundle version
+    /// (clearing every cache entry whose `bundle_version` matches the
+    /// pre-swap value). T-025 wires the override boundary on the same
+    /// pointer; today the pipeline does not yet consult `active_bundle`,
+    /// so the swap is a forward-compat capture.
+    ///
+    /// Atomicity: the swap is `RwLock::write()`-guarded so no concurrent
+    /// evaluation observes a torn bundle.
+    #[allow(clippy::must_use_candidate)]
+    pub fn set_active_bundle(&self, bundle: PolicyBundle) -> Option<PolicyBundle> {
+        let mut slot = match self.active_bundle.write() {
+            Ok(g) => g,
+            Err(poisoned) => poisoned.into_inner(),
+        };
+        slot.replace(bundle)
+    }
+
+    /// Return a clone of the currently active bundle (or `None`).
+    #[must_use]
+    pub fn active_bundle_snapshot(&self) -> Option<PolicyBundle> {
+        let slot = match self.active_bundle.read() {
+            Ok(g) => g,
+            Err(poisoned) => poisoned.into_inner(),
+        };
+        slot.clone()
+    }
+
+    /// Return a clone of the kernel's [`SharedDecisionCache`] handle, when
+    /// one is attached.
+    ///
+    /// Used by the `LoadBundle` RPC to call
+    /// [`SharedDecisionCache::invalidate_for_bundle`] on the **old**
+    /// bundle's version after a successful swap.
+    #[must_use]
+    pub fn cache_handle(&self) -> Option<SharedDecisionCache> {
+        self.decision_cache.clone()
     }
 
     /// `true` when this kernel has a hard-deny engine attached.
@@ -245,6 +338,24 @@ impl PolicyKernel for InMemoryPolicyKernel {
         envelope: &ActionEnvelope,
         context: &PolicyContext,
     ) -> Result<PolicyDecision, PolicyError> {
+        // T-024: cache lookup BEFORE hydration / pipeline. Per S2.3 §13.3 the
+        // cache key is `(request_hash, bundle_version)`; computing it here
+        // means a cache hit short-circuits the entire pipeline (and crucially
+        // the §18.1 sub-millisecond cached budget is achievable). Cache hits
+        // refresh the `evaluated_at` timestamp so callers see "decision served
+        // at time T" while the §13.2 TTL is still measured against the
+        // original `constraints.ttl_seconds`.
+        let request_hash = envelope.request.request_hash().unwrap_or_default();
+        if let Some(cache) = &self.decision_cache {
+            if let Some(mut cached) = cache.get(&crate::cache::CacheKey {
+                request_hash: request_hash.clone(),
+                bundle_version: context.bundle_version.clone(),
+            }) {
+                cached.evaluated_at = chrono::Utc::now();
+                return Ok(cached);
+            }
+        }
+
         // T-021: step 2 calls the hydrator when one is attached and replaces
         // the context's subject with the canonical record. Hydrator failure
         // (`SubjectUnauthenticated`) is converted into a `DENY` decision by
@@ -269,11 +380,30 @@ impl PolicyKernel for InMemoryPolicyKernel {
             Some(context.clone())
         };
 
-        Ok(self.pipeline.evaluate_with_chain(
+        let decision = self.pipeline.evaluate_with_chain(
             envelope,
             context,
             hydrated_context.as_ref(),
             self.hard_deny_engine.as_deref(),
-        ))
+        );
+
+        // T-024: write-through insert on cache miss. The cached decision
+        // retains its `policy_decision_id` even though that id is per-
+        // evaluation by §4; the cache contract intentionally preserves the
+        // FIRST id so a downstream audit can pivot from a follow-up cached
+        // hit back to the original decision record. The freshened
+        // `evaluated_at` on subsequent reads is what tells the audit "this
+        // is a re-served instance, not a new evaluation".
+        if let Some(cache) = &self.decision_cache {
+            cache.put(
+                crate::cache::CacheKey {
+                    request_hash,
+                    bundle_version: context.bundle_version.clone(),
+                },
+                decision.clone(),
+            );
+        }
+
+        Ok(decision)
     }
 }

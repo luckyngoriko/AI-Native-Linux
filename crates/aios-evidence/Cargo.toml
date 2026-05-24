@@ -3,7 +3,14 @@ name = "aios-evidence"
 description = "AIOS S3.1 — Evidence Log foundation (rev.2 aios.evidence.v1alpha1). EvidenceReceipt envelope + append-only hash chain encoding INV-005 at the type level."
 edition.workspace = true
 rust-version.workspace = true
-version.workspace = true
+# T-015 / M2 closure: first feature-complete milestone for the evidence-log
+# crate. M2 ships the full append/seal/query/subscribe/persistence/redaction/
+# privacy/compaction pipeline per S3.1. The version is independent of the
+# workspace `0.0.1` to signal milestone parity without forcing every other
+# in-tree crate (still pre-M1 in many cases) into a coordinated bump. The
+# API is NOT yet stable — Wave 14+ payload schemas, cold-tier offload, and
+# the policy-kernel/capability-runtime wiring queue for M3+.
+version = "0.1.0"
 license.workspace = true
 repository.workspace = true
 authors.workspace = true

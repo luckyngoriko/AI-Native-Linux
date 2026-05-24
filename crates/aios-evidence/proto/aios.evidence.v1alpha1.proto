@@ -562,9 +562,18 @@ enum RecordType {
   // Cluster 13 — S13.1 Cognitive Lifecycle Positive Emission (1)
   AGENT_LIFECYCLE_TRANSITIONED                      = 427;
 
-  // Reserved range for future Wave-N additions (proto3 best-practice forward
-  // reservation to prevent accidental ID collisions during subsequent expansions).
-  reserved 1000 to 9999;
+  // ── Wave 14+ constitutional additions (reserved range 1000..=9999) ──
+  // T-015 / S3.1 §11.5: compaction worker emits this record when an
+  // eligible sealed segment requires explicit operator approval before
+  // its receipts may be removed (operator-approval policy mode).
+  // Allocated at the start of the reserved 1000..=9999 range so the dense
+  // Wave 13 block (1..=427) is preserved unchanged.
+  COMPACTION_APPROVAL_REQUIRED                      = 1000;
+
+  // Remaining reserved range for future Wave-N additions (proto3
+  // best-practice forward reservation to prevent accidental ID collisions
+  // during subsequent expansions).
+  reserved 1001 to 9999;
 }
 
 // ─────────────────────────────────────────────────────────────────

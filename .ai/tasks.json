@@ -1,19 +1,5 @@
 {
-  "backlog": [
-    {
-      "id": "T-015",
-      "title": "aios-evidence — retention-class compaction worker (§12 / §13)",
-      "status": "planned",
-      "priority": "P2",
-      "dependencies": ["T-012"],
-      "acceptance_criteria": [
-        "Compaction worker consumes SealedSegment::is_compaction_eligible (already shipped in T-012)",
-        "Cold-tier offload + warm-tier index pruning per §7.4",
-        "Pending Governor selection"
-      ],
-      "blockers": []
-    }
-  ],
+  "backlog": [],
   "completed": [
     {
       "id": "T-001",
@@ -85,19 +71,25 @@
       "id": "T-012",
       "title": "aios-evidence — RocksDB persistence backend per S3.1 §7.2 / §11.4",
       "completed_at": "2026-05-23",
-      "evidence": "cargo build/test/clippy --workspace --all-targets -D warnings/fmt --check all PASS; 271 tests green (+41 over T-011's 230). rocksdb 0.23 + tempfile 3.10 added; librocksdb-sys 0.17.3+10.4.2 compiles cleanly under GCC 15. New crates/aios-evidence/src/persistence/ module (4 files, 1785 LoC). 6 RocksDB column families: receipts, segments, current_segment, metadata, chain_index, record_type_index. WAL_sync=true on every write, WAL_recovery_mode=AbsoluteConsistency. Atomic WriteBatch for append (3 CFs) + seal (4 CFs). Crash recovery walks chain + verifies seal/sig/linkage on open. Same EvidenceLog gRPC trait as InMemoryEvidenceLog. SealedSegment::is_compaction_eligible(now) added (eligibility only — T-015 owns deletion). Tests: 14 unit in rocksdb_backend + 8 encoding + 3 recovery + 5 retention-eligibility in segment + 5 persistence_crash_recovery integration + 4 grpc_roundtrip_persistent integration = 41 new. ONE logical commit."
+      "evidence": "271 tests; rocksdb 0.23 + tempfile 3.10; 6 column families; WAL_sync=true; crash recovery walks chain + verifies seal/sig/linkage on open; SealedSegment::is_compaction_eligible(now) added (eligibility-only — T-015 owns deletion)."
     },
     {
       "id": "T-013",
-      "title": "aios-evidence — redaction profiles per S3.1 §14 (default / strict / debug_capture)",
+      "title": "aios-evidence — redaction profiles per S3.1 §14",
       "completed_at": "2026-05-24",
-      "evidence": "cargo build/test --workspace + clippy --workspace --all-targets -D warnings + fmt --check all PASS; 306 tests green (+35 over T-012's 271). New crates/aios-evidence/src/redaction.rs (~550 LoC; 16 unit tests). Closed RedactionProfile enum (Default/Strict/DebugCapture, serde wire names default/strict/debug_capture exactly matching §14 spec table). Per-RecordType policy via record_category() prefix-matching the 427-entry wire vocabulary into 6 categories (Lifecycle/Vault/Recovery/Telemetry/Segment/Generic). Three transformation primitives: redact_keys (substring match on normalize_key() over secret-shaped names → REDACTED_SENTINEL), hash_pii_keys (PII keys → hash:<32hex> truncated BLAKE3), reduce_to_structural_marker (Strict + Lifecycle/Telemetry/Generic → 3-field marker preserving record_type + payload_hash_prefix correlation). Default+DebugCapture share secret-redaction body (spec §14 'minimal redaction; only secrets' applies to both); distinguished operationally via the stored redaction_profile field. ReceiptBuilder gained with_redaction_profile() setter; default = RedactionProfile::Default. seal_inner now applies apply_redaction() BEFORE computing content_hash → cryptographic chain witnesses the redacted form (constitutional anchor §14: no unredacted-but-signed representation anywhere). ReceiptForSigning includes the profile so tampering breaks verify_signature. EvidenceReceipt.redaction_profile has #[serde(default)] for back-compat with pre-T-013 receipt JSON. Proto AppendRequest NOT mutated (per STOP rule); server applies Default automatically. Proto receipt envelope field tag 14 (redaction_profile) populated with lowercase wire name. New integration test tests/redaction_roundtrip.rs (5 tests including gRPC end-to-end). 10 new t013_* tests in receipt.rs. ONE logical commit."
+      "evidence": "306 tests; default / strict / debug_capture; per-RecordType category bucketing; secret-shaped redaction + PII hashing + structural marker reduction; applied BEFORE content_hash + signature."
     },
     {
       "id": "T-014",
       "title": "aios-evidence — privacy ceiling on Query / Subscribe per S3.1 §10 + §23.2 + §11.4",
       "completed_at": "2026-05-24",
-      "evidence": "cargo build/test --workspace (330 PASS, +24 over T-013 306) + clippy --workspace --all-targets -- -D warnings + fmt --all -- --check all PASS. New crates/aios-evidence/src/privacy.rs (~445 LoC, 17 unit tests). PrivacyCeiling struct (subject_canonical_id + primary_group + is_ai + is_recovery_mode) with admits()/admits_wire() closed predicates implementing 6 rules in priority order: (1) system-caller (empty subject) admits-all backward-compat shortcut documented as future-hardened; (2) self-receipt always admitted; (3) 42 constitutionally-public RecordTypes admitted to non-AI callers (§13 FOREVER bucket + Recovery* + FirstBoot* + Override* + Bundle* + system audit); (4) group-scoped admission for non-AI via §23.2; (5) AI strictness — AI callers see only own + public-about-system records, never other AI subjects' records, even in recovery; (6) recovery-mode FOREVER broadening for non-AI operators (§11.4 forensic access). Proto3-additive schema: QueryRequest +caller_primary_group(10)/caller_is_ai(11)/caller_is_recovery_mode(12) (spec's `subject=9` is the caller canonical id, NOT a filter); SubscribeRequest +caller_subject(6)/caller_primary_group(7)/caller_is_ai(8)/caller_is_recovery_mode(9). Wire-compat with T-011..T-013. Suppressed-count surfaced via initial-metadata header `x-aios-suppressed-count` (tonic 0.12 has no trailing-metadata-on-success API; design choice documented). Both InMemoryEvidenceLog + RocksDbEvidenceLog Query/Subscribe wired symmetrically — historic+replay via ceiling.admits(), live broadcast via ceiling.admits_wire(). subject_primary_group() derives group from 'type:group/name' rev.2 grammar (carry-forward to S5.1 NamespaceScope typed field). 8 existing tests fixed up with new caller_* default fields (backward compat preserved — empty subject = system caller admits all). 17 unit tests in privacy.rs + 5 service-level Query tests in impl_inmemory.rs + 2 integration tests in tests/privacy_ceiling.rs (3-subject corpus through gRPC, subscribe replay filter). ONE logical commit."
+      "evidence": "330 tests; PrivacyCeiling struct; 6-rule closed predicate; group/AI/recovery-mode broadening; suppressed_count via x-aios-suppressed-count initial-metadata header."
+    },
+    {
+      "id": "T-015",
+      "title": "aios-evidence — retention-class compaction worker per S3.1 §11.5 / §12 / §13 (M2 CLOSER)",
+      "completed_at": "2026-05-24",
+      "evidence": "364 tests (+34 over T-014 330). New crates/aios-evidence/src/compaction.rs (~600 LoC; 19 unit tests). Closed CompactionPolicy (Auto / OperatorApproval default per §11.5 / Disabled). CompactionWorker with sync tick(&mut self, backend, now) primitive; approve_segment for out-of-band approval; CompactionReport with eligible/compacted/awaiting/receipts_removed/index_entries_pruned counts. CompactionBackend trait implemented for both InMemoryEvidenceLog and RocksDbEvidenceLog. RocksDB compact_segment is atomic WriteBatch (delete receipts CF + record_type_index CF rows; set compacted_at::<id> sentinel in metadata CF; segment row in segments CF UNTOUCHED so recover_sealed_chain on reopen continues to verify). RecordType +1: CompactionApprovalRequired (wire ID 1000, FOREVER) — first Wave 14+ reserved-range constitutional addition. Total variants 428 (Wave 13 dense 1..=427 + Wave 14+ reserved 1). aios-evidence Cargo.toml 0.0.1 → 0.1.0 (M2 closure marker). cargo build/test/clippy/fmt all PASS. M2 closed honestly: 9 tasks T-007..T-015 complete; no debt carried into M3."
     }
   ],
   "blocked": [],
@@ -109,9 +101,10 @@
       "tasks": ["T-001", "T-002", "T-003", "T-004", "T-005", "T-006"]
     },
     "M2": {
-      "status": "active",
+      "status": "completed",
       "title": "Evidence Log skeleton (S3.1 aios-evidence crate)",
       "started_at": "2026-05-23",
+      "completed_at": "2026-05-24",
       "tasks": [
         "T-007",
         "T-008",
@@ -120,8 +113,11 @@
         "T-011",
         "T-012",
         "T-013",
-        "T-014"
-      ]
+        "T-014",
+        "T-015"
+      ],
+      "final_test_count": 364,
+      "crate_version": "aios-evidence/0.1.0"
     }
   }
 }

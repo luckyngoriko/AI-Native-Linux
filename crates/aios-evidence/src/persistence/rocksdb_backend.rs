@@ -84,17 +84,18 @@ use tokio_stream::{Stream, StreamExt};
 use tonic::{Request, Response, Status};
 
 use crate::chain::ReceiptChain;
+use crate::compaction::{CompactionBackend, COMPACTION_WORKER_SUBJECT};
 use crate::persistence::encoding::{
-    chain_position_key, receipt_key, record_type_index_key, segment_key, ALL_COLUMN_FAMILIES,
-    CF_CHAIN_INDEX, CF_CURRENT_SEGMENT, CF_METADATA, CF_RECEIPTS, CF_RECORD_TYPE_INDEX,
-    CF_SEGMENTS, CURRENT_SEGMENT_KEY, METADATA_CHAIN_HEAD, METADATA_LOG_ID,
+    chain_position_key, metadata_compacted_at_key, receipt_key, record_type_index_key, segment_key,
+    ALL_COLUMN_FAMILIES, CF_CHAIN_INDEX, CF_CURRENT_SEGMENT, CF_METADATA, CF_RECEIPTS,
+    CF_RECORD_TYPE_INDEX, CF_SEGMENTS, CURRENT_SEGMENT_KEY, METADATA_CHAIN_HEAD, METADATA_LOG_ID,
     METADATA_SCHEMA_VERSION, SCHEMA_VERSION_V1ALPHA1,
 };
 use crate::persistence::recovery::OpenSegmentSnapshot;
 use crate::privacy::PrivacyCeiling;
 use crate::receipt::{EvidenceReceipt, ReceiptBuilder};
-use crate::record::RecordType;
-use crate::segment::{Segment, SegmentId};
+use crate::record::{RecordType, RetentionClass};
+use crate::segment::{SealedSegment, Segment, SegmentId};
 use crate::service::conversions::{
     receipt_to_proto, record_type_from_proto_i32, DEFAULT_RETENTION,
 };
@@ -1054,6 +1055,220 @@ fn subscribe_filters_pass(
     true
 }
 
+// =====================================================================
+// CompactionBackend (T-015) — RocksDB implementation
+// =====================================================================
+//
+// `list_sealed_segments` is a pure sync read over the `chain_index` /
+// `segments` CFs; no async state is touched.
+//
+// `compact_segment` builds one atomic WriteBatch that:
+//  - deletes every receipt row whose id appears in the sealed segment's
+//    receipts list,
+//  - deletes the matching `record_type_index` rows (looked up via
+//    `record_type_index_key(rt, recorded_at, id)` — the same encoding the
+//    append path used to write them),
+//  - writes the per-segment compacted-at sentinel into the `metadata` CF.
+//
+// The segment row in the `segments` CF is **never** touched. Its seal hash
+// and Ed25519 signature stay intact so subsequent `recover_sealed_chain`
+// invocations (§11.4) keep verifying.
+//
+// `emit_approval_required` uses the standard Append path via
+// `state.blocking_write()` — the worker runs in a blocking task per the
+// `crate::compaction` module-level docs.
+
+impl CompactionBackend for RocksDbEvidenceLog {
+    fn list_sealed_segments(
+        &self,
+    ) -> Result<Vec<(SegmentId, RetentionClass, chrono::DateTime<Utc>)>, EvidenceError> {
+        let head = self
+            .db
+            .get_cf(
+                &self.db.cf_handle(CF_METADATA).ok_or_else(|| {
+                    EvidenceError::EncodingFailed("metadata CF missing".to_owned())
+                })?,
+                METADATA_CHAIN_HEAD,
+            )
+            .map_err(|e| EvidenceError::EncodingFailed(format!("read chain_head: {e}")))?;
+        let chain_head = match head {
+            None => return Ok(Vec::new()),
+            Some(bytes) if bytes.len() == 8 => {
+                let mut buf = [0u8; 8];
+                buf.copy_from_slice(&bytes);
+                u64::from_be_bytes(buf)
+            }
+            Some(_) => {
+                return Err(EvidenceError::EncodingFailed(
+                    "chain_head value has unexpected length".to_owned(),
+                ))
+            }
+        };
+        if chain_head == 0 {
+            return Ok(Vec::new());
+        }
+        let cf_chain = self
+            .db
+            .cf_handle(CF_CHAIN_INDEX)
+            .ok_or_else(|| EvidenceError::EncodingFailed("chain_index CF missing".to_owned()))?;
+        let cf_segments = self
+            .db
+            .cf_handle(CF_SEGMENTS)
+            .ok_or_else(|| EvidenceError::EncodingFailed("segments CF missing".to_owned()))?;
+
+        let mut out = Vec::with_capacity(usize::try_from(chain_head).unwrap_or(0));
+        for pos in 0..chain_head {
+            let id_bytes = self
+                .db
+                .get_cf(&cf_chain, chain_position_key(pos))
+                .map_err(|e| {
+                    EvidenceError::EncodingFailed(format!("read chain_index[{pos}]: {e}"))
+                })?
+                .ok_or_else(|| {
+                    EvidenceError::EncodingFailed(format!(
+                        "chain_index[{pos}] row missing during compaction scan"
+                    ))
+                })?;
+            let id_str = std::str::from_utf8(&id_bytes).map_err(|e| {
+                EvidenceError::EncodingFailed(format!("chain_index[{pos}] utf8: {e}"))
+            })?;
+            let segment_id = SegmentId::parse(id_str)?;
+            let seg_bytes = self
+                .db
+                .get_cf(&cf_segments, segment_id.as_str().as_bytes())
+                .map_err(|e| {
+                    EvidenceError::EncodingFailed(format!("read segments[{id_str}]: {e}"))
+                })?
+                .ok_or_else(|| {
+                    EvidenceError::EncodingFailed(format!("segments[{id_str}] row missing"))
+                })?;
+            let sealed: SealedSegment = serde_json::from_slice(&seg_bytes).map_err(|e| {
+                EvidenceError::EncodingFailed(format!("segments[{id_str}] JSON: {e}"))
+            })?;
+            // Skip segments that have already been compacted — their
+            // compacted_at sentinel is set in the metadata CF. Including
+            // them would drive the worker to re-emit approval-required
+            // records every tick.
+            if rocksdb_segment_compacted_at(&self.db, &segment_id).is_some() {
+                continue;
+            }
+            out.push((segment_id, sealed.retention_class(), sealed.sealed_at()));
+        }
+        Ok(out)
+    }
+
+    fn compact_segment(&mut self, segment_id: &SegmentId) -> Result<(usize, usize), EvidenceError> {
+        let cf_receipts = self
+            .db
+            .cf_handle(CF_RECEIPTS)
+            .ok_or_else(|| EvidenceError::EncodingFailed("receipts CF missing".to_owned()))?;
+        let cf_idx = self.db.cf_handle(CF_RECORD_TYPE_INDEX).ok_or_else(|| {
+            EvidenceError::EncodingFailed("record_type_index CF missing".to_owned())
+        })?;
+        let cf_segments = self
+            .db
+            .cf_handle(CF_SEGMENTS)
+            .ok_or_else(|| EvidenceError::EncodingFailed("segments CF missing".to_owned()))?;
+        let cf_meta = self
+            .db
+            .cf_handle(CF_METADATA)
+            .ok_or_else(|| EvidenceError::EncodingFailed("metadata CF missing".to_owned()))?;
+
+        // Load the sealed segment to know which receipts to remove. The
+        // segment envelope itself is preserved — only the receipts CF rows
+        // (and their record_type_index entries) are deleted.
+        let seg_bytes = self
+            .db
+            .get_cf(&cf_segments, segment_id.as_str().as_bytes())
+            .map_err(|e| EvidenceError::EncodingFailed(format!("read segments[compact]: {e}")))?
+            .ok_or_else(|| {
+                EvidenceError::EncodingFailed(format!(
+                    "compact_segment: unknown segment `{}`",
+                    segment_id.as_str()
+                ))
+            })?;
+        let sealed: SealedSegment = serde_json::from_slice(&seg_bytes)
+            .map_err(|e| EvidenceError::EncodingFailed(format!("segments[compact] JSON: {e}")))?;
+
+        let mut batch = WriteBatch::default();
+        let mut receipts_removed = 0_usize;
+        let mut index_pruned = 0_usize;
+
+        for r in sealed.receipts() {
+            // Receipt row.
+            batch.delete_cf(&cf_receipts, receipt_key(r.receipt_id()));
+            receipts_removed += 1;
+            // Record-type index row (composite key built the same way as
+            // `persist_append`).
+            let idx_key = record_type_index_key(r.record_type(), r.recorded_at(), r.receipt_id());
+            batch.delete_cf(&cf_idx, idx_key);
+            index_pruned += 1;
+        }
+
+        // Sentinel marking this segment as compacted. Operators can scan
+        // the metadata CF for `compacted_at::*` keys to enumerate compacted
+        // segments.
+        let now = Utc::now().to_rfc3339();
+        batch.put_cf(
+            &cf_meta,
+            metadata_compacted_at_key(segment_id),
+            now.as_bytes(),
+        );
+
+        let mut wopts = WriteOptions::default();
+        wopts.set_sync(true);
+        self.db.write_opt(batch, &wopts).map_err(|e| {
+            EvidenceError::EncodingFailed(format!("rocksdb write_opt compact: {e}"))
+        })?;
+
+        Ok((receipts_removed, index_pruned))
+    }
+
+    fn emit_approval_required(&mut self, segment_id: &SegmentId) -> Result<(), EvidenceError> {
+        // Append a COMPACTION_APPROVAL_REQUIRED record through the normal
+        // signed+chained pipeline. Mirrors the in-memory backend exactly so
+        // operators receive the same wire form regardless of backend.
+        let mut guard = self.state.blocking_write();
+        let previous = guard.current.receipts.last().cloned();
+        let subject = format!("{COMPACTION_WORKER_SUBJECT}/{}", segment_id.as_str());
+        let payload = serde_json::json!({
+            "segment_id": segment_id.as_str(),
+            "reason": "retention_horizon_passed",
+        });
+        let receipt = ReceiptBuilder::new(
+            RecordType::CompactionApprovalRequired,
+            RetentionClass::Forever,
+            subject,
+        )
+        .with_payload(payload)
+        .seal_signed(previous.as_ref(), &self.signing_key)?;
+
+        guard.current.receipts.push(receipt.clone());
+        if let Err(e) = self.persist_append(&receipt, &guard.current) {
+            guard.current.receipts.pop();
+            return Err(e);
+        }
+        drop(guard);
+
+        let wire = receipt_to_proto(&receipt);
+        let _ = self.live_tx.send(wire);
+        Ok(())
+    }
+}
+
+/// T-015 helper — check the `compacted_at` sentinel for a segment.
+///
+/// Returns `Some(rfc3339_timestamp)` when the segment has been compacted;
+/// `None` when its receipts are still fully present in the warm tier.
+#[must_use]
+pub fn rocksdb_segment_compacted_at(db: &DB, segment_id: &SegmentId) -> Option<String> {
+    let cf = db.cf_handle(CF_METADATA)?;
+    let bytes = db
+        .get_cf(&cf, metadata_compacted_at_key(segment_id))
+        .ok()??;
+    String::from_utf8(bytes).ok()
+}
+
 #[cfg(test)]
 #[allow(
     clippy::expect_used,
@@ -1379,5 +1594,235 @@ mod tests {
             s2.previous_segment_seal_hash(),
             Some(s1.segment_seal_hash())
         );
+    }
+
+    // ─── T-015 — CompactionBackend on RocksDbEvidenceLog ──────────────
+
+    use crate::compaction::{CompactionPolicy, CompactionWorker};
+
+    #[tokio::test]
+    async fn t015_rocksdb_list_sealed_segments_walks_chain_order() {
+        let (b, _dir) = temp_backend(11);
+        // 2 segments.
+        for i in 0..2 {
+            b.append(Request::new(append_req(
+                proto::RecordType::ActionReceived,
+                &format!("human:op-a-{i}"),
+            )))
+            .await
+            .expect("append");
+        }
+        let s1 = b.seal_current_segment().await.expect("seal1");
+        for i in 0..3 {
+            b.append(Request::new(append_req(
+                proto::RecordType::PolicyDecision,
+                &format!("service:policy-{i}"),
+            )))
+            .await
+            .expect("append");
+        }
+        let s2 = b.seal_current_segment().await.expect("seal2");
+
+        let listing = b.list_sealed_segments().expect("list");
+        assert_eq!(listing.len(), 2);
+        assert_eq!(&listing[0].0, s1.segment_id());
+        assert_eq!(&listing[1].0, s2.segment_id());
+        // Default retention is Standard24M per service::conversions::DEFAULT_RETENTION
+        // assignment; we don't assert the exact class here because the
+        // sealing path uses whatever the open segment carried.
+    }
+
+    #[tokio::test]
+    async fn t015_rocksdb_compact_segment_removes_receipts_and_index_rows() {
+        let (b, _dir) = temp_backend(12);
+        for i in 0..3 {
+            b.append(Request::new(append_req(
+                proto::RecordType::ActionReceived,
+                &format!("human:op-{i}"),
+            )))
+            .await
+            .expect("append");
+        }
+        let sealed = b.seal_current_segment().await.expect("seal");
+        let id = sealed.segment_id().clone();
+
+        // The terminal SEGMENT_SEALED witness inside `sealed.receipts()`
+        // is NOT persisted to the receipts CF — it lives only inside the
+        // sealed-segment envelope on the segments CF. The receipts we can
+        // round-trip through ReadReceipt are the ones that arrived via the
+        // gRPC Append path.
+        let appended_receipts: Vec<_> = sealed
+            .receipts()
+            .iter()
+            .filter(|r| r.record_type() != RecordType::SegmentSealed)
+            .collect();
+        assert!(appended_receipts.len() >= 3);
+
+        // Pre-compaction: every appended receipt is fetchable via ReadReceipt.
+        for r in &appended_receipts {
+            let resp = b
+                .read_receipt(Request::new(proto::ReadReceiptRequest {
+                    receipt_id: r.receipt_id().as_str().to_owned(),
+                }))
+                .await;
+            assert!(resp.is_ok(), "pre-compaction receipt must be readable");
+        }
+
+        // Compact.
+        let id_clone = id.clone();
+        let mut b_clone = b.clone();
+        let (removed, pruned) =
+            tokio::task::spawn_blocking(move || b_clone.compact_segment(&id_clone))
+                .await
+                .expect("join")
+                .expect("compact");
+        // compact_segment iterates ALL receipts in the sealed envelope —
+        // including the terminal witness — and counts them, even though the
+        // terminal witness CF row is absent (its delete is a no-op).
+        assert_eq!(removed, sealed.receipt_count());
+        assert_eq!(pruned, sealed.receipt_count());
+
+        // Post-compaction: every appended receipt is gone.
+        for r in &appended_receipts {
+            let resp = b
+                .read_receipt(Request::new(proto::ReadReceiptRequest {
+                    receipt_id: r.receipt_id().as_str().to_owned(),
+                }))
+                .await;
+            assert!(
+                resp.is_err(),
+                "post-compaction receipt must NOT be readable"
+            );
+            let status = resp.expect_err("err");
+            assert_eq!(status.code(), tonic::Code::NotFound);
+        }
+
+        // The segment metadata row is still there.
+        assert_eq!(b.sealed_segment_count().await, 1);
+        // And the compacted-at sentinel is now set.
+        assert!(rocksdb_segment_compacted_at(&b.db, &id).is_some());
+    }
+
+    #[tokio::test]
+    async fn t015_rocksdb_compact_then_reopen_preserves_compacted_state() {
+        let dir = TempDir::new().expect("tempdir");
+        let path = dir.path().to_path_buf();
+        let sk = SigningKey::from_bytes(&[13u8; 32]);
+
+        let sealed_id;
+        let sealed_receipt_ids: Vec<String>;
+        {
+            let b = RocksDbEvidenceLog::open(&path, sk.clone()).expect("open 1");
+            for i in 0..2 {
+                b.append(Request::new(append_req(
+                    proto::RecordType::ActionReceived,
+                    &format!("human:op-r-{i}"),
+                )))
+                .await
+                .expect("append");
+            }
+            let sealed = b.seal_current_segment().await.expect("seal");
+            sealed_id = sealed.segment_id().clone();
+            // Exclude the terminal SEGMENT_SEALED witness — it lives in the
+            // sealed-segment envelope, never in the receipts CF.
+            sealed_receipt_ids = sealed
+                .receipts()
+                .iter()
+                .filter(|r| r.record_type() != RecordType::SegmentSealed)
+                .map(|r| r.receipt_id().as_str().to_owned())
+                .collect();
+
+            let id_for_compact = sealed_id.clone();
+            let mut b_clone = b.clone();
+            tokio::task::spawn_blocking(move || {
+                b_clone.compact_segment(&id_for_compact).expect("compact");
+            })
+            .await
+            .expect("join");
+            // Drop b explicitly so the DB handle is released.
+            drop(b);
+        }
+
+        // Reopen — sealed chain still verifies, receipts stay gone.
+        let b2 = RocksDbEvidenceLog::open(&path, sk).expect("open 2");
+        assert_eq!(b2.sealed_segment_count().await, 1);
+        for rid in &sealed_receipt_ids {
+            let resp = b2
+                .read_receipt(Request::new(proto::ReadReceiptRequest {
+                    receipt_id: rid.clone(),
+                }))
+                .await;
+            assert!(
+                resp.is_err(),
+                "compacted receipts must stay gone after reopen"
+            );
+        }
+        assert!(rocksdb_segment_compacted_at(&b2.db, &sealed_id).is_some());
+    }
+
+    #[tokio::test]
+    async fn t015_rocksdb_emit_approval_required_lands_in_chain() {
+        let (b, _dir) = temp_backend(14);
+        for i in 0..2 {
+            b.append(Request::new(append_req(
+                proto::RecordType::ActionReceived,
+                &format!("human:op-{i}"),
+            )))
+            .await
+            .expect("append");
+        }
+        let sealed = b.seal_current_segment().await.expect("seal");
+        let id = sealed.segment_id().clone();
+
+        let mut b_clone = b.clone();
+        tokio::task::spawn_blocking(move || {
+            b_clone.emit_approval_required(&id).expect("emit");
+        })
+        .await
+        .expect("join");
+
+        // After sealing the chain is empty; the approval-required record is
+        // now the only entry in the open segment.
+        let guard = b.state.read().await;
+        let openseg = guard.current.receipts.clone();
+        drop(guard);
+        assert_eq!(openseg.len(), 1);
+        assert_eq!(
+            openseg[0].record_type(),
+            RecordType::CompactionApprovalRequired
+        );
+        openseg[0]
+            .verify_signature(&b.verifying_key())
+            .expect("sig verify");
+    }
+
+    #[tokio::test]
+    async fn t015_rocksdb_worker_auto_mode_compacts_aged_segments() {
+        let (b, _dir) = temp_backend(15);
+        for i in 0..3 {
+            b.append(Request::new(append_req(
+                proto::RecordType::ActionReceived,
+                &format!("human:op-{i}"),
+            )))
+            .await
+            .expect("append");
+        }
+        let sealed = b.seal_current_segment().await.expect("seal");
+        let id = sealed.segment_id().clone();
+
+        let far_future = Utc::now() + chrono::Duration::days(3 * 365);
+        let report = tokio::task::spawn_blocking({
+            let backend = b.clone();
+            move || {
+                let mut backend = backend;
+                let mut worker = CompactionWorker::new(CompactionPolicy::Auto);
+                worker.tick(&mut backend, far_future)
+            }
+        })
+        .await
+        .expect("join")
+        .expect("tick");
+        assert_eq!(report.compacted_segments, 1);
+        assert!(rocksdb_segment_compacted_at(&b.db, &id).is_some());
     }
 }

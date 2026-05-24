@@ -242,9 +242,11 @@ mod tests {
 
     #[test]
     fn record_type_round_trips_through_proto_for_every_variant() {
-        // Cover every entry in the closed 427-variant vocabulary. The proto
-        // codegen produces the same set of variants; we assert byte-equality
-        // of the wire name.
+        // Cover every entry in the closed vocabulary (Wave 13 dense block
+        // 1..=427 plus the Wave 14+ reserved-range constitutional additions
+        // — `COMPACTION_APPROVAL_REQUIRED` as of T-015). The proto codegen
+        // produces the same set of variants; we assert byte-equality of the
+        // wire name.
         let mut covered = 0_usize;
         for rt in RecordType::iter() {
             let p = record_type_to_proto(rt);
@@ -264,9 +266,8 @@ mod tests {
             assert_eq!(back, rt, "round-trip failed for {rt:?}");
             covered += 1;
         }
-        // The strum-derived count is 427.
+        // Cross-check against the strum-derived count.
         assert_eq!(covered, <RecordType as strum::EnumCount>::COUNT);
-        assert_eq!(covered, 427);
     }
 
     #[test]

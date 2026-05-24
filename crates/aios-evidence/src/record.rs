@@ -1450,6 +1450,17 @@ pub enum RecordType {
     /// `AGENT_LIFECYCLE_TRANSITIONED` — Wire ID 427.
     #[serde(rename = "AGENT_LIFECYCLE_TRANSITIONED")]
     AgentLifecycleTransitioned,
+
+    // ─── Wave 14+ constitutional additions (reserved range 1000..=9999) ───
+    //
+    // T-015 / S3.1 §11.5: the compaction worker emits this record when an
+    // eligible sealed segment requires explicit operator approval before its
+    // receipts may be removed (operator-approval policy mode). Allocated at
+    // the start of the reserved 1000..=9999 range per the §29 forward-growth
+    // contract; the dense 1..=427 Wave 13 block is preserved unchanged.
+    /// `COMPACTION_APPROVAL_REQUIRED` — Wire ID 1000 (T-015 / S3.1 §11.5).
+    #[serde(rename = "COMPACTION_APPROVAL_REQUIRED")]
+    CompactionApprovalRequired,
 }
 
 impl RecordType {
@@ -1908,6 +1919,8 @@ impl RecordType {
             Self::HardwareGraphDriftAccepted => "HARDWARE_GRAPH_DRIFT_ACCEPTED",
             Self::VaultTpmResealRequired => "VAULT_TPM_RESEAL_REQUIRED",
             Self::AgentLifecycleTransitioned => "AGENT_LIFECYCLE_TRANSITIONED",
+            // ─── Wave 14+ constitutional additions (reserved 1000..=9999) ───
+            Self::CompactionApprovalRequired => "COMPACTION_APPROVAL_REQUIRED",
         }
     }
 
@@ -2371,6 +2384,11 @@ impl RecordType {
             Self::HardwareGraphDriftAccepted => RetentionClass::Forever,
             Self::VaultTpmResealRequired => RetentionClass::Forever,
             Self::AgentLifecycleTransitioned => RetentionClass::Standard24M,
+            // ─── Wave 14+ constitutional additions (reserved 1000..=9999) ───
+            // T-015 / §11.5: compaction-approval is constitutionally permanent
+            // — the approval (or its absence) is part of the audit trail
+            // forever.
+            Self::CompactionApprovalRequired => RetentionClass::Forever,
         }
     }
 
@@ -2819,6 +2837,10 @@ impl RecordType {
             Self::HardwareGraphDriftAccepted => 425,
             Self::VaultTpmResealRequired => 426,
             Self::AgentLifecycleTransitioned => 427,
+            // ─── Wave 14+ constitutional additions (reserved 1000..=9999) ───
+            // T-015 / §11.5: allocated at the start of the reserved range
+            // so the dense 1..=427 Wave 13 block is preserved unchanged.
+            Self::CompactionApprovalRequired => 1000,
         }
     }
 }
@@ -3208,19 +3230,31 @@ mod tests {
         ),
     ];
 
+    /// Wave 13 closed vocabulary count: 427.
+    /// T-015 / S3.1 §11.5 added `COMPACTION_APPROVAL_REQUIRED` (wire id 1000)
+    /// as the first entry in the reserved Wave 14+ range; total enum variants
+    /// is therefore 428. The §29.2 dense 1..=427 contract is preserved
+    /// unchanged — Wave 14+ additions live in the reserved 1000..=9999 block
+    /// and are counted separately by `WAVE_14_PLUS_VARIANTS`.
+    const WAVE_13_VARIANTS: usize = 427;
+    const WAVE_14_PLUS_VARIANTS: usize = 1;
+    const TOTAL_RECORD_TYPE_VARIANTS: usize = WAVE_13_VARIANTS + WAVE_14_PLUS_VARIANTS;
+
     #[test]
-    fn record_type_count_is_exactly_427() {
+    fn record_type_count_is_wave_13_plus_reserved_extensions() {
         assert_eq!(
             RecordType::COUNT,
-            427,
-            "Wave 13 closed vocabulary must contain exactly 427 RecordType variants"
+            TOTAL_RECORD_TYPE_VARIANTS,
+            "RecordType total = Wave 13 ({WAVE_13_VARIANTS}) + Wave 14+ reserved \
+             ({WAVE_14_PLUS_VARIANTS})"
         );
     }
 
     #[test]
     fn every_variant_round_trips_through_serde_json() {
-        // EnumIter walks all 427 variants. Each must serialize to its
-        // SCREAMING_SNAKE_CASE wire name and deserialize back to the same variant.
+        // EnumIter walks every variant (Wave 13 + Wave 14+ reserved). Each
+        // must serialize to its SCREAMING_SNAKE_CASE wire name and deserialize
+        // back to the same variant.
         let mut count = 0_usize;
         for rt in RecordType::iter() {
             let s = serde_json::to_string(&rt).expect("ser");
@@ -3234,12 +3268,15 @@ mod tests {
             );
             count += 1;
         }
-        assert_eq!(count, 427, "EnumIter walked {count} variants, expected 427");
+        assert_eq!(
+            count, TOTAL_RECORD_TYPE_VARIANTS,
+            "EnumIter walked {count} variants, expected {TOTAL_RECORD_TYPE_VARIANTS}"
+        );
     }
 
     #[test]
     fn no_two_variants_share_a_wire_name() {
-        let mut seen: HashSet<&'static str> = HashSet::with_capacity(427);
+        let mut seen: HashSet<&'static str> = HashSet::with_capacity(TOTAL_RECORD_TYPE_VARIANTS);
         for rt in RecordType::iter() {
             let w = rt.as_wire_str();
             assert!(
@@ -3247,24 +3284,30 @@ mod tests {
                 "duplicate wire name {w} — closed-vocabulary discipline broken"
             );
         }
-        assert_eq!(seen.len(), 427);
+        assert_eq!(seen.len(), TOTAL_RECORD_TYPE_VARIANTS);
     }
 
     #[test]
     fn no_two_variants_share_a_wire_id() {
-        let mut seen: HashSet<u16> = HashSet::with_capacity(427);
+        let mut seen: HashSet<u16> = HashSet::with_capacity(TOTAL_RECORD_TYPE_VARIANTS);
         for rt in RecordType::iter() {
             let id = rt.wire_id();
             assert!(
                 seen.insert(id),
                 "duplicate wire id {id} — Wave 13 ID-stability invariant broken"
             );
+            // Wave 13 dense block: 1..=427. Wave 14+ reserved block:
+            // 1000..=9999 (S3.1 §29 forward-growth contract).
+            let in_wave_13 = (1..=427).contains(&id);
+            let in_wave_14_reserved = (1000..=9999).contains(&id);
             assert!(
-                (1..=427).contains(&id),
-                "wire id {id} outside the 1..=427 range allocated by Wave 13 §29.2"
+                in_wave_13 || in_wave_14_reserved,
+                "wire id {id} is outside both the Wave 13 dense range (1..=427) and \
+                 the Wave 14+ reserved range (1000..=9999) — §29 forward-growth \
+                 contract broken"
             );
         }
-        assert_eq!(seen.len(), 427);
+        assert_eq!(seen.len(), TOTAL_RECORD_TYPE_VARIANTS);
     }
 
     #[test]
@@ -3337,9 +3380,13 @@ mod tests {
     #[test]
     fn retention_distribution_matches_spec() {
         // Sanity check: every variant maps to one of the three classes; total
-        // count must add up to 427. The per-class counts derive from the spec's
-        // per-record tables and serve as a regression sentinel — if any future
-        // edit silently re-classifies a record, this number changes.
+        // count must add up to TOTAL_RECORD_TYPE_VARIANTS. The per-class
+        // counts derive from the spec's per-record tables and serve as a
+        // regression sentinel — if any future edit silently re-classifies
+        // a record, this number changes.
+        //
+        // T-015: +1 FOREVER for COMPACTION_APPROVAL_REQUIRED (Wave 14+
+        // reserved-range constitutional addition).
         let mut s24 = 0_usize;
         let mut e60 = 0_usize;
         let mut fvr = 0_usize;
@@ -3350,29 +3397,53 @@ mod tests {
                 RetentionClass::Forever => fvr += 1,
             }
         }
-        assert_eq!(s24 + e60 + fvr, 427);
+        assert_eq!(s24 + e60 + fvr, TOTAL_RECORD_TYPE_VARIANTS);
         // These three numbers reflect the canonical S3.1 mapping at commit time
-        // and the §29.3 canonical-site rule for the 8 reused-ID conflict cases.
+        // plus the T-015 +1 FOREVER addition.
         assert_eq!(s24, 175, "STANDARD_24M count drift");
         assert_eq!(e60, 78, "EXTENDED_60M count drift");
-        assert_eq!(fvr, 174, "FOREVER count drift");
+        assert_eq!(fvr, 174 + WAVE_14_PLUS_VARIANTS, "FOREVER count drift");
     }
 
     #[test]
-    fn wave_id_ranges_are_contiguous_and_dense() {
-        // §29.2 acceptance signal: IDs 1..=427 are densely allocated, no gaps.
-        let mut ids: Vec<u16> = RecordType::iter().map(RecordType::wire_id).collect();
-        ids.sort_unstable();
-        assert_eq!(ids.len(), 427);
-        for (i, id) in ids.iter().enumerate() {
+    fn wave_13_id_range_is_contiguous_and_dense() {
+        // §29.2 acceptance signal: the Wave 13 block of IDs 1..=427 is
+        // densely allocated, no gaps. Wave 14+ additions (id >= 1000) are
+        // counted separately and do not participate in this density check.
+        let mut wave_13_ids: Vec<u16> = RecordType::iter()
+            .map(RecordType::wire_id)
+            .filter(|id| *id <= 427)
+            .collect();
+        wave_13_ids.sort_unstable();
+        assert_eq!(wave_13_ids.len(), WAVE_13_VARIANTS);
+        for (i, id) in wave_13_ids.iter().enumerate() {
             let expected = u16::try_from(i).expect("test fits in u16") + 1;
             assert_eq!(
                 *id, expected,
-                "gap or out-of-order at position {i}: got {id}, expected {expected}"
+                "gap or out-of-order in Wave 13 block at position {i}: got {id}, expected {expected}"
             );
         }
-        assert_eq!(*ids.first().expect("non-empty"), 1);
-        assert_eq!(*ids.last().expect("non-empty"), 427);
+        assert_eq!(*wave_13_ids.first().expect("non-empty"), 1);
+        assert_eq!(*wave_13_ids.last().expect("non-empty"), 427);
+    }
+
+    #[test]
+    fn wave_14_plus_ids_live_in_the_reserved_block() {
+        // §29 forward-growth contract: Wave 14+ additions land in the reserved
+        // 1000..=9999 range. Each id in that band must be unique (covered by
+        // `no_two_variants_share_a_wire_id`); here we verify they actually
+        // sit in the reserved band and that the count matches the bookkeeping.
+        let extended: Vec<u16> = RecordType::iter()
+            .map(RecordType::wire_id)
+            .filter(|id| *id > 427)
+            .collect();
+        assert_eq!(extended.len(), WAVE_14_PLUS_VARIANTS);
+        for id in extended {
+            assert!(
+                (1000..=9999).contains(&id),
+                "post-Wave-13 wire id {id} is not in the reserved 1000..=9999 range"
+            );
+        }
     }
 
     #[test]
@@ -3694,14 +3765,14 @@ mod tests {
     fn enum_iter_visits_each_variant_exactly_once() {
         // Strum's EnumIter promises a permutation of all variants. This test
         // pins the invariant against future derive macro upgrades.
-        let mut seen: HashSet<&'static str> = HashSet::with_capacity(427);
+        let mut seen: HashSet<&'static str> = HashSet::with_capacity(TOTAL_RECORD_TYPE_VARIANTS);
         let mut visits = 0_usize;
         for rt in RecordType::iter() {
             assert!(seen.insert(rt.as_wire_str()), "duplicate visit: {rt:?}");
             visits += 1;
         }
-        assert_eq!(visits, 427);
-        assert_eq!(seen.len(), 427);
+        assert_eq!(visits, TOTAL_RECORD_TYPE_VARIANTS);
+        assert_eq!(seen.len(), TOTAL_RECORD_TYPE_VARIANTS);
     }
 
     #[test]
@@ -3871,14 +3942,14 @@ mod tests {
         // Debug + as_wire_str gives an audit-friendly two-name probe for any
         // wire-ID. This test pins that the two surfaces agree on the
         // number-of-variants axis.
-        let mut from_debug = HashSet::with_capacity(427);
-        let mut from_wire = HashSet::with_capacity(427);
+        let mut from_debug = HashSet::with_capacity(TOTAL_RECORD_TYPE_VARIANTS);
+        let mut from_wire = HashSet::with_capacity(TOTAL_RECORD_TYPE_VARIANTS);
         for rt in RecordType::iter() {
             from_debug.insert(format!("{rt:?}"));
             from_wire.insert(rt.as_wire_str().to_owned());
         }
-        assert_eq!(from_debug.len(), 427);
-        assert_eq!(from_wire.len(), 427);
+        assert_eq!(from_debug.len(), TOTAL_RECORD_TYPE_VARIANTS);
+        assert_eq!(from_wire.len(), TOTAL_RECORD_TYPE_VARIANTS);
     }
 
     #[test]
@@ -3904,16 +3975,18 @@ mod tests {
     }
 
     #[test]
-    fn wire_id_is_within_u16_range_for_every_variant() {
-        // Defensive: the wire_id() method returns u16; every variant ID must
-        // fit cleanly and stay below the reserved range (1000..=9999).
+    fn wire_id_is_within_allocated_ranges_for_every_variant() {
+        // Defensive: every variant ID must be in either the Wave 13 dense
+        // block (1..=427) or the Wave 14+ reserved block (1000..=9999).
         for rt in RecordType::iter() {
             let id = rt.wire_id();
-            assert!(id >= 1);
-            assert!(id <= 427, "{rt:?} wire_id {id} crosses the Wave 13 ceiling");
+            assert!(id >= 1, "{rt:?} wire_id {id} must be positive");
+            let in_wave_13 = (1..=427).contains(&id);
+            let in_wave_14_reserved = (1000..=9999).contains(&id);
             assert!(
-                id < 1000,
-                "{rt:?} wire_id {id} encroaches on reserved 1000..=9999 range"
+                in_wave_13 || in_wave_14_reserved,
+                "{rt:?} wire_id {id} is outside both allocated ranges \
+                 (Wave 13 = 1..=427, Wave 14+ reserved = 1000..=9999)"
             );
         }
     }

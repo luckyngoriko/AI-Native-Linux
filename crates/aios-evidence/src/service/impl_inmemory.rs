@@ -46,8 +46,10 @@ use tokio_stream::wrappers::BroadcastStream;
 use tokio_stream::{Stream, StreamExt};
 use tonic::{Request, Response, Status};
 
+use crate::compaction::{CompactionBackend, COMPACTION_WORKER_SUBJECT};
 use crate::privacy::PrivacyCeiling;
-use crate::record::RecordType;
+use crate::record::{RecordType, RetentionClass};
+use crate::segment::{SealedSegment, Segment, SegmentId};
 use crate::service::conversions::{
     receipt_to_proto, record_type_from_proto_i32, DEFAULT_RETENTION,
 };
@@ -70,6 +72,15 @@ const DEFAULT_QUERY_LIMIT: u32 = 1000;
 /// All state lives inside a `tokio::sync::RwLock` so async RPC handlers can
 /// take read or write access without blocking the runtime. Cloning the
 /// backend is cheap (`Arc`) and gives multiple tonic services a shared view.
+///
+/// ## Sealed-segment store (T-015)
+///
+/// Sealed segments live in a separate `std::sync::Mutex<Vec<SealedSegment>>`
+/// so the synchronous [`CompactionBackend`] trait can read and mutate them
+/// without needing to acquire an `async` lock. This mirrors the `RocksDB`
+/// backend's split between the `current_segment` CF (open snapshot, async
+/// state) and the `segments` CF (sealed, plain `Arc<DB>` access). The open
+/// chain is untouched by compaction; only sealed-segment receipts age out.
 #[derive(Clone)]
 pub struct InMemoryEvidenceLog {
     state: Arc<RwLock<State>>,
@@ -80,6 +91,19 @@ pub struct InMemoryEvidenceLog {
     live_tx: broadcast::Sender<proto::EvidenceReceipt>,
     started_at: chrono::DateTime<Utc>,
     log_id: String,
+    /// T-015 — sealed-segment store. Two parallel structures keyed by chain
+    /// order:
+    ///
+    /// - `sealed`: the [`SealedSegment`] envelope (metadata: id, seal hash,
+    ///   signature, `sealed_at`, etc.) — preserved forever even after
+    ///   compaction (§12 tombstone rule).
+    /// - `sealed_receipts`: the receipts that aged out are removed from this
+    ///   map by [`CompactionBackend::compact_segment`] but the receipt
+    ///   identities are preserved in the sealed segment envelope (which still
+    ///   carries `receipts()` as the original immutable list — that field is
+    ///   the on-the-wire tombstone, while this map is the warm-tier "body
+    ///   present?" predicate).
+    sealed_segments: Arc<std::sync::Mutex<SealedStore>>,
 }
 
 #[derive(Default)]
@@ -88,6 +112,26 @@ struct State {
     /// segment" view; segment sealing is wired via T-010 but not exercised
     /// over the gRPC surface until the production-backend task.
     chain: ReceiptChain,
+    /// Cross-segment chain head: the previous segment's id + seal hash,
+    /// used by [`InMemoryEvidenceLog::seal_current_segment`] (T-015) to
+    /// link the next segment back to its predecessor per S3.1 §5.2.
+    previous_segment_link: Option<(SegmentId, String)>,
+}
+
+/// T-015 sealed-segment store. The `sealed` vector preserves chain order so
+/// [`CompactionBackend::list_sealed_segments`] returns segments in the same
+/// order the `RocksDB` backend would.
+#[derive(Default)]
+struct SealedStore {
+    sealed: Vec<SealedSegment>,
+    /// Per-segment counter of receipts still in the warm tier. Decremented
+    /// to zero when the segment is compacted. The sealed envelope itself
+    /// retains the receipt identities for chain-tombstone discovery.
+    warm_receipt_count: std::collections::HashMap<SegmentId, usize>,
+    /// Mirror of `warm_receipt_count` for the `record_type_index` rows.
+    /// In the in-memory backend the two counts are always equal because
+    /// every receipt has exactly one index row.
+    warm_index_count: std::collections::HashMap<SegmentId, usize>,
 }
 
 impl InMemoryEvidenceLog {
@@ -112,7 +156,91 @@ impl InMemoryEvidenceLog {
                 "aios-evidence-log/{}",
                 aios_action::EvidenceReceiptId::new().as_str()
             ),
+            sealed_segments: Arc::new(std::sync::Mutex::new(SealedStore::default())),
         }
+    }
+
+    /// Seal the current open segment (T-015 / S3.1 §7).
+    ///
+    /// Consumes every receipt currently in the open chain into a new
+    /// [`SealedSegment`], appends it to the sealed-segment store, links it
+    /// to the previous segment via §5.2 cross-segment hash chain, and
+    /// resets the open chain.
+    ///
+    /// # Errors
+    ///
+    /// - [`EvidenceError::EmptySegment`] when the open chain has no
+    ///   receipts.
+    /// - Any error returned by [`crate::Segment::seal`].
+    pub async fn seal_current_segment(
+        &self,
+        retention_class: RetentionClass,
+    ) -> Result<SealedSegment, EvidenceError> {
+        let mut guard = self.state.write().await;
+        let receipts: Vec<_> = guard.chain.receipts().to_vec();
+        if receipts.is_empty() {
+            return Err(EvidenceError::EmptySegment);
+        }
+        let mut segment = Segment::new(retention_class);
+        for r in receipts {
+            segment.append(r)?;
+        }
+        let (prev_id, prev_seal) = match &guard.previous_segment_link {
+            Some((id, seal)) => (Some(id.clone()), Some(seal.clone())),
+            None => (None, None),
+        };
+        let sealed = segment.seal(prev_id.as_ref(), prev_seal.as_deref(), &self.signing_key)?;
+
+        // Update cross-segment link for the next seal.
+        guard.previous_segment_link = Some((
+            sealed.segment_id().clone(),
+            sealed.segment_seal_hash().to_owned(),
+        ));
+        // Reset the open chain — sealed-segment receipts are no longer in
+        // the live chain (they live in the sealed envelope).
+        guard.chain = ReceiptChain::new();
+        drop(guard);
+
+        // Record in the sealed-segment store; warm receipt counts mirror
+        // the receipt list size.
+        let warm = sealed.receipt_count();
+        let mut store = self.sealed_segments.lock().map_err(|e| {
+            EvidenceError::EncodingFailed(format!("sealed-store mutex poisoned: {e}"))
+        })?;
+        store
+            .warm_receipt_count
+            .insert(sealed.segment_id().clone(), warm);
+        store
+            .warm_index_count
+            .insert(sealed.segment_id().clone(), warm);
+        store.sealed.push(sealed.clone());
+        drop(store);
+
+        Ok(sealed)
+    }
+
+    /// Snapshot of the sealed-segment count. Operator telemetry.
+    #[must_use]
+    pub fn sealed_segment_count(&self) -> usize {
+        self.sealed_segments
+            .lock()
+            .map(|s| s.sealed.len())
+            .unwrap_or(0)
+    }
+
+    /// Snapshot of the warm-tier receipt count for a given sealed segment.
+    /// Returns `None` when the segment id is unknown to the backend.
+    ///
+    /// After [`CompactionBackend::compact_segment`] runs, this returns
+    /// `Some(0)` for the compacted segment (the entry is preserved so
+    /// auditors can distinguish "segment compacted" from "segment never
+    /// existed").
+    #[must_use]
+    pub fn warm_receipt_count_for(&self, segment_id: &SegmentId) -> Option<usize> {
+        self.sealed_segments
+            .lock()
+            .ok()
+            .and_then(|s| s.warm_receipt_count.get(segment_id).copied())
     }
 
     /// Stable identifier of this evidence log instance. Used by `GetLogInfo`.
@@ -131,6 +259,106 @@ impl InMemoryEvidenceLog {
     /// Convenience: how many receipts are currently in memory.
     pub async fn receipt_count(&self) -> usize {
         self.state.read().await.chain.len()
+    }
+}
+
+// =====================================================================
+// CompactionBackend (T-015) — in-memory implementation
+// =====================================================================
+//
+// The trait methods are synchronous; the in-memory backend's async state is
+// guarded by `tokio::sync::RwLock`. We acquire it via `blocking_write()` /
+// `blocking_read()`. Per tokio's documentation, these methods MUST be called
+// outside an async runtime task or inside `tokio::task::spawn_blocking`.
+// Tests drive the worker via `spawn_blocking`; production wraps the
+// periodic tick task in the same primitive (see the module-level docs in
+// `crate::compaction`).
+
+impl CompactionBackend for InMemoryEvidenceLog {
+    fn list_sealed_segments(
+        &self,
+    ) -> Result<Vec<(SegmentId, RetentionClass, chrono::DateTime<Utc>)>, EvidenceError> {
+        let store = self.sealed_segments.lock().map_err(|e| {
+            EvidenceError::EncodingFailed(format!("sealed-store mutex poisoned: {e}"))
+        })?;
+        // Only surface segments whose warm-tier receipts are still present.
+        // Already-compacted segments are tombstoned in `sealed` and would
+        // otherwise drive the worker to re-emit approval-required records
+        // every tick.
+        Ok(store
+            .sealed
+            .iter()
+            .filter(|s| {
+                store
+                    .warm_receipt_count
+                    .get(s.segment_id())
+                    .copied()
+                    .unwrap_or(0)
+                    > 0
+            })
+            .map(|s| (s.segment_id().clone(), s.retention_class(), s.sealed_at()))
+            .collect())
+    }
+
+    fn compact_segment(&mut self, segment_id: &SegmentId) -> Result<(usize, usize), EvidenceError> {
+        let mut store = self.sealed_segments.lock().map_err(|e| {
+            EvidenceError::EncodingFailed(format!("sealed-store mutex poisoned: {e}"))
+        })?;
+        // The sealed segment metadata MUST survive — only the warm-tier
+        // receipt-body and index counts go to zero (§12 tombstone rule).
+        let removed = store
+            .warm_receipt_count
+            .insert(segment_id.clone(), 0)
+            .ok_or_else(|| {
+                EvidenceError::EncodingFailed(format!(
+                    "compact_segment: unknown segment `{}`",
+                    segment_id.as_str()
+                ))
+            })?;
+        let pruned = store
+            .warm_index_count
+            .insert(segment_id.clone(), 0)
+            .ok_or_else(|| {
+                EvidenceError::EncodingFailed(format!(
+                    "compact_segment: unknown segment index `{}`",
+                    segment_id.as_str()
+                ))
+            })?;
+        drop(store);
+        Ok((removed, pruned))
+    }
+
+    fn emit_approval_required(&mut self, segment_id: &SegmentId) -> Result<(), EvidenceError> {
+        // Append the COMPACTION_APPROVAL_REQUIRED record through the normal
+        // signed+chained pipeline — segment id is encoded in the receipt
+        // subject canonical-id grammar (`<subject>/<segment_id>`) so a
+        // future S5.1 NamespaceScope wiring can extract it cleanly.
+        //
+        // The state lock is acquired via `blocking_write()`; the worker
+        // runs in a blocking task per the module-level docs.
+        let mut guard = self.state.blocking_write();
+        let previous = guard.chain.receipts().last().cloned();
+        let subject = format!("{COMPACTION_WORKER_SUBJECT}/{}", segment_id.as_str());
+        let payload = serde_json::json!({
+            "segment_id": segment_id.as_str(),
+            "reason": "retention_horizon_passed",
+        });
+        let receipt = ReceiptBuilder::new(
+            RecordType::CompactionApprovalRequired,
+            RetentionClass::Forever,
+            subject,
+        )
+        .with_payload(payload)
+        .seal_signed(previous.as_ref(), &self.signing_key)?;
+        guard.chain.append(receipt.clone())?;
+        drop(guard);
+
+        // Broadcast to live subscribers — operators get the
+        // approval-required signal via Subscribe in real time.
+        let wire = receipt_to_proto(&receipt);
+        let _ = self.live_tx.send(wire);
+
+        Ok(())
     }
 }
 
@@ -1207,5 +1435,197 @@ mod tests {
             info.supported_schema_versions,
             vec!["aios.evidence.v1alpha1".to_owned()]
         );
+    }
+
+    // ─── T-015 — CompactionBackend on InMemoryEvidenceLog ──────────────
+
+    use crate::compaction::{CompactionPolicy, CompactionWorker};
+
+    /// Append `n` receipts, then seal the open segment with the given
+    /// retention class. Returns the sealed segment.
+    async fn append_and_seal(
+        b: &InMemoryEvidenceLog,
+        n: usize,
+        retention: RetentionClass,
+    ) -> SealedSegment {
+        for i in 0..n {
+            b.append(Request::new(append_req(
+                proto::RecordType::ActionReceived,
+                &format!("human:op-{i}"),
+            )))
+            .await
+            .expect("append");
+        }
+        b.seal_current_segment(retention)
+            .await
+            .expect("seal_current_segment")
+    }
+
+    #[tokio::test]
+    async fn t015_inmemory_seal_creates_sealed_segment() {
+        let b = test_backend();
+        let sealed = append_and_seal(&b, 3, RetentionClass::Standard24M).await;
+        assert_eq!(b.sealed_segment_count(), 1);
+        // The sealed segment also carries the terminal SEGMENT_SEALED witness.
+        assert!(sealed.receipt_count() >= 3);
+        // Warm receipt count mirrors the sealed receipt count.
+        assert_eq!(
+            b.warm_receipt_count_for(sealed.segment_id()),
+            Some(sealed.receipt_count())
+        );
+    }
+
+    #[tokio::test]
+    async fn t015_inmemory_compact_segment_drops_warm_counts_to_zero() {
+        let b = test_backend();
+        let sealed = append_and_seal(&b, 4, RetentionClass::Standard24M).await;
+        let id = sealed.segment_id().clone();
+        // Drive the sync trait directly. No async lock contention because the
+        // test holds no live read/write guard.
+        let mut b_clone = b.clone();
+        let backend_ref = &mut b_clone;
+        let (removed, pruned) = backend_ref.compact_segment(&id).expect("compact");
+        assert_eq!(removed, sealed.receipt_count());
+        assert_eq!(pruned, sealed.receipt_count());
+        assert_eq!(b.warm_receipt_count_for(&id), Some(0));
+        // Sealed segment envelope is still there — tombstone preserved.
+        assert_eq!(b.sealed_segment_count(), 1);
+    }
+
+    #[tokio::test]
+    async fn t015_inmemory_list_sealed_segments_returns_chain_order() {
+        let b = test_backend();
+        let s1 = append_and_seal(&b, 2, RetentionClass::Standard24M).await;
+        let s2 = append_and_seal(&b, 3, RetentionClass::Extended60M).await;
+        let s3 = append_and_seal(&b, 4, RetentionClass::Forever).await;
+
+        let listing = b.list_sealed_segments().expect("list");
+        assert_eq!(listing.len(), 3);
+        assert_eq!(&listing[0].0, s1.segment_id());
+        assert_eq!(&listing[1].0, s2.segment_id());
+        assert_eq!(&listing[2].0, s3.segment_id());
+        assert_eq!(listing[0].1, RetentionClass::Standard24M);
+        assert_eq!(listing[1].1, RetentionClass::Extended60M);
+        assert_eq!(listing[2].1, RetentionClass::Forever);
+    }
+
+    #[tokio::test]
+    async fn t015_inmemory_emit_approval_required_appends_signed_receipt() {
+        let b = test_backend();
+        let sealed = append_and_seal(&b, 2, RetentionClass::Standard24M).await;
+        // After sealing, the live chain is empty — emit a fresh
+        // approval-required record and verify it lands in the chain.
+        let id = sealed.segment_id().clone();
+        let b_for_emit = b.clone();
+        tokio::task::spawn_blocking(move || {
+            let mut bm = b_for_emit;
+            bm.emit_approval_required(&id).expect("emit");
+        })
+        .await
+        .expect("join");
+
+        assert_eq!(b.receipt_count().await, 1);
+        // The receipt must verify with the backend's verifying key (Ed25519
+        // signature path intact).
+        let guard = b.state.read().await;
+        let r = guard
+            .chain
+            .receipts()
+            .first()
+            .expect("at least one")
+            .clone();
+        drop(guard);
+        assert_eq!(r.record_type(), RecordType::CompactionApprovalRequired);
+        assert!(r.subject_canonical_id().contains(COMPACTION_WORKER_SUBJECT));
+        r.verify_signature(&b.verifying_key()).expect("sig verify");
+    }
+
+    #[tokio::test]
+    async fn t015_inmemory_worker_auto_mode_compacts_aged_segments() {
+        let b = test_backend();
+        // Seal three segments — two will be artificially aged via the
+        // worker's pluggable `now` argument; the FOREVER one must never
+        // be touched.
+        let s1 = append_and_seal(&b, 2, RetentionClass::Standard24M).await;
+        let s2 = append_and_seal(&b, 3, RetentionClass::Extended60M).await;
+        let s3 = append_and_seal(&b, 4, RetentionClass::Forever).await;
+
+        // Advance "now" by 6 years (well past both Standard24M = 730 days
+        // and Extended60M = 1825 days horizons).
+        let far_future = Utc::now() + chrono::Duration::days(6 * 365);
+
+        let report = tokio::task::spawn_blocking({
+            let backend = b.clone();
+            move || {
+                let mut backend = backend;
+                let mut worker = CompactionWorker::new(CompactionPolicy::Auto);
+                worker.tick(&mut backend, far_future)
+            }
+        })
+        .await
+        .expect("join")
+        .expect("tick");
+
+        assert_eq!(report.eligible_segments, 2);
+        assert_eq!(report.compacted_segments, 2);
+        assert_eq!(report.awaiting_approval, 0);
+        // Forever segment intact.
+        assert_eq!(
+            b.warm_receipt_count_for(s3.segment_id()),
+            Some(s3.receipt_count())
+        );
+        // The two STANDARD/EXTENDED segments lost their warm content.
+        assert_eq!(b.warm_receipt_count_for(s1.segment_id()), Some(0));
+        assert_eq!(b.warm_receipt_count_for(s2.segment_id()), Some(0));
+    }
+
+    #[tokio::test]
+    async fn t015_inmemory_worker_operator_approval_emits_then_waits_then_compacts() {
+        let b = test_backend();
+        let sealed = append_and_seal(&b, 3, RetentionClass::Standard24M).await;
+        let id = sealed.segment_id().clone();
+        let far_future = Utc::now() + chrono::Duration::days(3 * 365);
+
+        // Tick 1: emit COMPACTION_APPROVAL_REQUIRED, segment still has
+        // warm receipts.
+        let (worker, report) = tokio::task::spawn_blocking({
+            let backend = b.clone();
+            move || {
+                let mut backend = backend;
+                let mut worker = CompactionWorker::new(CompactionPolicy::OperatorApproval);
+                let r = worker.tick(&mut backend, far_future).expect("tick 1");
+                (worker, r)
+            }
+        })
+        .await
+        .expect("join");
+        assert_eq!(report.eligible_segments, 1);
+        assert_eq!(report.compacted_segments, 0);
+        assert_eq!(report.awaiting_approval, 1);
+        assert_eq!(
+            b.warm_receipt_count_for(&id),
+            Some(sealed.receipt_count()),
+            "warm receipts preserved before approval"
+        );
+        // The chain now carries the approval-required record.
+        let chain_len_after_emit = b.receipt_count().await;
+        assert!(chain_len_after_emit >= 1);
+
+        // Approve, then tick 2 — segment now compacts.
+        let id2 = id.clone();
+        let report2 = tokio::task::spawn_blocking({
+            let backend = b.clone();
+            move || {
+                let mut backend = backend;
+                let mut worker = worker;
+                worker.approve_segment(&id2).expect("approve");
+                worker.tick(&mut backend, far_future)
+            }
+        })
+        .await
+        .expect("join")
+        .expect("tick 2");
+        assert_eq!(report2.compacted_segments, 1);
+        assert_eq!(b.warm_receipt_count_for(&id), Some(0));
     }
 }

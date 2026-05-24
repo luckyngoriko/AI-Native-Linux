@@ -301,6 +301,10 @@ pub const fn is_constitutionally_public_record_type(rt: RecordType) -> bool {
             | RecordType::OverrideExpired
             | RecordType::OverrideRevoked
             | RecordType::OverrideReview
+            // T-015 / S3.1 §11.5: compaction governance events are
+            // constitutional — operators must always be able to see what was
+            // approved and what is still awaiting approval.
+            | RecordType::CompactionApprovalRequired
     )
 }
 

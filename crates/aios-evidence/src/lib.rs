@@ -44,6 +44,7 @@
 #![forbid(unsafe_code)]
 
 pub mod chain;
+pub mod compaction;
 pub mod error;
 pub mod persistence;
 pub mod privacy;
@@ -56,6 +57,10 @@ pub mod segment_chain;
 pub mod service;
 
 pub use chain::ReceiptChain;
+pub use compaction::{
+    is_eligible as is_compaction_eligible_for, CompactionBackend, CompactionPolicy,
+    CompactionReport, CompactionWorker, COMPACTION_WORKER_SUBJECT,
+};
 pub use error::EvidenceError;
 pub use persistence::{OpenSegmentSnapshot, RocksDbEvidenceLog};
 pub use privacy::{

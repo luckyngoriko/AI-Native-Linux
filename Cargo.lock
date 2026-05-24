@@ -27,7 +27,7 @@ dependencies = [
 
 [[package]]
 name = "aios-evidence"
-version = "0.0.1"
+version = "0.1.0"
 dependencies = [
  "aios-action",
  "async-trait",

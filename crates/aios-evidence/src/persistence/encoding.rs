@@ -94,6 +94,29 @@ pub const SCHEMA_VERSION_V1ALPHA1: &str = "aios.evidence.v1alpha1";
 /// directory.
 pub const METADATA_LOG_ID: &[u8] = b"log_id";
 
+/// Prefix for per-segment compaction-state rows in the `metadata` CF.
+///
+/// The full key is `compacted_at::<segment_id>` (ASCII); the value is the
+/// compaction RFC 3339 timestamp as UTF-8 bytes. The presence of the row
+/// is the "this segment has been compacted" predicate; absence means the
+/// segment is still fully present in the warm tier. T-015 / S3.1 §12.
+///
+/// Keeping the compaction state out of the `segments` CF preserves the
+/// segment row's byte-identical layout — cryptographic recovery (§11.4)
+/// continues to round-trip through `serde_json::from_slice` without any
+/// special-case handling.
+pub const METADATA_COMPACTED_AT_PREFIX: &[u8] = b"compacted_at::";
+
+/// Build the full `metadata` key for a segment's compacted-at row.
+#[must_use]
+pub fn metadata_compacted_at_key(segment_id: &SegmentId) -> Vec<u8> {
+    let mut out =
+        Vec::with_capacity(METADATA_COMPACTED_AT_PREFIX.len() + segment_id.as_str().len());
+    out.extend_from_slice(METADATA_COMPACTED_AT_PREFIX);
+    out.extend_from_slice(segment_id.as_str().as_bytes());
+    out
+}
+
 // ---------------------------------------------------------------------------
 // Key constructors
 // ---------------------------------------------------------------------------

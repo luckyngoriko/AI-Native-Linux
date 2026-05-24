@@ -34,6 +34,7 @@ use crate::constraints::{ApprovalRequirement, ApprovalScope, ApproverClass, Cons
 use crate::decision::{Decision, PolicyDecision};
 use crate::hard_deny_engine::{reason_code_for, reason_message_for, HardDenyEngine};
 use crate::kernel::PolicyContext;
+use crate::override_boundary::OverrideBoundary;
 use crate::subject::HydratedSubject;
 
 /// Outcome of a single pipeline step.
@@ -74,6 +75,13 @@ pub mod reason_code {
     /// `REQUIRE_APPROVAL` because the subject is AI and at least one risk flag
     /// is set on the request.
     pub const AI_SELF_APPROVAL_UPGRADE: &str = "AiSelfApprovalUpgrade";
+    /// Step 5 — emergency override matched and relaxed a scoped rule.
+    ///
+    /// (S2.3 §3 step 6 / §5 tier 3 / §16.) The decision is `ALLOW` and
+    /// the active override receipt id is recorded in the decision's
+    /// `reason_message`; downstream evidence integration attaches the
+    /// override receipt id to the `evidence_receipt_id` linkage chain.
+    pub const EMERGENCY_OVERRIDE_RELAXED: &str = "EmergencyOverrideRelaxed";
 }
 
 /// Truthiness of a risk flag inside `request.target.risk.<flag>`.
@@ -247,6 +255,25 @@ impl DecisionPipeline {
         hydrated_context: Option<&PolicyContext>,
         engine: Option<&HardDenyEngine>,
     ) -> PolicyDecision {
+        self.evaluate_with_chain_full(envelope, original_context, hydrated_context, engine, None)
+    }
+
+    /// Full-chain evaluator with override boundary (T-025).
+    ///
+    /// Identical to [`Self::evaluate_with_chain`] except step 5 consults
+    /// the supplied `boundary` (S2.3 §3 step 6 / §16). The two ctors
+    /// `evaluate_with_chain` (without boundary) and this overload are
+    /// kept distinct so T-017..T-024 baseline tests continue to compile
+    /// against the pre-T-025 signature.
+    #[must_use]
+    pub fn evaluate_with_chain_full(
+        self,
+        envelope: &ActionEnvelope,
+        original_context: &PolicyContext,
+        hydrated_context: Option<&PolicyContext>,
+        engine: Option<&HardDenyEngine>,
+        boundary: Option<&OverrideBoundary>,
+    ) -> PolicyDecision {
         let request_hash = compute_request_hash(envelope);
 
         // Step 1 — schema validation. Uses the original context so the
@@ -287,8 +314,16 @@ impl DecisionPipeline {
             return *d;
         }
 
-        // Step 5 — emergency-override denylist (stub; T-025 implements override boundary).
-        if let PipelineState::ShortCircuit(d) = Self::step_5_emergency_override_denylist() {
+        // Step 5 — emergency-override denylist (T-025). When a boundary is
+        // attached and a matching active grant exists, the step short-circuits
+        // to ALLOW with `reason_code = EmergencyOverrideRelaxed` and the
+        // override receipt id recorded in the reason message. Per §16.2 the
+        // boundary cannot be reached on a hard-deny path (step 4 fires first)
+        // and grants targeting §6 classes are rejected at request time, so
+        // the override path is constitutionally safe.
+        if let PipelineState::ShortCircuit(d) =
+            self.step_5_emergency_override_with_boundary(envelope, context, &request_hash, boundary)
+        {
             return *d;
         }
 
@@ -446,14 +481,69 @@ impl DecisionPipeline {
         })))
     }
 
-    /// Step 5 — evaluate emergency-override denylist (S2.3 §3 step 6 / §16).
+    /// Step 5 — evaluate emergency-override denylist (S2.3 §3 step 6 / §16) —
+    /// **stub form**.
     ///
-    /// **STUB** — T-025 lands the override boundary together with the M3 closer; the
-    /// override grants the operator the ability to RELAX scoped DENY rules, but the
-    /// denylist surface enforces what the override may NEVER bypass (§16.2).
+    /// Retained as a const no-op for the T-017 baseline tests that pin the
+    /// stub contract. The real boundary-driven path lives on
+    /// [`Self::step_5_emergency_override_with_boundary`]; the driver loop
+    /// dispatches between the two based on whether a boundary is attached.
     #[must_use]
     pub const fn step_5_emergency_override_denylist() -> PipelineState {
         PipelineState::Continue
+    }
+
+    /// Step 5 — evaluate emergency-override denylist (S2.3 §3 step 6 / §16) —
+    /// **boundary-driven form** (T-025).
+    ///
+    /// When `boundary` is `Some(b)` this calls `b.is_overridden(action,
+    /// subject)` and short-circuits with `Decision::Allow` carrying
+    /// `reason_code = "EmergencyOverrideRelaxed"` and the override receipt
+    /// id in the reason message when a matching active grant is found. When
+    /// `boundary` is `None`, this returns `Continue` (the T-017 stub
+    /// semantics).
+    ///
+    /// Per §16.2 the override CANNOT bypass hard denies; this is enforced
+    /// upstream (step 4 fires first, and the boundary's
+    /// `request_override` rejects hard-deny-targeting grants at grant
+    /// time). Step 5 is therefore reachable only after the hard-deny gate
+    /// has passed, which is the constitutional guarantee §16.2 needs.
+    #[must_use]
+    pub fn step_5_emergency_override_with_boundary(
+        self,
+        envelope: &ActionEnvelope,
+        context: &PolicyContext,
+        request_hash: &str,
+        boundary: Option<&OverrideBoundary>,
+    ) -> PipelineState {
+        let Some(boundary) = boundary else {
+            return PipelineState::Continue;
+        };
+        let Some(grant) = boundary.is_overridden(
+            &envelope.request.action,
+            &context.subject.canonical_subject_id,
+        ) else {
+            return PipelineState::Continue;
+        };
+        let reason_message = format!(
+            "scoped rule `{}` relaxed by emergency override `{}` (granted_by={}, reason={}) — S2.3 §16",
+            grant.scope.rule_id,
+            grant.override_id,
+            grant.granted_by_subject_id,
+            grant.reason
+        );
+        PipelineState::ShortCircuit(Box::new(Self::emit_decision(EmitDecision {
+            envelope,
+            context,
+            request_hash,
+            decision: Decision::Allow,
+            reason_code: reason_code::EMERGENCY_OVERRIDE_RELAXED,
+            reason_message: &reason_message,
+            // The boundary consulted one grant table; account for it in
+            // the audit count so a §16 fire is visible in
+            // `rules_consulted`.
+            rules_consulted: 1,
+        })))
     }
 
     /// Step 6 — evaluate scoped denies (S2.3 §3 step 7 / §5 tier 4).

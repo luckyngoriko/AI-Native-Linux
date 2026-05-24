@@ -53,6 +53,7 @@ pub mod explain;
 pub mod hard_deny;
 pub mod hard_deny_engine;
 pub mod kernel;
+pub mod override_boundary;
 pub mod pipeline;
 pub mod precedence;
 pub mod service;
@@ -81,6 +82,10 @@ pub use hard_deny_engine::{
     HardDenyEngineConfig,
 };
 pub use kernel::{InMemoryPolicyKernel, PolicyContext, PolicyKernel};
+pub use override_boundary::{
+    EmergencyOverride, OverrideBoundary, OverrideError, OverrideRequest, OverrideScope,
+    MAX_OVERRIDE_TTL_SECONDS,
+};
 pub use pipeline::{
     evaluate_ai_self_approval_prevention, reason_code, DecisionPipeline, PipelineState,
 };

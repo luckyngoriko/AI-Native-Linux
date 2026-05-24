@@ -71,7 +71,7 @@ pub const DEFAULT_ENGINE_ID: &str = "aios-policy-inproc";
 
 /// Default code version reported on every decision. Production wiring should
 /// pass the build-time `git describe` string here.
-pub const DEFAULT_CODE_VERSION: &str = "aios-policy/0.0.1-T023";
+pub const DEFAULT_CODE_VERSION: &str = "aios-policy/0.1.0-T025";
 
 /// Default bundle version reported by `GetPolicyEngineInfo` when no bundle
 /// is loaded. The engine treats an empty `active_bundle_version` as
@@ -451,11 +451,72 @@ impl proto::policy_kernel_server::PolicyKernel for PolicyKernelService {
 
     async fn rollback_bundle(
         &self,
-        _request: Request<proto::RollbackBundleRequest>,
+        request: Request<proto::RollbackBundleRequest>,
     ) -> Result<Response<proto::RollbackBundleResponse>, Status> {
-        Err(Status::unimplemented(
-            "RollbackBundle is not yet wired (queued for T-025 — M3 closer)",
-        ))
+        // T-025 — operator-only rollback per S2.3 §12.5. Flow:
+        //   1. Require the kernel to be an `InMemoryPolicyKernel` (only impl
+        //      that carries the rollback stack). Other impls ⇒ `Unimplemented`.
+        //   2. Pop the most-recent displaced bundle off the kernel's
+        //      rollback stack and install it. Empty stack ⇒
+        //      `FailedPrecondition` per §18.2 (no prior bundle to restore).
+        //   3. Invalidate every cached decision for the bundle being
+        //      displaced (§13.2 — bundle flip invalidates the cache). The
+        //      override boundary is cleared by `rollback_active_bundle`
+        //      itself per §16.3.
+        //   4. Mint an evidence receipt id `evr_rb_<ULID>` for the rollback
+        //      action; full S3.1 evidence record emission lands at M5+.
+        let req = request.into_inner();
+        let kernel = self.in_memory_kernel.as_ref().ok_or_else(|| {
+            Status::unimplemented(
+                "RollbackBundle requires an InMemoryPolicyKernel (constructed via PolicyKernelService::new_in_memory)",
+            )
+        })?;
+        let (restored, displaced_version) = kernel.rollback_active_bundle().ok_or_else(|| {
+            Status::failed_precondition(
+                "RollbackBundle: rollback stack is empty (no previous bundle to restore — S2.3 §12.5)",
+            )
+        })?;
+        // Optional: a target_bundle_version was requested. The rev.2 §12.5
+        // contract is "operator-only rollback to the immediately previous
+        // bundle"; if the caller specifies a target_bundle_version that
+        // does not match the one we just popped, return
+        // `FailedPrecondition` so a mismatched expectation is not silently
+        // swallowed.
+        if !req.target_bundle_version.is_empty()
+            && req.target_bundle_version != restored.bundle_version
+        {
+            // Best-effort restore the displacement so the kernel isn't
+            // left in an unexpected state; ignore the result because the
+            // operator is going to retry / inspect anyway.
+            let _ = kernel.set_active_bundle(restored.clone());
+            return Err(Status::failed_precondition(format!(
+                "RollbackBundle: target_bundle_version={} but the rollback stack head is {} (S2.3 §12.5)",
+                req.target_bundle_version, restored.bundle_version
+            )));
+        }
+        let restored_version = restored.bundle_version;
+        // Swap the service-level version pointer.
+        let previously_active = self.swap_active_bundle_version(restored_version.clone());
+        // §13.2 — invalidate cached decisions for the displaced bundle
+        // version. `displaced_version` (from kernel) and
+        // `previously_active` (service-level) should agree when the
+        // service was constructed via `new_in_memory`; we use the
+        // service-level value as the cache key.
+        let invalidated = self
+            .cache
+            .as_ref()
+            .map_or(0, |c| c.invalidate_for_bundle(&previously_active));
+        // Mint an evidence-receipt id (placeholder until M5 evidence-log
+        // integration); the id is content-addressed enough to be unique
+        // per rollback for audit purposes.
+        let evidence_receipt_id = format!("evr_rb_{}", ulid::Ulid::new());
+        let _ = displaced_version; // already captured via swap_active_bundle_version
+        let _ = invalidated; // surfaced via tracing in M5+; not part of proto response
+        Ok(Response::new(proto::RollbackBundleResponse {
+            previous_bundle_version: previously_active,
+            current_bundle_version: restored_version,
+            evidence_receipt_id,
+        }))
     }
 
     async fn explain_decision(

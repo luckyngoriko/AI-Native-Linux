@@ -31,6 +31,7 @@ use crate::cache::SharedDecisionCache;
 use crate::decision::PolicyDecision;
 use crate::error::PolicyError;
 use crate::hard_deny_engine::HardDenyEngine;
+use crate::override_boundary::OverrideBoundary;
 use crate::pipeline::DecisionPipeline;
 use crate::snapshot::EnrichmentSnapshot;
 use crate::subject::HydratedSubject;
@@ -38,6 +39,16 @@ use crate::subject_hydration::SubjectHydrator;
 use std::sync::RwLock;
 
 use crate::bundle::PolicyBundle;
+
+/// Maximum number of previous bundles the kernel retains for [`RollbackBundle`]
+/// requests (T-025 — S2.3 §12.5 operator-only rollback).
+///
+/// The stack is bounded so memory cannot grow without bound across long-running
+/// operator sessions; production binaries override this via
+/// [`InMemoryPolicyKernel::with_rollback_capacity`].
+///
+/// [`RollbackBundle`]: ../service/server/struct.PolicyKernelService.html#method.rollback_bundle
+pub const DEFAULT_ROLLBACK_STACK_CAPACITY: usize = 8;
 
 /// Per-evaluation context the Policy Kernel needs alongside the [`ActionEnvelope`].
 ///
@@ -152,17 +163,41 @@ pub struct InMemoryPolicyKernel {
     /// canonical location instead of the gRPC adapter carrying its own
     /// shadow copy that drifts from the kernel state.
     active_bundle: Arc<RwLock<Option<PolicyBundle>>>,
+    /// T-025 — bounded stack of previously-active bundles for the
+    /// `RollbackBundle` RPC (S2.3 §12.5). Each successful `set_active_bundle`
+    /// pushes the displaced bundle onto this stack (capped at
+    /// `rollback_capacity`). `rollback_active_bundle` pops the top and
+    /// installs it; the previously-active bundle is dropped (rollback is
+    /// one-way per §12.5 — the operator must explicitly `LoadBundle` again
+    /// to recover the rolled-back version).
+    rollback_stack: Arc<RwLock<Vec<PolicyBundle>>>,
+    /// Capacity of the rollback stack. Defaults to
+    /// [`DEFAULT_ROLLBACK_STACK_CAPACITY`].
+    rollback_capacity: usize,
+    /// T-025 — emergency override boundary (S2.3 §16). Consulted by pipeline
+    /// step 5; held behind a clone-cheap `Arc` so the kernel's clone +
+    /// `LoadBundle`'s `invalidate_for_bundle_flip` see the same grants.
+    /// `None` = no boundary attached (override path disabled — every
+    /// scoped DENY stands); `Some(_)` = §16 boundary live.
+    override_boundary: Option<Arc<OverrideBoundary>>,
 }
 
 impl std::fmt::Debug for InMemoryPolicyKernel {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        // The `rollback_stack` field is intentionally elided — its concrete
+        // contents are clones of every previously-displaced `PolicyBundle`
+        // and would be a wall of bytes in any `dbg!` / panic output. The
+        // depth is exposed via `rollback_stack_depth()` for inspection.
         f.debug_struct("InMemoryPolicyKernel")
             .field("pipeline", &self.pipeline)
             .field("hard_deny_engine", &self.hard_deny_engine)
             .field("subject_hydrator", &self.subject_hydrator.is_some())
             .field("decision_cache", &self.decision_cache.is_some())
             .field("active_bundle", &"<RwLock<Option<PolicyBundle>>>")
-            .finish()
+            .field("rollback_stack_capacity", &self.rollback_capacity)
+            .field("rollback_stack_depth", &self.rollback_stack_depth())
+            .field("override_boundary", &self.override_boundary.is_some())
+            .finish_non_exhaustive()
     }
 }
 
@@ -180,6 +215,9 @@ impl InMemoryPolicyKernel {
             subject_hydrator: None,
             decision_cache: None,
             active_bundle: Arc::new(RwLock::new(None)),
+            rollback_stack: Arc::new(RwLock::new(Vec::new())),
+            rollback_capacity: DEFAULT_ROLLBACK_STACK_CAPACITY,
+            override_boundary: None,
         }
     }
 
@@ -198,6 +236,9 @@ impl InMemoryPolicyKernel {
             subject_hydrator: None,
             decision_cache: None,
             active_bundle: Arc::new(RwLock::new(None)),
+            rollback_stack: Arc::new(RwLock::new(Vec::new())),
+            rollback_capacity: DEFAULT_ROLLBACK_STACK_CAPACITY,
+            override_boundary: None,
         }
     }
 
@@ -220,6 +261,9 @@ impl InMemoryPolicyKernel {
             subject_hydrator: Some(hydrator),
             decision_cache: None,
             active_bundle: Arc::new(RwLock::new(None)),
+            rollback_stack: Arc::new(RwLock::new(Vec::new())),
+            rollback_capacity: DEFAULT_ROLLBACK_STACK_CAPACITY,
+            override_boundary: None,
         }
     }
 
@@ -234,6 +278,9 @@ impl InMemoryPolicyKernel {
             subject_hydrator: Some(hydrator),
             decision_cache: None,
             active_bundle: Arc::new(RwLock::new(None)),
+            rollback_stack: Arc::new(RwLock::new(Vec::new())),
+            rollback_capacity: DEFAULT_ROLLBACK_STACK_CAPACITY,
+            override_boundary: None,
         }
     }
 
@@ -252,6 +299,9 @@ impl InMemoryPolicyKernel {
             subject_hydrator: None,
             decision_cache: Some(cache),
             active_bundle: Arc::new(RwLock::new(None)),
+            rollback_stack: Arc::new(RwLock::new(Vec::new())),
+            rollback_capacity: DEFAULT_ROLLBACK_STACK_CAPACITY,
+            override_boundary: None,
         }
     }
 
@@ -273,6 +323,9 @@ impl InMemoryPolicyKernel {
             subject_hydrator: Some(hydrator),
             decision_cache: Some(cache),
             active_bundle: Arc::new(RwLock::new(None)),
+            rollback_stack: Arc::new(RwLock::new(Vec::new())),
+            rollback_capacity: DEFAULT_ROLLBACK_STACK_CAPACITY,
+            override_boundary: None,
         }
     }
 
@@ -282,19 +335,131 @@ impl InMemoryPolicyKernel {
     /// The previous bundle (if any) is returned so the caller can fire the
     /// §13.2 cache invalidation pass on the **old** bundle version
     /// (clearing every cache entry whose `bundle_version` matches the
-    /// pre-swap value). T-025 wires the override boundary on the same
-    /// pointer; today the pipeline does not yet consult `active_bundle`,
-    /// so the swap is a forward-compat capture.
+    /// pre-swap value). T-025 also pushes the displaced bundle onto the
+    /// rollback stack (capped at `rollback_capacity`) so the
+    /// `RollbackBundle` RPC can restore it; the stack ring-buffers when
+    /// capacity is exceeded.
+    ///
+    /// T-025 additionally invalidates every active emergency-override
+    /// grant per S2.3 §16.3 "Override grants do not persist across bundle
+    /// versions". The invalidation is best-effort: a panic on one worker
+    /// does not block the bundle swap.
     ///
     /// Atomicity: the swap is `RwLock::write()`-guarded so no concurrent
     /// evaluation observes a torn bundle.
     #[allow(clippy::must_use_candidate)]
     pub fn set_active_bundle(&self, bundle: PolicyBundle) -> Option<PolicyBundle> {
-        let mut slot = match self.active_bundle.write() {
-            Ok(g) => g,
-            Err(poisoned) => poisoned.into_inner(),
+        let previous = {
+            let mut slot = match self.active_bundle.write() {
+                Ok(g) => g,
+                Err(poisoned) => poisoned.into_inner(),
+            };
+            slot.replace(bundle)
         };
-        slot.replace(bundle)
+        if let Some(prev) = previous.clone() {
+            let mut stack = match self.rollback_stack.write() {
+                Ok(g) => g,
+                Err(poisoned) => poisoned.into_inner(),
+            };
+            // Ring-buffer: drop the oldest when at capacity. The stack
+            // holds the most-recent `rollback_capacity` displaced bundles.
+            if stack.len() >= self.rollback_capacity && !stack.is_empty() {
+                stack.remove(0);
+            }
+            stack.push(prev);
+        }
+        // §16.3 — bundle flip invalidates active override grants.
+        if let Some(boundary) = self.override_boundary.as_ref() {
+            let _ = boundary.invalidate_for_bundle_flip();
+        }
+        previous
+    }
+
+    /// Pop the most-recent displaced bundle from the rollback stack and
+    /// install it as the active bundle (S2.3 §12.5 operator-only rollback).
+    ///
+    /// Returns `Some((restored_bundle, popped_previous_version))` on
+    /// success (the restored bundle is now active and is also returned to
+    /// the caller for audit + cache invalidation; `popped_previous_version`
+    /// is the `bundle_version` of the bundle that was active immediately
+    /// before the rollback).
+    ///
+    /// Returns `None` when the rollback stack is empty — the caller (gRPC
+    /// adapter) maps this onto `Status::failed_precondition`.
+    ///
+    /// Like [`Self::set_active_bundle`], a rollback invalidates every
+    /// active emergency-override grant per §16.3.
+    #[must_use]
+    pub fn rollback_active_bundle(&self) -> Option<(PolicyBundle, Option<String>)> {
+        // Pop the most-recent displaced bundle.
+        let popped = {
+            let mut stack = match self.rollback_stack.write() {
+                Ok(g) => g,
+                Err(poisoned) => poisoned.into_inner(),
+            };
+            stack.pop()
+        };
+        let restore = popped?;
+        // Swap the active pointer; capture the bundle being displaced for
+        // audit (its version is what the caller invalidates the cache for).
+        let displaced = {
+            let mut slot = match self.active_bundle.write() {
+                Ok(g) => g,
+                Err(poisoned) => poisoned.into_inner(),
+            };
+            slot.replace(restore.clone())
+        };
+        // §16.3 invalidation. Best-effort.
+        if let Some(boundary) = self.override_boundary.as_ref() {
+            let _ = boundary.invalidate_for_bundle_flip();
+        }
+        let displaced_version = displaced.map(|b| b.bundle_version);
+        Some((restore, displaced_version))
+    }
+
+    /// Returns the configured rollback-stack capacity.
+    #[must_use]
+    pub const fn rollback_stack_capacity(&self) -> usize {
+        self.rollback_capacity
+    }
+
+    /// Returns the current depth of the rollback stack (number of
+    /// displaced bundles available for [`Self::rollback_active_bundle`]).
+    #[must_use]
+    pub fn rollback_stack_depth(&self) -> usize {
+        match self.rollback_stack.read() {
+            Ok(g) => g.len(),
+            Err(poisoned) => poisoned.into_inner().len(),
+        }
+    }
+
+    /// Override the rollback-stack capacity (T-025).
+    ///
+    /// A capacity of 0 collapses to 1 — keeping at least one frame is
+    /// required so any rollback at all is possible after the first
+    /// `set_active_bundle` call.
+    #[must_use]
+    pub fn with_rollback_capacity(mut self, capacity: usize) -> Self {
+        self.rollback_capacity = capacity.max(1);
+        self
+    }
+
+    /// Attach an [`OverrideBoundary`] (T-025).
+    ///
+    /// Without an attached boundary, pipeline step 5 is a no-op
+    /// pass-through (scoped DENY rules cannot be relaxed). With a boundary,
+    /// step 5 consults it before scoped-deny evaluation; a matching active
+    /// grant relaxes the targeted rule per §16.1.
+    #[must_use]
+    pub fn with_override_boundary(mut self, boundary: Arc<OverrideBoundary>) -> Self {
+        self.override_boundary = Some(boundary);
+        self
+    }
+
+    /// Return a clone of the override boundary handle, when one is attached.
+    #[must_use]
+    pub fn override_boundary_handle(&self) -> Option<Arc<OverrideBoundary>> {
+        self.override_boundary.clone()
     }
 
     /// Return a clone of the currently active bundle (or `None`).
@@ -380,11 +545,12 @@ impl PolicyKernel for InMemoryPolicyKernel {
             Some(context.clone())
         };
 
-        let decision = self.pipeline.evaluate_with_chain(
+        let decision = self.pipeline.evaluate_with_chain_full(
             envelope,
             context,
             hydrated_context.as_ref(),
             self.hard_deny_engine.as_deref(),
+            self.override_boundary.as_deref(),
         );
 
         // T-024: write-through insert on cache miss. The cached decision

@@ -186,6 +186,12 @@
       "title": "aios-capability-runtime v0.0.1 skeleton \u2014 S10.1 \u00a73.1 FSM types + \u00a73.2/\u00a73.5/\u00a73.7 enums + \u00a710.1 AdapterManifest (M4 OPENER)",
       "completed_at": "2026-05-24",
       "evidence": "613 tests workspace (+14 over T-025 baseline 599). New crate crates/aios-capability-runtime v0.0.1 registered in workspace members (root Cargo.toml). Cargo.toml deps: aios-action (path) + serde + serde_json + thiserror + chrono + strum + strum_macros + ulid (workspace pins). Modules: lib.rs (#![forbid(unsafe_code)] + module decls + re-exports) + status.rs (ActionLifecycleState 14-variant FSM per \u00a73.1: Created, PolicyPending, ApprovalPending, OverridePending, Approved, PolicyDenied, OverrideDenied, Queued, Executing, Verifying, Succeeded, Failed, RolledBack, RollbackFailed. SCREAMING_SNAKE_CASE serde wire form. EnumIter + EnumCount. is_terminal() const fn returns true for the 4 strict terminals per \u00a74.2 forbidden-transition table: Succeeded, RolledBack, RollbackFailed, OverrideDenied \u2014 POLICY_DENIED + FAILED deliberately not terminal because \u00a74.2 T21 + T19/T20 allow exits) + dispatch.rs (4 closed enums per \u00a73.2/\u00a73.3/\u00a73.4/\u00a73.5: ActionDispatchKind 4-variant {InProcessRpc, SubprocessFork, IsolatedSandbox, DryRun} / AdapterIOMode 2-variant {TypedParametersOnly, TemplateParameters} / AdapterStability 5-variant {Registered, Experimental, Stable, Deprecated, Retired} / QueueClass 4-variant {Interactive, AgentProposal, Background, RecoveryPriority}, all SCREAMING_SNAKE_CASE + EnumIter + EnumCount) + failure.rs (3 closed enums per \u00a73.6/\u00a73.7/\u00a73.8: ExecutionFailureReason 12-variant / RollbackOutcome 4-variant {NotAttempted, Succeeded, Failed, NotApplicable} / RuntimeErrorCode 20-variant) + adapter_manifest.rs (AdapterManifest struct per \u00a710.1 \u2014 NOTE: brief said '\u00a74 AdapterManifest' but spec \u00a74 is the FSM diagram + transition table; manifest schema lives at \u00a710.1. TRUST SPEC applied. Fields: adapter_id, adapter_version, vendor, name, declared_stability, io_mode, dispatch_kind, declared_actions (Vec<AdapterActionDeclaration> nested struct with action_kind/target_schema/response_schema/rollback_strategy/timeout_seconds/template_string/template_substitution_variables), declared_invariants_supported, default_adapter_timeout_seconds, default_sandbox_profile_id, adapter_signature, signing_key_id, manifest_created_at, manifest_expires_at. #[serde(deny_unknown_fields)] on both) + context.rs (ActionContext struct: action_id (aios_action::ActionId), status (ActionLifecycleState), dispatch_kind, queue_class, created_at, last_updated_at, error: Option<ExecutionFailureReason>, rollback_outcome: Option<RollbackOutcome>, evidence_chain: Vec<String>; ActionContext::new const fn seeds Created/None/None/empty) + error.rs (RuntimeError thiserror taxonomy: ActionNotFound(ActionId), InvalidTransition{from, to}, AdapterUnknown(String), AdapterSignatureInvalid, ManifestInvalid(String), Internal(String); canonical English Display strings pinned in tests). Tests: 14 in tests/types_roundtrip.rs covering all 8 \u00a73 enums round-trip with explicit wire-form spot checks, AdapterManifest + ActionContext serde JSON round-trip with deny_unknown_fields rejection check, RuntimeError canonical Display, ActionLifecycleState fourteen-state invariant via EnumCount + iterator count, strict-terminal classification for all 14 states, cross-crate aios_action::ActionEnvelope + ActionId import smoke test. All 4 gates PASS: cargo check --workspace + cargo test --workspace (613) + cargo clippy --workspace --all-targets -- -D warnings + cargo fmt --all -- --check. Clippy fixes applied during gate sweep: 4 missing-backticks in doc comments (SemVer, hex_lower, subject_type, T-027 ref) + 1 missing-const-for-fn (ActionContext::new) + 1 doc-link clarification. tests/types_roundtrip.rs gained #![allow(clippy::expect_used, clippy::panic, clippy::no_effect_underscore_binding)] prelude matching aios-policy/tests/types_roundtrip.rs convention. Scope guard held: no CapabilityRuntime trait (T-027), no proto IDL / build.rs / gRPC (T-033), no adapter registry impl (T-028), no dispatch queue (T-029), no policy/evidence integration (T-030/T-031), no rollback driver (T-032). M4 next: T-027 CapabilityRuntime async trait + lifecycle pipeline driver (mirrors aios-policy T-017 pattern)."
+    },
+    {
+      "id": "T-036",
+      "title": "aios-fs crate skeleton \u2014 S1.3 typed schema + S4.1 namespace skeleton (M5 OPENER)",
+      "completed_at": "2026-05-24",
+      "evidence": "831 tests workspace (+10 over M4 closure baseline 821). New crate crates/aios-fs v0.0.1 registered in workspace members. Types-only skeleton: Object/Version/Chunk/Pointer/Transaction records per S1.3 \u00a75..\u00a79; closed enums VersionState, PointerKind, LifecycleState, PrivacyClass, ObjectKind, TransactionState, ConsistencyClass; AiosPath + NamespaceClass classifier per S4.1; FsError taxonomy. Spec deviations from brief are TRUST SPEC choices: Object uses current_pointer_id/metadata/retired_at/purge_at/index_hints/scope_binding per \u00a75+\u00a721, Version uses parent_version_ids/chunk_refs/content_hash/metadata_delta/action+transaction linkage per \u00a76, Chunk uses ref_count per \u00a77, Pointer uses CURRENT/STABLE/CANDIDATE/ROLLBACK/QUARANTINE per \u00a78, Transaction uses \u00a79 state/writes/pointer_moves/evidence_receipt_id while ConsistencyClass remains a separate \u00a711 enum, Namespace follows /aios/system + /aios/groups rather than legacy flat /users/work/cache, LifecycleState is ACTIVE/RETIRED/PURGED per \u00a74.2. Gates PASS: cargo check --workspace + cargo test --workspace + cargo clippy --workspace --all-targets -- -D warnings + cargo fmt --all -- --check."
     }
   ],
   "blocked": [],
@@ -271,8 +277,9 @@
       "crate_version_target": "aios-capability-runtime/0.1.0"
     },
     "M5": {
-      "status": "planned",
+      "status": "in_progress",
       "title": "AIOS-FS Object Model + Namespace + Query/View",
+      "started_at": "2026-05-24",
       "sub_specs": [
         "S1.3",
         "S2.1",
@@ -281,6 +288,10 @@
       ],
       "layer": "L2",
       "target_crate": "aios-fs",
+      "tasks": [
+        "T-036"
+      ],
+      "current_test_count": 831,
       "rationale": "Closes \u00a722 phase-2 (mount /aios + versioned object + semantic view). Unblocks M4 enrichment stub."
     },
     "M6": {

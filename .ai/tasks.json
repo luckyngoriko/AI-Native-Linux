@@ -246,6 +246,12 @@
       "title": "aios-fs v0.1.0 - M5 closer: §22 phase-2/3 + acceptance fixtures + M5 CLOSED",
       "completed_at": "2026-05-24",
       "evidence": "997 tests workspace (+37 over T-044 baseline 960). Added tests/mvp_golden_path.rs (6 tests), tests/acceptance_fixtures.rs (23 S1.3/S2.1/S4.1 fixtures), and tests/m5_closure.rs (8 invariants). Bumped aios-fs Cargo.toml 0.0.1 -> 0.1.0 and DEFAULT_CODE_VERSION -> aios-fs/0.1.0-T045. Cleanups: FsEnumerator replaced Debug discovery in materialize_view; FsError::ImplSpaceBindingDuplicate typed duplicate binding; InMemoryAiosFs write metadata now carries kind/privacy/policy_tags/scope; NamespacePolicy enforces cross-group, reserved-id, and virtual-view mutation denial. Required gates PASS: cargo check --workspace + cargo test --workspace + cargo clippy --workspace --all-targets -- -D warnings + cargo fmt --all -- --check + cargo bench -p aios-policy --no-run. M5 CLOSED; M6 ready."
+    },
+    {
+      "id": "T-046",
+      "title": "aios-vault crate skeleton - S5.1 + S5.2 typed core + S5.4 override types skeleton",
+      "completed_at": "2026-05-24",
+      "evidence": "1008 tests workspace (+11 over T-045 baseline 997). New crates/aios-vault v0.0.1 registered after aios-fs. Types-only skeleton: VaultCapability + cap_<ULID> CapabilityId + S5.2 nine-value CapabilityClass + six-state CapabilityState, KeyMaterial + KeyAlgorithm with Debug-redact and serialization-blocking leak guard, KeyMaterialHandle Display-redact, Subject/Session/SessionState + S5.1 SubjectType including LOCAL_OPERATOR, OverrideBinding + three-value S5.4 OverrideClass/strength + OverrideBindingState, VaultError taxonomy. Tests: crates/aios-vault/tests/types_roundtrip.rs (11). Gates PASS: cargo check --workspace + cargo test --workspace + cargo clippy --workspace --all-targets -- -D warnings + cargo fmt --all -- --check. Spec deviations from brief are TRUST SPEC choices: CapabilityClass is the S5.2 nine-value set including KEY_DECRYPT/RANDOM_GENERATE/SECRET_GET/BOOTSTRAP_KEY_SIGN, CapabilityState includes ROTATED and DISCARDED, override class follows S5.4 OverrideStrength names STRONG_SOLO/DUAL_HUMAN/TRIPLE_HUMAN rather than STRONG_PAIR/OPERATOR."
     }
   ],
   "blocked": [],
@@ -360,8 +366,9 @@
       "rationale": "Closes \u00a722 phase-2 (mount /aios + versioned object + semantic view). Unblocks M4 enrichment stub."
     },
     "M6": {
-      "status": "ready",
+      "status": "in_progress",
       "title": "Vault Broker + Identity + Emergency Override",
+      "started_at": "2026-05-24",
       "sub_specs": [
         "S5.1",
         "S5.2",
@@ -369,6 +376,11 @@
       ],
       "layer": "L4",
       "target_crate": "aios-vault",
+      "tasks": [
+        "T-046"
+      ],
+      "current_test_count": 1008,
+      "crate_version_target": "aios-vault/0.1.0",
       "rationale": "Secrets-as-capabilities (INV-018). Unblocks signed bundle/manifest infra + external model calls."
     },
     "M7": {

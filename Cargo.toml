@@ -4,6 +4,7 @@ members = [
     "crates/aios-action",
     "crates/aios-capability-runtime",
     "crates/aios-fs",
+    "crates/aios-vault",
     "crates/aios-evidence",
     "crates/aios-policy",
 ]

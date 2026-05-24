@@ -43,6 +43,7 @@ from pathlib import Path
 REPO_ROOT = Path(__file__).resolve().parent.parent.parent
 OUTPUT_DIR = Path(__file__).resolve().parent / "output"
 MODEL_AIRD = OUTPUT_DIR / "aios-rev2" / "aios-rev2.aird"
+MANIFESTS_DIR = Path(__file__).resolve().parent / "manifests"
 REPORT_MD = OUTPUT_DIR / "gap_report.md"
 REPORT_JSON = OUTPUT_DIR / "gap_report.json"
 
@@ -204,6 +205,33 @@ def analyze(model_path: Path) -> dict:
 
     consumes_cycles = find_cycles(graph)
 
+    # ── Gap 6: Orphan RecordTypes ───────────────────────────────────────
+    # Cross-reference manifests/record_types.csv (427 defined in S3.1
+    # Appendix A) against manifests/record_type_emitters.csv (RecordTypes
+    # cited by at least one sub-spec other than S3.1 itself). RecordTypes
+    # in the first but not the second are orphan: defined in vocabulary
+    # but never emission-contextualised elsewhere.
+    orphan_record_types: list[dict] = []
+    try:
+        import csv
+
+        with (MANIFESTS_DIR / "record_types.csv").open(encoding="utf-8") as fh:
+            all_rts = [dict(row) for row in csv.DictReader(fh)]
+        with (MANIFESTS_DIR / "record_type_emitters.csv").open(encoding="utf-8") as fh:
+            emitter_rows = list(csv.DictReader(fh))
+        emitting_wires = {row["wire_name"] for row in emitter_rows}
+        for rt in all_rts:
+            if rt["wire_name"] not in emitting_wires:
+                orphan_record_types.append(
+                    {
+                        "id": int(rt["id"]),
+                        "wire_name": rt["wire_name"],
+                        "retention_hint": rt.get("retention_hint", ""),
+                    }
+                )
+    except FileNotFoundError as e:
+        print(f"  (skipped orphan-RecordType gap: {e})")
+
     # ── Gap 5: Hot spots ────────────────────────────────────────────────
     in_degree = Counter(producer for _, producer in consumes_edges)
     out_degree = Counter(consumer for consumer, _ in consumes_edges)
@@ -223,6 +251,7 @@ def analyze(model_path: Path) -> dict:
             "orphan_sub_specs": orphan_specs,
             "layer_inversions": layer_inversions,
             "consumes_cycles": consumes_cycles,
+            "orphan_record_types": orphan_record_types,
         },
         "hot_spots": {
             "top_consumers": [{"name": n, "out_degree": d} for n, d in top_consumers],
@@ -260,6 +289,7 @@ def render_markdown(summary: dict) -> str:
         f"| Orphan sub-specs (zero realized INVs) | {len(g['orphan_sub_specs'])} |",
         f"| Layer inversions (INV-007 candidates) | {len(g['layer_inversions'])} |",
         f"| Consumes-graph cycles | {len(g['consumes_cycles'])} |",
+        f"| Orphan RecordTypes (defined in S3.1, cited nowhere else) | {len(g.get('orphan_record_types', []))} |",
         "",
     ]
 
@@ -302,6 +332,23 @@ def render_markdown(summary: dict) -> str:
         lines.append("")
         for cycle in g["consumes_cycles"]:
             lines.append(f"- `{' → '.join(cycle)}`")
+        lines.append("")
+
+    if g.get("orphan_record_types"):
+        lines += ["## Orphan RecordTypes", ""]
+        lines.append(
+            "These RecordType variants are defined in S3.1 Appendix A closed enum "
+            "(Wave 13 IDL roll-up, 427 total) but no other sub-spec mentions them. "
+            "Possible interpretations:"
+        )
+        lines.append("")
+        lines.append("- **Truly orphan** — vocabulary defined for completeness but never wired into emission contexts. Candidate for RETIRED status per S6.1 taxonomy, OR for adding explicit emitter sub-specs.")
+        lines.append("- **Implicit emission** — emitted by infrastructure layers (Capability Runtime, Sandbox Composer, AIOS-FS) without explicit mention in their sub-spec narrative. Worth audit + adding explicit cite-up.")
+        lines.append("")
+        for rt in g["orphan_record_types"]:
+            lines.append(f"- **{rt['wire_name']}** (ID {rt['id']})")
+            if rt.get("retention_hint"):
+                lines.append(f"  - hint from S3.1: {rt['retention_hint'][:120]}")
         lines.append("")
 
     lines += [
@@ -354,10 +401,11 @@ def main() -> int:
     print()
     print("=== GAP SUMMARY ===")
     g = summary["gaps"]
-    print(f"  Orphan INVs:        {len(g['orphan_invariants']):>3}")
-    print(f"  Orphan sub-specs:   {len(g['orphan_sub_specs']):>3}")
-    print(f"  Layer inversions:   {len(g['layer_inversions']):>3}")
-    print(f"  Consumes cycles:    {len(g['consumes_cycles']):>3}")
+    print(f"  Orphan INVs:           {len(g['orphan_invariants']):>3}")
+    print(f"  Orphan sub-specs:      {len(g['orphan_sub_specs']):>3}")
+    print(f"  Layer inversions:      {len(g['layer_inversions']):>3}")
+    print(f"  Consumes cycles:       {len(g['consumes_cycles']):>3}")
+    print(f"  Orphan RecordTypes:    {len(g.get('orphan_record_types', [])):>3}")
 
     return 0
 

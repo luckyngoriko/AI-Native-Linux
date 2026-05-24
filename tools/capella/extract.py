@@ -232,6 +232,53 @@ def extract_record_types() -> list[tuple[int, str, str]]:
     return records
 
 
+# ── RecordType emitter mapping (iter 3d) ──────────────────────────────
+
+
+def extract_record_type_emitters(
+    sub_specs: list[SubSpec], record_types: list[tuple[int, str, str]]
+) -> list[tuple[str, str, int]]:
+    """For each of the 427 RecordType wire names, find which sub-specs
+    mention it. Returns rows (wire_name, sub_spec_phase_tag, mention_count).
+
+    Heuristic: any sub-spec OTHER than S3.1 (which is the catalog itself)
+    that mentions a RecordType wire name is considered an emitter candidate.
+    S3.1's own mentions are excluded because S3.1 defines all 427; including
+    its self-references would mask real orphan-record detection.
+
+    The wire name pattern is matched as a whole word (so RECORD_FOO won't
+    match RECORD_FOO_BAR). The match is case-sensitive (RecordTypes are
+    canonical SCREAMING_SNAKE_CASE per S3.1 Appendix A).
+
+    Limitations:
+      - This is mention-based, not strict emission-context-based; a sub-spec
+        that REFERENCES a record type for verification (not emission) will
+        still appear in the emitters list. Manual classification is the
+        next refinement step.
+      - References inside fenced code blocks (proto IDL) are counted; in
+        practice they're emission declarations + cross-citations, so this
+        is acceptable noise.
+    """
+    s31_relative_path = "L9_Observability_Admin_Operations/01_evidence_log.md"
+    wire_names = {wire for (_id, wire, _hint) in record_types}
+
+    rows: list[tuple[str, str, int]] = []
+    for spec in sub_specs:
+        if spec.relative_path == s31_relative_path:
+            continue  # S3.1 IS the catalog; its mentions aren't emissions
+        path = SPEC_ROOT / spec.relative_path
+        text = path.read_text()
+        for wire in wire_names:
+            count = sum(
+                1
+                for _ in re.finditer(rf"\b{re.escape(wire)}\b", text)
+            )
+            if count > 0:
+                rows.append((wire, spec.phase_tag, count))
+    rows.sort()
+    return rows
+
+
 # ── Traceability matrices ─────────────────────────────────────────────
 
 
@@ -316,14 +363,29 @@ def main() -> None:
         consumes_matrix,
     )
 
+    rt_emitters = extract_record_type_emitters(specs, records)
+    write_csv(
+        OUT_DIR / "record_type_emitters.csv",
+        ["wire_name", "sub_spec_phase_tag", "mention_count"],
+        rt_emitters,
+    )
+
+    # Compute orphan RecordTypes for the summary
+    emitting_types = {wire for wire, _spec, _n in rt_emitters}
+    all_types = {wire for (_id, wire, _hint) in records}
+    orphan_types = sorted(all_types - emitting_types)
+
     print()
     print(f"Summary:")
-    print(f"  Invariants:     {len(invs):>3}  (expected 24)")
-    print(f"  Sub-specs:      {len(specs):>3}  (expected ~53)")
-    print(f"  Layers:         {len(layers):>3}  (expected 11 + XX)")
-    print(f"  RecordTypes:    {len(records):>3}  (expected 427)")
-    print(f"  INV citations:  {len(inv_matrix):>3}")
-    print(f"  Consumes links: {len(consumes_matrix):>3}")
+    print(f"  Invariants:        {len(invs):>3}  (expected 24)")
+    print(f"  Sub-specs:         {len(specs):>3}  (expected ~53)")
+    print(f"  Layers:            {len(layers):>3}  (expected 11 + XX)")
+    print(f"  RecordTypes:       {len(records):>3}  (expected 427)")
+    print(f"  INV citations:     {len(inv_matrix):>3}")
+    print(f"  Consumes links:    {len(consumes_matrix):>3}")
+    print(f"  RT emitter pairs:  {len(rt_emitters):>3}")
+    print(f"  RT WITH emitter:   {len(emitting_types):>3}  (cited at least once outside S3.1)")
+    print(f"  RT orphan (no emitter): {len(orphan_types):>3}")
 
 
 if __name__ == "__main__":

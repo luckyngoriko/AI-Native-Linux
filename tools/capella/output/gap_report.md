@@ -18,6 +18,7 @@ Source model: `tools/capella/output/aios-rev2/`
 | Orphan sub-specs (zero realized INVs) | 10 |
 | Layer inversions (INV-007 candidates) | 65 |
 | Consumes-graph cycles | 1 |
+| Orphan RecordTypes (defined in S3.1, cited nowhere else) | 4 |
 
 ## Orphan sub-specs
 
@@ -109,6 +110,18 @@ Consumes edges where the producer's layer is numerically higher than the consume
 Architectural cycles — sub-spec A imports from B which imports from A (directly or transitively).
 
 - `S7.1 — Surface + Composition Model (Rev.2) → S8.2 — GPU Resource Model (Rev.2) → S7.1 — Surface + Composition Model (Rev.2)`
+
+## Orphan RecordTypes
+
+These RecordType variants are defined in S3.1 Appendix A closed enum (Wave 13 IDL roll-up, 427 total) but no other sub-spec mentions them. Possible interpretations:
+
+- **Truly orphan** — vocabulary defined for completeness but never wired into emission contexts. Candidate for RETIRED status per S6.1 taxonomy, OR for adding explicit emitter sub-specs.
+- **Implicit emission** — emitted by infrastructure layers (Capability Runtime, Sandbox Composer, AIOS-FS) without explicit mention in their sub-spec narrative. Worth audit + adding explicit cite-up.
+
+- **ROUTING_DECISION** (ID 3)
+- **ROLLBACK_COMPLETED** (ID 11)
+- **QUARANTINE_EVENT** (ID 16)
+- **CONFLICT_EVENT** (ID 17)
 
 ## Hot spots
 

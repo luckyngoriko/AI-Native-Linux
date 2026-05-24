@@ -119,6 +119,10 @@ pub enum VaultError {
     #[error("crypto error: {0}")]
     CryptoError(String),
 
+    /// Evidence emission failed after the vault operation reached its success point.
+    #[error("evidence emission failed: {0}")]
+    EvidenceEmitFailed(String),
+
     /// Internal broker failure.
     #[error("vault internal error: {0}")]
     Internal(String),

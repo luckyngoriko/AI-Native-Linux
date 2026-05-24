@@ -13,6 +13,7 @@ use ulid::Ulid;
 use crate::audit::CapabilityAuditLog;
 use crate::capability::{CapabilityId, CapabilityState};
 use crate::error::VaultError;
+use crate::evidence_emit::VaultEvidenceEmitter;
 use crate::in_memory_broker::InMemoryVaultBroker;
 
 /// Drives capability lifecycle transitions that are not direct use/revoke calls.
@@ -20,13 +21,32 @@ use crate::in_memory_broker::InMemoryVaultBroker;
 pub struct CapabilityLifecycleDriver {
     broker: Arc<InMemoryVaultBroker>,
     audit: Arc<CapabilityAuditLog>,
+    evidence_emitter: Option<Arc<VaultEvidenceEmitter>>,
 }
 
 impl CapabilityLifecycleDriver {
     /// Construct a lifecycle driver over the in-memory broker.
     #[must_use]
     pub const fn new(broker: Arc<InMemoryVaultBroker>, audit: Arc<CapabilityAuditLog>) -> Self {
-        Self { broker, audit }
+        Self {
+            broker,
+            audit,
+            evidence_emitter: None,
+        }
+    }
+
+    /// Construct a lifecycle driver with evidence emission enabled.
+    #[must_use]
+    pub const fn with_evidence_emitter(
+        broker: Arc<InMemoryVaultBroker>,
+        audit: Arc<CapabilityAuditLog>,
+        evidence_emitter: Arc<VaultEvidenceEmitter>,
+    ) -> Self {
+        Self {
+            broker,
+            audit,
+            evidence_emitter: Some(evidence_emitter),
+        }
     }
 
     /// Expire one active capability.
@@ -52,6 +72,11 @@ impl CapabilityLifecycleDriver {
         drop(store);
 
         self.audit.record_expire(capability_id);
+        if let Some(evidence_emitter) = &self.evidence_emitter {
+            evidence_emitter
+                .emit_capability_expired(capability_id, Utc::now(), None)
+                .await?;
+        }
         Ok(())
     }
 
@@ -86,6 +111,11 @@ impl CapabilityLifecycleDriver {
 
         for capability_id in &expired_capability_ids {
             self.audit.record_expire(capability_id);
+            if let Some(evidence_emitter) = &self.evidence_emitter {
+                evidence_emitter
+                    .emit_capability_expired(capability_id, now, None)
+                    .await?;
+            }
         }
 
         Ok(ExpirationPassReport {

@@ -172,6 +172,7 @@ version = "0.0.1"
 dependencies = [
  "aes-gcm",
  "aios-action",
+ "aios-evidence",
  "async-trait",
  "blake3",
  "chrono",

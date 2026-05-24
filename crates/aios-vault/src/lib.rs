@@ -17,6 +17,8 @@ pub mod broker;
 pub mod capability;
 pub mod crypto;
 pub mod error;
+pub mod evidence_emit;
+pub mod evidence_payloads;
 pub mod hydrator;
 pub mod identity;
 pub mod identity_catalog;
@@ -35,6 +37,13 @@ pub use capability::{
     CapabilityClass, CapabilityId, CapabilityState, KeyMaterialHandle, VaultCapability,
 };
 pub use error::VaultError;
+pub use evidence_emit::{
+    InMemoryVaultEvidenceLog, VaultEvidenceEmitter, VaultEvidenceLog, AIOS_VAULT_SUBJECT,
+};
+pub use evidence_payloads::{
+    CapabilityExpiredPayload, CapabilityIssuedPayload, CapabilityRevokedPayload,
+    CapabilityUsedPayload, OverrideConsumedPayload, OverrideGrantedPayload, OverrideRevokedPayload,
+};
 pub use hydrator::{HydratedSubjectSnapshot, VaultSubjectHydrator};
 pub use identity::{Session, SessionState, Subject, SubjectRef, SubjectType};
 pub use identity_catalog::IdentityCatalog;

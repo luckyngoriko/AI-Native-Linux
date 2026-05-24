@@ -20,6 +20,7 @@ use ulid::Ulid;
 use aios_action::ActionId;
 
 use crate::error::VaultError;
+use crate::evidence_emit::VaultEvidenceEmitter;
 use crate::identity::{Subject, SubjectRef, SubjectType};
 use crate::identity_catalog::IdentityCatalog;
 use crate::override_class::{OverrideBinding, OverrideBindingState, OverrideClass};
@@ -107,6 +108,7 @@ pub trait OverrideBroker: Send + Sync {
 pub struct InMemoryOverrideBroker {
     overrides: RwLock<HashMap<String, OverrideBinding>>,
     catalog: Arc<IdentityCatalog>,
+    evidence_emitter: Option<Arc<VaultEvidenceEmitter>>,
 }
 
 impl InMemoryOverrideBroker {
@@ -116,7 +118,15 @@ impl InMemoryOverrideBroker {
         Self {
             overrides: RwLock::new(HashMap::new()),
             catalog,
+            evidence_emitter: None,
         }
+    }
+
+    /// Attach an override evidence emitter.
+    #[must_use]
+    pub fn with_evidence_emitter(mut self, evidence_emitter: Arc<VaultEvidenceEmitter>) -> Self {
+        self.evidence_emitter = Some(evidence_emitter);
+        self
     }
 
     async fn lookup_granting_subjects(
@@ -166,53 +176,78 @@ impl OverrideBroker for InMemoryOverrideBroker {
             .await
             .insert(binding.binding_id.clone(), binding.clone());
 
+        if let Some(evidence_emitter) = &self.evidence_emitter {
+            evidence_emitter
+                .emit_override_granted(&binding, None)
+                .await?;
+        }
+
         Ok(binding)
     }
 
     async fn consume_override(
         &self,
         binding_id: &str,
-        _consumer: &SubjectRef,
+        consumer: &SubjectRef,
     ) -> Result<OverrideBinding, VaultError> {
-        let mut overrides = self.overrides.write().await;
-        let binding = overrides
-            .get_mut(binding_id)
-            .ok_or_else(|| VaultError::OverrideBindingNotFound(binding_id.to_owned()))?;
+        let consumed_binding = {
+            let mut overrides = self.overrides.write().await;
+            let binding = overrides
+                .get_mut(binding_id)
+                .ok_or_else(|| VaultError::OverrideBindingNotFound(binding_id.to_owned()))?;
 
-        match binding.state {
-            OverrideBindingState::Granted => {}
-            OverrideBindingState::Consumed => {
-                return Err(VaultError::OverrideAlreadyConsumed);
+            match binding.state {
+                OverrideBindingState::Granted => {}
+                OverrideBindingState::Consumed => {
+                    return Err(VaultError::OverrideAlreadyConsumed);
+                }
+                OverrideBindingState::Expired => {
+                    return Err(VaultError::OverrideExpired(binding_id.to_owned()));
+                }
+                OverrideBindingState::Revoked => {
+                    return Err(VaultError::Internal(format!(
+                        "override binding revoked: {binding_id}"
+                    )));
+                }
             }
-            OverrideBindingState::Expired => {
+
+            if binding.expires_at <= Utc::now() {
+                binding.state = OverrideBindingState::Expired;
                 return Err(VaultError::OverrideExpired(binding_id.to_owned()));
             }
-            OverrideBindingState::Revoked => {
-                return Err(VaultError::Internal(format!(
-                    "override binding revoked: {binding_id}"
-                )));
-            }
+
+            binding.state = OverrideBindingState::Consumed;
+            binding.clone()
+        };
+
+        if let Some(evidence_emitter) = &self.evidence_emitter {
+            evidence_emitter
+                .emit_override_consumed(&consumed_binding.binding_id, consumer, None)
+                .await?;
         }
 
-        if binding.expires_at <= Utc::now() {
-            binding.state = OverrideBindingState::Expired;
-            return Err(VaultError::OverrideExpired(binding_id.to_owned()));
-        }
-
-        binding.state = OverrideBindingState::Consumed;
-        Ok(binding.clone())
+        Ok(consumed_binding)
     }
 
     async fn revoke_override(
         &self,
         binding_id: &str,
-        _revoker: &SubjectRef,
+        revoker: &SubjectRef,
     ) -> Result<(), VaultError> {
-        let mut overrides = self.overrides.write().await;
-        let binding = overrides
-            .get_mut(binding_id)
-            .ok_or_else(|| VaultError::OverrideBindingNotFound(binding_id.to_owned()))?;
-        binding.state = OverrideBindingState::Revoked;
+        {
+            let mut overrides = self.overrides.write().await;
+            let binding = overrides
+                .get_mut(binding_id)
+                .ok_or_else(|| VaultError::OverrideBindingNotFound(binding_id.to_owned()))?;
+            binding.state = OverrideBindingState::Revoked;
+        }
+
+        if let Some(evidence_emitter) = &self.evidence_emitter {
+            evidence_emitter
+                .emit_override_revoked(binding_id, revoker, None)
+                .await?;
+        }
+
         Ok(())
     }
 

@@ -31,6 +31,7 @@ use crate::capability::{
 };
 use crate::crypto;
 use crate::error::VaultError;
+use crate::evidence_emit::VaultEvidenceEmitter;
 use crate::identity::SubjectRef;
 use crate::key_material::{KeyAlgorithm, KeyMaterial};
 
@@ -40,6 +41,7 @@ pub struct InMemoryVaultBroker {
     pub(crate) capabilities: Arc<RwLock<HashMap<CapabilityId, (VaultCapability, KeyMaterial)>>>,
     derived_key_materials: Arc<RwLock<HashMap<KeyMaterialHandle, KeyMaterial>>>,
     audit_log: Option<Arc<CapabilityAuditLog>>,
+    evidence_emitter: Option<Arc<VaultEvidenceEmitter>>,
 }
 
 impl InMemoryVaultBroker {
@@ -53,6 +55,13 @@ impl InMemoryVaultBroker {
     #[must_use]
     pub fn with_audit_log(mut self, log: Arc<CapabilityAuditLog>) -> Self {
         self.audit_log = Some(log);
+        self
+    }
+
+    /// Attach a vault evidence emitter.
+    #[must_use]
+    pub fn with_evidence_emitter(mut self, evidence_emitter: Arc<VaultEvidenceEmitter>) -> Self {
+        self.evidence_emitter = Some(evidence_emitter);
         self
     }
 }
@@ -101,6 +110,12 @@ impl VaultBroker for InMemoryVaultBroker {
                 capability.capability_id.clone(),
                 capability.issued_to.clone(),
             );
+        }
+
+        if let Some(evidence_emitter) = &self.evidence_emitter {
+            evidence_emitter
+                .emit_capability_issued(&capability, &capability.issued_to, None)
+                .await?;
         }
 
         Ok(capability)
@@ -165,7 +180,13 @@ impl VaultBroker for InMemoryVaultBroker {
             .await?;
 
         if let Some(audit_log) = &self.audit_log {
-            audit_log.record_use(&capability_id, operation_kind);
+            audit_log.record_use(&capability_id, operation_kind.clone());
+        }
+
+        if let Some(evidence_emitter) = &self.evidence_emitter {
+            evidence_emitter
+                .emit_capability_used(&capability_id, &operation_kind, None)
+                .await?;
         }
 
         Ok(result)
@@ -206,6 +227,12 @@ impl VaultBroker for InMemoryVaultBroker {
 
         if let Some(audit_log) = &self.audit_log {
             audit_log.record_revoke(capability_id, revoked_by.clone());
+        }
+
+        if let Some(evidence_emitter) = &self.evidence_emitter {
+            evidence_emitter
+                .emit_capability_revoked(capability_id, revoked_by, "admin_request", None)
+                .await?;
         }
 
         Ok(())

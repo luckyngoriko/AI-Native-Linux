@@ -288,6 +288,12 @@
       "title": "aios-vault - gRPC VaultBroker service surface (S5.2 §10)",
       "completed_at": "2026-05-24",
       "evidence": "1105 tests workspace (+18 over T-051 baseline 1087). Added proto/aios.vault.v1alpha1.proto, build.rs tonic-build wiring, src/service/{mod,conversions,server}.rs, lib.rs service re-exports + DEFAULT_CODE_VERSION, and Cargo tonic/prost/prost-types deps. VaultBrokerService wraps Arc<InMemoryVaultBroker>, Arc<InMemoryOverrideBroker>, Arc<IdentityCatalog>, Arc<CapabilityAuditLog>, Arc<CapabilityLifecycleDriver>; delegates issue/use/list/revoke, override grant/consume/revoke/lookup/list, identity subject/session RPCs, audit lookup/list, expiration pass, and info. VaultError -> tonic::Status mapping table added. INV-018 wire assertions cover IssueCapabilityResponse and ListCapabilitiesResponse bytes. Tests: crates/aios-vault/tests/grpc_roundtrip.rs (15) + 3 service unit tests. Gates PASS: cargo check --workspace + cargo test --workspace + cargo clippy --workspace --all-targets -- -D warnings + cargo fmt --all -- --check. Scope guard: evidence emission (T-053), cross-crate reconciliation (T-054), and M6 closer (T-055) deferred. Spec note: current repository Appendix A for S5.2 still shows the older SignBlob/EncryptBlob-style surface; T-052 implements the task-required Rust-backed UseCapability/identity/override/audit/lifecycle VaultBroker surface while preserving task #26 placeholder bytes for cross-crate ActionId."
+    },
+    {
+      "id": "T-053",
+      "title": "aios-vault - evidence emission (S5.2 ↔ S3.1)",
+      "completed_at": "2026-05-24",
+      "evidence": "1126 tests workspace (+21 over T-052 baseline 1105). Added Cargo edge aios-vault -> aios-evidence, VaultEvidenceEmitter + InMemoryVaultEvidenceLog, typed evidence payloads, optional emitters on InMemoryVaultBroker/InMemoryOverrideBroker/CapabilityLifecycleDriver, and VaultError::EvidenceEmitFailed. Successful issue/use/revoke/expire and override grant/consume/revoke now emit signed, BLAKE3-chained receipts when configured; no-emitter paths preserve existing behavior. INV-015 + INV-018 tests assert no plaintext, signing input, key bytes, or internal handles in payload JSON. Tests: crates/aios-vault/tests/evidence_emission.rs (21). Gates PASS: cargo check --workspace + cargo test --workspace + cargo clippy --workspace --all-targets -- -D warnings + cargo fmt --all -- --check. Scope guard: cross-crate vault↔policy/runtime integration (T-054) and M6 closer (T-055) deferred. Spec note: current S3.1 Rust RecordType vocabulary has VAULT_OPERATION, not CAPABILITY_USED or VAULT_CAPABILITY_EXPIRED; use and expiration payloads are emitted as VAULT_OPERATION."
     }
   ],
   "blocked": [],
@@ -419,9 +425,10 @@
         "T-049",
         "T-050",
         "T-051",
-        "T-052"
+        "T-052",
+        "T-053"
       ],
-      "current_test_count": 1105,
+      "current_test_count": 1126,
       "crate_version_target": "aios-vault/0.1.0",
       "rationale": "Secrets-as-capabilities (INV-018). Unblocks signed bundle/manifest infra + external model calls."
     },

@@ -97,6 +97,7 @@ pub fn vault_error_to_status(err: &VaultError) -> Status {
         | VaultError::SessionAlreadyActive(_)
         | VaultError::GroupMembershipUnchanged => Status::already_exists(err.to_string()),
         VaultError::CryptoError(_)
+        | VaultError::EvidenceEmitFailed(_)
         | VaultError::OperationUnsupportedInT047(_)
         | VaultError::OperationUnsupportedInT049(_)
         | VaultError::Internal(_) => Status::internal(err.to_string()),

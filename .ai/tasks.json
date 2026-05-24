@@ -258,6 +258,12 @@
       "title": "aios-vault - VaultBroker trait + InMemory impl + INV-018 use-without-reveal",
       "completed_at": "2026-05-24",
       "evidence": "1024 tests workspace (+16 over T-046 baseline 1008). Added VaultBroker async trait, issue/use/list/revoke DTOs, closed VaultOperation and UseCapabilityResult enums, InMemoryVaultBroker with private (VaultCapability, KeyMaterial) storage, operation/class mismatch enforcement, deterministic T-047 operation placeholders, SecretGet unsupported-before-reveal guard, and INV-018 serde/Debug/list/result leak checks. VaultError gained OperationClassMismatch and OperationUnsupportedInT047. Gates PASS: cargo check --workspace + cargo test --workspace + cargo clippy --workspace --all-targets -- -D warnings + cargo fmt --all -- --check. Scope guard: no real crypto, no gRPC, no evidence emission, no identity catalog, no override broker."
+    },
+    {
+      "id": "T-048",
+      "title": "aios-vault - IdentityCatalog + VaultSubjectHydrator (S5.1)",
+      "completed_at": "2026-05-24",
+      "evidence": "1041 tests workspace (+17 over T-047 baseline 1024). Added IdentityCatalog with subject registration/lookup, session start/lookup/suspend/revoke, expiry transition, active-session duplicate guard, group membership add/remove, and with_fixtures() for family:alice, agent:dev, app:browser, _system:kwin, operator:root. Added VaultSubjectHydrator + HydratedSubjectSnapshot mirror for T-054 aios-policy reconciliation; hydrate_by_session and hydrate_by_canonical_id populate subject_type, groups, empty capabilities, session_class, recovery_mode, and is_ai. VaultError gained SubjectAlreadyRegistered, SessionAlreadyActive, and GroupMembershipUnchanged only. Tests: crates/aios-vault/tests/identity_catalog.rs (17). Gates PASS: cargo check --workspace + cargo test --workspace + cargo clippy --workspace --all-targets -- -D warnings + cargo fmt --all -- --check. Scope guard: no real crypto, no override broker, no lifecycle driver, no gRPC, no evidence emission, no aios-policy dependency."
     }
   ],
   "blocked": [],
@@ -384,9 +390,10 @@
       "target_crate": "aios-vault",
       "tasks": [
         "T-046",
-        "T-047"
+        "T-047",
+        "T-048"
       ],
-      "current_test_count": 1024,
+      "current_test_count": 1041,
       "crate_version_target": "aios-vault/0.1.0",
       "rationale": "Secrets-as-capabilities (INV-018). Unblocks signed bundle/manifest infra + external model calls."
     },

@@ -24,9 +24,21 @@ pub enum VaultError {
     #[error("subject not found: {0}")]
     SubjectNotFound(String),
 
+    /// Subject id is already present in the identity catalog.
+    #[error("subject already registered: {0}")]
+    SubjectAlreadyRegistered(String),
+
     /// Session is expired.
     #[error("session expired: {0}")]
     SessionExpired(String),
+
+    /// Subject already has an active session.
+    #[error("session already active: {0}")]
+    SessionAlreadyActive(String),
+
+    /// Requested group membership mutation would not change stored state.
+    #[error("group membership unchanged")]
+    GroupMembershipUnchanged,
 
     /// Override binding id was not present in the override catalog.
     #[error("override binding not found: {0}")]

@@ -14,7 +14,9 @@
 pub mod broker;
 pub mod capability;
 pub mod error;
+pub mod hydrator;
 pub mod identity;
+pub mod identity_catalog;
 pub mod in_memory_broker;
 pub mod key_material;
 pub mod override_class;
@@ -26,7 +28,9 @@ pub use capability::{
     CapabilityClass, CapabilityId, CapabilityState, KeyMaterialHandle, VaultCapability,
 };
 pub use error::VaultError;
+pub use hydrator::{HydratedSubjectSnapshot, VaultSubjectHydrator};
 pub use identity::{Session, SessionState, Subject, SubjectRef, SubjectType};
+pub use identity_catalog::IdentityCatalog;
 pub use in_memory_broker::InMemoryVaultBroker;
 pub use key_material::{KeyAlgorithm, KeyMaterial};
 pub use override_class::{OverrideBinding, OverrideBindingState, OverrideClass};

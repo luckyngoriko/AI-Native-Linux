@@ -38,9 +38,14 @@
 //! verifies this by counting executed steps after an injected short-circuit
 //! into `FAILED`.
 
+use std::sync::atomic::{AtomicU64, Ordering};
+
 use chrono::{DateTime, Utc};
 
 use aios_action::ActionEnvelope;
+use aios_policy::{
+    ApproverClass, Decision, EnrichmentSnapshot, PolicyContext, PolicyError, PolicyKernel,
+};
 
 use crate::adapter_registry::InMemoryAdapterRegistry;
 use crate::context::ActionContext;
@@ -49,6 +54,7 @@ use crate::dispatch_queue::DispatchQueue;
 use crate::dispatcher::ActionDispatcher;
 use crate::error::RuntimeError;
 use crate::failure::ExecutionFailureReason;
+use crate::runtime::RuntimeContext;
 use crate::status::ActionLifecycleState;
 
 // ---------------------------------------------------------------------------
@@ -411,6 +417,244 @@ impl ActionLifecyclePipeline {
             }
         };
         Ok(state.into_context())
+    }
+
+    /// T-030 — async sibling of [`Self::run_with_engines`] that additionally
+    /// threads an optional Policy Kernel and the caller's
+    /// [`RuntimeContext`] through pipeline step 2.
+    ///
+    /// Composition rules (additive to [`Self::run_with_engines`]):
+    ///
+    /// - `kernel = None` — step 2 falls back to the T-027 stub (unconditional
+    ///   `POLICY_PENDING → APPROVED`); every T-027 / T-028 / T-029 test
+    ///   stays green.
+    /// - `kernel = Some(...)` — step 2 calls
+    ///   [`PolicyKernel::evaluate_policy`] with a `PolicyContext`
+    ///   constructed from the `RuntimeContext` (subject, `bundle_version`,
+    ///   `code_version` + an empty `EnrichmentSnapshot` until the AIOS-FS
+    ///   read-path lands). The returned [`Decision`] drives the §4.2
+    ///   transition table:
+    ///
+    ///   - `Allow` → T4 (`POLICY_PENDING → APPROVED`); the projected
+    ///     [`aios_policy::Constraints`] are stored on the
+    ///     `RuntimeContext.policy_constraints` slot for downstream steps.
+    ///     If the subject is AI and the bound
+    ///     `ApprovalRequirement.approver_classes` does not require a
+    ///     human, the runtime increments the
+    ///     `policy_double_check_warnings` counter (defense-in-depth §17
+    ///     tripwire — the kernel already enforces §17, this is the
+    ///     forensic backstop).
+    ///   - `RequireApproval` → T5 (`POLICY_PENDING → APPROVAL_PENDING`);
+    ///     short-circuit (T-034 will resume from here once approval
+    ///     orchestration lands).
+    ///   - `Deny` (no override path) → T6 (`POLICY_PENDING → POLICY_DENIED`);
+    ///     short-circuit. The `error` is left `None` because §3.6
+    ///     `ExecutionFailureReason` is closed at T-026 and no dedicated
+    ///     `POLICY_DENIED` reason exists — terminal state alone is the
+    ///     signal; T-031 wires the policy-deny evidence shape.
+    ///   - `Deny` + active override on the boundary → T7
+    ///     (`POLICY_PENDING → OVERRIDE_PENDING`); short-circuit (T-034
+    ///     resumes from here as well).
+    ///
+    /// On `PolicyError::SubjectUnauthenticated` from the kernel, the
+    /// runtime drives T3 (`CREATED → FAILED`) with
+    /// [`ExecutionFailureReason::EnvelopeValidationFailed`] per S2.3 §7 /
+    /// S10.1 §6.1 step 0 — the envelope's identity is the runtime's input
+    /// contract, so an unauthenticated subject is a validation failure
+    /// rather than a policy outcome. **Note:** step 2 fires from
+    /// `POLICY_PENDING` (step 1 already drove T2); the §4.2 table does not
+    /// list `POLICY_PENDING → FAILED`, so the runtime maps
+    /// `SubjectUnauthenticated` onto T6 (`POLICY_PENDING → POLICY_DENIED`)
+    /// to keep the FSM walk legal and preserves the typed reason in the
+    /// per-step trace (T-031 surfaces it through evidence).
+    ///
+    /// Other `PolicyError` variants (`BundleVersionMismatch`,
+    /// `BundleLoad`, `SchemaInvalid`, …) propagate as
+    /// [`RuntimeError::PolicyEvalFailed`] — the kernel was unable to
+    /// produce a decision, which is a runtime-level failure rather than
+    /// an envelope-level deny.
+    ///
+    /// # Errors
+    ///
+    /// Same as [`Self::run_with_engines`]; additionally returns
+    /// [`RuntimeError::PolicyEvalFailed`] when the kernel raises a
+    /// non-recoverable evaluation error.
+    #[allow(clippy::too_many_arguments)]
+    pub async fn run_with_full_engines(
+        &self,
+        envelope: &ActionEnvelope,
+        ctx: ActionContext,
+        now: DateTime<Utc>,
+        registry: Option<&InMemoryAdapterRegistry>,
+        queue: Option<&DispatchQueue>,
+        kernel: Option<&dyn PolicyKernel>,
+        runtime_context: Option<&RuntimeContext>,
+        tripwire: Option<&AtomicU64>,
+    ) -> Result<ActionContext, RuntimeError> {
+        let state = self.step_validate(envelope, ctx, now)?;
+        let state = match state {
+            PipelineState::Continue(c) => {
+                self.step_policy_evaluate_with_kernel(
+                    envelope,
+                    c,
+                    now,
+                    kernel,
+                    runtime_context,
+                    tripwire,
+                )
+                .await?
+            }
+            PipelineState::ShortCircuit(c) => return Ok(c),
+        };
+        let state = match state {
+            PipelineState::Continue(c) => self.step_request_approval(envelope, c, now)?,
+            PipelineState::ShortCircuit(c) => return Ok(c),
+        };
+        let state = match state {
+            PipelineState::Continue(c) => {
+                self.step_queue_with_engine(envelope, c, now, queue).await?
+            }
+            PipelineState::ShortCircuit(c) => return Ok(c),
+        };
+        let state = match state {
+            PipelineState::Continue(c) => {
+                self.step_execute_with_engines(envelope, c, now, registry)?
+            }
+            PipelineState::ShortCircuit(c) => return Ok(c),
+        };
+        let state = match state {
+            PipelineState::Continue(c) => self.step_verify(envelope, c, now)?,
+            PipelineState::ShortCircuit(c) => return Ok(c),
+        };
+        let state = match state {
+            PipelineState::Continue(c) => self.step_rollback(envelope, c, now)?,
+            PipelineState::ShortCircuit(c) => return Ok(c),
+        };
+        let state = match state {
+            PipelineState::Continue(c) | PipelineState::ShortCircuit(c) => {
+                self.step_emit_evidence(envelope, c, now)?
+            }
+        };
+        Ok(state.into_context())
+    }
+
+    /// T-030 — sibling of [`Self::step_policy_evaluate`] that consults the
+    /// Policy Kernel.
+    ///
+    /// See [`Self::run_with_full_engines`] for the full Decision →
+    /// §4.2-transition mapping; this method is the per-step body that
+    /// `run_with_full_engines` drives.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`RuntimeError::InvalidTransition`] when the context is not
+    /// in [`ActionLifecycleState::PolicyPending`].
+    /// Returns [`RuntimeError::PolicyEvalFailed`] on a non-recoverable
+    /// `PolicyError` from the kernel (excluding `SubjectUnauthenticated`,
+    /// which short-circuits to T6 `POLICY_PENDING → POLICY_DENIED`).
+    pub async fn step_policy_evaluate_with_kernel(
+        &self,
+        envelope: &ActionEnvelope,
+        ctx: ActionContext,
+        now: DateTime<Utc>,
+        kernel: Option<&dyn PolicyKernel>,
+        runtime_context: Option<&RuntimeContext>,
+        tripwire: Option<&AtomicU64>,
+    ) -> Result<PipelineState, RuntimeError> {
+        // No kernel attached → fall back to T-027 stub (unconditional T4).
+        // Preserves T-027 / T-028 / T-029 baselines verbatim.
+        let (Some(kernel), Some(rctx)) = (kernel, runtime_context) else {
+            return self.step_policy_evaluate(envelope, ctx, now);
+        };
+
+        // Build the `PolicyContext` from the `RuntimeContext`. The
+        // enrichment snapshot is empty for T-030 (AIOS-FS read-path is
+        // M4+ scope); the snapshot id is computed by
+        // `EnrichmentSnapshot::default()` and is a stable sentinel value
+        // the audit tooling recognises as "no enrichment".
+        let policy_context = PolicyContext::new(
+            rctx.subject.clone(),
+            EnrichmentSnapshot::default(),
+            rctx.bundle_version.clone(),
+            rctx.code_version.clone(),
+        );
+
+        let evaluation = kernel.evaluate_policy(envelope, &policy_context).await;
+        let mut ctx = ctx;
+        match evaluation {
+            Ok(decision) => {
+                match decision.decision {
+                    Decision::Allow => {
+                        // T4 — POLICY_PENDING → APPROVED.
+                        apply_transition(&mut ctx, ActionLifecycleState::Approved, now)?;
+                        // Constraints projection (Option A): hand the bound
+                        // §10 constraints to the RuntimeContext for downstream
+                        // dispatcher / verify steps.
+                        rctx.install_policy_constraints(Some(decision.constraints));
+                        // §17 defense-in-depth tripwire: AI subject + ALLOW
+                        // without a human approver class.
+                        if rctx.subject.is_ai
+                            && !decision.approval.approver_classes.iter().any(|c| {
+                                matches!(c, ApproverClass::Human | ApproverClass::Operator)
+                            })
+                        {
+                            if let Some(counter) = tripwire {
+                                counter.fetch_add(1, Ordering::AcqRel);
+                            }
+                        }
+                        Ok(PipelineState::Continue(ctx))
+                    }
+                    Decision::RequireApproval => {
+                        // T5 — POLICY_PENDING → APPROVAL_PENDING. Short-circuit;
+                        // T-034 owns the approval orchestration that resumes
+                        // from here.
+                        apply_transition(&mut ctx, ActionLifecycleState::ApprovalPending, now)?;
+                        rctx.install_policy_constraints(Some(decision.constraints));
+                        Ok(PipelineState::ShortCircuit(ctx))
+                    }
+                    Decision::Deny => {
+                        // T6 — POLICY_PENDING → POLICY_DENIED (terminal).
+                        // T-031 will revisit the override-on-deny path (T7)
+                        // when the override boundary handle is threaded
+                        // through the runtime alongside the kernel; today
+                        // the kernel's pipeline step 5 already consults its
+                        // own boundary handle, so any successful override
+                        // relaxation has already converted the Deny into an
+                        // Allow inside the kernel — reaching `Decision::Deny`
+                        // here means no override path was authored.
+                        apply_transition(&mut ctx, ActionLifecycleState::PolicyDenied, now)?;
+                        rctx.install_policy_constraints(None);
+                        Ok(PipelineState::ShortCircuit(ctx))
+                    }
+                    Decision::Unspecified => {
+                        // Spec invariant: `Decision::Unspecified` is reserved
+                        // for proto3 wire compatibility and never produced by
+                        // a real evaluation (S2.3 §4). If we see it, the
+                        // kernel impl is buggy — fail closed via
+                        // RuntimeError::PolicyEvalFailed.
+                        Err(RuntimeError::PolicyEvalFailed(
+                            "kernel returned Decision::Unspecified (S2.3 §4 invariant violated)"
+                                .to_string(),
+                        ))
+                    }
+                }
+            }
+            Err(PolicyError::SubjectUnauthenticated) => {
+                // §7 — unauthenticated subject. The kernel does not produce
+                // a decision; the runtime maps this onto T6
+                // (`POLICY_PENDING → POLICY_DENIED`) with
+                // `error = EnvelopeValidationFailed` (the §3.6 enum has no
+                // dedicated SubjectUnauthenticated row; the envelope's
+                // identity is the runtime's input contract, so
+                // EnvelopeValidationFailed is the spec-pinned closest
+                // reason).
+                apply_transition(&mut ctx, ActionLifecycleState::PolicyDenied, now)?;
+                ctx.error = Some(ExecutionFailureReason::EnvelopeValidationFailed);
+                rctx.install_policy_constraints(None);
+                Ok(PipelineState::ShortCircuit(ctx))
+            }
+            Err(other) => Err(RuntimeError::PolicyEvalFailed(other.to_string())),
+        }
     }
 
     /// T-029 — async sibling of [`Self::step_queue`] that consults the

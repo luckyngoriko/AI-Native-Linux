@@ -104,4 +104,20 @@ pub enum RuntimeError {
     /// message; T-031 will replace this with the structured forensic record.
     #[error("runtime internal error: {0}")]
     Internal(String),
+
+    /// The Policy Kernel raised a non-recoverable evaluation failure
+    /// (`PolicyError::BundleVersionMismatch`, `PolicyError::BundleLoad`,
+    /// `PolicyError::SchemaInvalid`, …). T-030 surface; the pipeline maps
+    /// this onto an internal error rather than a `POLICY_DENIED` because the
+    /// kernel was unable to produce a decision at all (S10.1 §3 — "no
+    /// silent fall-through"). The gRPC adapter (T-033) maps it to
+    /// [`crate::RuntimeErrorCode::PolicyDecisionUnavailable`].
+    ///
+    /// `PolicyError::SubjectUnauthenticated` is handled separately — it is
+    /// converted into a `CREATED → FAILED` (T3) transition with
+    /// [`crate::ExecutionFailureReason::EnvelopeValidationFailed`] per
+    /// S2.3 §7 / S10.1 §6.1 step 0, because the envelope's identity is the
+    /// runtime's input contract.
+    #[error("policy evaluation failed: {0}")]
+    PolicyEvalFailed(String),
 }

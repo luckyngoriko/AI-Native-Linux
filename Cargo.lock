@@ -30,6 +30,7 @@ name = "aios-capability-runtime"
 version = "0.0.1"
 dependencies = [
  "aios-action",
+ "aios-policy",
  "async-trait",
  "base64",
  "chrono",

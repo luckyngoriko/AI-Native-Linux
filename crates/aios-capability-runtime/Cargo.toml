@@ -41,6 +41,11 @@ async-trait  = { workspace = true }
 # (§10.1 field 12) so we use `base64` only via the workspace alignment.
 ed25519-dalek = { workspace = true }
 base64        = { workspace = true }
+# T-030 — Policy Kernel integration (S10.1 ↔ S2.3). The capability runtime
+# composes an optional `Arc<dyn aios_policy::PolicyKernel>` and threads a
+# `HydratedSubject`-aware `PolicyContext` through pipeline step 2. The path
+# dep mirrors the M3 → M4 layering (L4 → L3 consumes-only edge).
+aios-policy  = { path = "../aios-policy" }
 
 [dev-dependencies]
 # T-027 — `tokio::join!` + `#[tokio::test]` in the pipeline test harness for

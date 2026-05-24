@@ -234,6 +234,12 @@
       "title": "aios-fs - gRPC AiosFs service surface (S1.3)",
       "completed_at": "2026-05-24",
       "evidence": "944 tests workspace (+14 over T-042 baseline 930). New proto/aios.fs.v1alpha1.proto with AiosFs service, core FS proto messages, Timestamp chrono fields, ActionId bytes placeholder, and ImplSpaceTarget oneof. New build.rs mirrors aios-policy T-023 tonic-build + vendored protoc wiring. New src/service/{mod,conversions,server}.rs with tonic include/re-exports, Rust<->proto conversions, FsError->tonic::Status mapping, AiosFsService over Arc<InMemoryAiosFs>, and delegation to AiosFs, QuarantineDriver::enter, GcPassDriver::run_pass, and query_eval::materialize_view. Tests: crates/aios-fs/tests/grpc_roundtrip.rs (12 integration) + 2 service unit tests. Gates PASS: cargo check --workspace + cargo test --workspace + cargo clippy --workspace --all-targets -- -D warnings + cargo fmt --all -- --check. Scope guard: evidence emission (T-044) and M5 closer (T-045) deferred; core model/runtime files untouched."
+    },
+    {
+      "id": "T-044",
+      "title": "aios-fs - evidence emission (S1.3 <-> S3.1)",
+      "completed_at": "2026-05-24",
+      "evidence": "960 tests workspace (+16 over T-043 baseline 944). Added aios-fs -> aios-evidence path dependency plus ed25519-dalek for receipt signing. New evidence_emit.rs mirrors the aios-capability-runtime T-031 pattern with FsEvidenceLog, InMemoryFsEvidenceLog, FsEvidenceEmitter, ACTION_RECEIVED / QUARANTINE_EVENT / CONFLICT_EVENT / GC_PASS helpers, BLAKE3 chain linkage through ReceiptChain, and Ed25519 signing. New evidence_payloads.rs typed JSON payloads for ActionReceivedPayload, QuarantineEventPayload, ConflictEventPayload, ConflictResolutionKind, and GcPassPayload. Wired optional Arc<FsEvidenceEmitter> into InMemoryAiosFs::write_object, QuarantineDriver enter/exit, and GcPassDriver run_pass; added record_conflict_event helper. FsError gained EvidenceEmitFailed(String); gRPC status conversion maps it to INTERNAL only to keep exhaustive matching compiling. Tests: crates/aios-fs/tests/evidence_emission.rs (16). Gates PASS: cargo check --workspace + cargo test --workspace + cargo clippy --workspace --all-targets -- -D warnings + cargo fmt --all -- --check. Scope guard: no M5 closer/version bump/golden path fixtures."
     }
   ],
   "blocked": [],
@@ -338,9 +344,10 @@
         "T-040",
         "T-041",
         "T-042",
-        "T-043"
+        "T-043",
+        "T-044"
       ],
-      "current_test_count": 944,
+      "current_test_count": 960,
       "rationale": "Closes \u00a722 phase-2 (mount /aios + versioned object + semantic view). Unblocks M4 enrichment stub."
     },
     "M6": {

@@ -16,6 +16,7 @@ use aios_action::{blake3_hash, jcs_canonicalize};
 
 use crate::chunk::{Chunk, ChunkId, ChunkRef};
 use crate::error::FsError;
+use crate::evidence_emit::FsEvidenceEmitter;
 use crate::fs_trait::{
     AiosFs, FsContext, ObjectReadResult, ObjectWriteRequest, ObjectWriteResult, SnapshotSummary,
 };
@@ -40,6 +41,7 @@ use crate::version::{Version, VersionId, VersionState};
 #[derive(Debug, Clone)]
 pub struct InMemoryAiosFs {
     state: Arc<RwLock<State>>,
+    evidence_emitter: Option<Arc<FsEvidenceEmitter>>,
 }
 
 impl Default for InMemoryAiosFs {
@@ -57,7 +59,16 @@ impl InMemoryAiosFs {
 
         Self {
             state: Arc::new(RwLock::new(state)),
+            evidence_emitter: None,
         }
+    }
+
+    /// Construct an empty in-memory filesystem with evidence emission enabled.
+    #[must_use]
+    pub fn with_evidence_emitter(evidence_emitter: Arc<FsEvidenceEmitter>) -> Self {
+        let mut fs = Self::new();
+        fs.evidence_emitter = Some(evidence_emitter);
+        fs
     }
 
     /// Capture the current state as the head snapshot.
@@ -258,7 +269,12 @@ impl AiosFs for InMemoryAiosFs {
         write: ObjectWriteRequest,
         context: &FsContext,
     ) -> Result<ObjectWriteResult, FsError> {
-        {
+        let mut evidence_write = write.clone();
+        if evidence_write.action_id.is_none() {
+            evidence_write.action_id.clone_from(&context.action_id);
+        }
+
+        let result = {
             let mut store = self.write_state();
             let current_snapshot_id = store.head_snapshot_id();
             ensure_snapshot_current(context.expected_snapshot_id.as_ref(), &current_snapshot_id)?;
@@ -350,7 +366,15 @@ impl AiosFs for InMemoryAiosFs {
                 transaction_id,
                 snapshot_id_after,
             })
+        }?;
+
+        if let Some(emitter) = &self.evidence_emitter {
+            emitter
+                .emit_action_received(&evidence_write, &result, &result.transaction_id)
+                .await?;
         }
+
+        Ok(result)
     }
 
     async fn list_versions(&self, object_id: &ObjectId) -> Result<Vec<Version>, FsError> {

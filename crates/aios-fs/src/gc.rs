@@ -5,11 +5,14 @@
     reason = "AIOS-FS public names mirror the spec vocabulary"
 )]
 
+use std::sync::Arc;
+
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
 use crate::chunk::ChunkId;
 use crate::error::FsError;
+use crate::evidence_emit::FsEvidenceEmitter;
 use crate::fs_trait::AiosFs;
 use crate::id::fresh_prefixed_ulid;
 use crate::quarantine::MutableAiosFs;
@@ -19,14 +22,26 @@ const DEFAULT_MAX_CHUNKS_PER_PASS: usize = 1024;
 const DEFAULT_MAX_VERSIONS_PER_PASS: usize = 1024;
 
 /// Driver configuration for one bounded GC pass.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case", deny_unknown_fields)]
 pub struct GcPassDriver {
     /// Maximum zero-ref chunks to inspect and reclaim in one pass.
     pub max_chunks_per_pass: usize,
     /// Maximum retired versions to inspect and purge in one pass.
     pub max_versions_per_pass: usize,
+    /// Optional evidence emitter for successful GC passes.
+    #[serde(skip)]
+    pub evidence_emitter: Option<Arc<FsEvidenceEmitter>>,
 }
+
+impl PartialEq for GcPassDriver {
+    fn eq(&self, other: &Self) -> bool {
+        self.max_chunks_per_pass == other.max_chunks_per_pass
+            && self.max_versions_per_pass == other.max_versions_per_pass
+    }
+}
+
+impl Eq for GcPassDriver {}
 
 impl GcPassDriver {
     /// Construct a driver with explicit per-pass bounds.
@@ -35,6 +50,21 @@ impl GcPassDriver {
         Self {
             max_chunks_per_pass,
             max_versions_per_pass,
+            evidence_emitter: None,
+        }
+    }
+
+    /// Construct a driver with explicit per-pass bounds and evidence emission enabled.
+    #[must_use]
+    pub const fn with_evidence_emitter(
+        max_chunks_per_pass: usize,
+        max_versions_per_pass: usize,
+        evidence_emitter: Arc<FsEvidenceEmitter>,
+    ) -> Self {
+        Self {
+            max_chunks_per_pass,
+            max_versions_per_pass,
+            evidence_emitter: Some(evidence_emitter),
         }
     }
 
@@ -96,7 +126,7 @@ impl GcPassDriver {
             }
         }
 
-        Ok(GcPassReport {
+        let report = GcPassReport {
             pass_id,
             started_at,
             completed_at: Utc::now(),
@@ -105,7 +135,13 @@ impl GcPassDriver {
             versions_inspected,
             versions_purged,
             reasons,
-        })
+        };
+
+        if let Some(emitter) = &self.evidence_emitter {
+            emitter.emit_gc_pass(&report).await?;
+        }
+
+        Ok(report)
     }
 }
 

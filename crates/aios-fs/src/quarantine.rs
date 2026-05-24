@@ -5,12 +5,15 @@
     reason = "AIOS-FS public names mirror the spec vocabulary"
 )]
 
+use std::sync::Arc;
+
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use strum_macros::{EnumCount, EnumIter};
 
 use crate::chunk::ChunkId;
 use crate::error::FsError;
+use crate::evidence_emit::FsEvidenceEmitter;
 use crate::fs_trait::AiosFs;
 use crate::gc::VersionPurgeReason;
 use crate::id::fresh_prefixed_ulid;
@@ -145,6 +148,7 @@ pub trait MutableAiosFs: AiosFs {
 #[derive(Debug, Clone)]
 pub struct QuarantineDriver<F> {
     fs: F,
+    evidence_emitter: Option<Arc<FsEvidenceEmitter>>,
 }
 
 impl<F> QuarantineDriver<F>
@@ -154,7 +158,19 @@ where
     /// Construct a driver bound to a mutable filesystem handle.
     #[must_use]
     pub const fn new(fs: F) -> Self {
-        Self { fs }
+        Self {
+            fs,
+            evidence_emitter: None,
+        }
+    }
+
+    /// Construct a driver bound to a mutable filesystem handle and evidence emitter.
+    #[must_use]
+    pub const fn with_evidence_emitter(fs: F, evidence_emitter: Arc<FsEvidenceEmitter>) -> Self {
+        Self {
+            fs,
+            evidence_emitter: Some(evidence_emitter),
+        }
     }
 
     /// Enter quarantine and apply the §12.2 pointer move rule.
@@ -177,7 +193,13 @@ where
     where
         M: MutableAiosFs + ?Sized,
     {
-        fs.apply_quarantine_entry(version_id, trigger, reason)
+        let receipt = fs.apply_quarantine_entry(version_id, trigger, reason)?;
+        if let Some(emitter) = &self.evidence_emitter {
+            emitter
+                .emit_quarantine_enter(version_id, trigger, reason, &receipt)
+                .await?;
+        }
+        Ok(receipt)
     }
 
     /// Exit quarantine with the supplied operator disposition.
@@ -196,8 +218,15 @@ where
         disposition: QuarantineDisposition,
         operator: &SubjectRef,
     ) -> Result<QuarantineReceipt, FsError> {
-        self.fs
-            .apply_quarantine_exit(version_id, disposition, operator)
+        let receipt = self
+            .fs
+            .apply_quarantine_exit(version_id, disposition, operator)?;
+        if let Some(emitter) = &self.evidence_emitter {
+            emitter
+                .emit_quarantine_exit(version_id, disposition, &receipt)
+                .await?;
+        }
+        Ok(receipt)
     }
 }
 

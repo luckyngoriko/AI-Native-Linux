@@ -163,7 +163,7 @@ pub fn fs_error_to_status(err: &FsError) -> Status {
         FsError::SnapshotStale { .. } => Status::aborted(err.to_string()),
         FsError::ImplSpaceIntegrityFailed(_) => Status::data_loss(err.to_string()),
         FsError::ImplSpaceTargetUnreachable(_) => Status::unavailable(err.to_string()),
-        FsError::Internal(_) => Status::internal(err.to_string()),
+        FsError::EvidenceEmitFailed(_) | FsError::Internal(_) => Status::internal(err.to_string()),
     }
 }
 

@@ -27,6 +27,8 @@
 
 pub mod chunk;
 pub mod error;
+pub mod evidence_emit;
+pub mod evidence_payloads;
 pub mod fs_trait;
 pub mod gc;
 mod id;
@@ -48,6 +50,13 @@ pub mod version;
 
 pub use chunk::{Chunk, ChunkId, ChunkRef};
 pub use error::FsError;
+pub use evidence_emit::{
+    record_conflict_event, FsEvidenceEmitter, FsEvidenceLog, InMemoryFsEvidenceLog, AIOS_FS_SUBJECT,
+};
+pub use evidence_payloads::{
+    ActionReceivedPayload, ConflictEventPayload, ConflictResolutionKind, GcPassPayload,
+    QuarantineEventPayload,
+};
 pub use fs_trait::{
     AiosFs, FsContext, ObjectReadResult, ObjectWriteRequest, ObjectWriteResult, SnapshotSummary,
 };

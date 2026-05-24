@@ -111,6 +111,10 @@ pub enum FsError {
     #[error("implementation-space integrity failed: {0}")]
     ImplSpaceIntegrityFailed(String),
 
+    /// Evidence receipt emission failed after an FS transition.
+    #[error("evidence emission failed: {0}")]
+    EvidenceEmitFailed(String),
+
     /// Unexpected internal fault.
     #[error("aios-fs internal error: {0}")]
     Internal(String),

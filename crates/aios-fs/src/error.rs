@@ -2,8 +2,10 @@
 
 use thiserror::Error;
 
+use crate::chunk::ChunkId;
 use crate::object::ObjectId;
 use crate::pointer::PointerId;
+use crate::snapshot_id::SnapshotId;
 use crate::version::{VersionId, VersionState};
 
 /// Typed AIOS-FS error surface for future reader/writer operations.
@@ -20,6 +22,23 @@ pub enum FsError {
     /// Pointer id was not present in the pointer catalog.
     #[error("pointer not found: {0}")]
     PointerNotFound(PointerId),
+
+    /// Caller supplied a stale snapshot id.
+    #[error("snapshot stale: expected {expected}, found {found}")]
+    SnapshotStale {
+        /// Current head snapshot id.
+        expected: SnapshotId,
+        /// Snapshot id supplied by the caller.
+        found: SnapshotId,
+    },
+
+    /// Existing object writes must name at least one parent version.
+    #[error("existing object write requires parent_version_ids")]
+    WriteRequiresParent,
+
+    /// Version references a chunk unknown to the chunk catalog.
+    #[error("chunk unknown: {0}")]
+    ChunkUnknown(ChunkId),
 
     /// Path failed namespace validation.
     #[error("invalid AIOS path: {0}")]

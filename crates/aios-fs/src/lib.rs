@@ -16,25 +16,34 @@
 //!   vocabulary.
 //! - [`FsError`] taxonomy for the future reader/writer and transaction driver
 //!   tasks.
+//! - [`AiosFs`] async trait, [`SnapshotId`], and the [`InMemoryAiosFs`] harness
+//!   for SNAPSHOT-consistent reads and quarantine read denial.
 //!
-//! Trait surface, persistence, RPC/proto codegen, transaction execution,
-//! quarantine operations, garbage collection, and POSIX/FUSE projection are
-//! explicitly out of scope for T-036 and queued for T-037..T-045.
+//! Persistence, RPC/proto codegen, transaction execution, quarantine operations,
+//! garbage collection, and POSIX/FUSE projection are explicitly out of scope for
+//! T-036/T-037 and queued for T-038..T-045.
 
 #![forbid(unsafe_code)]
 
 pub mod chunk;
 pub mod error;
+pub mod fs_trait;
 mod id;
+pub mod in_memory;
 pub mod lifecycle;
 pub mod namespace;
 pub mod object;
 pub mod pointer;
+pub mod snapshot_id;
 pub mod transaction;
 pub mod version;
 
 pub use chunk::{Chunk, ChunkId, ChunkRef};
 pub use error::FsError;
+pub use fs_trait::{
+    AiosFs, FsContext, ObjectReadResult, ObjectWriteRequest, ObjectWriteResult, SnapshotSummary,
+};
+pub use in_memory::InMemoryAiosFs;
 pub use lifecycle::LifecycleState;
 pub use namespace::{AiosPath, NamespaceClass};
 pub use object::{
@@ -42,6 +51,7 @@ pub use object::{
     ScopeKind, SubjectRef,
 };
 pub use pointer::{Pointer, PointerId, PointerKind};
+pub use snapshot_id::SnapshotId;
 pub use transaction::{
     ConsistencyClass, PointerMoveOp, Transaction, TransactionId, TransactionState, WriteOp,
 };

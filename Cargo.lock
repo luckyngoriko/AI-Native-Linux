@@ -84,6 +84,7 @@ name = "aios-fs"
 version = "0.0.1"
 dependencies = [
  "aios-action",
+ "async-trait",
  "blake3",
  "chrono",
  "serde",
@@ -91,6 +92,7 @@ dependencies = [
  "strum",
  "strum_macros",
  "thiserror",
+ "tokio",
  "ulid",
 ]
 

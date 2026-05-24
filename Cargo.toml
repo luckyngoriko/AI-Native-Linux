@@ -3,10 +3,10 @@ resolver = "2"
 members = [
     "crates/aios-action",
     "crates/aios-evidence",
+    "crates/aios-policy",
 ]
 
 # Crates added later (per §22 MVP golden path order):
-# - crates/aios-policy      (S2.3 policy kernel client)
 # - crates/aios-capability-runtime  (S10.1 typed action dispatch)
 # - crates/aios-fs          (S1.3 AIOS-FS object model)
 # - crates/aios-session     (S6.5 session container manager — Podman adapter)

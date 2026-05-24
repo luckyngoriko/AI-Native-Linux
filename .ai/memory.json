@@ -1,8 +1,8 @@
 {
   "project_goal": "AIOS — AI-native Linux distribution. Implement the spec contracts from rev.2 (53 sub-specs CONTRACT-grade) into working Rust + Python + KDE code, following §22 MVP golden path discipline.",
-  "current_milestone": "M2 — Evidence Log skeleton (S3.1 aios-evidence crate) — CLOSED",
-  "current_task_id": "T-015",
-  "current_task_title": "T-015 closed — retention-class compaction worker (S3.1 §11.5 / §12 / §13). M2 closed honestly.",
+  "current_milestone": "M3 — Policy Kernel skeleton (S2.3 aios-policy crate) — OPEN",
+  "current_task_id": "T-016",
+  "current_task_title": "T-016 closed — aios-policy crate skeleton (S2.3 §3-§10 core types).",
   "current_step": "T-015 closed. M2 (T-007 .. T-015) closed honestly per 'no debt across milestones' discipline. Compaction worker per S3.1 §11.5 / §12 / §13 landed. New crates/aios-evidence/src/compaction.rs (~600 LoC, 19 unit tests). Closed CompactionPolicy (Auto / OperatorApproval default per §11.5 / Disabled — serde wire tokens lowercase exact). CompactionWorker with sync tick(&mut self, backend, now) primitive; approve_segment(&SegmentId) for out-of-band operator authorisation; production wraps in tokio::time::interval task (documented in module header; not shipped). CompactionReport with eligible/compacted/awaiting/receipts_removed/index_entries_pruned counts (Serialize for §20 telemetry). CompactionBackend trait (list_sealed_segments + compact_segment + emit_approval_required) implemented for both backends. InMemoryEvidenceLog: new sealed_segments std::sync::Mutex<SealedStore>; new seal_current_segment(retention_class) method; warm_receipt_count/warm_index_count zero on compact (tombstone preserved §12); emit_approval_required appends through normal signed+chained pipeline via tokio blocking_write. RocksDbEvidenceLog: list scans chain_index→segments CFs (sync DB read); compact_segment one atomic WriteBatch (delete receipts CF rows + record_type_index CF rows; set compacted_at::<seg_id> sentinel in metadata CF — segment row in segments CF untouched so recover_sealed_chain on reopen continues to verify); emit_approval_required uses blocking_write on open-segment state; helper rocksdb_segment_compacted_at(db, seg_id) introspects sentinel. list_sealed_segments in BOTH backends filters out already-compacted segments so the worker does not re-emit approval-required every tick (operator UX + chain noise). RecordType +1 constitutional addition: CompactionApprovalRequired (wire ID 1000 — first entry in reserved Wave 14+ range; retention FOREVER per §11.5). Proto IDL: COMPACTION_APPROVAL_REQUIRED = 1000; reserved 1001 to 9999. Total RecordType variants = 428 (Wave 13 dense 1..=427 + Wave 14+ reserved 1 = 428). 6+ invariant tests updated to split Wave 13 (dense) from Wave 14+ (reserved). New encoding helper metadata_compacted_at_key returning the metadata-CF key; compaction state OUT of segments CF on purpose (preserves §11.4 cryptographic recovery byte-layout). Privacy ceiling: CompactionApprovalRequired added to is_constitutionally_public_record_type — operators always see compaction governance events. lib.rs re-exports: CompactionPolicy, CompactionWorker, CompactionReport, CompactionBackend, COMPACTION_WORKER_SUBJECT, is_compaction_eligible_for. Tests: 19 in compaction.rs + 6 in impl_inmemory.rs + 5 in rocksdb_backend.rs + 3 in tests/compaction_lifecycle.rs = +33 net (some prior tests adjusted for new field). Workspace 330 → 364 (+34). aios-evidence Cargo.toml version 0.0.1 → 0.1.0 (M2 closure marker). All gates: cargo build --workspace + cargo test --workspace (364 PASS) + cargo clippy --workspace --all-targets -- -D warnings (PASS) + cargo fmt --all -- --check (PASS).",
   "completed_steps_M1": ["T-001 .. T-006 — M1 closed at 102 tests"],
   "completed_steps_M2": [
@@ -38,5 +38,26 @@
   ],
   "last_verification_result": "PASS",
   "last_errors": [],
-  "notes": "M2 closed honestly with T-015. 9 tasks T-007..T-015 complete. Workspace 364 tests. aios-evidence at 0.1.0. M3 candidate: capability runtime (S10.1) — first end-to-end consumer of aios-action + aios-evidence through the Capability Runtime gRPC surface per S3.1 §13 lifecycle."
+  "current_step_T016": "T-016 closed — aios-policy crate skeleton landed at v0.0.1 with 5 new tests (workspace 364 → 369). Crate structure: src/lib.rs + src/decision.rs (Decision 4-variant + PolicyDecision 14-field per S2.3 §4) + src/hard_deny.rs (HardDenyClass 10-variant w/ EnumIter+EnumCount, serde wire form `hd.<snake>`) + src/subject.rs (SubjectType 7-variant lowercase wire + HydratedSubject 7-field per §7) + src/constraints.rs (Constraints + ApprovalRequirement STUB structs — T-017 fills §10 11-field vocabulary) + src/error.rs (PolicyError: SubjectUnauthenticated/EnrichmentUnavailable/BundleLoad{reason}/SchemaInvalid{detail}). tests/types_roundtrip.rs: 5 tests anchor Decision active=3 + Unspecified sentinel, HardDenyClass::COUNT==10 invariant, PolicyDecision serde round-trip, HydratedSubject serde round-trip, PolicyError Display strings. Cross-crate type linkage anchored: PolicyDecision.action_id is aios_action::ActionId; PolicyDecision.evaluated_at is chrono::DateTime<Utc>. Cargo.toml workspace members updated (aios-policy added). All 4 gates PASS: cargo check + test (369) + clippy --all-targets -D warnings + fmt --check. Scope guard held: no PolicyKernel trait, no EvaluatePolicy, no gRPC, no bundle loading — all deferred to T-017+.",
+  "files_touched_M3_T016": [
+    "Cargo.toml",
+    "Cargo.lock",
+    "crates/aios-policy/Cargo.toml",
+    "crates/aios-policy/src/lib.rs",
+    "crates/aios-policy/src/decision.rs",
+    "crates/aios-policy/src/hard_deny.rs",
+    "crates/aios-policy/src/subject.rs",
+    "crates/aios-policy/src/constraints.rs",
+    "crates/aios-policy/src/error.rs",
+    "crates/aios-policy/tests/types_roundtrip.rs",
+    ".ai/memory.json",
+    ".ai/progress.log"
+  ],
+  "discovered_constraints_T016": [
+    "Workspace forbids clippy::expect_used + clippy::panic; integration tests must opt-in with `#![allow(clippy::expect_used, clippy::panic, reason = ...)]` per the established aios-action pattern. Skipped this initially and clippy gate failed loudly with 14 errors before fix.",
+    "clippy::doc_markdown is enforced at workspace level; any bare crate identifier in doc-comments (`serde_json`, `PascalCase`, etc.) must be backticked. Caught two violations on first clippy pass.",
+    "Decision enum uses #[serde(rename_all = SCREAMING_SNAKE_CASE)] so the wire form matches the proto3 IDL exactly (ALLOW / REQUIRE_APPROVAL / DENY / UNSPECIFIED). The Unspecified variant is the proto3 zero-value sentinel; it never participates in real evaluation per the no-silent-fall-through rule of S2.3 §3.",
+    "HardDenyClass serde wire form uses #[serde(rename = \"hd.<snake>\")] so external bundle YAML/proto encoding uses the constitutional spec keys, not the Rust PascalCase variant names. EnumIter + EnumCount derived from strum_macros (already in workspace) gives the COUNT == 10 compile-time invariant anchor."
+  ],
+  "notes": "M3 opened with T-016 (aios-policy crate skeleton). 369 workspace tests. Next task T-017 candidate scope: PolicyKernel trait + EvaluatePolicy signature + bundle loading skeleton (signed YAML reader, version pinning, schema validation entry points). Conditions parser (S2.3 §9) and full Constraints vocabulary (S2.3 §10) likely T-018 / T-019."
 }

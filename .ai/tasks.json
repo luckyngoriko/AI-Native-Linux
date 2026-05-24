@@ -118,6 +118,14 @@
       ],
       "final_test_count": 364,
       "crate_version": "aios-evidence/0.1.0"
+    },
+    "M3": {
+      "status": "in_progress",
+      "title": "Policy Kernel skeleton (S2.3 aios-policy crate)",
+      "started_at": "2026-05-24",
+      "tasks": ["T-016"],
+      "running_test_count": 369,
+      "crate_version": "aios-policy/0.0.1"
     }
   }
 }

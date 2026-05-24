@@ -34,7 +34,7 @@
 //! | `sequence_number`             | _carry-forward_                         | Always 0 in T-011           |
 //! | `payload_hash`                | `EvidenceReceipt::content_hash()`       | 64-char hex                 |
 //! | `payload_ref`                 | _carry-forward_                         | Always empty in T-011       |
-//! | `redaction_profile`            | _carry-forward_                         | Always empty in T-011       |
+//! | `redaction_profile`            | `EvidenceReceipt::redaction_profile()`  | T-013 — `default`/`strict`/`debug_capture` |
 //! | `previous_receipt_hash`        | `EvidenceReceipt::previous_receipt_hash`| Empty string if `None`      |
 //! | `simulated`                   | _carry-forward_                         | Always false in T-011       |
 //! | `payload`                     | _carry-forward_                         | One-of left empty in T-011  |
@@ -214,7 +214,10 @@ pub fn receipt_to_proto(r: &EvidenceReceipt) -> proto::EvidenceReceipt {
         sequence_number: 0,
         payload_hash: r.content_hash().to_owned(),
         payload_ref: String::new(),
-        redaction_profile: String::new(),
+        // T-013: populate per S3.1 §14 / Appendix A field tag 14. The wire
+        // form is the lowercase profile name (`default` / `strict` /
+        // `debug_capture`) — matches the spec table verbatim.
+        redaction_profile: r.redaction_profile().as_wire_str().to_owned(),
         previous_receipt_hash: r
             .previous_receipt_hash()
             .map(ToOwned::to_owned)
@@ -343,7 +346,8 @@ mod tests {
         assert_eq!(p.segment_id, "");
         assert_eq!(p.sequence_number, 0);
         assert_eq!(p.payload_ref, "");
-        assert_eq!(p.redaction_profile, "");
+        // T-013: default profile is populated automatically at seal time.
+        assert_eq!(p.redaction_profile, "default");
         assert!(!p.simulated);
         assert!(p.payload.is_none());
     }

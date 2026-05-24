@@ -65,6 +65,7 @@ use serde_json::Value;
 use aios_action::{ActionId, EvidenceReceiptId};
 
 use crate::error::EvidenceError;
+use crate::redaction::{apply_redaction, RedactionProfile};
 
 /// An immutable, sealed evidence receipt.
 ///
@@ -117,7 +118,21 @@ pub struct EvidenceReceipt {
     /// variants; the 405 newly-enum'd `RecordType`s do not yet have payload
     /// messages — see S3.1 §29.6). T-007 stores the payload as opaque JSON so
     /// the envelope can be sealed and chained today.
+    ///
+    /// **T-013:** the payload stored here is the **redacted** projection of
+    /// the input payload under [`Self::redaction_profile`]. Redaction is
+    /// applied at seal time, **before** `content_hash` and the Ed25519
+    /// signature are computed. There is no unredacted-but-signed
+    /// representation anywhere (S3.1 §14).
     payload: Value,
+
+    /// Closed S3.1 §14 redaction profile applied to `payload` at seal time.
+    ///
+    /// `#[serde(default)]` so older receipt JSON (pre-T-013, missing this
+    /// field) deserializes with [`RedactionProfile::Default`] — back-compat
+    /// for chains sealed by T-007..T-012 binaries.
+    #[serde(default)]
+    redaction_profile: RedactionProfile,
 
     /// Ed25519 signature placeholder (S3.1 §5.2 / §11.3).
     ///
@@ -182,9 +197,24 @@ impl EvidenceReceipt {
     }
 
     /// Opaque JSON payload (per-RecordType payload schemas deferred to Wave 14+).
+    ///
+    /// **T-013:** what is returned here is the **redacted** projection under
+    /// [`Self::redaction_profile`]. The raw (pre-redaction) payload is never
+    /// stored on the receipt.
     #[must_use]
     pub const fn payload(&self) -> &Value {
         &self.payload
+    }
+
+    /// Closed S3.1 §14 redaction profile applied to the stored payload.
+    ///
+    /// The returned profile is the one in effect at seal time; this is the
+    /// profile under which `content_hash` and the Ed25519 signature were
+    /// computed. Auditors verifying the chain must use the same profile to
+    /// reproduce the signed bytes.
+    #[must_use]
+    pub const fn redaction_profile(&self) -> RedactionProfile {
+        self.redaction_profile
     }
 
     /// Ed25519 signature over the canonical-minus-signature receipt bytes, as
@@ -314,6 +344,9 @@ pub struct ReceiptBuilder {
     subject_canonical_id: String,
     action_id: Option<ActionId>,
     payload: Value,
+    /// S3.1 §14 redaction profile applied at seal time. Defaults to
+    /// [`RedactionProfile::Default`] when not set explicitly.
+    redaction_profile: RedactionProfile,
 }
 
 impl ReceiptBuilder {
@@ -334,6 +367,7 @@ impl ReceiptBuilder {
             subject_canonical_id: subject.into(),
             action_id: None,
             payload: Value::Null,
+            redaction_profile: RedactionProfile::Default,
         }
     }
 
@@ -354,6 +388,24 @@ impl ReceiptBuilder {
     #[must_use]
     pub fn with_payload(mut self, payload: Value) -> Self {
         self.payload = payload;
+        self
+    }
+
+    /// Set the S3.1 §14 redaction profile applied at seal time.
+    ///
+    /// When not called, the builder defaults to [`RedactionProfile::Default`]
+    /// — the secret-redaction-only baseline ("Secret redaction is default" per
+    /// S3.1 §18 acceptance criteria).
+    ///
+    /// The profile is applied **before** `content_hash` and the Ed25519
+    /// signature are computed; the cryptographic chain witnesses the
+    /// redacted payload. Choosing [`RedactionProfile::DebugCapture`] in
+    /// production requires an explicit policy decision (S3.1 §14 — activation
+    /// emits a `POLICY_BUNDLE_LOAD` receipt); this crate-level surface
+    /// does not gate the choice, the L4 Policy Kernel does.
+    #[must_use]
+    pub const fn with_redaction_profile(mut self, profile: RedactionProfile) -> Self {
+        self.redaction_profile = profile;
         self
     }
 
@@ -449,11 +501,19 @@ impl ReceiptBuilder {
         let receipt_id = EvidenceReceiptId::new();
         let recorded_at = Utc::now();
 
-        // 4. Compute content hash over JCS-canonical payload bytes.
-        let canonical_payload = aios_action::jcs_canonicalize(&self.payload)?;
+        // 4. **T-013 (S3.1 §14):** apply the chosen redaction profile to the
+        //    raw payload BEFORE computing the content hash. The cryptographic
+        //    chain witnesses the redacted form — there is no
+        //    unredacted-but-signed representation anywhere.
+        let redacted_payload =
+            apply_redaction(self.redaction_profile, self.record_type, &self.payload)?;
+
+        // 5. Compute content hash over JCS-canonical bytes of the **redacted**
+        //    payload.
+        let canonical_payload = aios_action::jcs_canonicalize(&redacted_payload)?;
         let content_hash = aios_action::blake3_hash(canonical_payload.as_bytes());
 
-        // 5. Link previous receipt, if any.
+        // 6. Link previous receipt, if any.
         let previous_receipt_hash = match previous {
             None => None,
             Some(prev) => Some(prev.link_hash()?),
@@ -468,7 +528,8 @@ impl ReceiptBuilder {
             action_id: self.action_id,
             previous_receipt_hash,
             content_hash,
-            payload: self.payload,
+            payload: redacted_payload,
+            redaction_profile: self.redaction_profile,
             signature,
         })
     }
@@ -499,6 +560,10 @@ struct ReceiptForSigning<'a> {
     previous_receipt_hash: Option<&'a str>,
     content_hash: &'a str,
     payload: &'a Value,
+    /// T-013: `redaction_profile` is part of the signed surface so a tamper
+    /// that swaps the profile after seal (e.g. relabeling a `default`
+    /// receipt as `debug_capture`) breaks signature verification.
+    redaction_profile: RedactionProfile,
 }
 
 impl<'a> From<&'a EvidenceReceipt> for ReceiptForSigning<'a> {
@@ -513,6 +578,7 @@ impl<'a> From<&'a EvidenceReceipt> for ReceiptForSigning<'a> {
             previous_receipt_hash: r.previous_receipt_hash.as_deref(),
             content_hash: &r.content_hash,
             payload: &r.payload,
+            redaction_profile: r.redaction_profile,
         }
     }
 }
@@ -1036,6 +1102,162 @@ mod tests {
             Err(EvidenceError::InvalidSubject { .. }) => {}
             other => panic!("expected InvalidSubject, got {other:?}"),
         }
+    }
+
+    // ─── T-013: redaction profile integration (S3.1 §14) ───────────────
+
+    #[test]
+    fn t013_builder_default_profile_is_default_when_not_set() {
+        let r = builder(RecordType::ActionReceived)
+            .with_payload(json!({"action": "fs.write"}))
+            .seal(None)
+            .expect("seal");
+        assert_eq!(r.redaction_profile(), RedactionProfile::Default);
+    }
+
+    #[test]
+    fn t013_with_redaction_profile_sets_strict() {
+        let r = builder(RecordType::ActionReceived)
+            .with_payload(json!({"action": "fs.write"}))
+            .with_redaction_profile(RedactionProfile::Strict)
+            .seal(None)
+            .expect("seal");
+        assert_eq!(r.redaction_profile(), RedactionProfile::Strict);
+    }
+
+    #[test]
+    fn t013_seal_applies_default_redaction_before_content_hash() {
+        // Payload with a secret-shaped key. After Default redaction, the
+        // stored payload must contain the sentinel — NOT the raw secret.
+        let r = builder(RecordType::ActionReceived)
+            .with_payload(json!({"username": "alice", "password": "s3cr3t"}))
+            .seal(None)
+            .expect("seal");
+
+        // The stored payload IS the redacted projection (not the input).
+        assert_eq!(r.payload()["password"], json!("<redacted>"));
+        assert_eq!(r.payload()["username"], json!("alice"));
+        // content_hash recomputes over the redacted payload bytes.
+        let recomputed = r.verify_content_hash().expect("verify");
+        assert_eq!(recomputed, r.content_hash().to_owned());
+    }
+
+    #[test]
+    fn t013_seal_signed_signs_over_redacted_payload() {
+        let (sk, vk) = test_keypair();
+        let r = builder(RecordType::ActionReceived)
+            .with_payload(json!({"username": "alice", "password": "s3cr3t"}))
+            .seal_signed(None, &sk)
+            .expect("seal_signed");
+
+        // Signature verifies against the redacted form.
+        r.verify_signature(&vk).expect("signed-over-redacted ok");
+        assert_eq!(r.payload()["password"], json!("<redacted>"));
+    }
+
+    #[test]
+    fn t013_strict_profile_replaces_lifecycle_payload_with_marker() {
+        let r = builder(RecordType::PolicyDecision)
+            .with_payload(json!({
+                "operator": "human:operator-1",
+                "decision": "ALLOW",
+                "context": {"path": "/etc/foo", "args": ["a", "b"]}
+            }))
+            .with_redaction_profile(RedactionProfile::Strict)
+            .seal(None)
+            .expect("seal");
+
+        // Strict on Lifecycle → structural marker form (3 keys).
+        let obj = r.payload().as_object().expect("obj");
+        assert_eq!(obj.len(), 3);
+        assert_eq!(obj["record_type"], json!("POLICY_DECISION"));
+        assert_eq!(obj["redacted_under_profile"], json!("strict"));
+        assert_eq!(obj["payload_hash_prefix"].as_str().expect("str").len(), 32);
+    }
+
+    #[test]
+    fn t013_re_encoding_parsed_receipt_preserves_content_hash() {
+        // The signed surface includes redaction_profile; serde round-trip
+        // must preserve both the redacted payload bytes AND the profile so
+        // re-verification succeeds.
+        let (sk, vk) = test_keypair();
+        let r = builder(RecordType::ActionReceived)
+            .with_payload(json!({"k": "v", "token": "t"}))
+            .with_redaction_profile(RedactionProfile::Default)
+            .seal_signed(None, &sk)
+            .expect("seal_signed");
+
+        let s = serde_json::to_string(&r).expect("ser");
+        let back: EvidenceReceipt = serde_json::from_str(&s).expect("de");
+
+        assert_eq!(back.redaction_profile(), RedactionProfile::Default);
+        assert_eq!(back.content_hash(), r.content_hash());
+        assert_eq!(back.payload(), r.payload());
+        back.verify_signature(&vk)
+            .expect("signature survives serde round-trip");
+    }
+
+    #[test]
+    fn t013_legacy_receipt_json_without_profile_field_deserializes_with_default() {
+        // Hand-craft a receipt JSON that lacks redaction_profile (the
+        // pre-T-013 wire shape). The #[serde(default)] attribute should
+        // give us RedactionProfile::Default.
+        let r = builder(RecordType::ActionReceived)
+            .with_payload(json!({"a": 1}))
+            .seal(None)
+            .expect("seal");
+        let mut v = serde_json::to_value(&r).expect("ser");
+        v.as_object_mut().expect("obj").remove("redaction_profile");
+        let back: EvidenceReceipt =
+            serde_json::from_value(v).expect("legacy receipt must deserialize");
+        assert_eq!(back.redaction_profile(), RedactionProfile::Default);
+    }
+
+    #[test]
+    fn t013_tampering_redaction_profile_breaks_signature() {
+        // The signed surface includes redaction_profile (see
+        // ReceiptForSigning). Relabeling default → debug_capture after
+        // seal MUST break verification.
+        let (sk, vk) = test_keypair();
+        let r = builder(RecordType::ActionReceived)
+            .with_payload(json!({"k": "v"}))
+            .seal_signed(None, &sk)
+            .expect("seal_signed");
+
+        let mut v = serde_json::to_value(&r).expect("ser");
+        v["redaction_profile"] = json!("debug_capture");
+        let tampered: EvidenceReceipt = serde_json::from_value(v).expect("de");
+        match tampered.verify_signature(&vk) {
+            Err(EvidenceError::SignatureMismatch) => {}
+            other => panic!("expected SignatureMismatch after profile tamper, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn t013_debug_capture_profile_round_trip_via_serde() {
+        let r = builder(RecordType::ActionReceived)
+            .with_payload(json!({"ok": true}))
+            .with_redaction_profile(RedactionProfile::DebugCapture)
+            .seal(None)
+            .expect("seal");
+        let s = serde_json::to_string(&r).expect("ser");
+        let back: EvidenceReceipt = serde_json::from_str(&s).expect("de");
+        assert_eq!(back.redaction_profile(), RedactionProfile::DebugCapture);
+        // DebugCapture preserves non-secret bodies verbatim.
+        assert_eq!(back.payload(), &json!({"ok": true}));
+    }
+
+    #[test]
+    fn t013_seal_signed_with_strict_profile_verifies() {
+        let (sk, vk) = test_keypair();
+        let r = builder(RecordType::ExecutionStarted)
+            .with_payload(json!({"adapter": "fs", "target": "/etc/foo"}))
+            .with_redaction_profile(RedactionProfile::Strict)
+            .seal_signed(None, &sk)
+            .expect("seal_signed");
+        r.verify_signature(&vk).expect("strict signed verifies");
+        // Payload is the structural marker.
+        assert!(r.payload().get("payload_hash_prefix").is_some());
     }
 
     #[test]

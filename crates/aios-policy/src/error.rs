@@ -67,4 +67,42 @@ pub enum PolicyError {
     /// `in` value list). Raised by [`crate::conditions_eval::evaluate`].
     #[error("condition eval failed: {0}")]
     ConditionEval(String),
+
+    /// The serialised policy bundle JSON failed to parse, or one of its rules
+    /// carried a malformed `condition` string. Raised by
+    /// [`crate::bundle_loader::BundleLoader::load_from_bytes`] (S2.3 §12.4 /
+    /// §19.1 / §15).
+    ///
+    /// The carried detail is the canonical short reason — e.g.
+    /// `"rule allow_X condition: unknown namespace"` for a per-rule parser
+    /// failure, or `"JSON deserialise: …"` for a top-level body failure.
+    #[error("invalid policy bundle: {0}")]
+    InvalidPolicyBundle(String),
+
+    /// The bundle's `signature_ed25519` did not verify against the publisher
+    /// verifying key fetched from the trust store keyed by `signing_authority`.
+    /// Raised by [`crate::bundle_loader::BundleLoader::load_from_bytes`] per
+    /// S2.3 §12.3 ("Bundle signature failure → engine enters degraded mode").
+    #[error("bundle signature invalid")]
+    BundleSignatureInvalid,
+
+    /// Version pinning was requested on the loader and the bundle's
+    /// `bundle_version` did not match the pinned expectation. Raised by
+    /// [`crate::bundle_loader::BundleLoader::load_from_bytes`] per S2.3 §12.2
+    /// + §13.1 (determinism anchor).
+    #[error("bundle version mismatch: expected {expected}, found {found}")]
+    BundleVersionMismatch {
+        /// Pinned version the loader was configured to require.
+        expected: String,
+        /// Version actually present in the bundle body.
+        found: String,
+    },
+
+    /// The bundle's declared `signing_authority` was not present in the
+    /// loader's trust store. Raised by
+    /// [`crate::bundle_loader::BundleLoader::load_from_bytes`] per S2.3 §12.3
+    /// ("Bundle signature must verify against the publisher key in the AIOS
+    /// trust store").
+    #[error("bundle signed by unknown authority: {0}")]
+    BundleUnknownAuthority(String),
 }

@@ -27,6 +27,22 @@ strum_macros = { workspace = true }
 async-trait  = { workspace = true }
 tokio        = { workspace = true }
 ulid         = { workspace = true }
+# T-022: policy bundle loader (S2.3 §12). The bundle is distributed as a
+# signed JSON envelope: a canonical body (deterministic serde_json output) is
+# hashed (BLAKE3), the hash is signed with Ed25519 by the publisher key, and
+# the signature ships next to the body. `signing_authority` selects the
+# verifying key from the trust store the loader is constructed with.
+ed25519-dalek = { workspace = true }
+blake3        = { workspace = true }
+# Base64-STANDARD-encoded signature bytes inside the JSON envelope (raw Ed25519
+# signatures are 64 bytes — embedding them as base64 keeps the bundle JSON
+# human-readable and round-trip-safe under serde).
+base64        = { workspace = true }
+
+[dev-dependencies]
+# Tests mint ephemeral Ed25519 keypairs via the OS CSPRNG. Production never
+# does — keys come from S5.2 (mirrors the aios-evidence T-009 pattern).
+rand_core    = { workspace = true }
 
 [lints]
 workspace = true

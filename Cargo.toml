@@ -99,6 +99,10 @@ rocksdb     = { version = "0.23", default-features = false, features = ["snappy"
 # The crate creates a fresh tempdir per test, instantiates RocksDbEvidenceLog
 # against it, and lets `Drop` clean up. MIT/Apache-2.0.
 tempfile    = "3.10"
+# T-022: standard base64 STANDARD alphabet for Ed25519 signature encoding in
+# the policy bundle JSON envelope (S2.3 §12). Pinned 0.22 — the current 0.22.x
+# line uses the `Engine` trait API; MIT/Apache-2.0; zero transitive deps.
+base64      = "0.22"
 
 [profile.dev]
 opt-level = 0

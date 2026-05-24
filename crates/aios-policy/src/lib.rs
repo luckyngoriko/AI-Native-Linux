@@ -40,6 +40,8 @@
 
 #![forbid(unsafe_code)]
 
+pub mod bundle;
+pub mod bundle_loader;
 pub mod conditions;
 pub mod conditions_eval;
 pub mod conditions_parser;
@@ -53,6 +55,8 @@ pub mod pipeline;
 pub mod precedence;
 pub mod subject;
 
+pub use bundle::{PolicyBundle, PolicyRule, RuleEffect, RuleScope};
+pub use bundle_loader::BundleLoader;
 pub use conditions::{ClosedField, CompareOp, Condition, Namespace, Predicate, Value};
 pub use conditions_eval::{
     evaluate as evaluate_condition, ClockSnapshot, ConditionEvalError, EvalContext,

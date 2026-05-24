@@ -10,7 +10,7 @@ Source model: `tools/capella/output/aios-rev2/`
 - Consumes edges: 237
 - INV realization links: 331
 - RecordType classes: 427
-- Emitter traces (sub-spec → RecordType): 676
+- Emitter traces (sub-spec → RecordType): 680
 
 ## Gaps detected
 
@@ -20,7 +20,7 @@ Source model: `tools/capella/output/aios-rev2/`
 | Orphan sub-specs (zero realized INVs) | 10 |
 | Layer inversions (INV-007 candidates) | 65 |
 | Consumes-graph cycles | 0 |
-| Orphan RecordTypes (defined in S3.1, cited nowhere else) | 4 |
+| Orphan RecordTypes (defined in S3.1, cited nowhere else) | 0 |
 
 ## Orphan sub-specs
 
@@ -106,20 +106,6 @@ Consumes edges where the producer's layer is numerically higher than the consume
 - **S9.3 — Dedicated Kernel Pipeline (Rev.2)** (L1) → **S11.1 — Repository Model + Trust Roots (Rev.2)** (L10)
 - **S9.3 — Dedicated Kernel Pipeline (Rev.2)** (L1) → **S3.2 — Sandbox Composition Language (Rev.2)** (L6)
 - **S9.3 — Dedicated Kernel Pipeline (Rev.2)** (L1) → **S8.2 — GPU Resource Model (Rev.2)** (L8)
-
-## Orphan RecordTypes
-
-These RecordType variants are defined in S3.1 Appendix A closed enum (Wave 13 IDL roll-up, 427 total) but no other sub-spec mentions them. Possible interpretations:
-
-- **Truly orphan** — vocabulary defined for completeness but never wired into emission contexts. Candidate for RETIRED status per S6.1 taxonomy, OR for adding explicit emitter sub-specs.
-- **Implicit emission** — emitted by infrastructure layers (Capability Runtime, Sandbox Composer, AIOS-FS) without explicit mention in their sub-spec narrative. Worth audit + adding explicit cite-up.
-
-- **ROUTING_DECISION** (ID 3)
-- **ROLLBACK_COMPLETED** (ID 11)
-- **QUARANTINE_EVENT** (ID 16)
-- **CONFLICT_EVENT** (ID 17)
-
-**Model integrity OK** — model-derived orphan set (4) exactly matches CSV-derived set (4). The Capella IDE traceability matrix view (rows = sub-specs, cols = RecordType classes under `la.data_pkg.RecordTypes/*`) will visually show these RecordTypes as empty columns.
 
 ## Hot spots
 

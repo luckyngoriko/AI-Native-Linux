@@ -269,15 +269,15 @@ If a resolution attempt fails its own CAS (because state moved again during reso
 
 ## 14. Cross-spec dependencies
 
-| Spec                           | Relationship                                                                                                   |
-| ------------------------------ | -------------------------------------------------------------------------------------------------------------- |
-| **S0.1** Action Envelope       | `verification` intents on `MergeProposal` use the S0.1 `VerificationIntent` shape.                             |
-| **S1.1** Capability Translator | AI merge proposals come from L5; translator obeys §17.2.6 secret-shaped redaction before forming the proposal. |
-| **S1.2** Latency Tiering       | `PrivacyClass` constrains `ai_auto_promote` per §7.                                                            |
-| **S1.3** Object Model          | `01_object_model.md` defines the CAS protocol, multi-pointer atomicity, and gRPC surface used here.            |
-| **S2.3** Policy Kernel         | Authority to resolve conflicts is a policy decision; merge policies are policy objects.                        |
-| **S2.4** Verification Grammar  | Merge proposal verification intents follow S2.4 grammar.                                                       |
-| **S3.1** Evidence Log          | Every conflict event (open, propose, validate, resolve, abandon) writes evidence.                              |
+| Spec                           | Relationship                                                                                                                                  |
+| ------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------- |
+| **S0.1** Action Envelope       | `verification` intents on `MergeProposal` use the S0.1 `VerificationIntent` shape.                                                            |
+| **S1.1** Capability Translator | AI merge proposals come from L5; translator obeys §17.2.6 secret-shaped redaction before forming the proposal.                                |
+| **S1.2** Latency Tiering       | `PrivacyClass` constrains `ai_auto_promote` per §7.                                                                                           |
+| **S1.3** Object Model          | `01_object_model.md` defines the CAS protocol, multi-pointer atomicity, and gRPC surface used here.                                           |
+| **S2.3** Policy Kernel         | Authority to resolve conflicts is a policy decision; merge policies are policy objects.                                                       |
+| **S2.4** Verification Grammar  | Merge proposal verification intents follow S2.4 grammar.                                                                                      |
+| **S3.1** Evidence Log          | Every conflict event (open, propose, validate, resolve, abandon) writes evidence via the `CONFLICT_EVENT` RecordType (S3.1 Appendix A ID 17). |
 
 ## 15. Open deferrals
 

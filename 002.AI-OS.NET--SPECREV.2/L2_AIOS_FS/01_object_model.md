@@ -337,6 +337,7 @@ A version enters `QUARANTINED` state when any of:
 - Pointers referencing a quarantined version are atomically moved to the `ROLLBACK` pointer's target if one exists; otherwise pointer is set to the prior `STABLE`.
 - Reads of a quarantined version are denied for non-recovery subjects; recovery and audit subjects may read.
 - The version's `quarantined_at` and `quarantine_reason` fields are populated.
+- Every quarantine entry and exit transition writes evidence via the `QUARANTINE_EVENT` RecordType (S3.1 Appendix A ID 16); the evidence payload carries the version id, the trigger category from §12.1, and the prior pointer target if any.
 
 ### 12.3. Exits
 

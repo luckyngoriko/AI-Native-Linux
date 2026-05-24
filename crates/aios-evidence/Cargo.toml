@@ -44,6 +44,11 @@ prost-types  = { workspace = true }
 tokio        = { workspace = true }
 tokio-stream = { workspace = true }
 async-trait  = { workspace = true }
+# T-012: RocksDB persistence backend (S3.1 §7.2 / §11.4). 6 column families,
+# WAL sync = true, WAL_recovery_mode = AbsoluteConsistency. The RocksDB
+# handle is internally thread-safe for reads — we wrap it in `Arc<DB>` and
+# share it across the gRPC handler tasks.
+rocksdb     = { workspace = true }
 
 [build-dependencies]
 # T-011: tonic-build invokes `protoc` and emits the Rust server stubs
@@ -62,6 +67,10 @@ rand_core = { workspace = true }
 # (`#[tokio::test]`) and the client transport channel.
 tokio = { workspace = true }
 tokio-stream = { workspace = true }
+# T-012: persistence tests create ephemeral RocksDB directories. `tempfile`
+# returns a `TempDir` whose `Drop` impl recursively deletes the contents on
+# scope exit — keeping test runs hermetic.
+tempfile = { workspace = true }
 
 [lints]
 workspace = true

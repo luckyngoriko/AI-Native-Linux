@@ -87,6 +87,18 @@ prost-types  = "0.13"
 tokio        = { version = "1", features = ["full"] }
 tokio-stream = { version = "0.1", features = ["sync"] }
 async-trait  = "0.1"
+# T-012: RocksDB persistence backend (S3.1 §7.2 / §11.4). rocksdb 0.23 bundles
+# `librocksdb-sys 0.17.3+10.4.2` whose vendored RocksDB 10.4.2 source compiles
+# cleanly under GCC 15 (the 0.22 / RocksDB-8.10 combination was missing
+# `<cstdint>` includes; Governor verified 0.23 builds in 2 m 08 s). Apache-2.0,
+# compatible with workspace. We disable default features and re-enable only
+# `snappy` + `lz4` compression — `zstd`, `zlib`, `bzip2`, and `bindgen-runtime`
+# pull in additional system / build deps we do not need for the evidence log.
+rocksdb     = { version = "0.23", default-features = false, features = ["snappy", "lz4"] }
+# T-012 dev-dep: ephemeral filesystem fixtures for the persistence test harness.
+# The crate creates a fresh tempdir per test, instantiates RocksDbEvidenceLog
+# against it, and lets `Drop` clean up. MIT/Apache-2.0.
+tempfile    = "3.10"
 
 [profile.dev]
 opt-level = 0

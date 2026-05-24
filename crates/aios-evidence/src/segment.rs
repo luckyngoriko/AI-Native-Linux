@@ -496,6 +496,37 @@ impl SealedSegment {
         self.receipts.len()
     }
 
+    /// Retention-class compaction eligibility per S3.1 §11.5 / §13.
+    ///
+    /// Returns `true` when the segment is **eligible** for deletion / cold-tier
+    /// migration according to its retention class:
+    ///
+    /// - [`RetentionClass::Standard24M`] — eligible 24 months (730 days) after
+    ///   [`Self::sealed_at`].
+    /// - [`RetentionClass::Extended60M`] — eligible 60 months (1825 days)
+    ///   after [`Self::sealed_at`].
+    /// - [`RetentionClass::Forever`] — **never** eligible.
+    ///
+    /// T-012 surfaces eligibility only; the actual deletion / cold-tier move
+    /// is the responsibility of T-015 (compaction worker per §12).
+    ///
+    /// `now` is the wall-clock against which the segment age is measured.
+    /// Tests pass a fixed timestamp; production passes `chrono::Utc::now()`.
+    #[must_use]
+    pub fn is_compaction_eligible(&self, now: DateTime<Utc>) -> bool {
+        let age = now.signed_duration_since(self.sealed_at);
+        match self.retention_class {
+            // 24 months ≈ 730 days. Use the const day count rather than a
+            // calendar-aware computation — the spec quotes a fixed-day
+            // approximation everywhere it discusses retention windows.
+            RetentionClass::Standard24M => age >= chrono::Duration::days(730),
+            // 60 months ≈ 1825 days.
+            RetentionClass::Extended60M => age >= chrono::Duration::days(1825),
+            // Permanent retention. Denials, tamper, recovery — never moved.
+            RetentionClass::Forever => false,
+        }
+    }
+
     /// Recompute the canonical-all-receipts hash by re-hashing every receipt
     /// **except** the terminal `SEGMENT_SEALED` witness. Returns the hex
     /// digest.
@@ -1018,5 +1049,87 @@ mod tests {
         assert_eq!(back, sealed);
         back.verify_full(&vk)
             .expect("round-tripped sealed segment must verify");
+    }
+
+    // ─── T-012: retention-class compaction eligibility (§11.5 / §13) ──
+
+    #[test]
+    fn t012_standard_24m_segment_not_eligible_immediately_after_seal() {
+        let (sk, _vk) = test_keypair();
+        let seg = build_open_segment(1, &sk);
+        let sealed = seg.seal(None, None, &sk).expect("seal");
+        // Same wall-clock moment as the seal — segment is brand new.
+        assert!(!sealed.is_compaction_eligible(sealed.sealed_at()));
+    }
+
+    #[test]
+    fn t012_standard_24m_segment_eligible_after_731_days() {
+        let (sk, _vk) = test_keypair();
+        let mut seg = Segment::new(RetentionClass::Standard24M);
+        // Re-use the build helper but with a non-default retention class.
+        let r = ReceiptBuilder::new(
+            RecordType::ActionReceived,
+            RetentionClass::Standard24M,
+            "service:capability-runtime",
+        )
+        .seal_signed(None, &sk)
+        .expect("r");
+        seg.append(r).expect("append");
+        let sealed = seg.seal(None, None, &sk).expect("seal");
+        let later = sealed.sealed_at() + chrono::Duration::days(731);
+        assert!(sealed.is_compaction_eligible(later));
+    }
+
+    #[test]
+    fn t012_extended_60m_segment_not_eligible_at_24_months() {
+        let (sk, _vk) = test_keypair();
+        let mut seg = Segment::new(RetentionClass::Extended60M);
+        let r = ReceiptBuilder::new(
+            RecordType::ActionReceived,
+            RetentionClass::Extended60M,
+            "service:capability-runtime",
+        )
+        .seal_signed(None, &sk)
+        .expect("r");
+        seg.append(r).expect("append");
+        let sealed = seg.seal(None, None, &sk).expect("seal");
+        // 24 months in — Standard would be eligible; Extended must NOT be.
+        let two_years = sealed.sealed_at() + chrono::Duration::days(800);
+        assert!(!sealed.is_compaction_eligible(two_years));
+    }
+
+    #[test]
+    fn t012_extended_60m_segment_eligible_after_60_months() {
+        let (sk, _vk) = test_keypair();
+        let mut seg = Segment::new(RetentionClass::Extended60M);
+        let r = ReceiptBuilder::new(
+            RecordType::ActionReceived,
+            RetentionClass::Extended60M,
+            "service:capability-runtime",
+        )
+        .seal_signed(None, &sk)
+        .expect("r");
+        seg.append(r).expect("append");
+        let sealed = seg.seal(None, None, &sk).expect("seal");
+        let later = sealed.sealed_at() + chrono::Duration::days(1826);
+        assert!(sealed.is_compaction_eligible(later));
+    }
+
+    #[test]
+    fn t012_forever_segment_never_eligible() {
+        let (sk, _vk) = test_keypair();
+        let mut seg = Segment::new(RetentionClass::Forever);
+        let r = ReceiptBuilder::new(
+            RecordType::RecoveryEvent,
+            RetentionClass::Forever,
+            "_system:service:recovery",
+        )
+        .seal_signed(None, &sk)
+        .expect("r");
+        seg.append(r).expect("append");
+        let sealed = seg.seal(None, None, &sk).expect("seal");
+        // 100 years out — still must NOT be eligible.
+        let very_late = sealed.sealed_at() + chrono::Duration::days(36500);
+        assert!(!sealed.is_compaction_eligible(very_late));
     }
 }

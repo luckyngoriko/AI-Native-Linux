@@ -45,6 +45,7 @@
 
 pub mod chain;
 pub mod error;
+pub mod persistence;
 pub mod receipt;
 pub mod record;
 pub mod sealed;
@@ -54,6 +55,7 @@ pub mod service;
 
 pub use chain::ReceiptChain;
 pub use error::EvidenceError;
+pub use persistence::{OpenSegmentSnapshot, RocksDbEvidenceLog};
 pub use receipt::{EvidenceReceipt, ReceiptBuilder};
 pub use record::{RecordType, RetentionClass};
 pub use sealed::Sealed;

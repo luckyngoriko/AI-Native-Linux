@@ -7,7 +7,7 @@ Source model: `tools/capella/output/aios-rev2/`
 - Total capabilities: 77
   - Invariants (OA): 24
   - Sub-specs (SA/LA/PA): 53
-- Consumes edges: 238
+- Consumes edges: 237
 - INV realization links: 331
 - RecordType classes: 427
 - Emitter traces (sub-spec → RecordType): 676
@@ -19,7 +19,7 @@ Source model: `tools/capella/output/aios-rev2/`
 | Orphan INVs (zero realizing sub-specs) | 0 |
 | Orphan sub-specs (zero realized INVs) | 10 |
 | Layer inversions (INV-007 candidates) | 65 |
-| Consumes-graph cycles | 1 |
+| Consumes-graph cycles | 0 |
 | Orphan RecordTypes (defined in S3.1, cited nowhere else) | 4 |
 
 ## Orphan sub-specs
@@ -106,12 +106,6 @@ Consumes edges where the producer's layer is numerically higher than the consume
 - **S9.3 — Dedicated Kernel Pipeline (Rev.2)** (L1) → **S11.1 — Repository Model + Trust Roots (Rev.2)** (L10)
 - **S9.3 — Dedicated Kernel Pipeline (Rev.2)** (L1) → **S3.2 — Sandbox Composition Language (Rev.2)** (L6)
 - **S9.3 — Dedicated Kernel Pipeline (Rev.2)** (L1) → **S8.2 — GPU Resource Model (Rev.2)** (L8)
-
-## Consumes-graph cycles
-
-Architectural cycles — sub-spec A imports from B which imports from A (directly or transitively).
-
-- `S7.1 — Surface + Composition Model (Rev.2) → S8.2 — GPU Resource Model (Rev.2) → S7.1 — Surface + Composition Model (Rev.2)`
 
 ## Orphan RecordTypes
 

@@ -156,9 +156,28 @@ def _first_h1(text: str) -> str:
     return match.group(1).strip() if match else "(untitled)"
 
 
+_CONSUMES_NEGATIVE_SENTINELS = (
+    r"\*\*Downstream consumer \(not an import\):\*\*",
+    r"\*\*Consumed by \(not an import\):\*\*",
+)
+
+
 def _extract_consumes_specs(consumes_text: str) -> list[str]:
-    """Extract S-tag references from Consumes row text (S0.1, S2.3, etc.)."""
-    return sorted(set(re.findall(r"S\d+\.\d+\w*", consumes_text)))
+    """Extract S-tag references from Consumes row text (S0.1, S2.3, etc.).
+
+    Honours negative sentinels: any portion of the row text after a marker
+    like '**Downstream consumer (not an import):**' is parenthetical context
+    (documents who consumes from THIS spec), not an upward import. Those
+    references are excluded from the dependency edge list to prevent
+    phantom cycles in the analyzer (see DEC: S7.1↔S8.2 cycle root cause).
+    """
+    # Truncate at the first negative sentinel match
+    import_portion = consumes_text
+    for sentinel in _CONSUMES_NEGATIVE_SENTINELS:
+        m = re.search(sentinel, import_portion)
+        if m:
+            import_portion = import_portion[: m.start()]
+    return sorted(set(re.findall(r"S\d+\.\d+\w*", import_portion)))
 
 
 # ── Layers ────────────────────────────────────────────────────────────

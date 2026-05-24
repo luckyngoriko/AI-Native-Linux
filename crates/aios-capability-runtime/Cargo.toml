@@ -1,0 +1,29 @@
+[package]
+name = "aios-capability-runtime"
+description = "AIOS S10.1 — Capability Runtime core types (rev.2 aios.runtime.v1alpha1)."
+edition.workspace = true
+rust-version.workspace = true
+version = "0.0.1"
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+
+[dependencies]
+# T-026 (M4 opening) — types-only skeleton mirrors the M3 T-016 pattern.
+# Cross-crate imports keep the L3 surface authored against the same envelope
+# / id vocabulary the public ingress (S0.1) emits.
+aios-action  = { path = "../aios-action" }
+serde        = { workspace = true }
+serde_json   = { workspace = true }
+thiserror    = { workspace = true }
+chrono       = { workspace = true }
+# `EnumCount` provides the compile-time anchor for the §3.1 fourteen-state
+# invariant; `EnumIter` powers the round-trip / wire-form coverage tests.
+strum        = { workspace = true }
+strum_macros = { workspace = true }
+# ULID-based identifiers for adapter manifest ids (`adapter:<...>` prefix is
+# §10.1; ULID is the cross-crate convention from S0.1 §3.2 / aios-action).
+ulid         = { workspace = true }
+
+[lints]
+workspace = true

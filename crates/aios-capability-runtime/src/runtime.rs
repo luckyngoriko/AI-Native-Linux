@@ -35,6 +35,7 @@ use tokio::sync::RwLock;
 
 use aios_action::{ActionEnvelope, ActionId};
 
+use crate::adapter_registry::InMemoryAdapterRegistry;
 use crate::context::ActionContext;
 use crate::dispatch::ActionDispatchKind;
 use crate::error::RuntimeError;
@@ -248,6 +249,25 @@ pub struct InMemoryCapabilityRuntime {
     /// runtime share one canonical store across `tokio` worker tasks
     /// (matching the M3 [`InMemoryPolicyKernel`] composition discipline).
     contexts: Arc<RwLock<HashMap<ActionId, ActionContext>>>,
+    /// Optional adapter registry handle. `None` keeps the T-027 success
+    /// path intact (`step_execute` is a structural pass-through); `Some(...)`
+    /// engages the T-028 lookup path: `step_execute` consults the registry
+    /// and fails closed with `ExecutionFailureReason::DependencyUnready`
+    /// when the envelope's `request.action` does not map to a registered
+    /// adapter.
+    ///
+    /// **Rationale for `DependencyUnready` as the surrogate reason:**
+    /// `ExecutionFailureReason` is closed (T-026) and does not declare an
+    /// `AdapterUnknown` variant — adding one is a versioned spec change
+    /// that T-028 is explicitly forbidden from making (§3.6 is owned by
+    /// T-026). `DependencyUnready` is the closest spec-pinned variant:
+    /// "a declared adapter dependency … was not in a ready state at
+    /// dispatch". An adapter that is not registered is, by definition,
+    /// not in a ready state. A future spec extension may introduce a
+    /// dedicated `ADAPTER_NOT_REGISTERED` reason (the wire form
+    /// `RuntimeErrorCode::UnknownAdapter` already exists at the RPC
+    /// surface); T-029 / T-035 will reconcile the two.
+    adapter_registry: Option<Arc<InMemoryAdapterRegistry>>,
 }
 
 impl InMemoryCapabilityRuntime {
@@ -261,6 +281,30 @@ impl InMemoryCapabilityRuntime {
     #[must_use]
     pub fn new() -> Self {
         Self::default()
+    }
+
+    /// Attach an [`InMemoryAdapterRegistry`] to the runtime. Returns `self`
+    /// for chaining.
+    ///
+    /// **T-028 entry point.** With a registry attached, `step_execute`
+    /// (S10.1 §6.1 step 5) consults the registry for an adapter that
+    /// declares `envelope.request.action` and fails closed with
+    /// `QUEUED → FAILED` (T14) + [`ExecutionFailureReason::DependencyUnready`]
+    /// when no live adapter is registered for the kind. Without a registry,
+    /// the T-027 pass-through behaviour is preserved (no lookup, no
+    /// fail-closed) so existing tests and the M4 §22 golden path remain
+    /// drivable end-to-end against the stub steps.
+    #[must_use]
+    pub fn with_adapter_registry(mut self, registry: Arc<InMemoryAdapterRegistry>) -> Self {
+        self.adapter_registry = Some(registry);
+        self
+    }
+
+    /// Borrow the attached registry, if any. Used by tests and by T-029's
+    /// dispatcher composition.
+    #[must_use]
+    pub const fn adapter_registry(&self) -> Option<&Arc<InMemoryAdapterRegistry>> {
+        self.adapter_registry.as_ref()
     }
 
     /// Snapshot of the number of action contexts currently held. Useful
@@ -295,7 +339,15 @@ impl CapabilityRuntime for InMemoryCapabilityRuntime {
         // it. A successful run returns the final terminal `ActionContext`;
         // an `Err` indicates a step requested an illegal transition (code
         // defect — not a normal envelope-input failure).
-        let final_ctx = self.pipeline.run(envelope, ctx, now)?;
+        //
+        // The registry handle is passed through so T-028's `step_execute`
+        // can FAIL_CLOSE on an unknown adapter. When no registry is
+        // attached (T-027 contract), the pipeline preserves its
+        // structural-pass-through behaviour.
+        let registry_ref = self.adapter_registry.as_deref();
+        let final_ctx = self
+            .pipeline
+            .run_with_registry(envelope, ctx, now, registry_ref)?;
 
         // Persist for subsequent `get_action_status` reads.
         self.contexts

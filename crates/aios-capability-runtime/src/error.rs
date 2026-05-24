@@ -51,6 +51,26 @@ pub enum RuntimeError {
     #[error("adapter manifest signature invalid")]
     AdapterSignatureInvalid,
 
+    /// An adapter manifest registration referenced a `signing_key_id` not
+    /// present in the runtime's adapter trust store (S10.1 §10.2 — the
+    /// publisher key was not endorsed by the AIOS root or recognised
+    /// publisher chain). T-028 surface; mirrors
+    /// `PolicyError::BundleUnknownAuthority` in the M3 bundle loader.
+    /// Maps to [`crate::RuntimeErrorCode::ManifestSignatureInvalid`].
+    #[error("adapter manifest unknown signing authority: {0}")]
+    AdapterUnknownAuthority(String),
+
+    /// A second `runtime.adapter.register` attempted to bind an `adapter_id`
+    /// already present in the registry. T-028 surface; enforces the
+    /// uniqueness side of the §10.5 action-kind exclusivity rule (an
+    /// `adapter_id` collision is rejected before the action-kind collision
+    /// check has a chance to fire). Operators rotate a manifest by
+    /// resubmitting with the **same** `adapter_id` per §10.4 — this variant
+    /// is raised by the in-memory registry which models a single live
+    /// registration per id; production rotation semantics are queued.
+    #[error("adapter already registered: {0}")]
+    AdapterAlreadyRegistered(String),
+
     /// A manifest failed structural validation (e.g. expired
     /// `manifest_expires_at`, unbound `${...}` token in `template_string`,
     /// duplicate `action_kind`). The string payload pins the offending

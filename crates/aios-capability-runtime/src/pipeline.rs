@@ -42,6 +42,7 @@ use chrono::{DateTime, Utc};
 
 use aios_action::ActionEnvelope;
 
+use crate::adapter_registry::InMemoryAdapterRegistry;
 use crate::context::ActionContext;
 use crate::dispatch::{ActionDispatchKind, QueueClass};
 use crate::error::RuntimeError;
@@ -253,6 +254,12 @@ impl ActionLifecyclePipeline {
     /// Drive an envelope through all eight steps. Returns the final
     /// [`ActionContext`] regardless of whether the pipeline short-circuited.
     ///
+    /// This entry point keeps the T-027 contract: no adapter registry is
+    /// engaged, so step 5 (`step_execute`) performs the structural
+    /// `QUEUED → EXECUTING` transition only. To engage T-028's adapter
+    /// lookup + `FAIL_CLOSED` discipline, call
+    /// [`Self::run_with_registry`].
+    ///
     /// # Errors
     ///
     /// Propagates [`RuntimeError::InvalidTransition`] when any step attempts a
@@ -264,6 +271,31 @@ impl ActionLifecyclePipeline {
         envelope: &ActionEnvelope,
         ctx: ActionContext,
         now: DateTime<Utc>,
+    ) -> Result<ActionContext, RuntimeError> {
+        self.run_with_registry(envelope, ctx, now, None)
+    }
+
+    /// Drive an envelope through all eight steps with an optional adapter
+    /// registry attached. **T-028 entry point.**
+    ///
+    /// When `registry` is `Some(...)`, step 5 (`step_execute`) consults the
+    /// registry for an adapter declaring `envelope.request.action`. A miss
+    /// transitions `QUEUED → FAILED` (T14) with
+    /// [`ExecutionFailureReason::DependencyUnready`] (the closest
+    /// spec-pinned reason in the closed §3.6 enum — the brief's nominal
+    /// `AdapterUnknown` variant is not declared by T-026 and §3.6 is
+    /// out-of-scope for T-028). When `registry` is `None`, the behaviour
+    /// is identical to [`Self::run`] (T-027 backwards compatibility).
+    ///
+    /// # Errors
+    ///
+    /// Same as [`Self::run`].
+    pub fn run_with_registry(
+        &self,
+        envelope: &ActionEnvelope,
+        ctx: ActionContext,
+        now: DateTime<Utc>,
+        registry: Option<&InMemoryAdapterRegistry>,
     ) -> Result<ActionContext, RuntimeError> {
         let state = self.step_validate(envelope, ctx, now)?;
         let state = match state {
@@ -279,7 +311,7 @@ impl ActionLifecyclePipeline {
             PipelineState::ShortCircuit(c) => return Ok(c),
         };
         let state = match state {
-            PipelineState::Continue(c) => self.step_execute(envelope, c, now)?,
+            PipelineState::Continue(c) => self.step_execute(envelope, c, now, registry)?,
             PipelineState::ShortCircuit(c) => return Ok(c),
         };
         let state = match state {
@@ -430,11 +462,27 @@ impl ActionLifecyclePipeline {
 
     /// Step 5 — run §6.1's eight pre-dispatch steps + dispatch the adapter.
     ///
-    /// **T-028 wires the adapter registry; T-029 wires the dispatcher.**
-    /// Today the stub performs `QUEUED → EXECUTING` (T13) and immediately
-    /// continues; the real pre-dispatch sequence (hash re-validate, policy
-    /// re-evaluate, binding re-check, sandbox compose, queue re-check,
-    /// binding mark `CONSUMED`, adapter dispatch) is queued for those tasks.
+    /// **T-028 wires the adapter registry lookup + `FAIL_CLOSED` on unknown
+    /// adapter; T-029 wires the dispatcher.**
+    ///
+    /// Behaviour depends on whether a registry is attached:
+    ///
+    /// - `registry = None` (T-027 contract) — structural pass-through;
+    ///   `QUEUED → EXECUTING` (T13) and `Continue`. Used by the existing
+    ///   integration tests and by the M4 §22 golden path before T-029
+    ///   wires the dispatcher.
+    /// - `registry = Some(...)` (T-028 contract) — look up an adapter
+    ///   declaring `envelope.request.action`. **Hit:** structural
+    ///   `QUEUED → EXECUTING` (T13) and `Continue` (the dispatcher itself
+    ///   is queued for T-029; T-028 only proves the registry is consulted).
+    ///   **Miss:** transition `QUEUED → FAILED` (T14) with
+    ///   [`ExecutionFailureReason::DependencyUnready`] and short-circuit.
+    ///
+    /// The §6.1 eight pre-dispatch steps (canonical-hash re-validate,
+    /// policy re-evaluate, binding re-check, sandbox compose, etc.) are
+    /// the joint responsibility of T-028 (this lookup step), T-029
+    /// (dispatcher), and T-030 (policy re-evaluate). T-028 lands the
+    /// outer-most gate.
     ///
     /// # Errors
     ///
@@ -442,10 +490,29 @@ impl ActionLifecyclePipeline {
     /// [`ActionLifecycleState::Queued`].
     pub fn step_execute(
         &self,
-        _envelope: &ActionEnvelope,
+        envelope: &ActionEnvelope,
         mut ctx: ActionContext,
         now: DateTime<Utc>,
+        registry: Option<&InMemoryAdapterRegistry>,
     ) -> Result<PipelineState, RuntimeError> {
+        if let Some(registry) = registry {
+            // Synchronous trait lookup via `AdapterRegistry::lookup`. This
+            // path does not engage the dispatcher (T-029) — it only proves
+            // the registry was consulted and that an unknown adapter
+            // FAIL_CLOSEs before any dispatch attempt.
+            //
+            // `lookup` returns `None` for: (a) no adapter declares the kind;
+            // (b) the declaring adapter is `AdapterStability::Retired`; or
+            // (c) the registry's read lock was momentarily unavailable —
+            // all three are observationally equivalent to "adapter not
+            // ready" at this step's granularity.
+            use crate::runtime::AdapterRegistry;
+            if registry.lookup(&envelope.request.action).is_none() {
+                apply_transition(&mut ctx, ActionLifecycleState::Failed, now)?;
+                ctx.error = Some(ExecutionFailureReason::DependencyUnready);
+                return Ok(PipelineState::ShortCircuit(ctx));
+            }
+        }
         apply_transition(&mut ctx, ActionLifecycleState::Executing, now)?;
         Ok(PipelineState::Continue(ctx))
     }

@@ -31,7 +31,10 @@ version = "0.0.1"
 dependencies = [
  "aios-action",
  "async-trait",
+ "base64",
  "chrono",
+ "ed25519-dalek",
+ "rand_core 0.6.4",
  "serde",
  "serde_json",
  "strum",

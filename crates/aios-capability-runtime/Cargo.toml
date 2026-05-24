@@ -33,6 +33,14 @@ ulid         = { workspace = true }
 # (`net`, `signal`, ...) are deferred to T-033 (gRPC surface).
 tokio        = { workspace = true }
 async-trait  = { workspace = true }
+# T-028 — Ed25519 manifest signature verification (S10.1 §10.2). Mirrors the
+# aios-policy T-022 trust-store pattern: a `HashMap<String, VerifyingKey>`
+# keyed by `signing_key_id` plus `Verifier::verify(body, signature)` on the
+# canonical signed-body bytes. `base64` is used by some publisher tooling for
+# transport; manifests on the wire carry the signature as `hex_lower`
+# (§10.1 field 12) so we use `base64` only via the workspace alignment.
+ed25519-dalek = { workspace = true }
+base64        = { workspace = true }
 
 [dev-dependencies]
 # T-027 — `tokio::join!` + `#[tokio::test]` in the pipeline test harness for
@@ -40,6 +48,9 @@ async-trait  = { workspace = true }
 # attribute; `rt-multi-thread` lets the join! exercise true concurrency
 # rather than cooperative interleaving.
 tokio        = { workspace = true, features = ["macros", "rt-multi-thread", "sync"] }
+# T-028 — adapter manifest signing in tests: fresh keypairs via
+# `SigningKey::generate(&mut OsRng)` mirror the aios-policy T-022 test pattern.
+rand_core    = { workspace = true }
 
 [lints]
 workspace = true

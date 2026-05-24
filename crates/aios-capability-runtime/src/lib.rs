@@ -40,7 +40,9 @@
 
 #![forbid(unsafe_code)]
 
+pub mod adapter_handle;
 pub mod adapter_manifest;
+pub mod adapter_registry;
 pub mod context;
 pub mod dispatch;
 pub mod error;
@@ -49,7 +51,12 @@ pub mod pipeline;
 pub mod runtime;
 pub mod status;
 
+pub use adapter_handle::RealAdapterHandle;
 pub use adapter_manifest::AdapterManifest;
+pub use adapter_registry::{
+    canonical_signed_manifest_bytes, encode_hex_signature, InMemoryAdapterRegistry,
+    RegisteredAdapter,
+};
 pub use context::ActionContext;
 pub use dispatch::{ActionDispatchKind, AdapterIOMode, AdapterStability, QueueClass};
 pub use error::RuntimeError;

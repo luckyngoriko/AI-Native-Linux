@@ -90,6 +90,12 @@
       "title": "aios-evidence — retention-class compaction worker per S3.1 §11.5 / §12 / §13 (M2 CLOSER)",
       "completed_at": "2026-05-24",
       "evidence": "364 tests (+34 over T-014 330). New crates/aios-evidence/src/compaction.rs (~600 LoC; 19 unit tests). Closed CompactionPolicy (Auto / OperatorApproval default per §11.5 / Disabled). CompactionWorker with sync tick(&mut self, backend, now) primitive; approve_segment for out-of-band approval; CompactionReport with eligible/compacted/awaiting/receipts_removed/index_entries_pruned counts. CompactionBackend trait implemented for both InMemoryEvidenceLog and RocksDbEvidenceLog. RocksDB compact_segment is atomic WriteBatch (delete receipts CF + record_type_index CF rows; set compacted_at::<id> sentinel in metadata CF; segment row in segments CF UNTOUCHED so recover_sealed_chain on reopen continues to verify). RecordType +1: CompactionApprovalRequired (wire ID 1000, FOREVER) — first Wave 14+ reserved-range constitutional addition. Total variants 428 (Wave 13 dense 1..=427 + Wave 14+ reserved 1). aios-evidence Cargo.toml 0.0.1 → 0.1.0 (M2 closure marker). cargo build/test/clippy/fmt all PASS. M2 closed honestly: 9 tasks T-007..T-015 complete; no debt carried into M3."
+    },
+    {
+      "id": "T-020",
+      "title": "aios-policy — full Constraints vocabulary (S2.3 §10) + ApprovalRequirement (§11.2 / §15) + validate()",
+      "completed_at": "2026-05-24",
+      "evidence": "383 tests workspace (+4 new in tests/types_roundtrip.rs: constraints_full_round_trip_with_every_field_populated, constraints_validate_rejects_past_expires_at, constraints_validate_rejects_zero_budgets_and_ttl, approval_requirement_enum_values_round_trip). Constraints expanded from 0-field stub to full 11-field §10 vocabulary + expires_at audit helper. Closed enums: EvidenceGrade (E2..E5), NetworkPolicy (LOCALHOST_ONLY/LAN_ALLOWED/INTERNET_ALLOWED), SessionClass (PUBLIC/INTERNAL/CONFIDENTIAL/RESTRICTED/RECOVERY), ApprovalScope (exact_request_hash), ApproverClass (8 subject classes). Newtypes SandboxProfileId, VaultCapabilityId. Constraints::DEFAULT_TTL_SECONDS=300, MAX_TTL_SECONDS=3600 per §13.2. Constraints::validate() enforces ttl bounds (1..=3600), non-zero max_runtime_seconds/max_concurrent_per_subject, future expires_at; emits PolicyError::ConstraintsInvalid(String) new variant. ApprovalRequirement expanded from empty stub to §11.2 5-field shape (required, approval_scope, ttl_seconds, approver_classes, require_human_co_signer). cargo check/test/clippy --all-targets -D warnings/fmt --check all PASS. Scope guard: did not modify kernel.rs / pipeline.rs / precedence.rs / hard_deny.rs / subject.rs (those queue for T-018/T-019/T-021/T-022)."
     }
   ],
   "blocked": [],
@@ -123,8 +129,8 @@
       "status": "in_progress",
       "title": "Policy Kernel skeleton (S2.3 aios-policy crate)",
       "started_at": "2026-05-24",
-      "tasks": ["T-016", "T-017"],
-      "running_test_count": 379,
+      "tasks": ["T-016", "T-017", "T-020"],
+      "running_test_count": 383,
       "crate_version": "aios-policy/0.0.1"
     }
   }

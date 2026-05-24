@@ -45,4 +45,10 @@ pub enum PolicyError {
         /// Human-readable English description of the schema violation.
         detail: String,
     },
+
+    /// Constraints attached to a decision violated a field-level invariant from
+    /// S2.3 §10 / §13.2 (e.g. zero `ttl_seconds`, zero `max_runtime_seconds`,
+    /// past `expires_at`). Raised by [`crate::Constraints::validate`].
+    #[error("constraints invalid: {0}")]
+    ConstraintsInvalid(String),
 }

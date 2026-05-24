@@ -9,8 +9,11 @@
 //! - [`Decision`] enum and [`PolicyDecision`] result struct per S2.3 §4.
 //! - [`HardDenyClass`] enum (the 10 constitutional hard denies) per S2.3 §6.
 //! - [`HydratedSubject`] + [`SubjectType`] per S2.3 §7.
-//! - Stub [`Constraints`] + [`ApprovalRequirement`] per S2.3 §10 (full vocabulary deferred to
-//!   T-020).
+//! - **T-020**: Full [`Constraints`] vocabulary per S2.3 §10 (11 fields) +
+//!   [`ApprovalRequirement`] per §11.2 / §15, with closed enums
+//!   ([`EvidenceGrade`], [`NetworkPolicy`], [`SessionClass`], [`ApprovalScope`],
+//!   [`ApproverClass`]) and [`Constraints::validate`] enforcing §13.2 TTL bounds
+//!   and §10 non-zero budget invariants.
 //! - [`PolicyError`] taxonomy for the decision pipeline short-circuits (§3, §7, §8).
 //! - **T-017**: [`PolicyKernel`] async trait + [`PolicyContext`] + [`EnrichmentSnapshot`]
 //!   stub (S2.3 §3 / §8 / §20).
@@ -46,7 +49,10 @@ pub mod pipeline;
 pub mod precedence;
 pub mod subject;
 
-pub use constraints::{ApprovalRequirement, Constraints};
+pub use constraints::{
+    ApprovalRequirement, ApprovalScope, ApproverClass, Constraints, EvidenceGrade, NetworkPolicy,
+    SandboxProfileId, SessionClass, VaultCapabilityId,
+};
 pub use decision::{Decision, PolicyDecision};
 pub use error::PolicyError;
 pub use hard_deny::HardDenyClass;

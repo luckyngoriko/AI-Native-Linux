@@ -15,13 +15,14 @@
     reason = "panic-on-failure is the idiomatic test signal"
 )]
 
-use chrono::TimeZone;
+use chrono::{Duration, TimeZone};
 use strum::{EnumCount, IntoEnumIterator};
 
 use aios_action::ActionId;
 use aios_policy::{
-    ApprovalRequirement, Constraints, Decision, HardDenyClass, HydratedSubject, PolicyDecision,
-    PolicyError, SubjectType,
+    ApprovalRequirement, ApprovalScope, ApproverClass, Constraints, Decision, EvidenceGrade,
+    HardDenyClass, HydratedSubject, NetworkPolicy, PolicyDecision, PolicyError, SandboxProfileId,
+    SessionClass, SubjectType, VaultCapabilityId,
 };
 
 #[test]
@@ -130,6 +131,159 @@ fn hydrated_subject_round_trips_through_serde_json() {
 }
 
 #[test]
+fn constraints_full_round_trip_with_every_field_populated() {
+    // T-020: every §10 field carries a non-default value to anchor the wire form.
+    let constraints = Constraints {
+        sandbox_profile_id: Some(SandboxProfileId("host-service-control".to_string())),
+        max_runtime_seconds: Some(30),
+        verification_required: true,
+        dry_run_only: false,
+        require_evidence_grade: Some(EvidenceGrade::E3),
+        require_human_co_signer: true,
+        network_policy: Some(NetworkPolicy::LocalhostOnly),
+        max_concurrent_per_subject: Some(4),
+        min_subject_session_class: Some(SessionClass::Internal),
+        vault_capability_required: Some(VaultCapabilityId("vault.read:nginx.tls".to_string())),
+        ttl_seconds: 600,
+        expires_at: Some(
+            chrono::Utc
+                .with_ymd_and_hms(2099, 1, 1, 0, 0, 0)
+                .single()
+                .expect("fixture timestamp is valid"),
+        ),
+    };
+
+    let json = serde_json::to_string(&constraints).expect("serialise Constraints");
+    let back: Constraints = serde_json::from_str(&json).expect("deserialise Constraints");
+    assert_eq!(constraints, back);
+
+    // Anchor the wire form of each closed enum so external bundle authors see
+    // exactly the spec strings.
+    assert!(json.contains("\"network_policy\":\"LOCALHOST_ONLY\""));
+    assert!(json.contains("\"require_evidence_grade\":\"E3\""));
+    assert!(json.contains("\"min_subject_session_class\":\"INTERNAL\""));
+    assert!(json.contains("\"ttl_seconds\":600"));
+
+    // §13.2: a default-constructed Constraints validates cleanly (ttl = 300 s).
+    Constraints::default()
+        .validate()
+        .expect("default Constraints must be valid (S2.3 §13.2 default 300 s)");
+
+    // And the fully-populated one above also validates.
+    constraints
+        .validate()
+        .expect("fully populated Constraints must validate");
+}
+
+#[test]
+fn constraints_validate_rejects_past_expires_at() {
+    let mut c = Constraints {
+        expires_at: Some(
+            chrono::Utc
+                .with_ymd_and_hms(2000, 1, 1, 0, 0, 0)
+                .single()
+                .expect("fixture timestamp is valid"),
+        ),
+        ..Constraints::default()
+    };
+    let err = c.validate().expect_err("past expires_at must reject");
+    match err {
+        PolicyError::ConstraintsInvalid(detail) => {
+            assert!(
+                detail.contains("expires_at"),
+                "detail should reference the offending field, got {detail}"
+            );
+        }
+        other => panic!("expected ConstraintsInvalid, got {other:?}"),
+    }
+
+    // Sanity: a future expires_at is accepted.
+    c.expires_at = Some(chrono::Utc::now() + Duration::hours(1));
+    c.validate().expect("future expires_at must validate");
+}
+
+#[test]
+fn constraints_validate_rejects_zero_budgets_and_ttl() {
+    // zero ttl_seconds — spec floor is 300 default, hard floor is non-zero.
+    let mut c = Constraints {
+        ttl_seconds: 0,
+        ..Constraints::default()
+    };
+    let err = c.validate().expect_err("zero ttl_seconds must reject");
+    assert!(matches!(err, PolicyError::ConstraintsInvalid(ref d) if d.contains("ttl_seconds")));
+
+    // ttl_seconds above MAX_TTL_SECONDS (3600 s per §13.2).
+    c.ttl_seconds = Constraints::MAX_TTL_SECONDS + 1;
+    let err = c.validate().expect_err("ttl_seconds > max must reject");
+    assert!(matches!(err, PolicyError::ConstraintsInvalid(ref d) if d.contains("exceeds max")));
+
+    // zero max_runtime_seconds — spec §10 row 2 ("hard wall-clock cap"); zero
+    // would mean the action cannot run, which must be expressed as DENY.
+    c = Constraints {
+        max_runtime_seconds: Some(0),
+        ..Constraints::default()
+    };
+    let err = c
+        .validate()
+        .expect_err("zero max_runtime_seconds must reject");
+    assert!(
+        matches!(err, PolicyError::ConstraintsInvalid(ref d) if d.contains("max_runtime_seconds"))
+    );
+
+    // zero max_concurrent_per_subject — same reasoning, §10 row 8.
+    c = Constraints {
+        max_concurrent_per_subject: Some(0),
+        ..Constraints::default()
+    };
+    let err = c
+        .validate()
+        .expect_err("zero max_concurrent_per_subject must reject");
+    assert!(
+        matches!(err, PolicyError::ConstraintsInvalid(ref d) if d.contains("max_concurrent_per_subject"))
+    );
+}
+
+#[test]
+fn approval_requirement_enum_values_round_trip() {
+    // Full ApprovalRequirement with every approver class enumerated.
+    let approval = ApprovalRequirement {
+        required: true,
+        approval_scope: ApprovalScope::ExactRequestHash,
+        ttl_seconds: 300,
+        approver_classes: vec![
+            ApproverClass::Human,
+            ApproverClass::Operator,
+            ApproverClass::Agent,
+            ApproverClass::Application,
+            ApproverClass::Service,
+            ApproverClass::Device,
+            ApproverClass::Workflow,
+            ApproverClass::RemoteOperator,
+        ],
+        require_human_co_signer: true,
+    };
+
+    let json = serde_json::to_string(&approval).expect("serialise ApprovalRequirement");
+    let back: ApprovalRequirement =
+        serde_json::from_str(&json).expect("deserialise ApprovalRequirement");
+    assert_eq!(approval, back);
+
+    // Anchor the spec wire form: §15 default is `["human"]` and the §11.2 proto
+    // values are lowercase snake_case strings.
+    assert!(json.contains("\"approval_scope\":\"exact_request_hash\""));
+    assert!(json.contains("\"human\""));
+    assert!(json.contains("\"operator\""));
+    assert!(json.contains("\"remote_operator\""));
+
+    // Default ApprovalRequirement: `required = false` with the binding scope
+    // still set to the only rev.2 value.
+    let default = ApprovalRequirement::default();
+    assert!(!default.required);
+    assert_eq!(default.approval_scope, ApprovalScope::ExactRequestHash);
+    assert!(default.approver_classes.is_empty());
+}
+
+#[test]
 fn policy_error_display_strings_match_canonical_text() {
     assert_eq!(
         PolicyError::SubjectUnauthenticated.to_string(),
@@ -152,5 +306,10 @@ fn policy_error_display_strings_match_canonical_text() {
         }
         .to_string(),
         "policy bundle schema invalid: unknown constraint `max_io_bytes`"
+    );
+    assert_eq!(
+        PolicyError::ConstraintsInvalid("ttl_seconds must be non-zero (S2.3 §13.2)".to_string())
+            .to_string(),
+        "constraints invalid: ttl_seconds must be non-zero (S2.3 §13.2)"
     );
 }

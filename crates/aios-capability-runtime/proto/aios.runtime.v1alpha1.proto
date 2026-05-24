@@ -1,0 +1,404 @@
+// AIOS S10.1 — Capability Runtime internal gRPC service surface (T-033).
+//
+// This file is the canonical proto3 IDL for the L3-internal
+// `aios.runtime.v1alpha1.CapabilityRuntime` service defined in
+// `002.AI-OS.NET--SPECREV.2/L3_AIOS_SGR_Service_Graph_Runtime/`
+// `03_capability_runtime_grpc.md` §5 (service surface), §3 (vocabulary), §10
+// (adapter manifest), and §6 (execute path).
+//
+// Stability:
+//   - Package name `aios.runtime.v1alpha1` matches the schema declaration in
+//     S10.1 §5.1. The `v1alpha1` suffix communicates the wire is still
+//     ratifying.
+//   - The nine-RPC surface is closed per §5.1. Adding an RPC is a versioned
+//     spec change.
+//
+// Rust integration:
+//   - `crates/aios-capability-runtime/build.rs` invokes `tonic-build` to
+//     generate Rust server + client stubs (`capability_runtime_server::CapabilityRuntime`
+//     trait + `CapabilityRuntimeServer<T>` transport; `capability_runtime_client::CapabilityRuntimeClient`).
+//     The build script mirrors `crates/aios-policy/build.rs` (T-023) and
+//     `crates/aios-evidence/build.rs` (T-011).
+//   - The Rust value types in `crates/aios-capability-runtime/src/{status,
+//     dispatch,failure,adapter_manifest,context}.rs` are the spec-typed
+//     mirrors of the proto messages below; `src/service/conversions.rs`
+//     owns the bidirectional Rust ↔ proto translation.
+//
+// Cross-crate envelope placeholder:
+//   - `ValidateActionRequest.envelope_proto` and `GetActionStatusResponse.envelope_proto`
+//     are declared as `bytes` per spec but until `aios-action` ships its own
+//     proto IDL (open task #26 in the .ai tracker), the in-tree wire format
+//     for those bytes is the canonical JSON serde representation of
+//     `aios_action::ActionEnvelope`. The conversion module is the single touch
+//     point when the swap-in lands. This pattern matches `aios-policy`
+//     `EvaluatePolicyRequest.envelope_proto` verbatim.
+
+syntax = "proto3";
+package aios.runtime.v1alpha1;
+
+import "google/protobuf/timestamp.proto";
+import "google/protobuf/empty.proto";
+
+// ─────────────────────────────────────────────────────────────────
+// Vocabulary enums (S10.1 §3)
+// ─────────────────────────────────────────────────────────────────
+
+// §3.1 — 14-state closed lifecycle FSM. The `_UNSPECIFIED` 0-value sentinel
+// is reserved per the proto3 closed-enum discipline; production code never
+// emits it.
+enum ActionLifecycleState {
+  ACTION_LIFECYCLE_STATE_UNSPECIFIED = 0;
+  CREATED                            = 1;
+  POLICY_PENDING                     = 2;
+  APPROVAL_PENDING                   = 3;
+  OVERRIDE_PENDING                   = 4;
+  APPROVED                           = 5;
+  POLICY_DENIED                      = 6;
+  OVERRIDE_DENIED                    = 7;
+  QUEUED                             = 8;
+  EXECUTING                          = 9;
+  VERIFYING                          = 10;
+  SUCCEEDED                          = 11;
+  FAILED                             = 12;
+  ROLLED_BACK                        = 13;
+  ROLLBACK_FAILED                    = 14;
+}
+
+// §3.2 — closed 4-variant dispatch kind. AI-origin actions always upgrade to
+// `ISOLATED_SANDBOX`; `request.dry_run = SIMULATE` forces `DRY_RUN`.
+enum ActionDispatchKind {
+  ACTION_DISPATCH_KIND_UNSPECIFIED = 0;
+  IN_PROCESS_RPC                   = 1;
+  SUBPROCESS_FORK                  = 2;
+  ISOLATED_SANDBOX                 = 3;
+  DRY_RUN                          = 4;
+}
+
+// §3.3 — closed 2-variant IO mode. Free-form shell command input is not a
+// value.
+enum AdapterIOMode {
+  ADAPTER_IO_MODE_UNSPECIFIED = 0;
+  TYPED_PARAMETERS_ONLY       = 1;
+  TEMPLATE_PARAMETERS         = 2;
+}
+
+// §3.4 — closed 5-variant stability ladder.
+enum AdapterStability {
+  ADAPTER_STABILITY_UNSPECIFIED = 0;
+  REGISTERED                    = 1;
+  EXPERIMENTAL                  = 2;
+  STABLE                        = 3;
+  DEPRECATED                    = 4;
+  RETIRED                       = 5;
+}
+
+// §3.5 — closed 4-variant queue class.
+enum QueueClass {
+  QUEUE_CLASS_UNSPECIFIED = 0;
+  INTERACTIVE             = 1;
+  AGENT_PROPOSAL          = 2;
+  BACKGROUND              = 3;
+  RECOVERY_PRIORITY       = 4;
+}
+
+// §3.6 — closed 12-variant execution failure reason.
+enum ExecutionFailureReason {
+  EXECUTION_FAILURE_REASON_UNSPECIFIED = 0;
+  SANDBOX_APPLICATION_FAILED           = 1;
+  ADAPTER_TIMEOUT                      = 2;
+  ADAPTER_PANIC                        = 3;
+  RESOURCE_BUDGET_EXCEEDED             = 4;
+  DEPENDENCY_UNREADY                   = 5;
+  BACKEND_UNAVAILABLE                  = 6;
+  IDEMPOTENCY_KEY_REPLAY_DETECTED      = 7;
+  ENVELOPE_VALIDATION_FAILED           = 8;
+  ROLLBACK_PRECONDITION_FAILED         = 9;
+  BINDING_EXPIRED                      = 10;
+  BINDING_VOIDED_ACTION_REVISED        = 11;
+  ADAPTER_REFUSED                      = 12;
+}
+
+// §3.7 — closed 4-variant rollback outcome.
+enum RollbackOutcome {
+  ROLLBACK_OUTCOME_UNSPECIFIED = 0;
+  ROLLBACK_NOT_ATTEMPTED       = 1;
+  ROLLBACK_SUCCEEDED           = 2;
+  ROLLBACK_FAILED_OUTCOME      = 3;
+  ROLLBACK_NOT_APPLICABLE      = 4;
+}
+
+// §3.8 — closed 20-variant RPC-level error code surface.
+enum RuntimeErrorCode {
+  RUNTIME_OK                        = 0;
+  INVALID_ENVELOPE                  = 1;
+  UNKNOWN_ACTION_KIND               = 2;
+  UNKNOWN_ADAPTER                   = 3;
+  ADAPTER_NOT_DISPATCHABLE          = 4;
+  POLICY_DECISION_UNAVAILABLE       = 5;
+  APPROVAL_BINDING_INVALID          = 6;
+  OVERRIDE_BINDING_INVALID          = 7;
+  BINDING_HASH_MISMATCH             = 8;
+  LIFECYCLE_ILLEGAL_TRANSITION      = 9;
+  LIFECYCLE_TERMINAL                = 10;
+  IDEMPOTENCY_REPLAY                = 11;
+  QUEUE_BACKPRESSURE_REJECTED       = 12;
+  ADAPTER_TIMEOUT_BUDGET_EXCEEDED   = 13;
+  VERIFICATION_GRAMMAR_REJECTED     = 14;
+  EVIDENCE_LOG_UNAVAILABLE          = 15;
+  EVIDENCE_TAMPER_DETECTED          = 16;
+  RUNTIME_DEGRADED                  = 17;
+  MANIFEST_SIGNATURE_INVALID        = 18;
+  RUNTIME_INTERNAL                  = 19;
+}
+
+// ─────────────────────────────────────────────────────────────────
+// ActionContext — runtime's per-action working memory (S10.1 §3 / §4.3)
+// ─────────────────────────────────────────────────────────────────
+
+// Mirrors the Rust `aios_capability_runtime::ActionContext` shape verbatim.
+message ActionContext {
+  // `aios_action::ActionId` rendered as canonical string ("act_" + ULID).
+  string action_id                          = 1;
+  ActionLifecycleState status               = 2;
+  ActionDispatchKind dispatch_kind          = 3;
+  QueueClass queue_class                    = 4;
+  google.protobuf.Timestamp created_at      = 5;
+  google.protobuf.Timestamp last_updated_at = 6;
+  // Populated only when `status` is `FAILED` or `ROLLED_BACK`.
+  ExecutionFailureReason error              = 7;
+  // Populated only when the rollback path executes.
+  RollbackOutcome rollback_outcome          = 8;
+  // Evidence receipt ids accumulated across the lifecycle. Empty until an
+  // evidence emitter is attached to the runtime (T-031).
+  repeated string evidence_chain            = 9;
+}
+
+// ─────────────────────────────────────────────────────────────────
+// AdapterManifest (S10.1 §10.1)
+// ─────────────────────────────────────────────────────────────────
+
+message AdapterActionDeclaration {
+  string action_kind                            = 1;
+  // `target_schema` and `response_schema` are opaque JSON values on the Rust
+  // side; on the wire we render them as serialised JSON strings so the
+  // proto IDL does not have to track an open-ended schema vocabulary. The
+  // conversions module preserves the round-trip.
+  string target_schema_json                     = 2;
+  string response_schema_json                   = 3;
+  string rollback_strategy                      = 4;
+  uint32 timeout_seconds                        = 5;
+  string template_string                        = 6;  // empty when io_mode = TYPED_PARAMETERS_ONLY
+  repeated string template_substitution_variables = 7;
+}
+
+message AdapterManifest {
+  string adapter_id                              = 1;
+  string adapter_version                         = 2;
+  string vendor                                  = 3;
+  string name                                    = 4;
+  AdapterStability declared_stability            = 5;
+  AdapterIOMode io_mode                          = 6;
+  ActionDispatchKind dispatch_kind               = 7;
+  repeated AdapterActionDeclaration declared_actions = 8;
+  repeated string declared_invariants_supported  = 9;
+  uint32 default_adapter_timeout_seconds         = 10;
+  string default_sandbox_profile_id              = 11;
+  string adapter_signature                       = 12;  // hex_lower over JCS(fields 1..11)
+  string signing_key_id                          = 13;
+  google.protobuf.Timestamp manifest_created_at  = 14;
+  google.protobuf.Timestamp manifest_expires_at  = 15;
+}
+
+message RegisteredAdapter {
+  AdapterManifest manifest                 = 1;
+  google.protobuf.Timestamp registered_at  = 2;
+}
+
+// ─────────────────────────────────────────────────────────────────
+// RPC surface (S10.1 §5.1 — nine RPCs, closed)
+// ─────────────────────────────────────────────────────────────────
+
+message ValidateActionRequest {
+  // serialised aios.action.v1alpha1.ActionEnvelope — until `aios-action`
+  // ships a proto IDL (open task #26 in the .ai tracker), the in-tree wire
+  // format for these bytes is the canonical JSON serde representation of
+  // `aios_action::ActionEnvelope`. The conversions module is the single
+  // touch point when the swap-in lands.
+  bytes envelope_proto = 1;
+}
+
+message ValidationFinding {
+  string field_path = 1;
+  string code       = 2;
+  string message    = 3;
+  bool is_blocking  = 4;
+}
+
+message ValidateActionResponse {
+  ActionLifecycleState state          = 1;
+  RuntimeErrorCode error              = 2;
+  repeated ValidationFinding findings = 3;
+  // L3-internal handle minted by the runtime; mirrors the action envelope's
+  // ULID-based `act_` id today. When the §5.2 distinction between an envelope
+  // id and a per-attempt handle becomes operational (T-034+), this field
+  // diverges from the envelope id.
+  string action_request_id            = 4;
+}
+
+message ExecuteActionRequest {
+  // ExecuteAction runs the full submit_action pipeline today (T-033 baseline):
+  // - either the caller supplies a previously-validated `action_request_id`,
+  //   OR a fresh `envelope_proto` is submitted in one shot. The current
+  //   InMemoryCapabilityRuntime drives the entire eight-step pipeline through
+  //   `submit_action`, so the two paths converge until T-034 splits validate
+  //   and execute into independent transitions.
+  string action_request_id = 1;
+  bytes envelope_proto     = 2;
+}
+
+message ExecuteActionResponse {
+  ActionLifecycleState state          = 1;
+  string adapter_id                   = 2;
+  ActionDispatchKind dispatch_kind    = 3;
+  string applied_sandbox_profile_id   = 4;
+  RuntimeErrorCode error              = 5;
+  ExecutionFailureReason failure_reason = 6;
+  ActionContext context               = 7;
+}
+
+message GetActionStatusRequest {
+  string action_request_id = 1;
+}
+
+message GetActionStatusResponse {
+  // Serialised aios.action.v1alpha1.ActionEnvelope (JSON placeholder per
+  // task #26). Today the runtime does not persist envelopes alongside
+  // contexts; this field is reserved for the T-035 / M5 wire-form swap-in.
+  bytes envelope_proto                        = 1;
+  ActionLifecycleState lifecycle_state        = 2;
+  string current_adapter_id                   = 3;
+  ActionDispatchKind current_dispatch_kind    = 4;
+  string applied_sandbox_profile_id           = 5;
+  google.protobuf.Timestamp last_state_change_at = 6;
+  ActionContext context                       = 7;
+}
+
+message RollbackActionRequest {
+  string action_request_id = 1;
+}
+
+message RollbackActionResponse {
+  ActionLifecycleState state = 1;
+  RollbackOutcome outcome    = 2;
+  RuntimeErrorCode error     = 3;
+}
+
+message EvaluatePolicyForActionRequest {
+  string action_request_id = 1;
+  bytes envelope_proto     = 2;
+}
+
+message EvaluatePolicyForActionResponse {
+  ActionLifecycleState state = 1;
+  RuntimeErrorCode error     = 2;
+}
+
+message RequestApprovalForActionRequest {
+  string action_request_id = 1;
+}
+
+message RequestApprovalForActionResponse {
+  ActionLifecycleState state = 1;
+  string approval_request_id = 2;
+  RuntimeErrorCode error     = 3;
+}
+
+message VerifyActionRequest {
+  string action_request_id = 1;
+}
+
+message VerifyActionResponse {
+  ActionLifecycleState state = 1;
+  RuntimeErrorCode error     = 2;
+}
+
+message ListAdaptersRequest {
+  string action_kind_filter        = 1;  // optional dotted prefix
+  AdapterStability stability_filter = 2; // optional; UNSPECIFIED = all
+  bool include_retired             = 3;
+}
+
+message ListAdaptersResponse {
+  repeated RegisteredAdapter entries = 1;
+}
+
+message GetAdapterCapabilitiesRequest {
+  string adapter_id = 1;
+}
+
+message GetAdapterCapabilitiesResponse {
+  AdapterManifest manifest = 1;
+}
+
+message GetCapabilityRuntimeInfoResponse {
+  string capability_runtime_id              = 1;
+  string runtime_version                    = 2;
+  repeated string supported_schema_versions = 3;
+  uint32 registered_adapters_count          = 4;
+  uint32 queue_depth                        = 5;
+  bool degraded                             = 6;
+  string degraded_reason                    = 7;
+  google.protobuf.Timestamp started_at      = 8;
+}
+
+// §5.1 — nine-RPC closed service surface.
+service CapabilityRuntime {
+  // Pre-validation: schema, target, sandbox-profile validity, dry-run
+  // feasibility. Allocates an `action_request_id` and parks the envelope at
+  // lifecycle state `CREATED`.
+  rpc ValidateAction(ValidateActionRequest) returns (ValidateActionResponse);
+
+  // Orchestrates the L4.1 EvaluatePolicy call with action-bound enrichment.
+  // T-033 baseline: stub returning `Unimplemented` — the InMemoryCapabilityRuntime
+  // policy step is folded into `submit_action`; T-034 (approval orchestration)
+  // exposes the standalone transition.
+  rpc EvaluatePolicyForAction(EvaluatePolicyForActionRequest)
+      returns (EvaluatePolicyForActionResponse);
+
+  // Orchestrates the L4.3 approval flow when policy outcome was
+  // `REQUIRE_APPROVAL`. T-033 baseline: stub returning `Unimplemented`;
+  // T-034 wires the binding-aware path.
+  rpc RequestApprovalForAction(RequestApprovalForActionRequest)
+      returns (RequestApprovalForActionResponse);
+
+  // Terminal dispatcher; consumes a held binding (approval or override),
+  // runs the eight-step pre-dispatch (§6.1), and dispatches the adapter.
+  // T-033 baseline: drives the full `submit_action` pipeline end-to-end.
+  rpc ExecuteAction(ExecuteActionRequest) returns (ExecuteActionResponse);
+
+  // Runs S2.4 VerificationEngine.RunVerification against the envelope's
+  // verification_intent. T-033 baseline: stub returning `Unimplemented`;
+  // verification is folded into `submit_action` today.
+  rpc VerifyAction(VerifyActionRequest) returns (VerifyActionResponse);
+
+  // Adapter-driven rollback per the action's declared `rollback_strategy`.
+  // T-033 baseline: stub returning `Unimplemented` — rollback is driven
+  // automatically by `submit_action` when a rollback driver is attached
+  // (T-032); the standalone RPC requires a stored adapter handle which T-034
+  // lands.
+  rpc RollbackAction(RollbackActionRequest) returns (RollbackActionResponse);
+
+  // Read-only snapshot of an action's L3-internal lifecycle.
+  rpc GetActionStatus(GetActionStatusRequest) returns (GetActionStatusResponse);
+
+  // Adapter directory.
+  rpc ListAdapters(ListAdaptersRequest) returns (ListAdaptersResponse);
+
+  // What an adapter advertises (typed action kinds, schemas, stability).
+  rpc GetAdapterCapabilities(GetAdapterCapabilitiesRequest)
+      returns (GetAdapterCapabilitiesResponse);
+
+  // Runtime self-description (version, configured adapters, queue depth, health).
+  rpc GetCapabilityRuntimeInfo(google.protobuf.Empty)
+      returns (GetCapabilityRuntimeInfoResponse);
+}

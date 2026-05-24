@@ -55,6 +55,9 @@ pub mod pipeline;
 pub mod rollback;
 pub mod rollback_strategy;
 pub mod runtime;
+/// T-033 — gRPC `CapabilityRuntime` service surface
+/// (`aios.runtime.v1alpha1`, S10.1 §5).
+pub mod service;
 pub mod status;
 
 pub use adapter_handle::RealAdapterHandle;

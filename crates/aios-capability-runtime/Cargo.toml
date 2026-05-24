@@ -8,6 +8,11 @@ license.workspace = true
 repository.workspace = true
 authors.workspace = true
 
+# T-033 — tonic-build runs at compile time to generate Rust server + client
+# stubs from `proto/aios.runtime.v1alpha1.proto`. Mirrors the M3 aios-policy
+# T-023 build script and the M2 aios-evidence T-011 build script.
+build = "build.rs"
+
 [dependencies]
 # T-026 (M4 opening) — types-only skeleton mirrors the M3 T-016 pattern.
 # Cross-crate imports keep the L3 surface authored against the same envelope
@@ -51,6 +56,20 @@ aios-policy  = { path = "../aios-policy" }
 # every §4.2 lifecycle transition. The path dep mirrors the M2 → M4 layering
 # (L0/L9 evidence vocabulary → L3 producer edge per S3.1 §11.4).
 aios-evidence = { path = "../aios-evidence" }
+# T-033 — gRPC `CapabilityRuntime` service surface (S10.1 §5.1). `tonic` is
+# the runtime server/client transport; `prost` carries the generated proto3
+# message types; `prost-types` carries the well-known `Timestamp` /
+# `Empty` types referenced from the proto IDL.
+tonic        = { workspace = true }
+prost        = { workspace = true }
+prost-types  = { workspace = true }
+
+[build-dependencies]
+# T-033 — tonic-build emits the Rust server + client stubs at compile time;
+# protoc-bin-vendored ships the protobuf compiler binary so the build does
+# not require a system protoc install. Pattern mirrors aios-policy T-023.
+tonic-build         = { workspace = true }
+protoc-bin-vendored = { workspace = true }
 
 [dev-dependencies]
 # T-027 — `tokio::join!` + `#[tokio::test]` in the pipeline test harness for

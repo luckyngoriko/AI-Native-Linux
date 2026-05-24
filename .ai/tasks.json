@@ -96,6 +96,12 @@
       "title": "aios-policy — full Constraints vocabulary (S2.3 §10) + ApprovalRequirement (§11.2 / §15) + validate()",
       "completed_at": "2026-05-24",
       "evidence": "383 tests workspace (+4 new in tests/types_roundtrip.rs: constraints_full_round_trip_with_every_field_populated, constraints_validate_rejects_past_expires_at, constraints_validate_rejects_zero_budgets_and_ttl, approval_requirement_enum_values_round_trip). Constraints expanded from 0-field stub to full 11-field §10 vocabulary + expires_at audit helper. Closed enums: EvidenceGrade (E2..E5), NetworkPolicy (LOCALHOST_ONLY/LAN_ALLOWED/INTERNET_ALLOWED), SessionClass (PUBLIC/INTERNAL/CONFIDENTIAL/RESTRICTED/RECOVERY), ApprovalScope (exact_request_hash), ApproverClass (8 subject classes). Newtypes SandboxProfileId, VaultCapabilityId. Constraints::DEFAULT_TTL_SECONDS=300, MAX_TTL_SECONDS=3600 per §13.2. Constraints::validate() enforces ttl bounds (1..=3600), non-zero max_runtime_seconds/max_concurrent_per_subject, future expires_at; emits PolicyError::ConstraintsInvalid(String) new variant. ApprovalRequirement expanded from empty stub to §11.2 5-field shape (required, approval_scope, ttl_seconds, approver_classes, require_human_co_signer). cargo check/test/clippy --all-targets -D warnings/fmt --check all PASS. Scope guard: did not modify kernel.rs / pipeline.rs / precedence.rs / hard_deny.rs / subject.rs (those queue for T-018/T-019/T-021/T-022)."
+    },
+    {
+      "id": "T-018",
+      "title": "aios-policy — HardDenyEngine (S2.3 §6, 10 classes enforced)",
+      "completed_at": "2026-05-24",
+      "evidence": "407 tests workspace (+24 over T-020 baseline 383: 5 inline unit tests in hard_deny_engine module + 19 integration tests in tests/hard_deny.rs). New src/hard_deny_engine.rs (~620 LoC): HardDenyEngineConfig 14 closed sets + HardDenyEngine::{new, new_with_defaults, check(envelope, &HydratedSubject) -> Option<HardDenyClass>} + 10 private detect_<row>() methods (1 per §6 row) run in §6 table order, first match wins. Free fns reason_code_for(class) -> 'HardDeny:<Variant>', reason_message_for(class) (appends '(override path: recovery-mode operator approval)' on ModifyBootChain + AiosFsPointerRollbackOnRecovery), has_recovery_override_path(class) const. Pipeline wired: added step_4_evaluate_hard_denies_with_engine(envelope, ctx, request_hash, Option<&HardDenyEngine>) + evaluate_with_hard_deny_engine driver in pipeline.rs; zero-arg stub step_4_evaluate_hard_denies() preserved for T-017 test compat. InMemoryPolicyKernel gained hard_deny_engine: Option<Arc<HardDenyEngine>> + new_with_hard_deny ctor + has_hard_deny_engine inspector; bare new() unchanged. Dropped Copy on InMemoryPolicyKernel (Arc field forces it; Clone retained). All 4 gates PASS: cargo check + test (407) + clippy --workspace --all-targets -D warnings + fmt --all -- --check. Scope guard: hard_deny.rs enum + precedence.rs + constraints.rs + subject.rs untouched. T-019 (conditions parser), T-022 (bundle loader), T-021 (subject hydration), T-023 (gRPC), T-024 (cache), T-025 (override boundary) deferred per brief."
     }
   ],
   "blocked": [],
@@ -129,8 +135,8 @@
       "status": "in_progress",
       "title": "Policy Kernel skeleton (S2.3 aios-policy crate)",
       "started_at": "2026-05-24",
-      "tasks": ["T-016", "T-017", "T-020"],
-      "running_test_count": 383,
+      "tasks": ["T-016", "T-017", "T-020", "T-018"],
+      "running_test_count": 407,
       "crate_version": "aios-policy/0.0.1"
     }
   }

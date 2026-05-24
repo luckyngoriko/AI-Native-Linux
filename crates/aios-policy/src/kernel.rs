@@ -21,6 +21,8 @@
 //! [`InMemoryPolicyKernel`] is the in-process harness used by tests today and by
 //! T-018..T-025 as the substrate to attach the hard-deny engine, bundle loader, etc.
 
+use std::sync::Arc;
+
 use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
 
@@ -28,6 +30,7 @@ use aios_action::ActionEnvelope;
 
 use crate::decision::PolicyDecision;
 use crate::error::PolicyError;
+use crate::hard_deny_engine::HardDenyEngine;
 use crate::pipeline::DecisionPipeline;
 use crate::subject::HydratedSubject;
 
@@ -124,22 +127,55 @@ pub trait PolicyKernel: Send + Sync {
 /// The harness is what the test suite + the future Capability Runtime integration
 /// tests use.
 ///
-/// The struct is intentionally a unit struct: the pipeline driver is stateless across
-/// evaluations, and the only state a future impl will need (bundle index, cache, rate
-/// limiter) is task-specific and will land on dedicated types that this struct
-/// composes — not on the struct itself.
-#[derive(Debug, Default, Clone, Copy)]
+/// Composes the stateless pipeline driver with an optional
+/// [`HardDenyEngine`] (T-018). Future tasks attach a bundle index (T-022),
+/// cache (T-024), and rate limiter through the same composition discipline:
+/// add a field, expose a `new_with_*` ctor, and route the pipeline driver
+/// through the engine-aware overload — never break the bare `new()` baseline
+/// that the T-017 tests pin.
+#[derive(Debug, Default, Clone)]
 pub struct InMemoryPolicyKernel {
     pipeline: DecisionPipeline,
+    /// `None` = T-017 baseline (step 4 is a stub pass-through). `Some(engine)`
+    /// = T-018+ (step 4 enforces the §6 hard-deny table). The engine is held
+    /// behind an `Arc` so cloning the kernel (and so cloning the future
+    /// `Arc<dyn PolicyKernel>` server handle) is `O(1)`.
+    hard_deny_engine: Option<Arc<HardDenyEngine>>,
 }
 
 impl InMemoryPolicyKernel {
-    /// Construct a fresh in-memory kernel.
+    /// Construct a fresh in-memory kernel with no hard-deny engine attached.
+    ///
+    /// Step 4 of the decision pipeline remains the T-017 stub pass-through;
+    /// every evaluation flows to the default-deny floor (S2.3 §11). This is
+    /// the ctor the T-017 baseline tests use; T-018 keeps it stable.
     #[must_use]
     pub const fn new() -> Self {
         Self {
             pipeline: DecisionPipeline::new(),
+            hard_deny_engine: None,
         }
+    }
+
+    /// Construct a kernel pre-loaded with a [`HardDenyEngine`] (T-018).
+    ///
+    /// Production wiring constructs the engine via
+    /// [`HardDenyEngine::new_with_defaults`] and passes it in here; tests use
+    /// custom configs to exercise individual §6 rows in isolation. The engine
+    /// is taken by value and wrapped in an `Arc` so the kernel can be cloned
+    /// freely.
+    #[must_use]
+    pub fn new_with_hard_deny(engine: HardDenyEngine) -> Self {
+        Self {
+            pipeline: DecisionPipeline::new(),
+            hard_deny_engine: Some(Arc::new(engine)),
+        }
+    }
+
+    /// `true` when this kernel has a hard-deny engine attached.
+    #[must_use]
+    pub const fn has_hard_deny_engine(&self) -> bool {
+        self.hard_deny_engine.is_some()
     }
 }
 
@@ -154,7 +190,13 @@ impl PolicyKernel for InMemoryPolicyKernel {
         // caller (T-021 lands the real hydrator that can fail), enrichment is a stub
         // (T-018+), and bundle loading is a stub (T-022). When those tasks land, the
         // failure modes will surface here as `Err(...)`. For now every evaluation flows
-        // through the pipeline and lands at the default-deny floor (S2.3 §11).
-        Ok(self.pipeline.evaluate(envelope, context))
+        // through the pipeline; with the hard-deny engine attached step 4 may
+        // short-circuit on a §6 class, otherwise the evaluation lands at the
+        // default-deny floor (S2.3 §11).
+        Ok(self.pipeline.evaluate_with_hard_deny_engine(
+            envelope,
+            context,
+            self.hard_deny_engine.as_deref(),
+        ))
     }
 }

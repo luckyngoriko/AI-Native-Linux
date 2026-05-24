@@ -32,6 +32,7 @@ use aios_action::ActionEnvelope;
 
 use crate::constraints::{ApprovalRequirement, Constraints};
 use crate::decision::{Decision, PolicyDecision};
+use crate::hard_deny_engine::{reason_code_for, reason_message_for, HardDenyEngine};
 use crate::kernel::PolicyContext;
 
 /// Outcome of a single pipeline step.
@@ -106,8 +107,31 @@ impl DecisionPipeline {
     ///
     /// Returns the terminal [`PolicyDecision`] from the first step that short-circuits,
     /// or the `DefaultDeny` decision minted by step 9 if no earlier step short-circuits.
+    ///
+    /// Equivalent to [`Self::evaluate_with_hard_deny_engine`] with `engine = None`.
+    /// Retained for the T-017 baseline tests that construct a bare
+    /// [`crate::kernel::InMemoryPolicyKernel`] via `new()` and expect the §6
+    /// stub semantics (step 4 is a no-op pass-through).
     #[must_use]
     pub fn evaluate(self, envelope: &ActionEnvelope, context: &PolicyContext) -> PolicyDecision {
+        self.evaluate_with_hard_deny_engine(envelope, context, None)
+    }
+
+    /// Drive the full 12-step pipeline for one envelope with an optional
+    /// [`HardDenyEngine`] attached.
+    ///
+    /// When `engine` is `Some`, step 4 calls it and short-circuits with a
+    /// `Decision::Deny` carrying `reason_code = "HardDeny:<Variant>"` (per
+    /// [`reason_code_for`]) and `reason_message` per [`reason_message_for`].
+    /// When `engine` is `None`, step 4 remains a pass-through stub (T-017
+    /// semantics).
+    #[must_use]
+    pub fn evaluate_with_hard_deny_engine(
+        self,
+        envelope: &ActionEnvelope,
+        context: &PolicyContext,
+        engine: Option<&HardDenyEngine>,
+    ) -> PolicyDecision {
         let request_hash = compute_request_hash(envelope);
 
         // Step 1 — schema validation.
@@ -128,8 +152,11 @@ impl DecisionPipeline {
             return *d;
         }
 
-        // Step 4 — hard denies (stub; T-018 implements HardDenyEngine).
-        if let PipelineState::ShortCircuit(d) = Self::step_4_evaluate_hard_denies() {
+        // Step 4 — hard denies. T-018 wires the HardDenyEngine; when absent
+        // (T-017 baseline kernel), the stub passes through.
+        if let PipelineState::ShortCircuit(d) =
+            self.step_4_evaluate_hard_denies_with_engine(envelope, context, &request_hash, engine)
+        {
             return *d;
         }
 
@@ -228,14 +255,60 @@ impl DecisionPipeline {
         PipelineState::Continue
     }
 
-    /// Step 4 — evaluate hard denies (S2.3 §3 step 5 / §6).
+    /// Step 4 — evaluate hard denies (S2.3 §3 step 5 / §6) — **stub form**.
     ///
-    /// **STUB** — T-018 lands `HardDenyEngine::check(envelope, hydrated_subject)`.
-    /// Per S2.3 §6 the 10 hard-deny classes are constitutional and cannot be overridden
-    /// except as listed in the spec table.
+    /// Retained as a const no-op for the T-017 baseline tests that pin the
+    /// stub contract. The real engine-driven path lives on
+    /// [`Self::step_4_evaluate_hard_denies_with_engine`]; the driver loop in
+    /// [`Self::evaluate_with_hard_deny_engine`] dispatches between the two
+    /// based on whether an engine is attached.
     #[must_use]
     pub const fn step_4_evaluate_hard_denies() -> PipelineState {
         PipelineState::Continue
+    }
+
+    /// Step 4 — evaluate hard denies (S2.3 §3 step 5 / §6) — **engine-driven form**.
+    ///
+    /// When `engine` is `Some(e)` this calls `e.check(envelope, &context.subject)`
+    /// and short-circuits with a `Decision::Deny` carrying a
+    /// `HardDeny:<Variant>` `reason_code` on the first matching §6 class. When
+    /// `engine` is `None`, this returns `Continue` (matching the T-017 stub
+    /// semantics).
+    ///
+    /// Per §6 the 10 hard-deny classes are constitutional and cannot be
+    /// overridden except as listed in the spec table. The two overridable
+    /// rows (`hd.modify_boot_chain`, `hd.aios_fs_pointer_rollback_on_recovery`)
+    /// still produce `DENY` here; the override path lives downstream (T-025)
+    /// and produces an evidence-linked override receipt without flipping the
+    /// engine's verdict.
+    #[must_use]
+    pub fn step_4_evaluate_hard_denies_with_engine(
+        self,
+        envelope: &ActionEnvelope,
+        context: &PolicyContext,
+        request_hash: &str,
+        engine: Option<&HardDenyEngine>,
+    ) -> PipelineState {
+        let Some(engine) = engine else {
+            return PipelineState::Continue;
+        };
+        let Some(class) = engine.check(envelope, &context.subject) else {
+            return PipelineState::Continue;
+        };
+        let reason_code = reason_code_for(class);
+        let reason_message = reason_message_for(class);
+        PipelineState::ShortCircuit(Box::new(Self::emit_decision(EmitDecision {
+            envelope,
+            context,
+            request_hash,
+            decision: Decision::Deny,
+            reason_code: &reason_code,
+            reason_message: &reason_message,
+            // The engine consulted exactly one constitutional table; account
+            // for it in the audit count so a §6 fire is visible in the
+            // `rules_consulted` histogram.
+            rules_consulted: 1,
+        })))
     }
 
     /// Step 5 — evaluate emergency-override denylist (S2.3 §3 step 6 / §16).

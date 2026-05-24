@@ -44,6 +44,7 @@ pub mod constraints;
 pub mod decision;
 pub mod error;
 pub mod hard_deny;
+pub mod hard_deny_engine;
 pub mod kernel;
 pub mod pipeline;
 pub mod precedence;
@@ -56,6 +57,10 @@ pub use constraints::{
 pub use decision::{Decision, PolicyDecision};
 pub use error::PolicyError;
 pub use hard_deny::HardDenyClass;
+pub use hard_deny_engine::{
+    has_recovery_override_path, reason_code_for, reason_message_for, HardDenyEngine,
+    HardDenyEngineConfig,
+};
 pub use kernel::{EnrichmentSnapshot, InMemoryPolicyKernel, PolicyContext, PolicyKernel};
 pub use pipeline::{reason_code, DecisionPipeline, PipelineState};
 pub use precedence::RulePrecedence;

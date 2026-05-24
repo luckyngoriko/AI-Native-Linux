@@ -210,6 +210,12 @@
       "title": "aios-fs \u2014 GC pass + chunk refcounting (S1.3 \u00a77.3)",
       "completed_at": "2026-05-24",
       "evidence": "871 tests workspace (+12 over T-038 baseline 859). New crates/aios-fs/src/gc.rs with GcPassDriver, GcPassReport, GcReason, VersionPurgeReason. MutableAiosFs gained decrement_chunk_refcount, reclaim_chunk, purge_version plus hidden bounded GC candidate scans for the driver. InMemoryAiosFs tracks purged_versions, preserves write_object refcount increments, decrements refs on purge_version, rejects live chunk reclaim with ChunkStillReferenced, and reclaims zero-ref chunks. FsError additions: ChunkStillReferenced, VersionAlreadyPurged. Gates PASS: cargo check --workspace + cargo test --workspace + cargo clippy --workspace --all-targets -- -D warnings + cargo fmt --all -- --check. Scope guard held: no Query/View, no implementation space, no namespace expansion, no gRPC, no evidence emission."
+    },
+    {
+      "id": "T-040",
+      "title": "aios-fs - Query / View language + parser + evaluator (S2.1 predicate core)",
+      "completed_at": "2026-05-24",
+      "evidence": "891 tests workspace (+20 over T-039 baseline 871). New crates/aios-fs/src/query.rs typed AND-only AST, query_parser.rs recursive-descent parser with position-accurate errors and DisallowedToken for or/not/parens, query_eval.rs evaluator + read-only materialize_view over AiosFs reads. FsError additions: QueryParse, QueryEval. Tests: crates/aios-fs/tests/query_parser.rs (11) + query_eval.rs (9). Gates PASS: cargo check --workspace + cargo test --workspace + cargo clippy --workspace --all-targets -- -D warnings + cargo fmt --all -- --check. Scope guard held: no implementation space, no namespace expansion, no gRPC, no evidence emission."
     }
   ],
   "blocked": [],
@@ -310,9 +316,10 @@
         "T-036",
         "T-037",
         "T-038",
-        "T-039"
+        "T-039",
+        "T-040"
       ],
-      "current_test_count": 871,
+      "current_test_count": 891,
       "rationale": "Closes \u00a722 phase-2 (mount /aios + versioned object + semantic view). Unblocks M4 enrichment stub."
     },
     "M6": {

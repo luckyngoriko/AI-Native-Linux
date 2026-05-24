@@ -36,6 +36,9 @@ pub mod namespace;
 pub mod object;
 pub mod pointer;
 pub mod quarantine;
+pub mod query;
+pub mod query_eval;
+pub mod query_parser;
 pub mod snapshot_id;
 pub mod transaction;
 pub mod version;
@@ -57,6 +60,11 @@ pub use pointer::{Pointer, PointerId, PointerKind};
 pub use quarantine::{
     MutableAiosFs, QuarantineDisposition, QuarantineDriver, QuarantineReceipt, QuarantineTrigger,
 };
+pub use query::{Predicate, Query, QueryField, QueryNamespace, QueryOperator, QueryValue};
+pub use query_eval::{
+    evaluate as evaluate_query, materialize_view, ObjectRef, QueryEvalContext, QueryEvalError, View,
+};
+pub use query_parser::{parse as parse_query, QueryParseError};
 pub use snapshot_id::SnapshotId;
 pub use transaction::{
     ConsistencyClass, PointerMoveOp, Transaction, TransactionId, TransactionState, WriteOp,

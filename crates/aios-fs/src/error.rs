@@ -82,6 +82,14 @@ pub enum FsError {
         to: VersionState,
     },
 
+    /// Query source failed to parse.
+    #[error("query parse error: {0}")]
+    QueryParse(String),
+
+    /// Query evaluation failed.
+    #[error("query evaluation error: {0}")]
+    QueryEval(String),
+
     /// Unexpected internal fault.
     #[error("aios-fs internal error: {0}")]
     Internal(String),

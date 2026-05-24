@@ -53,6 +53,7 @@ pub mod hard_deny_engine;
 pub mod kernel;
 pub mod pipeline;
 pub mod precedence;
+pub mod service;
 pub mod subject;
 pub mod subject_hydration;
 

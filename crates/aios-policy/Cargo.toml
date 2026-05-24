@@ -38,11 +38,36 @@ blake3        = { workspace = true }
 # signatures are 64 bytes — embedding them as base64 keeps the bundle JSON
 # human-readable and round-trip-safe under serde).
 base64        = { workspace = true }
+# T-023: gRPC service surface (S2.3 §20 / Appendix A). Mirrors the aios-evidence
+# T-011 wiring exactly — tonic provides the runtime server/client transports,
+# prost is the generated-code dependency (proto3 message types), tokio is the
+# async runtime (mandatory for tonic), prost-types carries the well-known
+# `google.protobuf.Timestamp` / `google.protobuf.Struct` / `google.protobuf.Empty`
+# definitions referenced by the IDL.
+tonic        = { workspace = true }
+prost        = { workspace = true }
+prost-types  = { workspace = true }
+
+[build-dependencies]
+# T-023: tonic-build invokes `protoc` and emits the Rust server stubs
+# (`policy_kernel_server::*`) + client stubs (`policy_kernel_client::*`) into
+# `OUT_DIR`. See `build.rs` for the invocation; see `src/service/mod.rs` for
+# the `include_proto!` glue. The `protoc-bin-vendored` crate provides a
+# pre-built protoc binary so the build does not require a system install.
+tonic-build         = { workspace = true }
+protoc-bin-vendored = { workspace = true }
 
 [dev-dependencies]
 # Tests mint ephemeral Ed25519 keypairs via the OS CSPRNG. Production never
 # does — keys come from S5.2 (mirrors the aios-evidence T-009 pattern).
 rand_core    = { workspace = true }
+# T-023: gRPC integration tests need the multi-threaded tokio runtime, the
+# `oneshot` channel for deterministic server shutdown, and the tonic transport
+# client for in-process round-trips. The base dependency above is dev-only;
+# pulling in the full feature flags via dev-dependencies keeps the production
+# binary surface lean (we do not need `tokio::time`, `signal`, etc. in the
+# library).
+tokio       = { workspace = true }
 
 [lints]
 workspace = true

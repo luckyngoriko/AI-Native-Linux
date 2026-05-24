@@ -1,0 +1,200 @@
+// AIOS S2.3 — Policy Kernel gRPC service surface (T-023 / canonical wire contract).
+//
+// This file is the verbatim Appendix A IDL from
+// `002.AI-OS.NET--SPECREV.2/L4_Policy_Identity_Vault/01_policy_kernel.md`.
+// The fenced Appendix A `proto` block is the canonical source of truth — see §20
+// (service surface RPC list) and §4 / §10 / §11.2 (`PolicyDecision`,
+// `Constraints`, `ApprovalRequirement` message shapes).
+//
+// Stability:
+//   - Package name `aios.policy.v1alpha1` matches the schema declaration in
+//     S2.3 §3 + §20. The `v1alpha1` suffix communicates the wire is still
+//     ratifying.
+//
+// Rust integration:
+//   - `crates/aios-policy/build.rs` invokes `tonic-build` to generate Rust
+//     server stubs (`policy_kernel_server::PolicyKernel` trait + the
+//     `PolicyKernelServer<T>` transport service) and the matching client stubs
+//     (`policy_kernel_client::PolicyKernelClient`).
+//   - The Rust `PolicyDecision` / `Constraints` / `ApprovalRequirement` value
+//     types in `crates/aios-policy/src/{decision,constraints}.rs` are the
+//     spec-typed mirrors of the proto messages below; `src/service/conversions.rs`
+//     owns the bidirectional Rust ↔ proto translation.
+//   - `EvaluatePolicyRequest.envelope_proto` is declared as `bytes` per spec but
+//     until `aios-action` ships its own proto IDL (open task #26 in the .ai
+//     task tracker), the in-tree wire format for those bytes is JSON-serialised
+//     `aios_action::ActionEnvelope` (matching the canonical serde representation
+//     of the type). The conversion module documents the swap-in point.
+
+syntax = "proto3";
+package aios.policy.v1alpha1;
+
+import "google/protobuf/timestamp.proto";
+import "google/protobuf/struct.proto";
+import "google/protobuf/empty.proto";
+
+// ─────────────────────────────────────────────────────────────────
+// Decision and constraints
+// ─────────────────────────────────────────────────────────────────
+
+enum Decision {
+  DECISION_UNSPECIFIED = 0;
+  ALLOW                = 1;
+  REQUIRE_APPROVAL     = 2;
+  DENY                 = 3;
+}
+
+message Constraints {
+  string sandbox_profile_id = 1;
+  uint32 max_runtime_seconds = 2;
+  bool verification_required = 3;
+  bool dry_run_only = 4;
+  string require_evidence_grade = 5;
+  bool require_human_co_signer = 6;
+  string network_policy = 7;
+  uint32 max_concurrent_per_subject = 8;
+  string min_subject_session_class = 9;
+  string vault_capability_required = 10;
+  uint32 ttl_seconds = 11;
+}
+
+message ApprovalRequirement {
+  bool required = 1;
+  string approval_scope = 2;
+  uint32 ttl_seconds = 3;
+  repeated string approver_classes = 4;
+  bool require_human_co_signer = 5;
+}
+
+message PolicyDecision {
+  string policy_decision_id = 1;
+  string action_id = 2;
+  string request_hash = 3;
+  string bundle_version = 4;
+  string enrichment_snapshot_id = 5;
+  Decision decision = 6;
+  string reason_code = 7;
+  string reason_message = 8;
+  Constraints constraints = 9;
+  ApprovalRequirement approval = 10;
+  string evidence_receipt_id = 11;
+  google.protobuf.Timestamp evaluated_at = 12;
+  uint32 rules_consulted = 13;
+  bool simulated = 14;
+}
+
+// ─────────────────────────────────────────────────────────────────
+// Rules and bundles
+// ─────────────────────────────────────────────────────────────────
+
+enum RuleEffect {
+  RULE_EFFECT_UNSPECIFIED = 0;
+  ALLOW_EFFECT = 1;
+  DENY_EFFECT  = 2;
+}
+
+message PolicyRule {
+  string rule_id = 1;
+  RuleEffect effect = 2;
+  int32 priority = 3;
+  repeated string subjects = 4;
+  repeated string actions = 5;
+  repeated string conditions = 6;
+  Constraints constraints = 7;
+  ApprovalRequirement approval = 8;
+  RuleMetadata metadata = 9;
+}
+
+message RuleMetadata {
+  string description = 1;
+  repeated string authors = 2;
+  string policy_pack = 3;
+  google.protobuf.Timestamp created_at = 4;
+  google.protobuf.Timestamp last_modified_at = 5;
+}
+
+message HardDenyEntry {
+  string policy_id = 1;
+  string description = 2;
+  string override_path = 3;          // empty = no override
+}
+
+message PolicyBundle {
+  string bundle_version = 1;          // "polb_<hex_lower(BLAKE3(...))[:32]>"
+  string schema_version = 2;          // "aios.policy.v1alpha1"
+  repeated PolicyRule rules = 3;
+  repeated HardDenyEntry hard_denies = 4;
+  google.protobuf.Struct group_definitions = 5;   // group->subjects map
+  string publisher_id = 6;
+  google.protobuf.Timestamp created_at = 7;
+  bytes publisher_signature = 8;
+  bytes aios_root_signature = 9;
+}
+
+// ─────────────────────────────────────────────────────────────────
+// RPC surface (Appendix A + §20)
+// ─────────────────────────────────────────────────────────────────
+
+message EvaluatePolicyRequest {
+  string schema_version = 1;          // "aios.policy.v1alpha1"
+  // serialised aios.action.v1alpha1.ActionEnvelope — until `aios-action`
+  // ships a proto IDL (open task #26 in the .ai tracker), the in-tree wire
+  // format for these bytes is the canonical JSON serde representation of
+  // `aios_action::ActionEnvelope`. The conversions module is the single
+  // touch point when the swap-in lands.
+  bytes envelope_proto = 2;
+}
+
+message LoadBundleRequest {
+  PolicyBundle bundle = 1;
+  bool stage_only = 2;                // if true, validates but doesn't activate
+}
+
+message LoadBundleResponse {
+  string bundle_version = 1;
+  bool active = 2;
+  string status_message = 3;
+  google.protobuf.Timestamp activated_at = 4;
+}
+
+message RollbackBundleRequest {
+  string target_bundle_version = 1;
+  string operator_subject = 2;
+  string reason = 3;
+}
+
+message RollbackBundleResponse {
+  string previous_bundle_version = 1;
+  string current_bundle_version = 2;
+  string evidence_receipt_id = 3;
+}
+
+message ExplainDecisionRequest {
+  string policy_decision_id = 1;
+}
+
+message ExplainDecisionResponse {
+  PolicyDecision decision = 1;
+  repeated string rule_chain = 2;     // ordered rule_ids that contributed
+  string narrative = 3;               // human-readable plain text
+  google.protobuf.Struct enrichment_snapshot = 4;
+}
+
+message PolicyEngineInfo {
+  string engine_id = 1;
+  repeated string supported_schema_versions = 2;
+  string default_schema_version = 3;
+  string active_bundle_version = 4;
+  bool degraded = 5;
+  uint32 rules_in_active_bundle = 6;
+  google.protobuf.Timestamp started_at = 7;
+}
+
+service PolicyKernel {
+  rpc EvaluatePolicy(EvaluatePolicyRequest) returns (PolicyDecision);
+  rpc SimulatePolicy(EvaluatePolicyRequest) returns (PolicyDecision);
+  rpc LoadBundle(LoadBundleRequest) returns (LoadBundleResponse);
+  rpc RollbackBundle(RollbackBundleRequest) returns (RollbackBundleResponse);
+  rpc ExplainDecision(ExplainDecisionRequest) returns (ExplainDecisionResponse);
+  rpc GetPolicyEngineInfo(google.protobuf.Empty) returns (PolicyEngineInfo);
+}

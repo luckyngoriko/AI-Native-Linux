@@ -4,18 +4,26 @@
 //! defined in `002.AI-OS.NET--SPECREV.2/L4_Policy_Identity_Vault/01_policy_kernel.md`. It is
 //! consumed by L3 (Capability Runtime), L4 (identity / vault), and L9 (evidence linkage).
 //!
-//! ## Scope of T-016 (skeleton)
+//! ## Scope of T-016 (skeleton) + T-017 (pipeline)
 //!
 //! - [`Decision`] enum and [`PolicyDecision`] result struct per S2.3 §4.
 //! - [`HardDenyClass`] enum (the 10 constitutional hard denies) per S2.3 §6.
 //! - [`HydratedSubject`] + [`SubjectType`] per S2.3 §7.
 //! - Stub [`Constraints`] + [`ApprovalRequirement`] per S2.3 §10 (full vocabulary deferred to
-//!   T-017+).
+//!   T-020).
 //! - [`PolicyError`] taxonomy for the decision pipeline short-circuits (§3, §7, §8).
+//! - **T-017**: [`PolicyKernel`] async trait + [`PolicyContext`] + [`EnrichmentSnapshot`]
+//!   stub (S2.3 §3 / §8 / §20).
+//! - **T-017**: [`DecisionPipeline`] — the 12-step pipeline driver per S2.3 §3, with
+//!   steps 1 (schema), 2 (subject pass-through), 9 (default deny floor), 11 (decision
+//!   emission) REAL, and steps 3, 4, 5, 6, 7, 8, 10, 12 stubbed for T-018..T-025.
+//! - **T-017**: [`RulePrecedence`] — the 7-tier fixed precedence ladder per S2.3 §5.
+//! - **T-017**: [`InMemoryPolicyKernel`] — the in-process harness used by tests and by
+//!   T-018..T-025 to attach the real implementations of the stubbed steps.
 //!
-//! The trait surface (`PolicyKernel::EvaluatePolicy`), bundle loading, rule precedence
-//! evaluation, conditions parser, gRPC IDL, and integration with `aios-evidence` are
-//! **explicitly out of scope** for T-016 and are queued for T-017 and later.
+//! Bundle loading, hard-deny enforcement, conditions parser, gRPC IDL, caching, and
+//! integration with `aios-evidence` are **explicitly out of scope** for T-017 and are
+//! queued for T-018..T-025.
 //!
 //! ## Constitutional invariants enforced here
 //!
@@ -33,10 +41,16 @@ pub mod constraints;
 pub mod decision;
 pub mod error;
 pub mod hard_deny;
+pub mod kernel;
+pub mod pipeline;
+pub mod precedence;
 pub mod subject;
 
 pub use constraints::{ApprovalRequirement, Constraints};
 pub use decision::{Decision, PolicyDecision};
 pub use error::PolicyError;
 pub use hard_deny::HardDenyClass;
+pub use kernel::{EnrichmentSnapshot, InMemoryPolicyKernel, PolicyContext, PolicyKernel};
+pub use pipeline::{reason_code, DecisionPipeline, PipelineState};
+pub use precedence::RulePrecedence;
 pub use subject::{HydratedSubject, SubjectType};

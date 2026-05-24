@@ -58,12 +58,15 @@ name = "aios-policy"
 version = "0.0.1"
 dependencies = [
  "aios-action",
+ "async-trait",
  "chrono",
  "serde",
  "serde_json",
  "strum",
  "strum_macros",
  "thiserror",
+ "tokio",
+ "ulid",
 ]
 
 [[package]]

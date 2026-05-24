@@ -16,6 +16,17 @@ thiserror    = { workspace = true }
 chrono       = { workspace = true }
 strum        = { workspace = true }
 strum_macros = { workspace = true }
+# T-017: PolicyKernel trait + 12-step decision pipeline. The trait is `async`
+# (the production gRPC surface in T-023 is async; the trait shape must match
+# so the impls flow through without an adapter layer); `async-trait` is the
+# canonical macro for declaring an object-safe async trait on stable Rust.
+# `tokio` is the runtime used by tests (`#[tokio::test]`); only the `macros`
+# + `rt` features are pulled in because the in-memory pipeline does no I/O
+# and does not need the full multi-threaded runtime. `ulid` mints fresh
+# `policy_decision_id` strings per evaluation (S2.3 §4 field 1 — `poldec_<ULID>`).
+async-trait  = { workspace = true }
+tokio        = { workspace = true }
+ulid         = { workspace = true }
 
 [lints]
 workspace = true

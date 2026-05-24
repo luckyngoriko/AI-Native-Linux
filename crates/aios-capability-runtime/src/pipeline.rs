@@ -54,7 +54,9 @@ use crate::dispatch_queue::DispatchQueue;
 use crate::dispatcher::ActionDispatcher;
 use crate::error::RuntimeError;
 use crate::evidence_emit::EvidenceEmitter;
-use crate::failure::ExecutionFailureReason;
+use crate::failure::{ExecutionFailureReason, RollbackOutcome};
+use crate::rollback::RollbackDriver;
+use crate::rollback_strategy::RollbackStrategy;
 use crate::runtime::RuntimeContext;
 use crate::status::ActionLifecycleState;
 
@@ -667,6 +669,137 @@ impl ActionLifecyclePipeline {
 
         // ── Step 8: terminal evidence pass-through. T-031 emits per-
         //    transition above, so this final step is a structural no-op. ──
+        let state = match state {
+            PipelineState::Continue(c) | PipelineState::ShortCircuit(c) => {
+                self.step_emit_evidence(envelope, c, now)?
+            }
+        };
+        Ok(state.into_context())
+    }
+
+    /// T-032 — full driver with rollback engaged.
+    ///
+    /// Identical to [`Self::run_with_full_engines_and_evidence`] except:
+    ///
+    /// - Step 6 (verify) routes through
+    ///   [`Self::step_verify_inject_failure_and_emit`] so the rollback
+    ///   driver's `inject_verify_failure` knob can force the
+    ///   `VERIFYING → FAILED` (T18) transition needed to engage step 7.
+    /// - Step 7 (rollback) routes through
+    ///   [`Self::step_rollback_with_driver_and_emit`] which calls the
+    ///   driver, applies the §4.2 terminal mapping per
+    ///   [`RollbackDriver::classify_terminal`], emits
+    ///   `ROLLBACK_COMPLETED` evidence (FOREVER retention for `Failed`
+    ///   per §7.4), and increments the supplied `operator_alerts`
+    ///   counter on `ROLLBACK_FAILED`.
+    ///
+    /// When `rollback_driver` is `None`, the pipeline behaves identically
+    /// to [`Self::run_with_full_engines_and_evidence`] (T-031 baseline
+    /// preserved bit-for-bit).
+    ///
+    /// # Errors
+    ///
+    /// Same as [`Self::run_with_full_engines_and_evidence`]; additionally
+    /// returns [`RuntimeError::ManifestInvalid`] when a manifest's
+    /// `rollback_strategy` string fails to parse.
+    #[allow(clippy::too_many_arguments)]
+    pub async fn run_with_full_engines_and_evidence_and_rollback(
+        &self,
+        envelope: &ActionEnvelope,
+        ctx: ActionContext,
+        now: DateTime<Utc>,
+        registry: Option<&InMemoryAdapterRegistry>,
+        queue: Option<&DispatchQueue>,
+        kernel: Option<&dyn PolicyKernel>,
+        runtime_context: Option<&RuntimeContext>,
+        tripwire: Option<&AtomicU64>,
+        emitter: &EvidenceEmitter,
+        rollback_driver: Option<&RollbackDriver>,
+        operator_alerts: Option<&AtomicU64>,
+    ) -> Result<ActionContext, RuntimeError> {
+        // ── Step 1: validate envelope. Emit ACTION_RECEIVED on success. ──
+        let state = self.step_validate(envelope, ctx, now)?;
+        let state = match state {
+            PipelineState::Continue(mut c) => {
+                emitter.emit_action_received(envelope, &mut c).await?;
+                PipelineState::Continue(c)
+            }
+            PipelineState::ShortCircuit(c) => return Ok(c),
+        };
+
+        // ── Step 2: policy evaluate. ──
+        let state = match state {
+            PipelineState::Continue(c) => {
+                self.step_policy_evaluate_with_kernel_and_emit(
+                    envelope,
+                    c,
+                    now,
+                    kernel,
+                    runtime_context,
+                    tripwire,
+                    emitter,
+                )
+                .await?
+            }
+            PipelineState::ShortCircuit(c) => return Ok(c),
+        };
+
+        // ── Step 3: approval (T-034 stub today). ──
+        let state = match state {
+            PipelineState::Continue(c) => self.step_request_approval(envelope, c, now)?,
+            PipelineState::ShortCircuit(c) => return Ok(c),
+        };
+
+        // ── Step 4: queue enroll. ──
+        let state = match state {
+            PipelineState::Continue(c) => {
+                self.step_queue_with_engine_and_emit(envelope, c, now, queue, emitter)
+                    .await?
+            }
+            PipelineState::ShortCircuit(c) => return Ok(c),
+        };
+
+        // ── Step 5: execute. ──
+        let state = match state {
+            PipelineState::Continue(c) => {
+                self.step_execute_with_engines_and_emit(envelope, c, now, registry, emitter)
+                    .await?
+            }
+            PipelineState::ShortCircuit(c) => return Ok(c),
+        };
+
+        // ── Step 6: verify (with verify-failure injection seam). ──
+        let state = match state {
+            PipelineState::Continue(c) => {
+                self.step_verify_inject_failure_and_emit(envelope, c, now, emitter, rollback_driver)
+                    .await?
+            }
+            PipelineState::ShortCircuit(c) => return Ok(c),
+        };
+
+        // ── Step 7: rollback (T-032 — real driver engaged). ──
+        let state = match state {
+            PipelineState::Continue(c) => {
+                self.step_rollback_with_driver_and_emit(
+                    envelope,
+                    c,
+                    now,
+                    registry,
+                    rollback_driver,
+                    operator_alerts,
+                    emitter,
+                )
+                .await?
+            }
+            PipelineState::ShortCircuit(c) => {
+                // The verify step short-circuited (today: SUCCEEDED on the
+                // no-injection happy path). Rollback has no work; preserve
+                // the terminal context.
+                return Ok(c);
+            }
+        };
+
+        // ── Step 8: terminal evidence pass-through. ──
         let state = match state {
             PipelineState::Continue(c) | PipelineState::ShortCircuit(c) => {
                 self.step_emit_evidence(envelope, c, now)?
@@ -1395,7 +1528,7 @@ impl ActionLifecyclePipeline {
         clippy::unused_self,
         clippy::unnecessary_wraps,
         clippy::missing_const_for_fn,
-        reason = "stub for T-032; signature stable across the trait surface and must accept `mut ctx` once the rollback FSM driver lands"
+        reason = "stub kept for backwards-compat with the no-rollback-driver baseline; T-032 wires the real driver via `step_rollback_with_driver`"
     )]
     pub fn step_rollback(
         &self,
@@ -1404,6 +1537,203 @@ impl ActionLifecyclePipeline {
         _now: DateTime<Utc>,
     ) -> Result<PipelineState, RuntimeError> {
         Ok(PipelineState::Continue(ctx))
+    }
+
+    /// T-032 — sibling of [`Self::step_rollback`] that engages the
+    /// [`RollbackDriver`] when the action is in
+    /// [`ActionLifecycleState::Failed`] and the adapter's
+    /// `rollback_strategy != NONE`.
+    ///
+    /// Behaviour:
+    ///
+    /// - If `ctx.status != FAILED`, this is a no-op pass-through (the
+    ///   action either succeeded or short-circuited earlier; there is
+    ///   nothing to roll back).
+    /// - If `driver` is `None`, this is a no-op pass-through (T-027
+    ///   backward-compat baseline).
+    /// - If `registry` is `None` or no adapter declares
+    ///   `envelope.request.action`, no rollback can be attempted (the
+    ///   strategy is unknown); the action stays `FAILED`.
+    /// - Otherwise: read the strategy from the manifest, call
+    ///   [`RollbackDriver::run_rollback`], record the outcome on
+    ///   `ctx.rollback_outcome`, and apply the §4.2 transition per
+    ///   [`RollbackDriver::classify_terminal`]:
+    ///   - `Succeeded` → T19 (`FAILED → ROLLED_BACK`)
+    ///   - `Failed` → T20 (`FAILED → ROLLBACK_FAILED`); increments the
+    ///     supplied `operator_alerts` counter (the §7.4 alert).
+    ///   - `NotAttempted` / `NotApplicable` → no transition; `FAILED`
+    ///     stays.
+    ///
+    /// The §7.4 FOREVER-retention evidence emission is the caller's
+    /// responsibility (see
+    /// [`Self::step_rollback_with_driver_and_emit`]).
+    ///
+    /// # Errors
+    ///
+    /// Returns [`RuntimeError::InvalidTransition`] only if a step author
+    /// requests a §4.2 transition that is not in the table — which can
+    /// only happen via a code defect; the strategy / outcome mapping is
+    /// exhaustive by construction.
+    /// Returns [`RuntimeError::ManifestInvalid`] when the manifest's
+    /// `rollback_strategy` string fails [`RollbackStrategy::parse_manifest_value`].
+    pub async fn step_rollback_with_driver(
+        &self,
+        envelope: &ActionEnvelope,
+        ctx: ActionContext,
+        now: DateTime<Utc>,
+        registry: Option<&InMemoryAdapterRegistry>,
+        driver: Option<&RollbackDriver>,
+        operator_alerts: Option<&AtomicU64>,
+    ) -> Result<(PipelineState, Option<RollbackOutcome>), RuntimeError> {
+        // Driver not configured → preserve the T-027 stub behaviour.
+        let Some(driver) = driver else {
+            return Ok((PipelineState::Continue(ctx), None));
+        };
+        // Not in FAILED → nothing to roll back.
+        if ctx.status != ActionLifecycleState::Failed {
+            return Ok((PipelineState::Continue(ctx), None));
+        }
+        // No registry / no adapter → cannot resolve a strategy; stay
+        // FAILED (the caller's evidence path records the gap).
+        let Some(registry) = registry else {
+            return Ok((PipelineState::ShortCircuit(ctx), None));
+        };
+        let Some(registered) = registry.lookup_for_target(&envelope.request.action).await else {
+            return Ok((PipelineState::ShortCircuit(ctx), None));
+        };
+        // Resolve the per-action strategy from the manifest's
+        // `declared_actions`.
+        let strategy = registered
+            .manifest
+            .declared_actions
+            .iter()
+            .find(|d| d.action_kind == envelope.request.action)
+            .map(|d| RollbackStrategy::parse_manifest_value(&d.rollback_strategy))
+            .transpose()?
+            .unwrap_or(RollbackStrategy::Unspecified);
+        let adapter = crate::adapter_handle::RealAdapterHandle::new(std::sync::Arc::new(
+            registered.manifest.clone(),
+        ));
+        // Call the driver. Pure async; does not mutate ctx.
+        let outcome = driver
+            .run_rollback(envelope, &ctx, strategy, &adapter)
+            .await;
+        // Record the outcome on the context.
+        let mut ctx = ctx;
+        ctx.rollback_outcome = Some(outcome);
+        // Apply the §4.2 terminal mapping.
+        let terminal = RollbackDriver::classify_terminal(&outcome);
+        match outcome {
+            RollbackOutcome::Succeeded => {
+                apply_transition(&mut ctx, terminal, now)?; // T19
+                Ok((PipelineState::ShortCircuit(ctx), Some(outcome)))
+            }
+            RollbackOutcome::Failed => {
+                apply_transition(&mut ctx, terminal, now)?; // T20
+                                                            // §7.4 operator alert.
+                if let Some(counter) = operator_alerts {
+                    counter.fetch_add(1, Ordering::AcqRel);
+                }
+                Ok((PipelineState::ShortCircuit(ctx), Some(outcome)))
+            }
+            RollbackOutcome::NotAttempted | RollbackOutcome::NotApplicable => {
+                // No FSM transition; FAILED stays. The outcome is still
+                // recorded on the context for forensic emission.
+                Ok((PipelineState::ShortCircuit(ctx), Some(outcome)))
+            }
+        }
+    }
+
+    /// T-032 — emitter-aware sibling of
+    /// [`Self::step_rollback_with_driver`]. After the rollback FSM has
+    /// classified the terminal, emits a single `ROLLBACK_COMPLETED`
+    /// receipt (S3.1 §4 ID 11) via
+    /// [`EvidenceEmitter::emit_rollback_completed`]. The emitter pins
+    /// `Failed` outcomes at `FOREVER` retention per §7.4.
+    ///
+    /// # Errors
+    ///
+    /// Same as [`Self::step_rollback_with_driver`]; additionally returns
+    /// [`RuntimeError::EvidenceEmitFailed`] on emitter failure.
+    #[allow(clippy::too_many_arguments)]
+    pub async fn step_rollback_with_driver_and_emit(
+        &self,
+        envelope: &ActionEnvelope,
+        ctx: ActionContext,
+        now: DateTime<Utc>,
+        registry: Option<&InMemoryAdapterRegistry>,
+        driver: Option<&RollbackDriver>,
+        operator_alerts: Option<&AtomicU64>,
+        emitter: &EvidenceEmitter,
+    ) -> Result<PipelineState, RuntimeError> {
+        let (state, outcome) = self
+            .step_rollback_with_driver(envelope, ctx, now, registry, driver, operator_alerts)
+            .await?;
+        // Emit ROLLBACK_COMPLETED only when an outcome was produced (the
+        // driver actually attempted or declined to attempt rollback). When
+        // `outcome` is `None`, the driver was not configured or the action
+        // was not in FAILED — there is no rollback event to record.
+        let Some(outcome) = outcome else {
+            return Ok(state);
+        };
+        // Carry the pre-rollback `error` (the triggering failure reason)
+        // for the receipt payload.
+        match state {
+            PipelineState::ShortCircuit(mut c) | PipelineState::Continue(mut c) => {
+                let triggering = c.error;
+                emitter
+                    .emit_rollback_completed(envelope, &mut c, outcome, triggering)
+                    .await?;
+                Ok(PipelineState::ShortCircuit(c))
+            }
+        }
+    }
+
+    /// T-032 — emitter-aware sibling of [`Self::step_verify_and_emit`]
+    /// that honours the [`RollbackDriver`]'s
+    /// [`RollbackDriver::inject_verify_failure`] knob.
+    ///
+    /// When the driver's knob is `true`, the verify step drives
+    /// `EXECUTING → VERIFYING → FAILED` (T15 + T18) with
+    /// [`ExecutionFailureReason::AdapterRefused`] as the surrogate
+    /// reason (the §3.6 enum has no dedicated
+    /// `VERIFICATION_FAILED` row — `AdapterRefused` is the closest
+    /// spec-pinned variant for "the action ran but the verification
+    /// engine refused it"; T-035 will revisit once the real
+    /// verification engine lands). Otherwise the step behaves identically
+    /// to [`Self::step_verify_and_emit`].
+    ///
+    /// # Errors
+    ///
+    /// Same as [`Self::step_verify_and_emit`].
+    pub async fn step_verify_inject_failure_and_emit(
+        &self,
+        envelope: &ActionEnvelope,
+        ctx: ActionContext,
+        now: DateTime<Utc>,
+        emitter: &EvidenceEmitter,
+        driver: Option<&RollbackDriver>,
+    ) -> Result<PipelineState, RuntimeError> {
+        let inject = driver.is_some_and(RollbackDriver::inject_verify_failure);
+        if !inject {
+            return self.step_verify_and_emit(envelope, ctx, now, emitter).await;
+        }
+        // EXECUTION_COMPLETED first (T-031 ordering preserved).
+        let mut pre = ctx;
+        emitter
+            .emit_execution_completed(envelope, &mut pre, "ADAPTER_OK")
+            .await?;
+        // T15 — EXECUTING → VERIFYING.
+        apply_transition(&mut pre, ActionLifecycleState::Verifying, now)?;
+        // T18 — VERIFYING → FAILED.
+        apply_transition(&mut pre, ActionLifecycleState::Failed, now)?;
+        pre.error = Some(ExecutionFailureReason::AdapterRefused);
+        // VERIFICATION_RESULT with passed=false.
+        emitter
+            .emit_verification_result(envelope, &mut pre, false)
+            .await?;
+        // Continue so step_rollback can engage (we are now in FAILED).
+        Ok(PipelineState::Continue(pre))
     }
 
     // -----------------------------------------------------------------------

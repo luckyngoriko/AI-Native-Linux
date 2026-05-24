@@ -233,8 +233,16 @@
         "T-034",
         "T-035"
       ],
-      "tasks_completed": ["T-026", "T-027", "T-028", "T-029", "T-030"],
-      "current_test_count": 688,
+      "tasks_completed": [
+        "T-026",
+        "T-027",
+        "T-028",
+        "T-029",
+        "T-030",
+        "T-031",
+        "T-032"
+      ],
+      "current_test_count": 740,
       "crate_version_target": "aios-capability-runtime/0.1.0"
     }
   }

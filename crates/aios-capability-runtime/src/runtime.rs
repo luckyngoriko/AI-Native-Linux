@@ -45,6 +45,7 @@ use crate::dispatch_queue::DispatchQueue;
 use crate::error::RuntimeError;
 use crate::evidence_emit::EvidenceEmitter;
 use crate::pipeline::{fresh_context, ActionLifecyclePipeline};
+use crate::rollback::RollbackDriver;
 
 // ---------------------------------------------------------------------------
 // AdapterRegistry / AdapterHandle marker traits (T-028 wires real impls).
@@ -451,6 +452,30 @@ pub struct InMemoryCapabilityRuntime {
     /// T4). Tests can `policy_double_check_warnings()` to assert the
     /// tripwire fires.
     policy_double_check_warnings: Arc<AtomicU64>,
+    /// T-032 — optional [`RollbackDriver`] handle.
+    ///
+    /// When `Some(...)`, the runtime routes the pipeline through
+    /// [`ActionLifecyclePipeline::run_with_full_engines_and_evidence_and_rollback`]
+    /// (which requires an evidence emitter as well). The driver applies
+    /// the §7.2 outcome table on `FAILED` actions, drives
+    /// `FAILED → ROLLED_BACK` (T19) or `FAILED → ROLLBACK_FAILED` (T20),
+    /// and increments [`Self::operator_alerts`] on the §7.4 alert path.
+    ///
+    /// When `None` (or when no evidence emitter is configured), the
+    /// runtime preserves the T-027 / T-028 / T-029 / T-030 / T-031
+    /// baselines: `step_rollback` is the structural no-op stub.
+    rollback_driver: Option<Arc<RollbackDriver>>,
+    /// T-032 — `ROLLBACK_FAILED` operator-alert counter.
+    ///
+    /// Per S10.1 §7.4 every `ROLLBACK_FAILED` transition raises a
+    /// high-priority operator alert through L9.4 admin operations. The
+    /// runtime increments this atomic counter as the in-process
+    /// representation of that alert; tests read it via
+    /// [`Self::operator_alerts`] and a production wiring will attach the
+    /// real L9.4 sink in a future task. The counter is informational —
+    /// the FOREVER-retention evidence emission is the authoritative
+    /// forensic record.
+    operator_alerts: Arc<AtomicU64>,
 }
 
 impl Default for InMemoryCapabilityRuntime {
@@ -470,6 +495,11 @@ impl std::fmt::Debug for InMemoryCapabilityRuntime {
             .field(
                 "policy_double_check_warnings",
                 &self.policy_double_check_warnings.load(Ordering::Acquire),
+            )
+            .field("rollback_driver", &self.rollback_driver.is_some())
+            .field(
+                "operator_alerts",
+                &self.operator_alerts.load(Ordering::Acquire),
             )
             .finish_non_exhaustive()
     }
@@ -493,6 +523,8 @@ impl InMemoryCapabilityRuntime {
             policy_kernel: None,
             evidence_emitter: None,
             policy_double_check_warnings: Arc::new(AtomicU64::new(0)),
+            rollback_driver: None,
+            operator_alerts: Arc::new(AtomicU64::new(0)),
         }
     }
 
@@ -593,6 +625,41 @@ impl InMemoryCapabilityRuntime {
         self.evidence_emitter.as_ref()
     }
 
+    /// Attach a [`RollbackDriver`] to the runtime. Returns `self` for
+    /// chaining.
+    ///
+    /// **T-032 entry point.** With a driver attached **and** an
+    /// [`EvidenceEmitter`] also attached, the runtime routes through
+    /// [`ActionLifecyclePipeline::run_with_full_engines_and_evidence_and_rollback`]
+    /// which engages the §7.2 outcome table on `FAILED` actions. Without
+    /// an emitter attached, the driver is held but never invoked — the
+    /// emitter-aware pipeline path is the only entry point that calls
+    /// the driver. Without a driver attached, the T-031 baseline is
+    /// preserved verbatim: `step_rollback` is a structural no-op.
+    #[must_use]
+    pub fn with_rollback_driver(mut self, driver: Arc<RollbackDriver>) -> Self {
+        self.rollback_driver = Some(driver);
+        self
+    }
+
+    /// Borrow the attached rollback driver, if any.
+    #[must_use]
+    pub const fn rollback_driver(&self) -> Option<&Arc<RollbackDriver>> {
+        self.rollback_driver.as_ref()
+    }
+
+    /// Snapshot of the `ROLLBACK_FAILED` operator-alert counter (§7.4).
+    ///
+    /// Per S10.1 §7.4 every `ROLLBACK_FAILED` transition raises a
+    /// high-priority operator alert. The runtime increments this atomic
+    /// counter as the in-process representation of that alert; the
+    /// authoritative forensic record is the FOREVER-retention
+    /// `ROLLBACK_COMPLETED` receipt emitted by the evidence pipeline.
+    #[must_use]
+    pub fn operator_alerts(&self) -> u64 {
+        self.operator_alerts.load(Ordering::Acquire)
+    }
+
     /// Snapshot the count of `Decision::Allow` results the §17 tripwire
     /// has flagged for an AI subject without a human approver class.
     ///
@@ -651,20 +718,42 @@ impl CapabilityRuntime for InMemoryCapabilityRuntime {
         let queue_ref = self.dispatch_queue.as_deref();
         let kernel_ref = self.policy_kernel.as_deref();
         let final_ctx = if let Some(emitter) = self.evidence_emitter.as_deref() {
-            // T-031 path — every §4.2 transition emits an evidence receipt.
-            self.pipeline
-                .run_with_full_engines_and_evidence(
-                    envelope,
-                    ctx,
-                    now,
-                    registry_ref,
-                    queue_ref,
-                    kernel_ref,
-                    Some(context),
-                    Some(&self.policy_double_check_warnings),
-                    emitter,
-                )
-                .await?
+            // T-031 / T-032 path — every §4.2 transition emits an
+            // evidence receipt. When a rollback driver is also attached
+            // (T-032), the pipeline additionally engages the §7 rollback
+            // FSM.
+            let rollback_ref = self.rollback_driver.as_deref();
+            if rollback_ref.is_some() {
+                self.pipeline
+                    .run_with_full_engines_and_evidence_and_rollback(
+                        envelope,
+                        ctx,
+                        now,
+                        registry_ref,
+                        queue_ref,
+                        kernel_ref,
+                        Some(context),
+                        Some(&self.policy_double_check_warnings),
+                        emitter,
+                        rollback_ref,
+                        Some(&self.operator_alerts),
+                    )
+                    .await?
+            } else {
+                self.pipeline
+                    .run_with_full_engines_and_evidence(
+                        envelope,
+                        ctx,
+                        now,
+                        registry_ref,
+                        queue_ref,
+                        kernel_ref,
+                        Some(context),
+                        Some(&self.policy_double_check_warnings),
+                        emitter,
+                    )
+                    .await?
+            }
         } else {
             // T-027 / T-028 / T-029 / T-030 baseline — no emitter, no
             // evidence appended. The pipeline's `step_emit_evidence` is a

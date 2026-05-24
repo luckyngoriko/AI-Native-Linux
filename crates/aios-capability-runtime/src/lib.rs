@@ -52,6 +52,8 @@ pub mod evidence_emit;
 pub mod evidence_payloads;
 pub mod failure;
 pub mod pipeline;
+pub mod rollback;
+pub mod rollback_strategy;
 pub mod runtime;
 pub mod status;
 
@@ -82,6 +84,8 @@ pub use pipeline::{
     apply_transition, compute_dispatch_kind, fresh_context, ActionLifecyclePipeline,
     DispatchKindInputs, PipelineState, TRANSITIONS,
 };
+pub use rollback::RollbackDriver;
+pub use rollback_strategy::{RollbackFailureMode, RollbackStrategy};
 pub use runtime::{
     AdapterHandle, AdapterRegistry, CapabilityRuntime, InMemoryCapabilityRuntime,
     NoOpAdapterHandle, NoOpAdapterRegistry, RuntimeContext,

@@ -1,0 +1,13 @@
+layer_id,name,responsibility
+L0,L0_Governance_Evidence_Safety,"status taxonomy, evidence grades, gates, invariants"
+L1,L1_Kernel_Bootstrap_Recovery,"Linux substrate, recovery path, dedicated kernel candidate"
+L2,L2_AIOS_FS,"semantic object filesystem, `/aios`, versions, views"
+L3,L3_AIOS_SGR_Service_Graph_Runtime,"desired-state service graph, runtime transitions"
+L4,L4_Policy_Identity_Vault,"subjects, capabilities, approvals, secrets, policy packages"
+L5,L5_Cognitive_Core,"intent, planning, memory, model routing, agent coordination"
+L6,L6_Apps_Packages_Compatibility,"AIOS packages, apps, Windows/Android/Linux compatibility"
+L7,L7_Interaction_Renderers,"KDE, Web, CLI, Voice, Mobile, shared UI schema"
+L8,L8_Network_Hardware_Devices,"network policy, hardware graph, drivers, firmware"
+L9,L9_Observability_Admin_Operations,"health, logs, metrics, evidence viewer, recovery operations"
+L10,L10_Distribution_Ecosystem_Marketplace,"publishing, repositories, marketplace, external integrations"
+XX,XX_Cross_Cutting,"cross-layer contracts shared by L0..L10 (S0.1 action envelope, S0.3 MVP golden path, S0.4 constitutional meta-principles, ProxGuard reference donor)"

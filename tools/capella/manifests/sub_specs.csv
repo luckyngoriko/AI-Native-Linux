@@ -1,0 +1,54 @@
+phase_tag,title,layer,status,schema_package,path
+S6.1,Status Taxonomy (Rev.2),L0,CONTRACT (initial; written 2026-05-09),aios.governance.v1alpha1,L0_Governance_Evidence_Safety/01_status_taxonomy.md
+S6.2,Evidence Grades (Rev.2),L0,CONTRACT (initial; written 2026-05-09),aios.governance.v1alpha1,L0_Governance_Evidence_Safety/02_evidence_grades.md
+S6.3,Evidence Receipt Schema (Rev.2),L0,REAL (initial; written 2026-05-09),"aios.evidence.v1alpha1 (binds to S3.1's package; this contract owns the receipt envelope, S3.1 owns the log container around it)",L0_Governance_Evidence_Safety/03_evidence_receipt_schema.md
+S6.4,Constitutional Invariants (Rev.2),L0,CONTRACT (initial; written 2026-05-09),aios.governance.v1alpha1,L0_Governance_Evidence_Safety/04_invariants.md
+S11.1,Repository Model + Trust Roots (Rev.2),L10,"REAL (initial; written 2026-05-09; E1 evidence — file exists, structural contract complete)",aios.distribution.v1alpha1,L10_Distribution_Ecosystem_Marketplace/01_repository_model.md
+S11.2,"Marketplace — Publisher Onboarding, Capability Review, Listings (Rev.2)",L10,"REAL (initial; written 2026-05-09; E1 evidence — file exists, structural contract complete)",aios.marketplace.v1alpha1,L10_Distribution_Ecosystem_Marketplace/02_marketplace.md
+S11.3,"External Integrations — Bridges to Flathub, OCI Registries, Distro Repos (Rev.2)",L10,"REAL (initial; written 2026-05-09; E1 evidence — file exists, structural contract complete)",aios.bridge.v1alpha1,L10_Distribution_Ecosystem_Marketplace/03_external_integrations.md
+S9.1,Recovery Boundary (Rev.2),L1,"REAL (initial; written 2026-05-09; E1 evidence — file exists, structural contract complete)",aios.recovery.v1alpha1,L1_Kernel_Bootstrap_Recovery/01_recovery_boundary.md
+S9.2,First-Boot Flow (Rev.2),L1,REAL (initial; written 2026-05-09; E1 evidence — file exists; structural contract complete),aios.firstboot.v1alpha1,L1_Kernel_Bootstrap_Recovery/02_first_boot_flow.md
+S9.3,Dedicated Kernel Pipeline (Rev.2),L1,REAL (initial; written 2026-05-09; E1 evidence — file exists; structural contract complete),aios.kernel.v1alpha1,L1_Kernel_Bootstrap_Recovery/03_dedicated_kernel_pipeline.md
+S1.3,AIOS-FS Object Model (Rev.2),L2,CONTRACT (refined 2026-05-08; awaiting implementation evidence),,L2_AIOS_FS/01_object_model.md
+S2.1,AIOS-FS Query and View Language (Rev.2),L2,CONTRACT (refined 2026-05-08; awaiting implementation evidence),,L2_AIOS_FS/02_query_view_language.md
+S1.3,AIOS-FS Conflict Resolution (Rev.2),L2,CONTRACT (refined 2026-05-08; awaiting implementation evidence),,L2_AIOS_FS/03_conflict_resolution.md
+S2.2,AIOS-FS Implementation Space (Rev.2),L2,CONTRACT (refined 2026-05-08; awaiting implementation evidence),,L2_AIOS_FS/04_implementation_space.md
+S4.1,AIOS-FS Namespace Layout (Rev.2),L2,CONTRACT (promoted 2026-05-09 from DRAFT NOTES),aios.namespace.v1alpha1,L2_AIOS_FS/05_namespace_layout.md
+S15.1,AIOS-SGR Unit Manifest (Rev.2),L3,REAL (initial; written 2026-05-09; E1 evidence — file exists; structural contract complete),aios.unit.v1alpha1,L3_AIOS_SGR_Service_Graph_Runtime/01_unit_manifest.md
+S15.2,AIOS-SGR State Transitions and Graph Evaluation (Rev.2),L3,REAL (initial; written 2026-05-09; E1 evidence — file exists; structural contract complete),aios.sgr.v1alpha1,L3_AIOS_SGR_Service_Graph_Runtime/02_state_transitions.md
+S10.1,Capability Runtime gRPC (Rev.2),L3,REAL (initial; written 2026-05-09; E1 evidence — file exists; structural contract complete),aios.runtime.v1alpha1,L3_AIOS_SGR_Service_Graph_Runtime/03_capability_runtime_grpc.md
+S15.3,"Adapter Model — Manifest, Registration, Capability Declaration, Fail-Closed Semantics (Rev.2)",L3,REAL (initial; written 2026-05-09; E1 evidence — file exists; structural contract complete),aios.adapter.v1alpha1,L3_AIOS_SGR_Service_Graph_Runtime/04_adapter_model.md
+S2.3,Policy Kernel (Rev.2),L4,CONTRACT (refined 2026-05-08; awaiting implementation evidence),,L4_Policy_Identity_Vault/01_policy_kernel.md
+S5.2,Vault Broker (Rev.2),L4,CONTRACT (initial; written 2026-05-11),aios.vault.v1alpha1,L4_Policy_Identity_Vault/02_vault_broker.md
+S5.1,Identity Model (Rev.2),L4,CONTRACT (initial; written 2026-05-09),aios.identity.v1alpha1,L4_Policy_Identity_Vault/03_identity_model.md
+S5.3,Approval Mechanics (Rev.2),L4,REAL (E1 — file exists; structural contract complete; written 2026-05-09),aios.approval.v1alpha1,L4_Policy_Identity_Vault/04_approval_mechanics.md
+S5.4,Emergency Override (Rev.2),L4,REAL (initial; written 2026-05-09; E1 evidence — file exists),aios.override.v1alpha1,L4_Policy_Identity_Vault/05_emergency_override.md
+S13.1,Cognitive Core Model (Rev.2),L5,REAL (initial; written 2026-05-09),aios.cognitive.v1alpha1,L5_Cognitive_Core/01_cognitive_core_model.md
+S1.1,Capability Translator (Rev.2),L5,CONTRACT (refined 2026-05-08; awaiting implementation evidence),,L5_Cognitive_Core/02_capability_translator.md
+S1.2,Latency Tiering (Rev.2),L5,CONTRACT (refined 2026-05-08; awaiting implementation evidence),,L5_Cognitive_Core/03_latency_tiering.md
+S13.2,Model Router (Rev.2),L5,REAL (initial; written 2026-05-09),aios.modelrouter.v1alpha1,L5_Cognitive_Core/05_model_router.md
+S12.1,App Runtime Model + Cross-Ecosystem Compatibility (Rev.2),L6,"REAL (initial; written 2026-05-09; E1 evidence — file exists, structural contract complete)",aios.appcompat.v1alpha1,L6_Apps_Packages_Compatibility/01_app_runtime_model.md
+S12.2,"Package Object Model — On-Disk Layout, Versioning, Update, Rollback (Rev.2)",L6,"REAL (initial; written 2026-05-09; E1 evidence — file exists, structural contract complete)",aios.package.v1alpha1,L6_Apps_Packages_Compatibility/02_package_model.md
+S12.3,Compatibility Runtime — Orchestration of EcosystemRuntime Adapters (Rev.2),L6,"REAL (initial; written 2026-05-09; E1 evidence — file exists, structural contract complete)",aios.compatruntime.v1alpha1,L6_Apps_Packages_Compatibility/03_compatibility_runtime.md
+S3.2,Sandbox Composition Language (Rev.2),L6,CONTRACT (refined 2026-05-08),aios.sandbox.v1alpha1,L6_Apps_Packages_Compatibility/04_sandbox_composition.md
+S12.4,Compatibility Knowledge — Per-App Profile Database (Rev.2),L6,"REAL (initial; written 2026-05-09; E1 evidence — file exists, structural contract complete)",aios.compatknowledge.v1alpha1,L6_Apps_Packages_Compatibility/05_compatibility_knowledge.md
+S6.5,Session Container Model — per-group containerized KDE Plasma sessions streamed to browser (Rev.2),L6,"CONTRACT (initial; written 2026-05-23; E1 — file exists, structural contract complete)",aios.session.v1alpha1,L6_Apps_Packages_Compatibility/06_session_container_model.md
+S7.1,Surface + Composition Model (Rev.2),L7,CONTRACT (initial; written 2026-05-10),aios.surface.v1alpha1,L7_Interaction_Renderers/01_surface_composition.md
+S7.2,Shared UI Schema (Rev.2),L7,CONTRACT (initial; written 2026-05-10),aios.ui.v1alpha1,L7_Interaction_Renderers/02_shared_ui_schema.md
+S7.3,Visual Language (Rev.2),L7,CONTRACT (initial; written 2026-05-10),aios.visual.v1alpha1,L7_Interaction_Renderers/03_visual_language.md
+S7.4,KDE Plasma Renderer (Rev.2),L7,CONTRACT (initial; written 2026-05-10),aios.renderer.kde.v1alpha1,L7_Interaction_Renderers/04_kde_renderer.md
+S7.5,Web Renderer (Rev.2),L7,CONTRACT (initial; written 2026-05-10),aios.renderer.web.v1alpha1,L7_Interaction_Renderers/05_web_renderer.md
+S7.6,CLI Renderer (Rev.2),L7,"REAL (initial; written 2026-05-12; E1 evidence — file exists, structural contract complete)",aios.renderer.cli.v1alpha1,L7_Interaction_Renderers/06_cli_renderer.md
+S8.3,Hardware Graph (Rev.2),L8,REAL (initial; written 2026-05-09; E1 evidence — file exists; structural contract complete),aios.hardware.v1alpha1,L8_Network_Hardware_Devices/01_hardware_graph.md
+S8.1,Network Policy (Rev.2),L8,REAL (initial; written 2026-05-09),aios.network.v1alpha1,L8_Network_Hardware_Devices/02_network_policy.md
+S8.4,DNS / VPN Management (Rev.2),L8,REAL (initial; written 2026-05-09),aios.dnsvpn.v1alpha1,L8_Network_Hardware_Devices/03_dns_vpn_management.md
+S8.5,Firmware Trust + Signed Update Paths (Rev.2),L8,"REAL (initial; written 2026-05-09; E1 evidence — file exists, structural contract complete)",aios.firmware.v1alpha1,L8_Network_Hardware_Devices/04_firmware_trust.md
+S8.2,GPU Resource Model (Rev.2),L8,CONTRACT (initial; written 2026-05-10),aios.gpu.v1alpha1,L8_Network_Hardware_Devices/05_gpu_resource_model.md
+S3.1,Evidence Log Architecture (Rev.2),L9,CONTRACT (refined 2026-05-08; awaiting implementation evidence),,L9_Observability_Admin_Operations/01_evidence_log.md
+S2.4,Verification Grammar (Rev.2),L9,CONTRACT (refined 2026-05-08; awaiting implementation evidence),,L9_Observability_Admin_Operations/02_verification_grammar.md
+S14.1,Failure Handling and Degradation (Rev.2),L9,"REAL (initial; written 2026-05-09; E1 evidence — file exists, structural contract complete)",aios.failure.v1alpha1,L9_Observability_Admin_Operations/03_failure_handling.md
+S14.2,Telemetry Pipeline (Rev.2),L9,"REAL (initial; written 2026-05-09; E1 evidence — file exists, structural contract complete)",aios.telemetry.v1alpha1,L9_Observability_Admin_Operations/04_telemetry_pipeline.md
+S0.1,Action Envelope + Lifecycle (Rev.2),XX,CONTRACT (rev.2 design approved; awaiting implementation evidence),,XX_Cross_Cutting/01_action_envelope_lifecycle.md
+Rev.2 reference donor / system app candidate,ProxGuard Reference Model Notes (Rev.2),XX,CONTRACT reference note,,XX_Cross_Cutting/02_proxguard_reference_model.md
+S0.3,MVP Golden Path Contract (Rev.2),XX,REAL (initial; written 2026-05-09; E1 evidence — file exists; structural contract complete; trace walks every layer of the L0..L10 stack),"n/a — this contract is a trace and acceptance test, not a service",XX_Cross_Cutting/03_mvp_golden_path.md
+S0.4,Constitutional Meta-Principles (Rev.2),XX,CONTRACT (initial; written 2026-05-11),"n/a (this contract is meta-narrative; it documents principles, not service shapes)",XX_Cross_Cutting/04_constitutional_meta_principles.md

@@ -314,6 +314,160 @@ def wire_consumes_traces(model, spec_records: list[dict], consumes_rows: list[di
     return wired
 
 
+def author_scenarios(model, inv_records: list[dict], spec_records: list[dict]) -> int:
+    """Author 4 operational scenarios per the AIOS Capella modeling plan
+    (tools/capella/docs/modeling_plan.md §"Operational Scenarios"):
+
+      1. Golden path                — happy-path lifecycle (XX MVP)
+      2. AI install attempted (denied) — INV-002 + INV-013 enforcement at runtime
+      3. First-boot provisioning    — S9.2 with FIRST_BOOT mode discipline
+      4. Tamper detected → recovery — S3.1 §11.4 + S9.1 RecoveryEntryReason
+
+    Each scenario is created as a named Scenario object owned by its
+    most relevant Capability (host). The body of each scenario lives in
+    the description field as a flow narrative; the visual sequence
+    diagram with participants + messages is authored in the Capella IDE
+    using these scenarios as seeds. This is the standard MBSE pattern:
+    Python pre-creates structure + content; humans author the diagram.
+    """
+    # Build name → capability lookup across all 4 ARCADIA layers
+    cap_by_name: dict = {}
+    for layer in ("oa", "sa", "la", "pa"):
+        for cap in getattr(model, layer).all_capabilities:
+            cap_by_name[cap.name] = cap
+
+    def host(prefix: str):
+        """Find first capability whose name starts with prefix."""
+        return next((c for n, c in cap_by_name.items() if n.startswith(prefix)), None)
+
+    scenarios = [
+        {
+            "host": host("S0.3"),
+            "name": "Golden path — typed action lifecycle end-to-end",
+            "description": (
+                "<p><strong>Source:</strong> XX_Cross_Cutting/03_mvp_golden_path.md</p>"
+                "<p><strong>Participants:</strong> HUMAN_USER operator, AIOS Capability Runtime (S10.1), "
+                "Policy Kernel (S2.3), Sandbox Composer (S3.2), Verification Engine (S2.4), "
+                "Evidence Log (S3.1), Renderer (S7.6).</p>"
+                "<p><strong>Flow:</strong></p>"
+                "<ol>"
+                "<li>operator submits typed ActionEnvelope (act_&lt;ulid&gt;) per S0.1</li>"
+                "<li>Capability Runtime validates envelope, normalizes subject (S2.3 §7)</li>"
+                "<li>Policy Kernel evaluates → ALLOW (no hard-deny fires, no approval gate)</li>"
+                "<li>Sandbox composed per S3.2 most-restrictive-wins</li>"
+                "<li>Adapter dispatches typed action (ISOLATED_SANDBOX per S10.1)</li>"
+                "<li>Verification probes run per S2.4 closed grammar</li>"
+                "<li>Evidence Log appends 5-receipt chain: ACTION_RECEIVED → POLICY_DECISION → "
+                "EXECUTION_STARTED → EXECUTION_COMPLETED → VERIFICATION_RESULT</li>"
+                "<li>Renderer surfaces result + CHROME zone (INV-020) shows action_id + evidence link</li>"
+                "</ol>"
+                "<p><strong>Invariants exercised:</strong> INV-002 (AI proposes never executes — if "
+                "subject is_ai, branches to AI scenario), INV-005 (append-only), INV-014 (no proof no "
+                "completion), INV-020 (trust indicators visible).</p>"
+            ),
+        },
+        {
+            "host": cap_by_name.get("INV-002 — AI proposes, never executes"),
+            "name": "AI install attempted — constitutional hard-deny",
+            "description": (
+                "<p><strong>Source:</strong> S2.3 §26.2.4 AIInstallInitiationBlocked (Wave 9)</p>"
+                "<p><strong>Participants:</strong> AI_AGENT subject, Capability Runtime, Policy Kernel, "
+                "Evidence Log.</p>"
+                "<p><strong>Flow:</strong></p>"
+                "<ol>"
+                "<li>AI agent submits package.install action with subject.is_ai = true</li>"
+                "<li>Capability Runtime forwards to Policy Kernel</li>"
+                "<li>Policy Kernel §27 hard-deny chain: AIInstallInitiationBlocked fires "
+                "(matches subject.is_ai=true AND request.action IN {package.install, app.install, "
+                "package.uninstall.execute, app.uninstall.execute})</li>"
+                "<li>Decision: DENY with reason_code = AIInstallInitiationBlocked</li>"
+                "<li>Evidence Log emits APP_AI_DIRECT_INSTALL_ATTEMPTED_BLOCKED (FOREVER retention)</li>"
+                "<li>Action lifecycle: PENDING → FAILED (no execution; no evidence of execution)</li>"
+                "<li>Operator surface (if any) shows hard-deny notification</li>"
+                "</ol>"
+                "<p><strong>Invariants enforced:</strong> INV-002 (site 2 of 6 enforcement map per "
+                "S0.4 §4), INV-013 (AI cannot system admin), INV-005 (FOREVER evidence of attempt).</p>"
+                "<p><strong>SIM-D constitutional check:</strong> bypass attempt produces evidence — "
+                "AI subjects literally cannot install software without leaving a permanent forensic "
+                "trace; the constitutional core remains mechanically intact.</p>"
+            ),
+        },
+        {
+            "host": host("S9.2"),
+            "name": "First-boot provisioning — FIRST_BOOT mode discipline",
+            "description": (
+                "<p><strong>Source:</strong> S9.2 First-Boot Flow (Rev.2)</p>"
+                "<p><strong>Participants:</strong> LOCAL_OPERATOR _system:local:operator-1, "
+                "firstboot-coordinator (SERVICE), installer, vault-init, identity-init, "
+                "policy-compiler, AIOS-FS, Vault Broker (S5.2), Identity Service (S5.1).</p>"
+                "<p><strong>Flow:</strong></p>"
+                "<ol>"
+                "<li>Recovery image first mount; RecoveryMode = FIRST_BOOT (S9.1 W9)</li>"
+                "<li>firstboot-coordinator authenticated via hardware-key at console</li>"
+                "<li>installer initialises /aios filesystem layout per S4.1 namespace catalog</li>"
+                "<li>vault-init generates Ed25519 vault root key; uses one-shot "
+                "BOOTSTRAP_KEY_SIGN (per-host exhaustion) per S5.2 §3</li>"
+                "<li>identity-init registers bootstrap group (HUMAN_USER not yet present; hardware-key "
+                "signature substitutes per S5.1 §5.2.1)</li>"
+                "<li>policy-compiler loads constitutional policy bundle (signed)</li>"
+                "<li>Each stage emits FOREVER FIRST_BOOT_OPERATION receipt (escape clause for "
+                "INV-012 RecoveryRequiredForSystemMutation; per S2.3 §26.2.2 W9 update)</li>"
+                "<li>At stage exit: firstboot marker written; is_first_boot flag self-extinguishes "
+                "atomically across all subject sessions</li>"
+                "<li>System transitions to RecoveryMode = NORMAL</li>"
+                "</ol>"
+                "<p><strong>Invariants threaded:</strong> INV-001 (no L5), INV-004 (recovery "
+                "boundary), INV-012 (system mutation gating — first-boot exception), INV-018 (vault "
+                "no leak), INV-005 (FOREVER evidence per stage).</p>"
+            ),
+        },
+        {
+            "host": cap_by_name.get("INV-005 — Evidence is append-only"),
+            "name": "Tamper detected → recovery — constitutional anchor failure",
+            "description": (
+                "<p><strong>Source:</strong> S3.1 §11.4 tamper-recovery; S9.1 RecoveryEntryReason</p>"
+                "<p><strong>Participants:</strong> Evidence Log Verifier (S3.1), Recovery Coordinator "
+                "(S9.1), LOCAL_OPERATOR.</p>"
+                "<p><strong>Flow:</strong></p>"
+                "<ol>"
+                "<li>Periodic chain audit by S3.1 VerifyChain RPC (or startup chain verification)</li>"
+                "<li>Hash mismatch / signature invalid / segment seal broken detected</li>"
+                "<li>S3.1 emits EVIDENCE_LOG_TAMPER_DETECTED (FOREVER) as final pre-shutdown record</li>"
+                "<li>System refuses further evidence appends until operator intervention</li>"
+                "<li>On next boot: GRUB selects recovery; RecoveryEntryReason = "
+                "EVIDENCE_LOG_TAMPER_DETECTED</li>"
+                "<li>Recovery shell shows tamper context; operator reviews FOREVER record chain</li>"
+                "<li>Either: operator decides chain is unrecoverable (full reset-to-factory via "
+                "S5.4 emergency override), or: forensic snapshot taken + chain quarantined + new "
+                "fresh chain bootstrapped under recovery-mode discipline</li>"
+                "</ol>"
+                "<p><strong>Invariants threaded:</strong> INV-005 (the tamper IS the violation), "
+                "INV-001 (recovery without L5 — verifier and recovery shell never invoke cognitive "
+                "core), INV-014 (no completion claim survives tamper), INV-004 (recovery boundary "
+                "engaged).</p>"
+            ),
+        },
+    ]
+
+    created = 0
+    skipped = []
+    for s in scenarios:
+        host_cap = s["host"]
+        if host_cap is None:
+            skipped.append(s["name"])
+            continue
+        try:
+            sc = host_cap.scenarios.create(name=s["name"])
+            if hasattr(sc, "description"):
+                sc.description = s["description"]
+            created += 1
+        except Exception as e:
+            skipped.append(f"{s['name']}: {e}")
+    if skipped:
+        print(f"      Skipped {len(skipped)}: {skipped[:2]}")
+    return created
+
+
 def import_sub_specs(model, sub_specs: list[dict]) -> tuple[list[dict], list[dict]]:
     """Create one Operational/System/Logical/Physical Capability per sub-spec,
     routed by AIOS layer → ARCADIA target mapping."""
@@ -404,6 +558,10 @@ def main() -> int:
     consumes_rows = _read_csv(MANIFESTS_DIR / "trace_consumes.csv")
     consumes_links = wire_consumes_traces(model, spec_records, consumes_rows)
     print(f"      Wired {consumes_links}/{len(consumes_rows)} Consumes traces")
+
+    print("[4e/5] Authoring 4 operational scenarios...")
+    scenarios_created = author_scenarios(model, inv_records, spec_records)
+    print(f"      Created {scenarios_created}/4 scenarios")
 
     print("[5/5] Saving model...")
     model.save()

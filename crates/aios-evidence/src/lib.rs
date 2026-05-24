@@ -46,6 +46,7 @@
 pub mod chain;
 pub mod error;
 pub mod persistence;
+pub mod privacy;
 pub mod receipt;
 pub mod record;
 pub mod redaction;
@@ -57,9 +58,14 @@ pub mod service;
 pub use chain::ReceiptChain;
 pub use error::EvidenceError;
 pub use persistence::{OpenSegmentSnapshot, RocksDbEvidenceLog};
+pub use privacy::{
+    is_constitutionally_public_record_type, receipt_subject_is_system, subject_primary_group,
+    PrivacyCeiling,
+};
 pub use receipt::{EvidenceReceipt, ReceiptBuilder};
 pub use record::{RecordType, RetentionClass};
 pub use redaction::{apply_redaction, RedactionProfile, REDACTED_SENTINEL};
 pub use sealed::Sealed;
 pub use segment::{SealedSegment, Segment, SegmentId};
 pub use segment_chain::SegmentChain;
+pub use service::SUPPRESSED_COUNT_TRAILER;

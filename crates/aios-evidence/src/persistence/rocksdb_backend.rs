@@ -91,6 +91,7 @@ use crate::persistence::encoding::{
     METADATA_SCHEMA_VERSION, SCHEMA_VERSION_V1ALPHA1,
 };
 use crate::persistence::recovery::OpenSegmentSnapshot;
+use crate::privacy::PrivacyCeiling;
 use crate::receipt::{EvidenceReceipt, ReceiptBuilder};
 use crate::record::RecordType;
 use crate::segment::{Segment, SegmentId};
@@ -98,6 +99,7 @@ use crate::service::conversions::{
     receipt_to_proto, record_type_from_proto_i32, DEFAULT_RETENTION,
 };
 use crate::service::proto;
+use crate::service::SUPPRESSED_COUNT_TRAILER;
 use crate::EvidenceError;
 
 /// Default broadcast channel capacity for `Subscribe`. Mirrors the in-memory
@@ -754,6 +756,16 @@ impl proto::evidence_log_server::EvidenceLog for RocksDbEvidenceLog {
         let correlation_filter = req.correlation_id_filter.clone();
         let resume_from = req.resume_from_receipt_id.clone();
 
+        // T-014 — per-subscriber privacy ceiling. Empty caller_subject
+        // selects the system-caller bypass (admits everything) for backward
+        // compatibility with T-011/T-012 test traffic.
+        let ceiling = PrivacyCeiling::from_caller(
+            req.caller_subject.clone(),
+            optional_group(&req.caller_primary_group),
+            req.caller_is_ai,
+            req.caller_is_recovery_mode,
+        );
+
         // Replay from the open snapshot (T-012 keeps the sealed-segment
         // replay deferred until a dedicated `Subscribe`-over-sealed-history
         // task lands; the §22 MVP path subscribes to the open chain only).
@@ -767,6 +779,9 @@ impl proto::evidence_log_server::EvidenceLog for RocksDbEvidenceLog {
                 }
                 continue;
             }
+            if !ceiling.admits(r) {
+                continue;
+            }
             let wire = receipt_to_proto(r);
             if subscribe_filters_pass(&wire, &record_filter, &subject_filter, &correlation_filter) {
                 replay.push(wire);
@@ -777,6 +792,10 @@ impl proto::evidence_log_server::EvidenceLog for RocksDbEvidenceLog {
         let rx = self.live_tx.subscribe();
         let live = BroadcastStream::new(rx).filter_map(move |item| {
             item.ok().and_then(|wire| {
+                let rt = record_type_from_proto_i32(wire.record_type).ok()?;
+                if !ceiling.admits_wire(&wire.subject, rt) {
+                    return None;
+                }
                 if subscribe_filters_pass(
                     &wire,
                     &record_filter,
@@ -817,8 +836,18 @@ impl proto::evidence_log_server::EvidenceLog for RocksDbEvidenceLog {
             req.limit
         };
 
+        // T-014 — per-caller privacy ceiling, identical semantics to the
+        // in-memory backend (§10 + §23.2 + §11.4).
+        let ceiling = PrivacyCeiling::from_caller(
+            req.subject.clone(),
+            optional_group(&req.caller_primary_group),
+            req.caller_is_ai,
+            req.caller_is_recovery_mode,
+        );
+
         let guard = self.state.read().await;
         let mut hits: Vec<proto::EvidenceReceipt> = Vec::new();
+        let mut suppressed_count: u64 = 0;
         for r in &guard.current.receipts {
             if !req.action_id_filter.is_empty() {
                 match r.action_id() {
@@ -844,6 +873,10 @@ impl proto::evidence_log_server::EvidenceLog for RocksDbEvidenceLog {
                     continue;
                 }
             }
+            if !ceiling.admits(r) {
+                suppressed_count = suppressed_count.saturating_add(1);
+                continue;
+            }
             hits.push(receipt_to_proto(r));
             if u32::try_from(hits.len()).unwrap_or(u32::MAX) >= limit {
                 break;
@@ -852,7 +885,9 @@ impl proto::evidence_log_server::EvidenceLog for RocksDbEvidenceLog {
         drop(guard);
 
         let stream = tokio_stream::iter(hits.into_iter().map(Ok));
-        Ok(Response::new(Box::pin(stream)))
+        let mut response = Response::new(Box::pin(stream) as Self::QueryStream);
+        attach_suppressed_count(&mut response, suppressed_count);
+        Ok(response)
     }
 
     // -----------------------------------------------------------------
@@ -970,6 +1005,31 @@ impl proto::evidence_log_server::EvidenceLog for RocksDbEvidenceLog {
             )),
         }))
     }
+}
+
+/// T-014 helper — proto3 empty-string -> `None` for the
+/// `caller_primary_group` field. See in-memory backend twin.
+fn optional_group(raw: &str) -> Option<String> {
+    if raw.is_empty() {
+        None
+    } else {
+        Some(raw.to_owned())
+    }
+}
+
+/// T-014 helper — attach the `x-aios-suppressed-count` initial-metadata
+/// header to a `Query` response per S3.1 §10 + §23.2. Twin of the
+/// in-memory backend helper.
+fn attach_suppressed_count<T>(response: &mut Response<T>, count: u64) {
+    let Ok(value) = count
+        .to_string()
+        .parse::<tonic::metadata::MetadataValue<_>>()
+    else {
+        return;
+    };
+    response
+        .metadata_mut()
+        .insert(SUPPRESSED_COUNT_TRAILER, value);
 }
 
 /// Helper: apply the three `Subscribe` filters to a wire receipt.
@@ -1170,6 +1230,9 @@ mod tests {
                 text_match: String::new(),
                 limit: 0,
                 subject: String::new(),
+                caller_primary_group: String::new(),
+                caller_is_ai: false,
+                caller_is_recovery_mode: false,
             }))
             .await
             .expect("query")

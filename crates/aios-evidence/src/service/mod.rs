@@ -86,3 +86,13 @@ pub use impl_inmemory::InMemoryEvidenceLog;
 pub use proto::evidence_log_client::EvidenceLogClient;
 pub use proto::evidence_log_server::{EvidenceLog as EvidenceLogService, EvidenceLogServer};
 pub use server::{build_router, serve};
+
+/// gRPC trailing-metadata key carrying the S3.1 §10 + §23.2 `suppressed_count`
+/// — the number of receipts the [`crate::PrivacyCeiling`] silently filtered
+/// from a `Query` / `Subscribe` stream. T-014.
+///
+/// Clients read this trailer via `tonic::Response::metadata()` after the
+/// stream completes (`stream.trailers().await`). The value is the ASCII
+/// decimal representation of a `u64`. Absent or empty trailer = zero
+/// suppressed.
+pub const SUPPRESSED_COUNT_TRAILER: &str = "x-aios-suppressed-count";

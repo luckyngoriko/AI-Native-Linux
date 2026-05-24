@@ -1,15 +1,6 @@
 {
   "backlog": [
     {
-      "id": "T-014",
-      "title": "aios-evidence — privacy ceiling on Query (§10 trailer count)",
-      "status": "queued",
-      "priority": "P1",
-      "dependencies": ["T-013"],
-      "acceptance_criteria": ["Pending Governor selection"],
-      "blockers": []
-    },
-    {
       "id": "T-015",
       "title": "aios-evidence — retention-class compaction worker (§12 / §13)",
       "status": "planned",
@@ -101,6 +92,12 @@
       "title": "aios-evidence — redaction profiles per S3.1 §14 (default / strict / debug_capture)",
       "completed_at": "2026-05-24",
       "evidence": "cargo build/test --workspace + clippy --workspace --all-targets -D warnings + fmt --check all PASS; 306 tests green (+35 over T-012's 271). New crates/aios-evidence/src/redaction.rs (~550 LoC; 16 unit tests). Closed RedactionProfile enum (Default/Strict/DebugCapture, serde wire names default/strict/debug_capture exactly matching §14 spec table). Per-RecordType policy via record_category() prefix-matching the 427-entry wire vocabulary into 6 categories (Lifecycle/Vault/Recovery/Telemetry/Segment/Generic). Three transformation primitives: redact_keys (substring match on normalize_key() over secret-shaped names → REDACTED_SENTINEL), hash_pii_keys (PII keys → hash:<32hex> truncated BLAKE3), reduce_to_structural_marker (Strict + Lifecycle/Telemetry/Generic → 3-field marker preserving record_type + payload_hash_prefix correlation). Default+DebugCapture share secret-redaction body (spec §14 'minimal redaction; only secrets' applies to both); distinguished operationally via the stored redaction_profile field. ReceiptBuilder gained with_redaction_profile() setter; default = RedactionProfile::Default. seal_inner now applies apply_redaction() BEFORE computing content_hash → cryptographic chain witnesses the redacted form (constitutional anchor §14: no unredacted-but-signed representation anywhere). ReceiptForSigning includes the profile so tampering breaks verify_signature. EvidenceReceipt.redaction_profile has #[serde(default)] for back-compat with pre-T-013 receipt JSON. Proto AppendRequest NOT mutated (per STOP rule); server applies Default automatically. Proto receipt envelope field tag 14 (redaction_profile) populated with lowercase wire name. New integration test tests/redaction_roundtrip.rs (5 tests including gRPC end-to-end). 10 new t013_* tests in receipt.rs. ONE logical commit."
+    },
+    {
+      "id": "T-014",
+      "title": "aios-evidence — privacy ceiling on Query / Subscribe per S3.1 §10 + §23.2 + §11.4",
+      "completed_at": "2026-05-24",
+      "evidence": "cargo build/test --workspace (330 PASS, +24 over T-013 306) + clippy --workspace --all-targets -- -D warnings + fmt --all -- --check all PASS. New crates/aios-evidence/src/privacy.rs (~445 LoC, 17 unit tests). PrivacyCeiling struct (subject_canonical_id + primary_group + is_ai + is_recovery_mode) with admits()/admits_wire() closed predicates implementing 6 rules in priority order: (1) system-caller (empty subject) admits-all backward-compat shortcut documented as future-hardened; (2) self-receipt always admitted; (3) 42 constitutionally-public RecordTypes admitted to non-AI callers (§13 FOREVER bucket + Recovery* + FirstBoot* + Override* + Bundle* + system audit); (4) group-scoped admission for non-AI via §23.2; (5) AI strictness — AI callers see only own + public-about-system records, never other AI subjects' records, even in recovery; (6) recovery-mode FOREVER broadening for non-AI operators (§11.4 forensic access). Proto3-additive schema: QueryRequest +caller_primary_group(10)/caller_is_ai(11)/caller_is_recovery_mode(12) (spec's `subject=9` is the caller canonical id, NOT a filter); SubscribeRequest +caller_subject(6)/caller_primary_group(7)/caller_is_ai(8)/caller_is_recovery_mode(9). Wire-compat with T-011..T-013. Suppressed-count surfaced via initial-metadata header `x-aios-suppressed-count` (tonic 0.12 has no trailing-metadata-on-success API; design choice documented). Both InMemoryEvidenceLog + RocksDbEvidenceLog Query/Subscribe wired symmetrically — historic+replay via ceiling.admits(), live broadcast via ceiling.admits_wire(). subject_primary_group() derives group from 'type:group/name' rev.2 grammar (carry-forward to S5.1 NamespaceScope typed field). 8 existing tests fixed up with new caller_* default fields (backward compat preserved — empty subject = system caller admits all). 17 unit tests in privacy.rs + 5 service-level Query tests in impl_inmemory.rs + 2 integration tests in tests/privacy_ceiling.rs (3-subject corpus through gRPC, subscribe replay filter). ONE logical commit."
     }
   ],
   "blocked": [],
@@ -115,7 +112,16 @@
       "status": "active",
       "title": "Evidence Log skeleton (S3.1 aios-evidence crate)",
       "started_at": "2026-05-23",
-      "tasks": ["T-007", "T-008", "T-009", "T-010", "T-011", "T-012", "T-013"]
+      "tasks": [
+        "T-007",
+        "T-008",
+        "T-009",
+        "T-010",
+        "T-011",
+        "T-012",
+        "T-013",
+        "T-014"
+      ]
     }
   }
 }

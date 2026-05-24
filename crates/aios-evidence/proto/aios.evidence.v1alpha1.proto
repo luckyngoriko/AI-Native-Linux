@@ -780,6 +780,17 @@ message SubscribeRequest {
   string correlation_id_filter = 3;
   string resume_from_receipt_id = 4;
   uint32 max_buffered = 5;
+  // T-014 (S3.1 §10 privacy ceiling) — additive fields to carry the
+  // S5.1 NormalizedSubject of the caller. Field 6 is the caller's
+  // canonical subject id (the live counterpart of QueryRequest.subject).
+  // Fields 7..9 mirror the QueryRequest additions so live streams enforce
+  // the same per-caller privacy ceiling as historic queries.
+  // Empty `caller_subject` = system caller (admits everything); production
+  // callers MUST always populate these fields.
+  string caller_subject = 6;
+  string caller_primary_group = 7;
+  bool caller_is_ai = 8;
+  bool caller_is_recovery_mode = 9;
 }
 
 message QueryRequest {
@@ -791,7 +802,23 @@ message QueryRequest {
   google.protobuf.Timestamp to_time = 6;
   string text_match = 7;
   uint32 limit = 8;
+  // T-014 (S3.1 §10) — caller subject canonical id. The spec's field 9
+  // is the caller's canonical subject id (NOT a content filter). Empty
+  // = system caller (admits everything; test-only shortcut).
   string subject = 9;
+  // T-014 (S3.1 §10 + §23.2) — additive caller-identity fields. The
+  // spec's §10 IDL block only carries `subject = 9`, but the §10
+  // privacy ceiling and the §23.2 namespace-scope extension both need
+  // primary_group + is_ai + is_recovery_mode to compute correctly. New
+  // field numbers 10..12 are allocated in the §10 IDL space (below
+  // the §17 reserved 50+ band documented in the spec). Proto3
+  // additive-fields rule: older clients/servers ignore unknown fields,
+  // so this is wire-compatible with T-011..T-013 wire traffic.
+  // The `x-aios-suppressed-count` gRPC trailing metadata key carries
+  // the §23.2 `suppressed_count` value on Query stream completion.
+  string caller_primary_group = 10;
+  bool caller_is_ai = 11;
+  bool caller_is_recovery_mode = 12;
 }
 
 message VerifyChainRequest {

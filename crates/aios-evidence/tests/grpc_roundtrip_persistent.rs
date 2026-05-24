@@ -146,6 +146,9 @@ async fn grpc_evidence_log_full_roundtrip_over_rocksdb() {
             text_match: String::new(),
             limit: 0,
             subject: String::new(),
+            caller_primary_group: String::new(),
+            caller_is_ai: false,
+            caller_is_recovery_mode: false,
         })
         .await
         .expect("query rpc")
@@ -164,6 +167,9 @@ async fn grpc_evidence_log_full_roundtrip_over_rocksdb() {
             text_match: String::new(),
             limit: 0,
             subject: String::new(),
+            caller_primary_group: String::new(),
+            caller_is_ai: false,
+            caller_is_recovery_mode: false,
         })
         .await
         .expect("query rpc")
@@ -241,6 +247,10 @@ async fn grpc_subscribe_replays_then_streams_live_over_rocksdb() {
             correlation_id_filter: String::new(),
             resume_from_receipt_id: bookmark,
             max_buffered: 0,
+            caller_subject: String::new(),
+            caller_primary_group: String::new(),
+            caller_is_ai: false,
+            caller_is_recovery_mode: false,
         })
         .await
         .expect("subscribe rpc")

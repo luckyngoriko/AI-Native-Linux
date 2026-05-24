@@ -46,11 +46,13 @@ use tokio_stream::wrappers::BroadcastStream;
 use tokio_stream::{Stream, StreamExt};
 use tonic::{Request, Response, Status};
 
+use crate::privacy::PrivacyCeiling;
 use crate::record::RecordType;
 use crate::service::conversions::{
     receipt_to_proto, record_type_from_proto_i32, DEFAULT_RETENTION,
 };
 use crate::service::proto;
+use crate::service::SUPPRESSED_COUNT_TRAILER;
 use crate::EvidenceError;
 use crate::{ReceiptBuilder, ReceiptChain};
 
@@ -238,6 +240,18 @@ impl proto::evidence_log_server::EvidenceLog for InMemoryEvidenceLog {
         let correlation_filter = req.correlation_id_filter.clone();
         let resume_from = req.resume_from_receipt_id.clone();
 
+        // T-014 — privacy ceiling for live subscribers (§10 + §11.4).
+        // Receipts that fail `ceiling.admits(..)` are silently dropped from
+        // the stream. The §23.2 `suppressed_count` is not surfaced on
+        // `Subscribe` because the stream has no logical "end" trailer; the
+        // counter is only meaningful on the bounded `Query` path.
+        let ceiling = PrivacyCeiling::from_caller(
+            req.caller_subject.clone(),
+            optional_group(&req.caller_primary_group),
+            req.caller_is_ai,
+            req.caller_is_recovery_mode,
+        );
+
         // Replay buffer: receipts after `resume_from` (or all, if blank), filtered.
         let guard = self.state.read().await;
         let mut replay: Vec<proto::EvidenceReceipt> = Vec::new();
@@ -247,6 +261,9 @@ impl proto::evidence_log_server::EvidenceLog for InMemoryEvidenceLog {
                 if r.receipt_id().as_str() == resume_from {
                     replaying = true;
                 }
+                continue;
+            }
+            if !ceiling.admits(r) {
                 continue;
             }
             let wire = receipt_to_proto(r);
@@ -263,6 +280,14 @@ impl proto::evidence_log_server::EvidenceLog for InMemoryEvidenceLog {
         let rx = self.live_tx.subscribe();
         let live = BroadcastStream::new(rx).filter_map(move |item| {
             item.ok().and_then(|wire| {
+                // T-014 ceiling check on live broadcast events. Uses the
+                // wire-form predicate so we don't need to resolve the sealed
+                // receipt out of the chain (which would require an extra
+                // async lock acquire per event).
+                let rt = record_type_from_proto_i32(wire.record_type).ok()?;
+                if !ceiling.admits_wire(&wire.subject, rt) {
+                    return None;
+                }
                 if subscribe_filters_pass(
                     &wire,
                     &record_filter,
@@ -305,8 +330,20 @@ impl proto::evidence_log_server::EvidenceLog for InMemoryEvidenceLog {
             req.limit
         };
 
+        // T-014 — build the per-caller ceiling.
+        let ceiling = PrivacyCeiling::from_caller(
+            req.subject.clone(),
+            optional_group(&req.caller_primary_group),
+            req.caller_is_ai,
+            req.caller_is_recovery_mode,
+        );
+
         let guard = self.state.read().await;
         let mut hits: Vec<proto::EvidenceReceipt> = Vec::new();
+        // T-014 — number of receipts the privacy ceiling silently filtered
+        // from results matching all the other filters. Returned via the
+        // `x-aios-suppressed-count` initial-metadata header. See spec §23.2.
+        let mut suppressed_count: u64 = 0;
         for r in guard.chain.receipts() {
             // Action id filter.
             if !req.action_id_filter.is_empty() {
@@ -336,6 +373,13 @@ impl proto::evidence_log_server::EvidenceLog for InMemoryEvidenceLog {
                     continue;
                 }
             }
+            // T-014 — privacy ceiling. Receipts matching the user's filters
+            // but failing the per-caller ceiling are silently dropped and
+            // counted in the trailer.
+            if !ceiling.admits(r) {
+                suppressed_count = suppressed_count.saturating_add(1);
+                continue;
+            }
             hits.push(receipt_to_proto(r));
             if u32::try_from(hits.len()).unwrap_or(u32::MAX) >= limit {
                 break;
@@ -345,7 +389,9 @@ impl proto::evidence_log_server::EvidenceLog for InMemoryEvidenceLog {
 
         // tonic-rs server-streaming wants Send + 'static; build an owned stream.
         let stream = tokio_stream::iter(hits.into_iter().map(Ok));
-        Ok(Response::new(Box::pin(stream)))
+        let mut response = Response::new(Box::pin(stream) as Self::QueryStream);
+        attach_suppressed_count(&mut response, suppressed_count);
+        Ok(response)
     }
 
     // -----------------------------------------------------------------
@@ -439,6 +485,54 @@ impl proto::evidence_log_server::EvidenceLog for InMemoryEvidenceLog {
             )),
         }))
     }
+}
+
+/// T-014 helper — map a proto3-default-empty string to `Option<String>` so
+/// the privacy ceiling can distinguish "caller declared no group" (`None`)
+/// from "caller declared an empty group" (which is the same thing in proto3
+/// wire semantics, so we treat both as `None`).
+fn optional_group(raw: &str) -> Option<String> {
+    if raw.is_empty() {
+        None
+    } else {
+        Some(raw.to_owned())
+    }
+}
+
+/// T-014 helper — attach the `x-aios-suppressed-count` initial-metadata
+/// header (decimal `u64`) to a `Query` response. Spec §10 + §23.2.
+///
+/// **Trailer vs header note.** The spec says "stream trailer", and gRPC has
+/// both initial metadata (sent before the stream) and trailing metadata
+/// (sent after the stream's final message). tonic 0.12 server-streaming has
+/// first-class support for setting initial metadata via
+/// [`tonic::Response::metadata_mut`], but the only path to set trailing
+/// metadata is via the `Status` on the final stream-ending message — which
+/// requires the server-side handler to construct the count *after* the
+/// stream is fully drained. Since T-014 materializes the full hit list into
+/// `Vec<EvidenceReceipt>` before returning the stream, the count is known
+/// at response-construction time and is published via initial metadata for
+/// simplicity. Clients read it identically via `response.metadata().get(..)`.
+/// When a future task switches `Query` to a streaming-from-disk
+/// implementation, this helper will be replaced with a tail-of-stream
+/// trailer emit through `tonic::Status::with_metadata`.
+fn attach_suppressed_count<T>(response: &mut Response<T>, count: u64) {
+    // Numeric ASCII parse is infallible on tonic's allowed set; if the
+    // header insertion ever returns an error, the only safe response is
+    // to leave the count off the response (the client will see "0
+    // suppressed") rather than tear down the RPC. The
+    // `MetadataValue::from(u64)` path can fail only on invalid ASCII —
+    // which a `u64::to_string()` cannot produce — so the let-else is
+    // defensive only.
+    let Ok(value) = count
+        .to_string()
+        .parse::<tonic::metadata::MetadataValue<_>>()
+    else {
+        return;
+    };
+    response
+        .metadata_mut()
+        .insert(SUPPRESSED_COUNT_TRAILER, value);
 }
 
 /// Helper: apply the three `Subscribe` filters to a wire receipt.
@@ -653,6 +747,9 @@ mod tests {
                 text_match: String::new(),
                 limit: 0,
                 subject: String::new(),
+                caller_primary_group: String::new(),
+                caller_is_ai: false,
+                caller_is_recovery_mode: false,
             }))
             .await
             .expect("query")
@@ -699,6 +796,9 @@ mod tests {
                 text_match: String::new(),
                 limit: 0,
                 subject: String::new(),
+                caller_primary_group: String::new(),
+                caller_is_ai: false,
+                caller_is_recovery_mode: false,
             }))
             .await
             .expect("query")
@@ -729,6 +829,9 @@ mod tests {
                 text_match: String::new(),
                 limit: 4,
                 subject: String::new(),
+                caller_primary_group: String::new(),
+                caller_is_ai: false,
+                caller_is_recovery_mode: false,
             }))
             .await
             .expect("query")
@@ -789,6 +892,10 @@ mod tests {
                 correlation_id_filter: String::new(),
                 resume_from_receipt_id: String::new(),
                 max_buffered: 0,
+                caller_subject: String::new(),
+                caller_primary_group: String::new(),
+                caller_is_ai: false,
+                caller_is_recovery_mode: false,
             }))
             .await
             .expect("sub")
@@ -825,6 +932,231 @@ mod tests {
         for w in collected {
             assert_eq!(w.record_type, i32::from(proto::RecordType::PolicyDecision));
         }
+    }
+
+    // ─── privacy ceiling on query (T-014) ──────────────────────────────
+
+    fn query_for_caller(
+        caller: &str,
+        group: &str,
+        is_ai: bool,
+        recovery: bool,
+    ) -> proto::QueryRequest {
+        proto::QueryRequest {
+            record_types_filter: vec![],
+            subject_filter: String::new(),
+            correlation_id_filter: String::new(),
+            action_id_filter: String::new(),
+            from_time: None,
+            to_time: None,
+            text_match: String::new(),
+            limit: 0,
+            subject: caller.to_owned(),
+            caller_primary_group: group.to_owned(),
+            caller_is_ai: is_ai,
+            caller_is_recovery_mode: recovery,
+        }
+    }
+
+    #[tokio::test]
+    async fn query_privacy_ceiling_admits_self_records_and_filters_others() {
+        let b = test_backend();
+        // alice writes 2 records; bob writes 1 record.
+        b.append(Request::new(append_req(
+            proto::RecordType::ActionReceived,
+            "human:alice",
+        )))
+        .await
+        .expect("a1");
+        b.append(Request::new(append_req(
+            proto::RecordType::ActionReceived,
+            "human:alice",
+        )))
+        .await
+        .expect("a2");
+        b.append(Request::new(append_req(
+            proto::RecordType::ActionReceived,
+            "human:bob",
+        )))
+        .await
+        .expect("b1");
+
+        // alice queries — sees only her 2 records; the 1 from bob is suppressed.
+        let response = b
+            .query(Request::new(query_for_caller(
+                "human:alice",
+                "",
+                false,
+                false,
+            )))
+            .await
+            .expect("query");
+        let suppressed = response
+            .metadata()
+            .get(SUPPRESSED_COUNT_TRAILER)
+            .expect("trailer present")
+            .to_str()
+            .expect("ascii");
+        assert_eq!(suppressed, "1");
+        let collected: Vec<_> = response.into_inner().collect::<Vec<_>>().await;
+        assert_eq!(collected.len(), 2);
+    }
+
+    #[tokio::test]
+    async fn query_privacy_ceiling_public_records_admitted_to_non_ai() {
+        let b = test_backend();
+        // Public PolicyDecision record from "system:policy".
+        b.append(Request::new(append_req(
+            proto::RecordType::PolicyDecision,
+            "service:policy",
+        )))
+        .await
+        .expect("policy");
+        // Private record from another subject.
+        b.append(Request::new(append_req(
+            proto::RecordType::ActionReceived,
+            "human:bob",
+        )))
+        .await
+        .expect("bob");
+
+        let response = b
+            .query(Request::new(query_for_caller(
+                "human:alice",
+                "",
+                false,
+                false,
+            )))
+            .await
+            .expect("query");
+        let suppressed = response
+            .metadata()
+            .get(SUPPRESSED_COUNT_TRAILER)
+            .expect("trailer present")
+            .to_str()
+            .expect("ascii");
+        // bob's ActionReceived is filtered; PolicyDecision is admitted.
+        assert_eq!(suppressed, "1");
+        let collected: Vec<_> = response.into_inner().collect::<Vec<_>>().await;
+        assert_eq!(collected.len(), 1);
+        assert_eq!(
+            collected[0].as_ref().expect("ok").record_type,
+            i32::from(proto::RecordType::PolicyDecision)
+        );
+    }
+
+    #[tokio::test]
+    async fn query_privacy_ceiling_group_admits_same_group() {
+        let b = test_backend();
+        b.append(Request::new(append_req(
+            proto::RecordType::ActionReceived,
+            "human:ops/alice",
+        )))
+        .await
+        .expect("a");
+        b.append(Request::new(append_req(
+            proto::RecordType::ActionReceived,
+            "human:ops/bob",
+        )))
+        .await
+        .expect("b");
+        b.append(Request::new(append_req(
+            proto::RecordType::ActionReceived,
+            "human:finance/dave",
+        )))
+        .await
+        .expect("d");
+
+        // alice in ops group sees her own + bob's; dave is suppressed.
+        let response = b
+            .query(Request::new(query_for_caller(
+                "human:ops/alice",
+                "ops",
+                false,
+                false,
+            )))
+            .await
+            .expect("query");
+        let suppressed = response
+            .metadata()
+            .get(SUPPRESSED_COUNT_TRAILER)
+            .expect("trailer present")
+            .to_str()
+            .expect("ascii");
+        assert_eq!(suppressed, "1");
+        let collected: Vec<_> = response.into_inner().collect::<Vec<_>>().await;
+        assert_eq!(collected.len(), 2);
+    }
+
+    #[tokio::test]
+    async fn query_empty_subject_admits_all_for_backward_compat() {
+        // T-014 backward compat: empty `subject` (caller) = system caller,
+        // which admits all receipts. Protects T-007..T-013 wire baseline.
+        let b = test_backend();
+        for _ in 0..3 {
+            b.append(Request::new(append_req(
+                proto::RecordType::ActionReceived,
+                "human:alice",
+            )))
+            .await
+            .expect("a");
+        }
+        b.append(Request::new(append_req(
+            proto::RecordType::ActionReceived,
+            "human:bob",
+        )))
+        .await
+        .expect("b");
+
+        let response = b
+            .query(Request::new(query_for_caller("", "", false, false)))
+            .await
+            .expect("query");
+        let suppressed = response
+            .metadata()
+            .get(SUPPRESSED_COUNT_TRAILER)
+            .expect("trailer present")
+            .to_str()
+            .expect("ascii");
+        assert_eq!(suppressed, "0");
+        let collected: Vec<_> = response.into_inner().collect::<Vec<_>>().await;
+        assert_eq!(collected.len(), 4);
+    }
+
+    #[tokio::test]
+    async fn query_privacy_ceiling_ai_caller_cannot_see_other_ai() {
+        let b = test_backend();
+        b.append(Request::new(append_req(
+            proto::RecordType::ActionReceived,
+            "ai:agent-7",
+        )))
+        .await
+        .expect("a7");
+        b.append(Request::new(append_req(
+            proto::RecordType::ActionReceived,
+            "ai:agent-9",
+        )))
+        .await
+        .expect("a9");
+
+        let response = b
+            .query(Request::new(query_for_caller(
+                "ai:agent-7",
+                "",
+                /*is_ai=*/ true,
+                false,
+            )))
+            .await
+            .expect("query");
+        let suppressed = response
+            .metadata()
+            .get(SUPPRESSED_COUNT_TRAILER)
+            .expect("trailer present")
+            .to_str()
+            .expect("ascii");
+        assert_eq!(suppressed, "1");
+        let collected: Vec<_> = response.into_inner().collect::<Vec<_>>().await;
+        assert_eq!(collected.len(), 1);
     }
 
     // ─── rebuild_index ─────────────────────────────────────────────────

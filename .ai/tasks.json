@@ -276,6 +276,12 @@
       "title": "aios-vault - EmergencyOverride broker + AI self-override hard-deny (S5.4)",
       "completed_at": "2026-05-24",
       "evidence": "1075 tests workspace (+16 over T-049 baseline 1059). Added OverrideBroker async trait, GrantOverrideRequest, and InMemoryOverrideBroker backed by RwLock<HashMap<String, OverrideBinding>> plus Arc<IdentityCatalog>. Enforced STRONG_SOLO/DUAL_HUMAN/TRIPLE_HUMAN approver counts, subject existence, human-only granting, and constitutional Agent/Application hard-deny via VaultError::AiCannotGrantOverride. consume_override performs atomic Granted -> Consumed under one write lock and rejects replay with OverrideAlreadyConsumed; lookup/list transition live expired bindings to Expired; revoke moves any state to Revoked. VaultError gained OverrideRequiresHumanApprovers, AiCannotGrantOverride, OverrideClassApproverCountMismatch, and OverrideExpired. Tests: crates/aios-vault/tests/override_broker.rs (16), including parallel anti-replay. Gates PASS: cargo check --workspace + cargo test --workspace + cargo clippy --workspace --all-targets -- -D warnings + cargo fmt --all -- --check. Scope guard: lifecycle, gRPC, evidence, and cross-crate policy integration deferred."
+    },
+    {
+      "id": "T-051",
+      "title": "aios-vault - capability audit log + expiration driver (S5.2 lifecycle)",
+      "completed_at": "2026-05-24",
+      "evidence": "1087 tests workspace (+12 over T-050 baseline 1075). Added CapabilityAuditEntry + CapabilityAuditLog, CapabilityLifecycleDriver with expire_capability and run_expiration_pass, ExpirationPassReport, InMemoryVaultBroker.with_audit_log, audit hooks for issue/use/revoke, and lazy Active -> Expired transition on use when expires_at is in the past. Tests: crates/aios-vault/tests/lifecycle.rs (12). Gates PASS: cargo check --workspace + cargo test --workspace + cargo clippy --workspace --all-targets -- -D warnings + cargo fmt --all -- --check. Scope guard: gRPC (T-052), evidence (T-053), cross-crate (T-054), and M6 closer (T-055) deferred."
     }
   ],
   "blocked": [],
@@ -405,9 +411,10 @@
         "T-047",
         "T-048",
         "T-049",
-        "T-050"
+        "T-050",
+        "T-051"
       ],
-      "current_test_count": 1075,
+      "current_test_count": 1087,
       "crate_version_target": "aios-vault/0.1.0",
       "rationale": "Secrets-as-capabilities (INV-018). Unblocks signed bundle/manifest infra + external model calls."
     },

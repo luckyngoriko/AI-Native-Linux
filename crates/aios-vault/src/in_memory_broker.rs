@@ -21,6 +21,7 @@ use rand_core::{OsRng, RngCore};
 use tokio::sync::RwLock;
 use x25519_dalek::StaticSecret;
 
+use crate::audit::CapabilityAuditLog;
 use crate::broker::{
     operation_matches_class, IssueCapabilityRequest, UseCapabilityRequest, UseCapabilityResult,
     VaultBroker, VaultOperation,
@@ -36,8 +37,9 @@ use crate::key_material::{KeyAlgorithm, KeyMaterial};
 /// HashMap-backed in-process Vault Broker used by tests and successor slices.
 #[derive(Debug, Clone, Default)]
 pub struct InMemoryVaultBroker {
-    capabilities: Arc<RwLock<HashMap<CapabilityId, (VaultCapability, KeyMaterial)>>>,
+    pub(crate) capabilities: Arc<RwLock<HashMap<CapabilityId, (VaultCapability, KeyMaterial)>>>,
     derived_key_materials: Arc<RwLock<HashMap<KeyMaterialHandle, KeyMaterial>>>,
+    audit_log: Option<Arc<CapabilityAuditLog>>,
 }
 
 impl InMemoryVaultBroker {
@@ -45,6 +47,13 @@ impl InMemoryVaultBroker {
     #[must_use]
     pub fn new() -> Self {
         Self::default()
+    }
+
+    /// Attach a capability lifecycle audit log.
+    #[must_use]
+    pub fn with_audit_log(mut self, log: Arc<CapabilityAuditLog>) -> Self {
+        self.audit_log = Some(log);
+        self
     }
 }
 
@@ -87,6 +96,13 @@ impl VaultBroker for InMemoryVaultBroker {
             .await
             .insert(capability_id, (capability.clone(), key_material));
 
+        if let Some(audit_log) = &self.audit_log {
+            audit_log.record_issue(
+                capability.capability_id.clone(),
+                capability.issued_to.clone(),
+            );
+        }
+
         Ok(capability)
     }
 
@@ -98,6 +114,7 @@ impl VaultBroker for InMemoryVaultBroker {
             capability_id,
             operation,
         } = request;
+        let operation_kind = operation.operation_kind().to_owned();
         let (capability_class, key_material) = {
             let mut store = self.capabilities.write().await;
             let (capability, key_material) = store
@@ -122,9 +139,12 @@ impl VaultBroker for InMemoryVaultBroker {
 
             if capability
                 .expires_at
-                .is_some_and(|expires_at| expires_at <= Utc::now())
+                .is_some_and(|expires_at| expires_at < Utc::now())
             {
                 capability.state = CapabilityState::Expired;
+                if let Some(audit_log) = &self.audit_log {
+                    audit_log.record_expire(&capability_id);
+                }
                 return Err(VaultError::CapabilityExpired(capability_id));
             }
 
@@ -140,8 +160,15 @@ impl VaultBroker for InMemoryVaultBroker {
             (capability.class, key_material.clone())
         };
 
-        self.execute_operation(capability_class, key_material, operation)
-            .await
+        let result = self
+            .execute_operation(capability_class, key_material, operation)
+            .await?;
+
+        if let Some(audit_log) = &self.audit_log {
+            audit_log.record_use(&capability_id, operation_kind);
+        }
+
+        Ok(result)
     }
 
     async fn list_capabilities(
@@ -159,7 +186,7 @@ impl VaultBroker for InMemoryVaultBroker {
     async fn revoke_capability(
         &self,
         capability_id: &CapabilityId,
-        _revoked_by: &SubjectRef,
+        revoked_by: &SubjectRef,
     ) -> Result<(), VaultError> {
         {
             let mut store = self.capabilities.write().await;
@@ -175,6 +202,10 @@ impl VaultBroker for InMemoryVaultBroker {
             }
 
             capability.state = CapabilityState::Revoked;
+        }
+
+        if let Some(audit_log) = &self.audit_log {
+            audit_log.record_revoke(capability_id, revoked_by.clone());
         }
 
         Ok(())

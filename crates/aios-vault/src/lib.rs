@@ -6,11 +6,13 @@
 //! - S5.1 subject/session identity records consumed by vault authorization.
 //! - S5.4 emergency override binding records.
 //!
-//! Lifecycle drivers, real cryptographic operations, gRPC, evidence emission,
-//! and cross-crate reconciliation land in later M6 tasks.
+//! Real cryptographic operations and the capability lifecycle driver are now
+//! present; gRPC, evidence emission, and cross-crate reconciliation land in
+//! later M6 tasks.
 
 #![forbid(unsafe_code)]
 
+pub mod audit;
 pub mod broker;
 pub mod capability;
 pub mod crypto;
@@ -20,9 +22,11 @@ pub mod identity;
 pub mod identity_catalog;
 pub mod in_memory_broker;
 pub mod key_material;
+pub mod lifecycle;
 pub mod override_broker;
 pub mod override_class;
 
+pub use audit::{CapabilityAuditEntry, CapabilityAuditLog};
 pub use broker::{
     IssueCapabilityRequest, UseCapabilityRequest, UseCapabilityResult, VaultBroker, VaultOperation,
 };
@@ -35,5 +39,6 @@ pub use identity::{Session, SessionState, Subject, SubjectRef, SubjectType};
 pub use identity_catalog::IdentityCatalog;
 pub use in_memory_broker::InMemoryVaultBroker;
 pub use key_material::{KeyAlgorithm, KeyMaterial};
+pub use lifecycle::{CapabilityLifecycleDriver, ExpirationPassReport};
 pub use override_broker::{GrantOverrideRequest, InMemoryOverrideBroker, OverrideBroker};
 pub use override_class::{OverrideBinding, OverrideBindingState, OverrideClass};

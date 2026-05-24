@@ -28,3 +28,7 @@ build/
 __pycache__/
 *.pyc
 .ai/scratch/
+
+# Capella tooling
+tools/capella/.venv/
+tools/capella/output/build_report.json

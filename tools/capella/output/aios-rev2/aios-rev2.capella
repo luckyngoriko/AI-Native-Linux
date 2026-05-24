@@ -1,0 +1,507 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<!--Capella_Version_7.0.0-->
+<org.polarsys.capella.core.data.capellamodeller:Project xmi:version="2.0" xmlns:xmi="http://www.omg.org/XMI"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:libraries="http://www.polarsys.org/capella/common/libraries/7.0.0"
+    xmlns:org.polarsys.capella.core.data.capellacommon="http://www.polarsys.org/capella/core/common/7.0.0"
+    xmlns:org.polarsys.capella.core.data.capellacore="http://www.polarsys.org/capella/core/core/7.0.0"
+    xmlns:org.polarsys.capella.core.data.capellamodeller="http://www.polarsys.org/capella/core/modeller/7.0.0"
+    xmlns:org.polarsys.capella.core.data.cs="http://www.polarsys.org/capella/core/cs/7.0.0"
+    xmlns:org.polarsys.capella.core.data.ctx="http://www.polarsys.org/capella/core/ctx/7.0.0"
+    xmlns:org.polarsys.capella.core.data.epbs="http://www.polarsys.org/capella/core/epbs/7.0.0"
+    xmlns:org.polarsys.capella.core.data.fa="http://www.polarsys.org/capella/core/fa/7.0.0"
+    xmlns:org.polarsys.capella.core.data.information="http://www.polarsys.org/capella/core/information/7.0.0"
+    xmlns:org.polarsys.capella.core.data.information.datatype="http://www.polarsys.org/capella/core/information/datatype/7.0.0"
+    xmlns:org.polarsys.capella.core.data.information.datavalue="http://www.polarsys.org/capella/core/information/datavalue/7.0.0"
+    xmlns:org.polarsys.capella.core.data.la="http://www.polarsys.org/capella/core/la/7.0.0"
+    xmlns:org.polarsys.capella.core.data.oa="http://www.polarsys.org/capella/core/oa/7.0.0"
+    xmlns:org.polarsys.capella.core.data.pa="http://www.polarsys.org/capella/core/pa/7.0.0"
+    id="e6c61fb4-8832-4a82-bba1-41f0530f98df"
+    name="aios-rev2">
+  <ownedExtensions xsi:type="libraries:ModelInformation" id="073f2a16-15b4-4edf-9b5b-0a2723b96fac"/>
+  <ownedEnumerationPropertyTypes xsi:type="org.polarsys.capella.core.data.capellacore:EnumerationPropertyType"
+      id="8721979f-15d1-49b1-8106-0579e30f6db5" name="ProgressStatus">
+    <ownedLiterals xsi:type="org.polarsys.capella.core.data.capellacore:EnumerationPropertyLiteral"
+        id="f93b3999-246d-43da-a02c-f76131f6c834" name="DRAFT"/>
+    <ownedLiterals xsi:type="org.polarsys.capella.core.data.capellacore:EnumerationPropertyLiteral"
+        id="7390c4a0-ef13-4933-8cae-9e35ea93c857" name="TO_BE_REVIEWED"/>
+    <ownedLiterals xsi:type="org.polarsys.capella.core.data.capellacore:EnumerationPropertyLiteral"
+        id="a41dcc3a-40e4-4f3c-94c8-6a74fffa39aa" name="TO_BE_DISCUSSED"/>
+    <ownedLiterals xsi:type="org.polarsys.capella.core.data.capellacore:EnumerationPropertyLiteral"
+        id="28c38d9c-7edc-4eee-b6e0-732d9c414b20" name="REWORK_NECESSARY"/>
+    <ownedLiterals xsi:type="org.polarsys.capella.core.data.capellacore:EnumerationPropertyLiteral"
+        id="f16af4ad-5016-41ec-8ed1-975fedfc1b6f" name="UNDER_REWORK"/>
+    <ownedLiterals xsi:type="org.polarsys.capella.core.data.capellacore:EnumerationPropertyLiteral"
+        id="67682089-e4f4-4b55-9157-cd1e5877ff3c" name="REVIEWED_OK"/>
+  </ownedEnumerationPropertyTypes>
+  <keyValuePairs xsi:type="org.polarsys.capella.core.data.capellacore:KeyValue" id="9aa954d7-ea66-4f21-85d8-9374da600190"
+      key="projectApproach" value="SingletonComponents"/>
+  <ownedModelRoots xsi:type="org.polarsys.capella.core.data.capellamodeller:SystemEngineering"
+      id="2ba71196-f4ad-48cb-934d-e357ae142753" name="AIOS Rev.2 — AI-Native Linux Distribution">
+    <ownedArchitectures xsi:type="org.polarsys.capella.core.data.oa:OperationalAnalysis"
+        id="c1abf2ee-a6e5-48a6-91ac-5a9d0393d9e9" name="Operational Analysis">
+      <ownedFunctionPkg xsi:type="org.polarsys.capella.core.data.oa:OperationalActivityPkg"
+          id="0e3b6244-fa20-4c4c-95ac-87caaf1eb68d" name="Operational Activities">
+        <ownedOperationalActivities xsi:type="org.polarsys.capella.core.data.oa:OperationalActivity"
+            id="8a3e4111-53f2-450c-bb52-8c5856a2f2e0" name="Root Operational Activity"/>
+      </ownedFunctionPkg>
+      <ownedAbstractCapabilityPkg xsi:type="org.polarsys.capella.core.data.oa:OperationalCapabilityPkg"
+          id="933e29c4-f74c-4d59-9c6a-fc0554463ac2" name="Operational Capabilities">
+        <ownedOperationalCapabilities xsi:type="org.polarsys.capella.core.data.oa:OperationalCapability"
+            id="176eeef6-8c59-53a9-a203-c1814e940ea3" name="INV-001 — Recovery is independent of L5"
+            description="&lt;p>&lt;strong>Statement.&lt;/strong> The system boots into a usable state and recovers from failures without invoking any L5 cognitive component (LLM, planner, agent runtime). The recovery path uses only the L1 substrate, L2 AIOS-FS recovery objects, L4 identity in degraded mode, and operator credentials.&lt;/p>&lt;p>&lt;strong>Why.&lt;/strong> an OS that requires AI to recover is not an OS — it is an application running on top of one. Recovery must remain mechanical so that AI failures, model corruption, or LLM provider outages cannot brick the machine.&lt;/p>&lt;p>&lt;strong>Enforced by.&lt;/strong> L1 recovery path; L4 identity service degraded mode (only `_system` subjects available without bundle); L9 recovery operations sub-spec.&lt;/p>&lt;p>&lt;strong>Verified by.&lt;/strong> S2.4 property `RECOVERY_PATH_INDEPENDENT_OF_L5` (in the existing S2.4 closed `PropertyType` enum). The property is a scheduled audit that ensures no recovery-path code references any L5 module.&lt;/p>"/>
+        <ownedOperationalCapabilities xsi:type="org.polarsys.capella.core.data.oa:OperationalCapability"
+            id="3d1d2cb2-91ed-5113-ba39-7396bc45fe4b" name="INV-002 — AI proposes, never executes"
+            description="&lt;p>&lt;strong>Statement.&lt;/strong> AI-classified subjects (`is_ai = true`) emit typed action envelopes; they never execute side-effecting operations directly. Execution is mediated by the Capability Runtime gated by the Policy Kernel; AI can fill envelope fields and submit, but it cannot pass `policy_pending → executing` on its own actions without human or constitutional approval.&lt;/p>&lt;p>&lt;strong>Why.&lt;/strong> the value proposition of AIOS is that AI agency is bounded and auditable. Direct execution by AI removes the audit window.&lt;/p>&lt;p>&lt;strong>Enforced by.&lt;/strong> S2.3 §26.2.4 `AIInstallInitiationBlocked` (added Wave 9; AI subjects emitting install actions are hard-denied); S2.3 hard-deny `AISystemAdminBlocked`; S2.3 §17 AI self-approval prevention; S6.1 §7 AI cannot self-promote `REAL`; S6.2 §10.6 AI cannot self-grade.&lt;/p>&lt;p>&lt;strong>Verified by.&lt;/strong> S2.4 property `POLICY_AI_SELF_APPROVAL_BLOCKED` (existing closed `PropertyType` value).&lt;/p>"/>
+        <ownedOperationalCapabilities xsi:type="org.polarsys.capella.core.data.oa:OperationalCapability"
+            id="720c502e-14a7-5bc6-a653-775aafdf19d7" name="INV-003 — Secrets are capabilities, not values"
+            description="&lt;p>&lt;strong>Statement.&lt;/strong> Secret material is held by the Vault Broker. AI subjects can request operations on secrets ('sign this with key X', 'decrypt this blob with key Y') but cannot retrieve secret bytes. The vault broker performs the operation and returns the result.&lt;/p>&lt;p>&lt;strong>Why.&lt;/strong> capability-based secret access prevents prompt-injection and other adversarial flows from exfiltrating secrets through model outputs.&lt;/p>&lt;p>&lt;strong>Enforced by.&lt;/strong> L4 vault broker (deferred sub-spec); S2.3 hard-denies on raw-secret-read for AI subjects.&lt;/p>&lt;p>&lt;strong>Verified by.&lt;/strong> S2.4 property `VAULT_NO_RAW_SECRET_LEAK` (existing closed `PropertyType` value); see also INV-018.&lt;/p>"/>
+        <ownedOperationalCapabilities xsi:type="org.polarsys.capella.core.data.oa:OperationalCapability"
+            id="cb3e3446-1fa8-586a-a7ab-f41ed9f03f1a" name="INV-004 — Recovery boundary is preserved"
+            description="&lt;p>&lt;strong>Statement.&lt;/strong> The host filesystem is partitioned into:  - `/` immutable + recovery-safe: read-only at runtime; mutable only by recovery-mode operations. - `/root` operator island: human operator's home; reachable in recovery; never AI-readable. - `/aios` AI-native root: the AIOS-FS projection where AI-readable/writeable objects live.  These three roots are constitutional. AIOS-FS objects, agents, and apps live under `/aios/...` per S4.1; `/root` is operator-private; `/` is immutable post-install.&lt;/p>&lt;p>&lt;strong>Why.&lt;/strong> an AI cannot corrupt `/`. An operator's recovery surface (`/root`) is not visible to AI. The boundary is mechanical.&lt;/p>&lt;p>&lt;strong>Enforced by.&lt;/strong> L1 substrate (mount table); S4.1 namespace catalog (no `/aios/` path resolves into `/root` or vice versa); S3.2 sandbox (filesystem policy denies cross-root access).&lt;/p>&lt;p>&lt;strong>Verified by.&lt;/strong> S2.4 property `FILESYSTEM_BOUNDARY_INTACT` (promoted in S2.4 Wave 14 §23.1.1; ID 33 in closed `PropertyType` enum). Composes the existing `aiosfs_path_in_namespace` primitive (S2.4 Wave 4 §17.1) for path-scope assertions over canary paths with the new `filesystem_root_intact(root)` primitive (S2.4 Wave 14 §23.3) and an `evidence_exists` scan for absence of normal-mode `SYSTEM_TREE_MUTATION` outside the recovery window.&lt;/p>"/>
+        <ownedOperationalCapabilities xsi:type="org.polarsys.capella.core.data.oa:OperationalCapability"
+            id="813ea4ba-fb84-53cc-ac47-0b24f8e78e65" name="INV-005 — Evidence is append-only"
+            description="&lt;p>&lt;strong>Statement.&lt;/strong> The evidence log is monotonically growing. Records cannot be deleted, modified, or reordered. Compaction (per S3.1) drops old segments according to retention class but never rewrites history.&lt;/p>&lt;p>&lt;strong>Why.&lt;/strong> the evidence trail is the audit witness. Tamperable evidence is no evidence.&lt;/p>&lt;p>&lt;strong>Enforced by.&lt;/strong> S3.1 evidence log (`Append`-only RPC; hash chain; per-segment Ed25519 signature; `VerifyChain` detects tamper).&lt;/p>&lt;p>&lt;strong>Verified by.&lt;/strong> S2.4 properties `EVIDENCE_LOG_APPEND_ONLY` and `EVIDENCE_HASH_CHAIN_INTACT` (existing closed `PropertyType` values).&lt;/p>"/>
+        <ownedOperationalCapabilities xsi:type="org.polarsys.capella.core.data.oa:OperationalCapability"
+            id="53ba7f0b-51a5-5b95-a58b-19a4263bbaba" name="INV-006 — Web UI is localhost-only by default"
+            description="&lt;p>&lt;strong>Statement.&lt;/strong> Web renderer ports listen on `127.0.0.1` and `::1` by default. LAN or remote exposure requires an explicit policy approval and an evidence record (`WEB_EXPOSURE_GRANTED`, FOREVER retention).&lt;/p>&lt;p>&lt;strong>Why.&lt;/strong> an AI-mediated UI exposed to the LAN is a remote-control surface. Default-deny on exposure forces explicit operator decision.&lt;/p>&lt;p>&lt;strong>Enforced by.&lt;/strong> L7 web renderer config; L8 network policy; S2.3 policy bundle constraints.&lt;/p>&lt;p>&lt;strong>Verified by.&lt;/strong> S2.4 property `WEB_UI_LOCALHOST_BOUND` (promoted in S2.4 Wave 14 §23.1.2; ID 34 in closed `PropertyType` enum). Composes the existing `web_renderer_bound_to(host, port)` primitive (S2.4 Wave 5 §18.2) for the positive loopback bind assertion, the existing `port.closed(host='0.0.0.0', port, protocol)` primitive (S2.4 §4) for the external-bind absence assertion (and the `::` IPv6 variant), and the existing `evidence_exists(receipt_id)` primitive for the FOREVER exposure-grant record assertion when &lt;/p>"/>
+        <ownedOperationalCapabilities xsi:type="org.polarsys.capella.core.data.oa:OperationalCapability"
+            id="c643d6b6-f03b-53c7-bad3-80ccb8caf77f" name="INV-007 — Layers depend downward only"
+            description="&lt;p>&lt;strong>Statement.&lt;/strong> Layer L_n may depend on L_n itself or any L_m with m &amp;lt; n. Dependencies on layers L_n+1 through L_10 are forbidden for correctness. (Optional information flow upward — e.g., L9 telemetry observing L1 — is allowed; correctness must not require it.)&lt;/p>&lt;p>&lt;strong>Why.&lt;/strong> upward dependencies invert the dependency stack and make recovery and bring-up impossible.&lt;/p>&lt;p>&lt;strong>Enforced by.&lt;/strong> every spec's 'Consumes' header table (must list only same-or-lower layers).&lt;/p>&lt;p>&lt;strong>Verified by.&lt;/strong> S2.4 property `LAYER_DOWNWARD_DEPENDENCY_HOLDS` (promoted in S2.4 Wave 14 §23.2.1; ID 35 in closed `PropertyType` enum). Composes the new `spec_consumes_table(spec_id)` primitive (S2.4 Wave 14 §23.3) which returns the closed-enum Consumes-row representation for a named sub-spec; a closed predicate over the rows asserts that every `dependency_direction = REQUIRES_FOR_CORRECTNESS` row points at a layer with `target_layer_index ≤ source_layer_index` per the discipline refined in `03_architecture_ov&lt;/p>"/>
+        <ownedOperationalCapabilities xsi:type="org.polarsys.capella.core.data.oa:OperationalCapability"
+            id="4127520f-26a1-5ed8-8770-1f9eb6d9b58a" name="INV-008 — Default deny in policy"
+            description="&lt;p>&lt;strong>Statement.&lt;/strong> If no policy rule matches an action, the decision is `DENY`. Absence of an allow rule is not implicit allow.&lt;/p>&lt;p>&lt;strong>Why.&lt;/strong> explicit-allow semantics is the only secure default. AIOS handles too many subject types and too many resources for blocklists to scale.&lt;/p>&lt;p>&lt;strong>Enforced by.&lt;/strong> S2.3 Policy Kernel (default decision is `DENY`).&lt;/p>&lt;p>&lt;strong>Verified by.&lt;/strong> S2.4 property `POLICY_DEFAULT_DENY_HOLDS` (existing closed `PropertyType` value); the property runs scheduled audit by submitting random unmatched actions and confirming `DENY`.&lt;/p>"/>
+        <ownedOperationalCapabilities xsi:type="org.polarsys.capella.core.data.oa:OperationalCapability"
+            id="83cdfb98-d1e0-5d04-85f3-cf5f655335f6" name="INV-009 — Approvals bind to one request and expire"
+            description="&lt;p>&lt;strong>Statement.&lt;/strong> An approval is bound to one exact `request_hash` (S0.1 §4) and one approver. Approvals expire (default TTL 5 minutes for INTERACTIVE, 24 hours for batch). Reusing an approval for a different request is rejected.&lt;/p>&lt;p>&lt;strong>Why.&lt;/strong> generic 'alice approves anything' is a TOCTOU disaster. Per-request binding makes intent explicit.&lt;/p>&lt;p>&lt;strong>Enforced by.&lt;/strong> L4 approval mechanics (deferred sub-spec); S0.1 envelope schema; S2.3 policy decision references the approval id.&lt;/p>&lt;p>&lt;strong>Verified by.&lt;/strong> S2.4 property `APPROVAL_BOUND_AND_EXPIRING` (promoted in S2.4 Wave 14 §23.1.3; ID 36 in closed `PropertyType` enum). Composes the existing `evidence_exists(receipt_id)` primitive (S2.4 §4) to fetch each approval receipt with the new `approval_binding_state(approval_id)` primitive (S2.4 Wave 14 §23.3) which returns the closed-enum binding shape (`request_hash`, `approver_subject_id`, `issued_at`, `expires_at`, `consumed_at_or_null`, `channel_kind`); closed-enum predicates assert per-request bindi&lt;/p>"/>
+        <ownedOperationalCapabilities xsi:type="org.polarsys.capella.core.data.oa:OperationalCapability"
+            id="dc6436b2-2fae-53d1-822f-fc849a056c9b" name="INV-010 — AI cannot self-approve"
+            description="&lt;p>&lt;strong>Statement.&lt;/strong> An AI subject cannot serve as the approver for an action the same AI subject submitted. Combined with INV-002 and the hard-coded S2.3 §17 invariant, this means AI actions touching anything risk-flagged require a human approver.&lt;/p>&lt;p>&lt;strong>Why.&lt;/strong> approval discipline collapses if the actor is the approver.&lt;/p>&lt;p>&lt;strong>Enforced by.&lt;/strong> S2.3 §17 (existing constitutional invariant).&lt;/p>&lt;p>&lt;strong>Verified by.&lt;/strong> S2.4 property `POLICY_AI_SELF_APPROVAL_BLOCKED` (existing).&lt;/p>"/>
+        <ownedOperationalCapabilities xsi:type="org.polarsys.capella.core.data.oa:OperationalCapability"
+            id="fa2ee763-ec45-5ce3-be0e-fda2085066b8" name="INV-011 — Cross-group access forbidden by default"
+            description="&lt;p>&lt;strong>Statement.&lt;/strong> A subject in group A cannot read, list, or write paths under `/aios/groups/&lt;b>/...` for any `B ≠ A`. Single exception: `_system` scope subject + recovery mode + `system_audit_read` capability + human approver.&lt;/b>&lt;/p>&lt;p>&lt;strong>Why.&lt;/strong> group is the trust boundary. Default-deny across groups prevents lateral compromise.&lt;/p>&lt;p>&lt;strong>Enforced by.&lt;/strong> S2.3 hard-deny `CrossGroupAccessForbidden` (per S4.1 §12.4 / S2.3 §26.2.1).&lt;/p>&lt;p>&lt;strong>Verified by.&lt;/strong> S2.4 property `NAMESPACE_NO_CROSS_GROUP_POINTERS` (per S4.1 §12.5 / S2.4 §17.2).&lt;/p>"/>
+        <ownedOperationalCapabilities xsi:type="org.polarsys.capella.core.data.oa:OperationalCapability"
+            id="f97cda66-bee8-5f57-bd26-ac7f5a313bc3" name="INV-012 — Recovery required for system mutation"
+            description="&lt;p>&lt;strong>Statement.&lt;/strong> Mutations to `/aios/system/policy/`, `/aios/system/capabilities/`, `/aios/system/vault/`, `/aios/system/recovery/` require `is_recovery_mode = true` on the subject + a human approver + a `RECOVERY_EVENT` evidence record (FOREVER retention).&lt;/p>&lt;p>&lt;strong>Why.&lt;/strong> the constitutional layer of AIOS itself must not be edited from a normal-mode action.&lt;/p>&lt;p>&lt;strong>Enforced by.&lt;/strong> S2.3 hard-deny `RecoveryRequiredForSystemMutation` (per S4.1 §12.4 / S2.3 §26.2.2).&lt;/p>&lt;p>&lt;strong>Verified by.&lt;/strong> S2.4 property `RECOVERY_GATED_SYSTEM_MUTATIONS` (promoted in S2.4 Wave 14 §23.1.4; ID 37 in closed `PropertyType` enum). Composes the existing `policy.decision(policy_decision_id, expected_decision)` primitive (S2.4 §4) for the `RecoveryRequiredForSystemMutation` admission marker assertion (escape clause via `is_recovery_mode = true` OR the W9-B `is_first_boot = true` first-boot exception) with the existing `evidence_exists(receipt_id)` primitive for the paired FOREVER `RECOVERY_EVENT` (or `FIRS&lt;/p>"/>
+        <ownedOperationalCapabilities xsi:type="org.polarsys.capella.core.data.oa:OperationalCapability"
+            id="eb972166-7e61-5e2e-805c-95f780b6cc99" name="INV-013 — AI cannot perform system admin operations"
+            description="&lt;p>&lt;strong>Statement.&lt;/strong> AI subjects (`is_ai = true`) cannot mutate `/aios/system/apps/` or `/aios/system/agents/` even when holding the `system_admin` capability. The capability is human-only authorization.&lt;/p>&lt;p>&lt;strong>Why.&lt;/strong> system mutations are the constitutional layer; AI must remain on the propose-not-execute side of every system-scope action.&lt;/p>&lt;p>&lt;strong>Enforced by.&lt;/strong> S2.3 hard-deny `AISystemAdminBlocked` (per S4.1 §12.4 / S2.3 §26.2.3).&lt;/p>&lt;p>&lt;strong>Verified by.&lt;/strong> S2.4 property `POLICY_AI_SELF_APPROVAL_BLOCKED` (promoted in S2.4 Wave 10 §21.1.1; ID 23) for INV-002 + INV-010 joint coverage, plus S2.4 property `AI_NEVER_SYSTEM_ADMIN` (promoted in S2.4 Wave 14 §23.1.5; ID 38 in closed `PropertyType` enum) for the system-admin-subtree audit specifically. The latter composes the existing `evidence_exists(receipt_id)` primitive to scan recent action receipts under `/aios/system/apps/...` and `/aios/system/agents/...` with the existing `policy.decision` primitiv&lt;/p>"/>
+        <ownedOperationalCapabilities xsi:type="org.polarsys.capella.core.data.oa:OperationalCapability"
+            id="ba937ceb-e1c9-5114-992d-c680b842a504" name="INV-014 — No proof, no completion"
+            description="&lt;p>&lt;strong>Statement.&lt;/strong> A capability cannot claim status `REAL` without evidence at the required grade per S6.1 §10 and S6.2 §6. A status claim that exceeds the actual evidence is detected and emits `TAMPER_DETECTED`.&lt;/p>&lt;p>&lt;strong>Why.&lt;/strong> the constitutional principle of AIOS development. Without it, reports inflate and trust erodes.&lt;/p>&lt;p>&lt;strong>Enforced by.&lt;/strong> S6.1 status taxonomy gates G2..G6, G10; S6.2 grade computation function.&lt;/p>&lt;p>&lt;strong>Verified by.&lt;/strong> S2.4 property `STATUS_GRADE_CONSISTENT` (per S6.1 §9.3).&lt;/p>"/>
+        <ownedOperationalCapabilities xsi:type="org.polarsys.capella.core.data.oa:OperationalCapability"
+            id="c794b7c5-4b64-5535-8995-46716aca5c04" name="INV-015 — Evidence never contains secrets"
+            description="&lt;p>&lt;strong>Statement.&lt;/strong> Evidence records (per S3.1) never carry secret values, even partially. Secret-bearing operations log capability ids and broker references, not material.&lt;/p>&lt;p>&lt;strong>Why.&lt;/strong> evidence is queried by audit subjects, replicated across instances, and sometimes shared. Embedding secrets in evidence makes the log a high-value target.&lt;/p>&lt;p>&lt;strong>Enforced by.&lt;/strong> L4 vault broker (S5.2); S3.1 record schema validation; S2.4 Wave 14 `EVIDENCE_NO_SECRET_LEAK` runtime audit. Schema validation in S3.1 catches structurally-typed secret fields; runtime detection of embedded-secret-in-text-payload patterns is now mechanical via the S2.4 property (no longer narrative-deferred).&lt;/p>&lt;p>&lt;strong>Verified by.&lt;/strong> S2.4 property `EVIDENCE_NO_SECRET_LEAK` (promoted in S2.4 Wave 14 §23.1.6; ID 39 in closed `PropertyType` enum). Composes the existing `evidence_exists(receipt_id)` primitive (S2.4 §4) for record retrieval with the new `secret_pattern_match(record_id, pattern_catalog_id)` primitive (S2.4 Wave 14 §23.3) which runs a signed closed-enum pattern catalog (`spcat_&lt;hex>`, PEM blocks / password regex / API key prefixes) against the record's canonical JCS payload; hit emits `TAMPER_DETECTED` with `invari&lt;/hex>&lt;/p>"/>
+        <ownedOperationalCapabilities xsi:type="org.polarsys.capella.core.data.oa:OperationalCapability"
+            id="bfe499d0-2fe2-531e-b420-5e278c011fae" name="INV-016 — AI cannot grade its own work"
+            description="&lt;p>&lt;strong>Statement.&lt;/strong> AI-authored code cannot be graded by an AI-emitted evidence receipt. Receipts of types `BUILD_PASSED`, `TEST_PASSED`, `E2E_PASSED`, `RECOVERY_REHEARSAL_PASSED`, `RELEASE_GATE_PASSED`, `OPERATIONAL_HEALTHY` naming an AI as producer for an artifact authored by the same AI are rejected with `AgentSelfGradingBlocked` (renamed from `ProducerCannotSelfGrade` in Wave 12 to mirror INV-002 site-2's PascalCase rule + record-stem-form discipline; the FOREVER record name `AGENT_SELF_GRADING_BLOCKED` is unch&lt;/p>&lt;p>&lt;strong>Why.&lt;/strong> this is the L0 mirror of INV-002 / INV-010 in the grade axis. Without it, AI could self-promote its own work to `REAL` via emitted evidence.&lt;/p>&lt;p>&lt;strong>Enforced by.&lt;/strong> S6.2 §10.6 grade-receipt producer check.&lt;/p>&lt;p>&lt;strong>Verified by.&lt;/strong> scheduled audit of evidence records by S2.4 (no specific property; cross-reference of `producer = AI subject` against `authorship` of cited artifact).&lt;/p>"/>
+        <ownedOperationalCapabilities xsi:type="org.polarsys.capella.core.data.oa:OperationalCapability"
+            id="e993019a-8348-5343-a657-9346780b32a0" name="INV-017 — Sandbox floor is constitutional"
+            description="&lt;p>&lt;strong>Statement.&lt;/strong> The runtime safety floor of S3.2 is part of the constitutional layer. It is signed (`sigfloor_&lt;hex>`) and cannot be loosened by any composition source. Per-class floors (human / AI / recovery) cannot be merged into a single permissive default.&lt;/hex>&lt;/p>&lt;p>&lt;strong>Why.&lt;/strong> the sandbox is the last-line enforcement boundary for action execution. A loosenable floor is no floor.&lt;/p>&lt;p>&lt;strong>Enforced by.&lt;/strong> S3.2 §5.4 floor enforcement step (after merge).&lt;/p>&lt;p>&lt;strong>Verified by.&lt;/strong> S2.4 property `SANDBOX_PROFILE_MOST_RESTRICTIVE` (existing closed `PropertyType` value).&lt;/p>"/>
+        <ownedOperationalCapabilities xsi:type="org.polarsys.capella.core.data.oa:OperationalCapability"
+            id="da3e7575-d002-504f-811e-d3dc03c93126" name="INV-018 — Vault never leaks raw secrets"
+            description="&lt;p>&lt;strong>Statement.&lt;/strong> The Vault Broker performs operations on secrets without exposing the secret material to the requester. Capabilities like 'decrypt this blob with key K' return only the operation's result; the requester never sees K.&lt;/p>&lt;p>&lt;strong>Why.&lt;/strong> see INV-003. This invariant restates and tightens the rule for the broker side: even a HUMAN_USER subject with a vault capability does not receive raw bytes by default; only a tightly scoped 'reveal-to-human' capability (rare, requires recovery + human approver) returns material, and that operation is logged with FOREVER retention.&lt;/p>&lt;p>&lt;strong>Enforced by.&lt;/strong> L4 vault broker (deferred sub-spec).&lt;/p>&lt;p>&lt;strong>Verified by.&lt;/strong> S2.4 property `VAULT_NO_RAW_SECRET_LEAK` (existing closed `PropertyType` value).&lt;/p>"/>
+        <ownedOperationalCapabilities xsi:type="org.polarsys.capella.core.data.oa:OperationalCapability"
+            id="11c37e9b-56c5-5865-b8db-4cb80840f7f6" name="INV-019 — Visual identity preserved across renderers"
+            description="&lt;p>&lt;strong>Statement.&lt;/strong> AIOS visual language is constitutional. The KDE Plasma renderer (S7.4), Web renderer (S7.5), CLI renderer (S7.6), Voice renderer, and Mobile renderer cannot invent their own chrome or trust UX. Cross-renderer visual identity must be recognizable as AIOS — an operator using KDE and an operator using Web must instantly know they are using the same OS.&lt;/p>&lt;p>&lt;strong>Why.&lt;/strong> without this invariant, each renderer drifts toward its host platform's defaults; AIOS looks like a generic app on each surface; the trust model degrades visually because security indicators look like generic notifications instead of constitutional chrome.&lt;/p>&lt;p>&lt;strong>Enforced by.&lt;/strong> L7 renderer specs binding to the shared visual language contract (S7.3 Visual Language); S7.1 Surface + Composition Model defining composition zones and chrome rules; S7.2 Shared UI Schema constraining per-renderer surface schemas to the same vocabulary; renderer build gate rejects chrome divergence.&lt;/p>&lt;p>&lt;strong>Verified by.&lt;/strong> S2.4 property `RENDERER_VISUAL_IDENTITY_PRESERVED` (added to the closed `PropertyType` enum). The property is a scheduled audit that checks each renderer's chrome rendering against the visual language contract; scheduled audit will be wired in S2.4 at consolidation.&lt;/p>"/>
+        <ownedOperationalCapabilities xsi:type="org.polarsys.capella.core.data.oa:OperationalCapability"
+            id="54f9810e-8870-57df-b33c-ca9882c77d0f" name="INV-020 — Trust indicators cannot be hidden by app surfaces"
+            description="&lt;p>&lt;strong>Statement.&lt;/strong> The security indicator showing subject `is_ai` (per L4 identity §10), `action_id` (per S0.1), and the evidence link (per S3.1) is always visible. App surfaces (per S7.1's `SurfaceKind = APP_SURFACE`) cannot overdraw, obscure, or fake the AIOS chrome zone. The CHROME zone is always on top in S7.1's composition model.&lt;/p>&lt;p>&lt;strong>Why.&lt;/strong> trust indicators are how the operator knows who acted (AI or human), what they did (action id), and where to verify (evidence link). An app surface that can hide them becomes a phishing vector inside the OS itself.&lt;/p>&lt;p>&lt;strong>Enforced by.&lt;/strong> S7.1 composition zones — the CHROME zone is always on top; renderer rejects app-surface attempts to write into the CHROME zone; KWin layer-shell protocol enforces the top layer on KDE (S7.4); DOM `z-index` plus shadow root on Web (S7.5); CLI (S7.6) reserves a status row no app stream can overwrite.&lt;/p>&lt;p>&lt;strong>Verified by.&lt;/strong> S2.4 property `TRUST_INDICATORS_ALWAYS_VISIBLE` (added to the closed `PropertyType` enum). The audit confirms that the chrome zone is rendered above all app surfaces in every renderer; scheduled audit will be wired in S2.4 at consolidation.&lt;/p>"/>
+        <ownedOperationalCapabilities xsi:type="org.polarsys.capella.core.data.oa:OperationalCapability"
+            id="e1da91b5-5e7e-57b9-98de-2a9f754ca4e4" name="INV-021 — AI vs human action visually distinct"
+            description="&lt;p>&lt;strong>Statement.&lt;/strong> Every UI representation of an action — in evidence views, audit trails, approval queues, and action streams — visually distinguishes whether an AI subject (`is_ai = true` per L4 identity §10) or a human subject performed it. The distinct treatments are part of the constitutional visual language; the same treatment cannot be reused across AI and human actions.&lt;/p>&lt;p>&lt;strong>Why.&lt;/strong> the AIOS trust model rests on the operator knowing at a glance whether they are looking at AI output or a human action. Visual ambiguity erases the bounded-AI-agency property that the rest of the constitution depends on.&lt;/p>&lt;p>&lt;strong>Enforced by.&lt;/strong> S7.3 Visual Language spec defining `color.action.ai` and `color.action.human` as separate semantic tokens, with iconography and possibly typography distinctions; S7.2 Shared UI Schema binds those tokens to subject-axis renderer hints; renderer implementations (S7.4 KDE, S7.5 Web, S7.6 CLI) must bind to those tokens; renderer conformance tests reject token reuse across the AI/human axis.&lt;/p>&lt;p>&lt;strong>Verified by.&lt;/strong> S2.4 property `AI_HUMAN_VISUAL_DISTINCTION` (added to the closed `PropertyType` enum). The audit confirms there is no overlap between AI and human visual treatments in rendered output; scheduled audit will be wired in S2.4 at consolidation.&lt;/p>"/>
+        <ownedOperationalCapabilities xsi:type="org.polarsys.capella.core.data.oa:OperationalCapability"
+            id="ce53aeb7-fc7c-54c7-9e84-719722c5f06a" name="INV-022 — Recovery mode aesthetically distinct from normal mode"
+            description="&lt;p>&lt;strong>Statement.&lt;/strong> The recovery shell — entered via the L1 recovery boot path, identity per L4 §7 `_system` scope subjects — is visually unmistakable from normal AIOS. Recovery uses different chrome treatment, a different accent palette, and stricter composition rules (no app surfaces in recovery mode per S7.1's recovery-mode composition rules). The operator must instantly recognize that they are in recovery.&lt;/p>&lt;p>&lt;strong>Why.&lt;/strong> a recovery operator typing destructive commands into what they think is normal mode is a catastrophe. Visual distinction is the last line of defense before that mistake. Combined with INV-012 (recovery required for system mutation), this prevents the 'I thought I was rehearsing' failure mode.&lt;/p>&lt;p>&lt;strong>Enforced by.&lt;/strong> S7.1 separate surface stack for recovery (no `APP_SURFACE` allowed); S7.3 Visual Language defining a recovery-only theme that cannot be matched by any normal-mode theme; recovery accent tokens are gated to `is_recovery_mode = true` rendering paths in S7.4 (KDE), S7.5 (Web), and S7.6 (CLI).&lt;/p>&lt;p>&lt;strong>Verified by.&lt;/strong> S2.4 property `RECOVERY_AESTHETIC_DISTINCT` (added to the closed `PropertyType` enum). The audit confirms that recovery rendering uses recovery-only tokens not present in any normal-mode theme; scheduled audit will be wired in S2.4 at consolidation.&lt;/p>"/>
+        <ownedOperationalCapabilities xsi:type="org.polarsys.capella.core.data.oa:OperationalCapability"
+            id="9e7cd71a-4563-51b4-901e-ab4ccf20e4fb" name="INV-023 — CHROME composition zone is reserved for trust surfaces"
+            description="&lt;p>&lt;strong>Statement.&lt;/strong> The `CHROME` composition zone (per S7.1 closed `CompositionZone` enum) is reserved exclusively for renderer-owned trust surfaces authored by the AIOS system identity. AI subjects (`is_ai = true` per L4 §10) cannot author CHROME-zone content under any circumstance. `APP_SURFACE`-kind and `STREAM_SURFACE`-kind surfaces cannot be promoted into the CHROME zone, regardless of subject. Any authorship or promotion attempt fails closed.&lt;/p>&lt;p>&lt;strong>Why.&lt;/strong> the CHROME zone hosts the operator's last-mile trust indicators — approval prompts, evidence links, security badges, identity chips, recovery-mode markers (per INV-020). If any other zone or any AI subject could compose into CHROME, the trust path collapses: an AI agent could synthesise a 'Granted' badge over a denied action, an app surface could overlay the recovery-mode banner, or a marketplace skin could repaint the action-origin chip. The integrity of CHROME is the integrity of operator cons&lt;/p>&lt;p>&lt;strong>Enforced by.&lt;/strong> S7.1 Surface + Composition runtime (rejects any non-system surface targeting `zone = CHROME` and rejects subject-id mismatch on CHROME nodes); L4.1 Policy Kernel constitutional hard-deny `CompositionZoneForbidden` (§27.2.1) which fires before bundle rules; renderer conformance tests (S7.4 KDE, S7.5 Web, S7.6 CLI) reject CHROME-zone authorship by any subject other than the renderer's `aios_chrome` system identity.&lt;/p>&lt;p>&lt;strong>Verified by.&lt;/strong> S2.4 property `CHROME_ZONE_RESERVED` (added to the closed `PropertyType` enum). The audit walks every live surface, confirms `surface_kind ∈ {AIOS_SURFACE}` for all entries with `zone = CHROME`, and confirms no AI subject appears as author for any CHROME node. Scheduled audit will be wired in S2.4 at consolidation.&lt;/p>"/>
+        <ownedOperationalCapabilities xsi:type="org.polarsys.capella.core.data.oa:OperationalCapability"
+            id="45618019-cd88-5635-8d94-3151daeecbbf" name="INV-024 — GPU compute access is capability-gated"
+            description="&lt;p>&lt;strong>Statement.&lt;/strong> Access to `GPU_COMPUTE_HEAVY` (per L8.2 closed `GpuCapabilityClass` enum) requires an explicit `gpu.compute_heavy` capability grant tracked by the L4 capability catalog. The default capability set does not include this grant. Generic adapter capability negotiation cannot synthesise this access. Workloads that need GPGPU compute must request and receive the capability before any compute submission is dispatched to the device.&lt;/p>&lt;p>&lt;strong>Why.&lt;/strong> GPGPU compute is the highest-cost, highest-risk renderer-adjacent resource. Unbounded GPU compute is the canonical vector for cross-group side-channels (residual memory probing, timing leaks across VkDevice partitions), sustained thermal and energy abuse, and exfiltration via shader timing. Default-deny with explicit capability grant ensures an operator (or, in recovery mode, an emergency override per S5.4) has authorised the workload class. Combined with the L8.2 per-group VkDevice partitioning&lt;/p>&lt;p>&lt;strong>Enforced by.&lt;/strong> L8.2 GPU resource model — capability negotiation rejects compute submission without the active grant; L4.1 Policy Kernel constitutional hard-deny `GpuComputeOutsideAuthorisedClass` (§27.2.2) which fires before bundle rules; L4.3 capability binding records the grant with TTL, scope, and grant-evidence pointer; L9 telemetry (`gpu_compute_class_total`) reports per-class submission counts so out-of-class usage is visible operationally.&lt;/p>&lt;p>&lt;strong>Verified by.&lt;/strong> S2.4 property `GPU_COMPUTE_GATED` (added to the closed `PropertyType` enum). The audit walks active GPU compute submissions and confirms every one has a live `gpu.compute_heavy` capability binding for the submitting subject; absence triggers `TAMPER_DETECTED` evidence with `invariant_id = INV_024_GPU_COMPUTE_GATED`. Scheduled audit will be wired in S2.4 at consolidation.&lt;/p>"/>
+        <ownedOperationalCapabilities xsi:type="org.polarsys.capella.core.data.oa:OperationalCapability"
+            id="67d497a9-7b2b-5e8c-b33b-bc8eb54b867d" name="S6.1 — Status Taxonomy (Rev.2)"
+            description="&lt;p>&lt;strong>Layer.&lt;/strong> L0&lt;/p>&lt;p>&lt;strong>Status.&lt;/strong> CONTRACT (initial; written 2026-05-09)&lt;/p>&lt;p>&lt;strong>Schema package.&lt;/strong> aios.governance.v1alpha1&lt;/p>&lt;p>&lt;strong>Source.&lt;/strong> L0_Governance_Evidence_Safety/01_status_taxonomy.md&lt;/p>"/>
+        <ownedOperationalCapabilities xsi:type="org.polarsys.capella.core.data.oa:OperationalCapability"
+            id="c1c4ef6b-cb34-54b0-bee8-797a2ec749ce" name="S6.2 — Evidence Grades (Rev.2)"
+            description="&lt;p>&lt;strong>Layer.&lt;/strong> L0&lt;/p>&lt;p>&lt;strong>Status.&lt;/strong> CONTRACT (initial; written 2026-05-09)&lt;/p>&lt;p>&lt;strong>Schema package.&lt;/strong> aios.governance.v1alpha1&lt;/p>&lt;p>&lt;strong>Source.&lt;/strong> L0_Governance_Evidence_Safety/02_evidence_grades.md&lt;/p>"/>
+        <ownedOperationalCapabilities xsi:type="org.polarsys.capella.core.data.oa:OperationalCapability"
+            id="abc5d422-722a-5ab6-85da-baed09fcfdd2" name="S6.3 — Evidence Receipt Schema (Rev.2)"
+            description="&lt;p>&lt;strong>Layer.&lt;/strong> L0&lt;/p>&lt;p>&lt;strong>Status.&lt;/strong> REAL (initial; written 2026-05-09)&lt;/p>&lt;p>&lt;strong>Schema package.&lt;/strong> aios.evidence.v1alpha1 (binds to S3.1's package; this contract owns the receipt envelope, S3.1 owns the log container around it)&lt;/p>&lt;p>&lt;strong>Source.&lt;/strong> L0_Governance_Evidence_Safety/03_evidence_receipt_schema.md&lt;/p>"/>
+        <ownedOperationalCapabilities xsi:type="org.polarsys.capella.core.data.oa:OperationalCapability"
+            id="facb2ed1-6972-5aef-a9c1-4d2e6b411be1" name="S6.4 — Constitutional Invariants (Rev.2)"
+            description="&lt;p>&lt;strong>Layer.&lt;/strong> L0&lt;/p>&lt;p>&lt;strong>Status.&lt;/strong> CONTRACT (initial; written 2026-05-09)&lt;/p>&lt;p>&lt;strong>Schema package.&lt;/strong> aios.governance.v1alpha1&lt;/p>&lt;p>&lt;strong>Source.&lt;/strong> L0_Governance_Evidence_Safety/04_invariants.md&lt;/p>"/>
+      </ownedAbstractCapabilityPkg>
+      <ownedInterfacePkg xsi:type="org.polarsys.capella.core.data.cs:InterfacePkg"
+          id="4f9b6def-388f-4006-a97a-4aa7e8f9f5fd" name="Interfaces"/>
+      <ownedDataPkg xsi:type="org.polarsys.capella.core.data.information:DataPkg"
+          id="eae8737b-c085-4a78-9c84-ecb4f83a04c0" name="Data"/>
+      <ownedRolePkg xsi:type="org.polarsys.capella.core.data.oa:RolePkg" id="2821ed3a-c850-4b1c-a5e8-53987a1b7e43"
+          name="Roles"/>
+      <ownedEntityPkg xsi:type="org.polarsys.capella.core.data.oa:EntityPkg" id="31d4122c-b8a3-4e82-a48c-f1409f394111"
+          name="Operational Entities"/>
+    </ownedArchitectures>
+    <ownedArchitectures xsi:type="org.polarsys.capella.core.data.ctx:SystemAnalysis"
+        id="8bd54dcb-81a2-4c22-91cb-e7253fd7c79f" name="System Analysis">
+      <ownedFunctionPkg xsi:type="org.polarsys.capella.core.data.ctx:SystemFunctionPkg"
+          id="8e6ef668-8f32-46d6-9843-c07bbceaab0c" name="System Functions">
+        <ownedSystemFunctions xsi:type="org.polarsys.capella.core.data.ctx:SystemFunction"
+            id="3f1dc838-274f-4553-a44b-877ca3958d24" name="AIOS System Capability Realization">
+          <ownedFunctionRealizations xsi:type="org.polarsys.capella.core.data.fa:FunctionRealization"
+              id="1daedbf3-3788-45cb-9e49-da1b5ade2983" targetElement="#8a3e4111-53f2-450c-bb52-8c5856a2f2e0"
+              sourceElement="#3f1dc838-274f-4553-a44b-877ca3958d24"/>
+        </ownedSystemFunctions>
+      </ownedFunctionPkg>
+      <ownedAbstractCapabilityPkg xsi:type="org.polarsys.capella.core.data.ctx:CapabilityPkg"
+          id="bc7f17c6-57a9-4adf-8f01-5f71e830b6fa" name="Capabilities">
+        <ownedCapabilities xsi:type="org.polarsys.capella.core.data.ctx:Capability"
+            id="c1636be8-2d97-5a7b-82cc-f88eb68a0c68" name="S0.1 — Action Envelope + Lifecycle (Rev.2)"
+            description="&lt;p>&lt;strong>Layer.&lt;/strong> XX&lt;/p>&lt;p>&lt;strong>Status.&lt;/strong> CONTRACT (rev.2 design approved; awaiting implementation evidence)&lt;/p>&lt;p>&lt;strong>Schema package.&lt;/strong> —&lt;/p>&lt;p>&lt;strong>Source.&lt;/strong> XX_Cross_Cutting/01_action_envelope_lifecycle.md&lt;/p>"/>
+        <ownedCapabilities xsi:type="org.polarsys.capella.core.data.ctx:Capability"
+            id="d6f97d87-da92-5aeb-accc-fe9c348d550b" name="Rev.2 reference donor / system app candidate — ProxGuard Reference Model Notes (Rev.2)"
+            description="&lt;p>&lt;strong>Layer.&lt;/strong> XX&lt;/p>&lt;p>&lt;strong>Status.&lt;/strong> CONTRACT reference note&lt;/p>&lt;p>&lt;strong>Schema package.&lt;/strong> —&lt;/p>&lt;p>&lt;strong>Source.&lt;/strong> XX_Cross_Cutting/02_proxguard_reference_model.md&lt;/p>"/>
+        <ownedCapabilities xsi:type="org.polarsys.capella.core.data.ctx:Capability"
+            id="e464b4d1-6158-5034-b3d0-94524bf00529" name="S0.3 — MVP Golden Path Contract (Rev.2)"
+            description="&lt;p>&lt;strong>Layer.&lt;/strong> XX&lt;/p>&lt;p>&lt;strong>Status.&lt;/strong> REAL (initial; written 2026-05-09; E1 evidence — file exists; structural contract complete; trace walks every layer of the L0..L10 stack)&lt;/p>&lt;p>&lt;strong>Schema package.&lt;/strong> n/a — this contract is a trace and acceptance test, not a service&lt;/p>&lt;p>&lt;strong>Source.&lt;/strong> XX_Cross_Cutting/03_mvp_golden_path.md&lt;/p>"/>
+        <ownedCapabilities xsi:type="org.polarsys.capella.core.data.ctx:Capability"
+            id="7e83629f-613a-53a7-b4f8-4dba49175c04" name="S0.4 — Constitutional Meta-Principles (Rev.2)"
+            description="&lt;p>&lt;strong>Layer.&lt;/strong> XX&lt;/p>&lt;p>&lt;strong>Status.&lt;/strong> CONTRACT (initial; written 2026-05-11)&lt;/p>&lt;p>&lt;strong>Schema package.&lt;/strong> n/a (this contract is meta-narrative; it documents principles, not service shapes)&lt;/p>&lt;p>&lt;strong>Source.&lt;/strong> XX_Cross_Cutting/04_constitutional_meta_principles.md&lt;/p>"/>
+      </ownedAbstractCapabilityPkg>
+      <ownedInterfacePkg xsi:type="org.polarsys.capella.core.data.cs:InterfacePkg"
+          id="004f3475-1923-4206-97c5-8207a9d42b92" name="Interfaces"/>
+      <ownedDataPkg xsi:type="org.polarsys.capella.core.data.information:DataPkg"
+          id="b971d23b-fa3e-492a-8b35-b7150beb16a9" name="Data">
+        <ownedDataPkgs xsi:type="org.polarsys.capella.core.data.information:DataPkg"
+            id="bc3792e4-0979-44b9-8e21-c2b07122bdc2" name="Predefined Types">
+          <ownedDataTypes xsi:type="org.polarsys.capella.core.data.information.datatype:BooleanType"
+              id="e0de98bf-6fbe-4371-93cf-830019022f7a" name="Boolean" visibility="PUBLIC">
+            <ownedLiterals xsi:type="org.polarsys.capella.core.data.information.datavalue:LiteralBooleanValue"
+                id="73292449-0dfc-4441-803c-c37ecf7a5b26" name="True" abstractType="#e0de98bf-6fbe-4371-93cf-830019022f7a"
+                value="true"/>
+            <ownedLiterals xsi:type="org.polarsys.capella.core.data.information.datavalue:LiteralBooleanValue"
+                id="c87cad9f-09f8-4540-83a5-ad947446e3cf" name="False" abstractType="#e0de98bf-6fbe-4371-93cf-830019022f7a"/>
+          </ownedDataTypes>
+          <ownedDataTypes xsi:type="org.polarsys.capella.core.data.information.datatype:NumericType"
+              id="51504462-484f-4b21-8aa9-2eaebfdcaa39" name="Byte" visibility="PUBLIC">
+            <ownedMinValue xsi:type="org.polarsys.capella.core.data.information.datavalue:LiteralNumericValue"
+                id="c1a6dfb2-4cff-4664-821c-3996420fced6" name="" abstractType="#51504462-484f-4b21-8aa9-2eaebfdcaa39"
+                value="0"/>
+            <ownedMaxValue xsi:type="org.polarsys.capella.core.data.information.datavalue:LiteralNumericValue"
+                id="522df832-cd99-46bd-a6e8-5c505e4bbf89" name="" abstractType="#51504462-484f-4b21-8aa9-2eaebfdcaa39"
+                value="255"/>
+          </ownedDataTypes>
+          <ownedDataTypes xsi:type="org.polarsys.capella.core.data.information.datatype:StringType"
+              id="bc0c9b42-7dd1-4bac-aa05-6c18ea1bd187" name="Char" visibility="PUBLIC">
+            <ownedMinLength xsi:type="org.polarsys.capella.core.data.information.datavalue:LiteralNumericValue"
+                id="a1d7a039-d187-4829-9a50-3c1714deda25" name="" abstractType="#07124dfc-aadc-4ae1-8dc3-4f52d91b8423"
+                value="1"/>
+            <ownedMaxLength xsi:type="org.polarsys.capella.core.data.information.datavalue:LiteralNumericValue"
+                id="e01f1fc4-3cb7-417d-ab0c-c3e830da7bf5" name="" abstractType="#07124dfc-aadc-4ae1-8dc3-4f52d91b8423"
+                value="1"/>
+          </ownedDataTypes>
+          <ownedDataTypes xsi:type="org.polarsys.capella.core.data.information.datatype:NumericType"
+              id="777cf04f-9349-4a55-96d1-b1c1171f0217" name="Double" discrete="false"
+              visibility="PUBLIC" kind="FLOAT"/>
+          <ownedDataTypes xsi:type="org.polarsys.capella.core.data.information.datatype:NumericType"
+              id="4e9f2bf4-af06-4349-9494-c2d1b791019a" name="Float" discrete="false"
+              visibility="PUBLIC" kind="FLOAT"/>
+          <ownedDataTypes xsi:type="org.polarsys.capella.core.data.information.datatype:NumericType"
+              id="120f7354-a5af-4d87-984a-7de059f9d9db" name="Hexadecimal" visibility="PUBLIC">
+            <ownedMinValue xsi:type="org.polarsys.capella.core.data.information.datavalue:LiteralNumericValue"
+                id="6cd274a1-581a-456f-9e20-4d03b148857b" name="" abstractType="#120f7354-a5af-4d87-984a-7de059f9d9db"
+                value="0"/>
+            <ownedMaxValue xsi:type="org.polarsys.capella.core.data.information.datavalue:BinaryExpression"
+                id="47c9d82a-a0c4-4da8-bf0d-482ea703b3ce" abstractType="#120f7354-a5af-4d87-984a-7de059f9d9db"
+                operator="SUB">
+              <ownedLeftOperand xsi:type="org.polarsys.capella.core.data.information.datavalue:BinaryExpression"
+                  id="35e086d0-6cbc-4454-8cda-169c448a9150" operator="POW">
+                <ownedLeftOperand xsi:type="org.polarsys.capella.core.data.information.datavalue:LiteralNumericValue"
+                    id="6c341b3d-5c06-4f8e-a120-acf50843aeb6" value="2"/>
+                <ownedRightOperand xsi:type="org.polarsys.capella.core.data.information.datavalue:LiteralNumericValue"
+                    id="418231d4-a0dd-4bc8-a7ba-9c010760b5cd" value="64"/>
+              </ownedLeftOperand>
+              <ownedRightOperand xsi:type="org.polarsys.capella.core.data.information.datavalue:LiteralNumericValue"
+                  id="a872be8b-5afd-4eff-84ab-7df60ff571f4" value="1"/>
+            </ownedMaxValue>
+          </ownedDataTypes>
+          <ownedDataTypes xsi:type="org.polarsys.capella.core.data.information.datatype:NumericType"
+              id="4e08751d-2675-4237-8817-7bf0936f8a19" name="Integer" visibility="PUBLIC"/>
+          <ownedDataTypes xsi:type="org.polarsys.capella.core.data.information.datatype:NumericType"
+              id="4313993a-1ca2-4638-96a9-6fe1066615b3" name="Long" visibility="PUBLIC"/>
+          <ownedDataTypes xsi:type="org.polarsys.capella.core.data.information.datatype:NumericType"
+              id="26230caf-00f6-402c-a6ee-0b444f4c1e3f" name="LongLong" visibility="PUBLIC"/>
+          <ownedDataTypes xsi:type="org.polarsys.capella.core.data.information.datatype:NumericType"
+              id="51f6e135-b32c-44d1-bf26-f860ed5d4771" name="Short" visibility="PUBLIC"/>
+          <ownedDataTypes xsi:type="org.polarsys.capella.core.data.information.datatype:StringType"
+              id="8e27ce3d-29ef-4f17-80ec-2438dea086c9" name="String" visibility="PUBLIC"/>
+          <ownedDataTypes xsi:type="org.polarsys.capella.core.data.information.datatype:NumericType"
+              id="5b985e45-49bb-45f8-9867-55a35120d597" name="UnsignedInteger" maxInclusive="false"
+              visibility="PUBLIC">
+            <ownedMinValue xsi:type="org.polarsys.capella.core.data.information.datavalue:LiteralNumericValue"
+                id="8e2ff6db-8ad8-4bf4-8993-84ad79c6d7cc" name="" abstractType="#5b985e45-49bb-45f8-9867-55a35120d597"
+                value="0"/>
+          </ownedDataTypes>
+          <ownedDataTypes xsi:type="org.polarsys.capella.core.data.information.datatype:NumericType"
+              id="07124dfc-aadc-4ae1-8dc3-4f52d91b8423" name="UnsignedShort" maxInclusive="false"
+              visibility="PUBLIC">
+            <ownedMinValue xsi:type="org.polarsys.capella.core.data.information.datavalue:LiteralNumericValue"
+                id="1edf1944-e3e8-482c-b21a-2ac5baaef32c" name="" abstractType="#07124dfc-aadc-4ae1-8dc3-4f52d91b8423"
+                value="0"/>
+          </ownedDataTypes>
+          <ownedDataTypes xsi:type="org.polarsys.capella.core.data.information.datatype:NumericType"
+              id="5d685782-5ecd-4a46-b62d-2191e4bfa7e1" name="UnsignedLong" maxInclusive="false"
+              visibility="PUBLIC">
+            <ownedMinValue xsi:type="org.polarsys.capella.core.data.information.datavalue:LiteralNumericValue"
+                id="f694b8bf-6fa3-4130-ac86-783d16d811d1" name="" abstractType="#5d685782-5ecd-4a46-b62d-2191e4bfa7e1"
+                value="0"/>
+          </ownedDataTypes>
+          <ownedDataTypes xsi:type="org.polarsys.capella.core.data.information.datatype:NumericType"
+              id="4148024a-bc90-4a45-a6c8-52eac0626ebb" name="UnsignedLongLong" maxInclusive="false"
+              visibility="PUBLIC">
+            <ownedMinValue xsi:type="org.polarsys.capella.core.data.information.datavalue:LiteralNumericValue"
+                id="9c14512f-c1e3-43e5-8f85-44ba17eb8f3e" name="" abstractType="#4148024a-bc90-4a45-a6c8-52eac0626ebb"
+                value="0"/>
+          </ownedDataTypes>
+        </ownedDataPkgs>
+      </ownedDataPkg>
+      <ownedSystemComponentPkg xsi:type="org.polarsys.capella.core.data.ctx:SystemComponentPkg"
+          id="09811574-6d09-4dad-8584-6e2d4f954b49" name="Structure">
+        <ownedParts xsi:type="org.polarsys.capella.core.data.cs:Part" id="80fdd36b-144f-4b09-ae7e-588a5728f076"
+            name="System" abstractType="#7af5971f-1a6c-47d3-b9a8-4e709444113e"/>
+        <ownedSystemComponents xsi:type="org.polarsys.capella.core.data.ctx:SystemComponent"
+            id="7af5971f-1a6c-47d3-b9a8-4e709444113e" name="AIOS System">
+          <ownedStateMachines xsi:type="org.polarsys.capella.core.data.capellacommon:StateMachine"
+              id="28009118-a16a-47c5-9aaa-9c5391bc5a00" name="System State Machine">
+            <ownedRegions xsi:type="org.polarsys.capella.core.data.capellacommon:Region"
+                id="bc4bb044-4873-4449-9b26-cff529943ac4" name="Default Region"/>
+          </ownedStateMachines>
+        </ownedSystemComponents>
+      </ownedSystemComponentPkg>
+      <ownedMissionPkg xsi:type="org.polarsys.capella.core.data.ctx:MissionPkg" id="a1338705-2a85-4c24-a5eb-a47ec5e42f2d"
+          name="Missions"/>
+      <ownedOperationalAnalysisRealizations xsi:type="org.polarsys.capella.core.data.ctx:OperationalAnalysisRealization"
+          id="48a149f7-e8fd-4250-bef9-52c76a63a949" targetElement="#c1abf2ee-a6e5-48a6-91ac-5a9d0393d9e9"
+          sourceElement="#8bd54dcb-81a2-4c22-91cb-e7253fd7c79f"/>
+    </ownedArchitectures>
+    <ownedArchitectures xsi:type="org.polarsys.capella.core.data.la:LogicalArchitecture"
+        id="56d2c105-cb15-4a0a-8800-120ddbb426fc" name="Logical Architecture">
+      <ownedFunctionPkg xsi:type="org.polarsys.capella.core.data.la:LogicalFunctionPkg"
+          id="d2dfd572-8549-4b2b-9388-556c90b1d8aa" name="Logical Functions">
+        <ownedLogicalFunctions xsi:type="org.polarsys.capella.core.data.la:LogicalFunction"
+            id="894f4504-85ce-4d1b-9189-02cb8d234355" name="AIOS Logical Capability Realization">
+          <ownedFunctionRealizations xsi:type="org.polarsys.capella.core.data.fa:FunctionRealization"
+              id="bb8f2dd7-395e-40a7-8291-6c86bd3bfbf3" targetElement="#3f1dc838-274f-4553-a44b-877ca3958d24"
+              sourceElement="#894f4504-85ce-4d1b-9189-02cb8d234355"/>
+        </ownedLogicalFunctions>
+      </ownedFunctionPkg>
+      <ownedAbstractCapabilityPkg xsi:type="org.polarsys.capella.core.data.la:CapabilityRealizationPkg"
+          id="291083d5-8708-4734-9861-72a6c09b4445" name="Capabilities">
+        <ownedCapabilityRealizations xsi:type="org.polarsys.capella.core.data.la:CapabilityRealization"
+            id="53fde7e2-4098-5981-ad09-d0e8f5e69997" name="S1.3 — AIOS-FS Object Model (Rev.2)"
+            description="&lt;p>&lt;strong>Layer.&lt;/strong> L2&lt;/p>&lt;p>&lt;strong>Status.&lt;/strong> CONTRACT (refined 2026-05-08; awaiting implementation evidence)&lt;/p>&lt;p>&lt;strong>Schema package.&lt;/strong> —&lt;/p>&lt;p>&lt;strong>Source.&lt;/strong> L2_AIOS_FS/01_object_model.md&lt;/p>"/>
+        <ownedCapabilityRealizations xsi:type="org.polarsys.capella.core.data.la:CapabilityRealization"
+            id="7564db82-90ab-542a-ad55-71a8266fcb38" name="S2.1 — AIOS-FS Query and View Language (Rev.2)"
+            description="&lt;p>&lt;strong>Layer.&lt;/strong> L2&lt;/p>&lt;p>&lt;strong>Status.&lt;/strong> CONTRACT (refined 2026-05-08; awaiting implementation evidence)&lt;/p>&lt;p>&lt;strong>Schema package.&lt;/strong> —&lt;/p>&lt;p>&lt;strong>Source.&lt;/strong> L2_AIOS_FS/02_query_view_language.md&lt;/p>"/>
+        <ownedCapabilityRealizations xsi:type="org.polarsys.capella.core.data.la:CapabilityRealization"
+            id="0a6e6150-a3cc-515b-9e35-ba02398eefd8" name="S1.3 — AIOS-FS Conflict Resolution (Rev.2)"
+            description="&lt;p>&lt;strong>Layer.&lt;/strong> L2&lt;/p>&lt;p>&lt;strong>Status.&lt;/strong> CONTRACT (refined 2026-05-08; awaiting implementation evidence)&lt;/p>&lt;p>&lt;strong>Schema package.&lt;/strong> —&lt;/p>&lt;p>&lt;strong>Source.&lt;/strong> L2_AIOS_FS/03_conflict_resolution.md&lt;/p>"/>
+        <ownedCapabilityRealizations xsi:type="org.polarsys.capella.core.data.la:CapabilityRealization"
+            id="d9bccc94-ecf9-52e3-bee3-45fc4537364a" name="S2.2 — AIOS-FS Implementation Space (Rev.2)"
+            description="&lt;p>&lt;strong>Layer.&lt;/strong> L2&lt;/p>&lt;p>&lt;strong>Status.&lt;/strong> CONTRACT (refined 2026-05-08; awaiting implementation evidence)&lt;/p>&lt;p>&lt;strong>Schema package.&lt;/strong> —&lt;/p>&lt;p>&lt;strong>Source.&lt;/strong> L2_AIOS_FS/04_implementation_space.md&lt;/p>"/>
+        <ownedCapabilityRealizations xsi:type="org.polarsys.capella.core.data.la:CapabilityRealization"
+            id="129d061c-7cd1-548a-bfaa-6af39b321163" name="S4.1 — AIOS-FS Namespace Layout (Rev.2)"
+            description="&lt;p>&lt;strong>Layer.&lt;/strong> L2&lt;/p>&lt;p>&lt;strong>Status.&lt;/strong> CONTRACT (promoted 2026-05-09 from DRAFT NOTES)&lt;/p>&lt;p>&lt;strong>Schema package.&lt;/strong> aios.namespace.v1alpha1&lt;/p>&lt;p>&lt;strong>Source.&lt;/strong> L2_AIOS_FS/05_namespace_layout.md&lt;/p>"/>
+        <ownedCapabilityRealizations xsi:type="org.polarsys.capella.core.data.la:CapabilityRealization"
+            id="3a87761d-f2fa-5358-b0b2-0368e37ee361" name="S15.1 — AIOS-SGR Unit Manifest (Rev.2)"
+            description="&lt;p>&lt;strong>Layer.&lt;/strong> L3&lt;/p>&lt;p>&lt;strong>Status.&lt;/strong> REAL (initial; written 2026-05-09; E1 evidence — file exists; structural contract complete)&lt;/p>&lt;p>&lt;strong>Schema package.&lt;/strong> aios.unit.v1alpha1&lt;/p>&lt;p>&lt;strong>Source.&lt;/strong> L3_AIOS_SGR_Service_Graph_Runtime/01_unit_manifest.md&lt;/p>"/>
+        <ownedCapabilityRealizations xsi:type="org.polarsys.capella.core.data.la:CapabilityRealization"
+            id="152d8f31-7309-59ab-ac93-2e557a4b7410" name="S15.2 — AIOS-SGR State Transitions and Graph Evaluation (Rev.2)"
+            description="&lt;p>&lt;strong>Layer.&lt;/strong> L3&lt;/p>&lt;p>&lt;strong>Status.&lt;/strong> REAL (initial; written 2026-05-09; E1 evidence — file exists; structural contract complete)&lt;/p>&lt;p>&lt;strong>Schema package.&lt;/strong> aios.sgr.v1alpha1&lt;/p>&lt;p>&lt;strong>Source.&lt;/strong> L3_AIOS_SGR_Service_Graph_Runtime/02_state_transitions.md&lt;/p>"/>
+        <ownedCapabilityRealizations xsi:type="org.polarsys.capella.core.data.la:CapabilityRealization"
+            id="6e39c1c7-1e7f-5461-bfa3-b10642bc890b" name="S10.1 — Capability Runtime gRPC (Rev.2)"
+            description="&lt;p>&lt;strong>Layer.&lt;/strong> L3&lt;/p>&lt;p>&lt;strong>Status.&lt;/strong> REAL (initial; written 2026-05-09; E1 evidence — file exists; structural contract complete)&lt;/p>&lt;p>&lt;strong>Schema package.&lt;/strong> aios.runtime.v1alpha1&lt;/p>&lt;p>&lt;strong>Source.&lt;/strong> L3_AIOS_SGR_Service_Graph_Runtime/03_capability_runtime_grpc.md&lt;/p>"/>
+        <ownedCapabilityRealizations xsi:type="org.polarsys.capella.core.data.la:CapabilityRealization"
+            id="38f1993a-b60b-505a-9c8c-96fae5b4c386" name="S15.3 — Adapter Model — Manifest, Registration, Capability Declaration, Fail-Closed Semantics (Rev.2)"
+            description="&lt;p>&lt;strong>Layer.&lt;/strong> L3&lt;/p>&lt;p>&lt;strong>Status.&lt;/strong> REAL (initial; written 2026-05-09; E1 evidence — file exists; structural contract complete)&lt;/p>&lt;p>&lt;strong>Schema package.&lt;/strong> aios.adapter.v1alpha1&lt;/p>&lt;p>&lt;strong>Source.&lt;/strong> L3_AIOS_SGR_Service_Graph_Runtime/04_adapter_model.md&lt;/p>"/>
+        <ownedCapabilityRealizations xsi:type="org.polarsys.capella.core.data.la:CapabilityRealization"
+            id="7b3a2ef6-c564-5e8f-b876-925d963dfd48" name="S2.3 — Policy Kernel (Rev.2)"
+            description="&lt;p>&lt;strong>Layer.&lt;/strong> L4&lt;/p>&lt;p>&lt;strong>Status.&lt;/strong> CONTRACT (refined 2026-05-08; awaiting implementation evidence)&lt;/p>&lt;p>&lt;strong>Schema package.&lt;/strong> —&lt;/p>&lt;p>&lt;strong>Source.&lt;/strong> L4_Policy_Identity_Vault/01_policy_kernel.md&lt;/p>"/>
+        <ownedCapabilityRealizations xsi:type="org.polarsys.capella.core.data.la:CapabilityRealization"
+            id="12e14c75-0cca-5ddf-b6f7-a0e3554891f4" name="S5.2 — Vault Broker (Rev.2)"
+            description="&lt;p>&lt;strong>Layer.&lt;/strong> L4&lt;/p>&lt;p>&lt;strong>Status.&lt;/strong> CONTRACT (initial; written 2026-05-11)&lt;/p>&lt;p>&lt;strong>Schema package.&lt;/strong> aios.vault.v1alpha1&lt;/p>&lt;p>&lt;strong>Source.&lt;/strong> L4_Policy_Identity_Vault/02_vault_broker.md&lt;/p>"/>
+        <ownedCapabilityRealizations xsi:type="org.polarsys.capella.core.data.la:CapabilityRealization"
+            id="c02049ab-6f2f-52af-8221-fcfc778377f0" name="S5.1 — Identity Model (Rev.2)"
+            description="&lt;p>&lt;strong>Layer.&lt;/strong> L4&lt;/p>&lt;p>&lt;strong>Status.&lt;/strong> CONTRACT (initial; written 2026-05-09)&lt;/p>&lt;p>&lt;strong>Schema package.&lt;/strong> aios.identity.v1alpha1&lt;/p>&lt;p>&lt;strong>Source.&lt;/strong> L4_Policy_Identity_Vault/03_identity_model.md&lt;/p>"/>
+        <ownedCapabilityRealizations xsi:type="org.polarsys.capella.core.data.la:CapabilityRealization"
+            id="00a55325-221e-5deb-af7c-d356e99e931f" name="S5.3 — Approval Mechanics (Rev.2)"
+            description="&lt;p>&lt;strong>Layer.&lt;/strong> L4&lt;/p>&lt;p>&lt;strong>Status.&lt;/strong> REAL (E1 — file exists; structural contract complete; written 2026-05-09)&lt;/p>&lt;p>&lt;strong>Schema package.&lt;/strong> aios.approval.v1alpha1&lt;/p>&lt;p>&lt;strong>Source.&lt;/strong> L4_Policy_Identity_Vault/04_approval_mechanics.md&lt;/p>"/>
+        <ownedCapabilityRealizations xsi:type="org.polarsys.capella.core.data.la:CapabilityRealization"
+            id="f23c9773-e4d3-5638-ba85-6a6a023b30f0" name="S5.4 — Emergency Override (Rev.2)"
+            description="&lt;p>&lt;strong>Layer.&lt;/strong> L4&lt;/p>&lt;p>&lt;strong>Status.&lt;/strong> REAL (initial; written 2026-05-09; E1 evidence — file exists)&lt;/p>&lt;p>&lt;strong>Schema package.&lt;/strong> aios.override.v1alpha1&lt;/p>&lt;p>&lt;strong>Source.&lt;/strong> L4_Policy_Identity_Vault/05_emergency_override.md&lt;/p>"/>
+        <ownedCapabilityRealizations xsi:type="org.polarsys.capella.core.data.la:CapabilityRealization"
+            id="d00347c6-2c73-5686-a59b-9f9daa16e884" name="S13.1 — Cognitive Core Model (Rev.2)"
+            description="&lt;p>&lt;strong>Layer.&lt;/strong> L5&lt;/p>&lt;p>&lt;strong>Status.&lt;/strong> REAL (initial; written 2026-05-09)&lt;/p>&lt;p>&lt;strong>Schema package.&lt;/strong> aios.cognitive.v1alpha1&lt;/p>&lt;p>&lt;strong>Source.&lt;/strong> L5_Cognitive_Core/01_cognitive_core_model.md&lt;/p>"/>
+        <ownedCapabilityRealizations xsi:type="org.polarsys.capella.core.data.la:CapabilityRealization"
+            id="f39cf46d-80e7-5bcf-858f-531394693161" name="S1.1 — Capability Translator (Rev.2)"
+            description="&lt;p>&lt;strong>Layer.&lt;/strong> L5&lt;/p>&lt;p>&lt;strong>Status.&lt;/strong> CONTRACT (refined 2026-05-08; awaiting implementation evidence)&lt;/p>&lt;p>&lt;strong>Schema package.&lt;/strong> —&lt;/p>&lt;p>&lt;strong>Source.&lt;/strong> L5_Cognitive_Core/02_capability_translator.md&lt;/p>"/>
+        <ownedCapabilityRealizations xsi:type="org.polarsys.capella.core.data.la:CapabilityRealization"
+            id="1bc1165b-02e2-5693-823f-27b9794d4ce9" name="S1.2 — Latency Tiering (Rev.2)"
+            description="&lt;p>&lt;strong>Layer.&lt;/strong> L5&lt;/p>&lt;p>&lt;strong>Status.&lt;/strong> CONTRACT (refined 2026-05-08; awaiting implementation evidence)&lt;/p>&lt;p>&lt;strong>Schema package.&lt;/strong> —&lt;/p>&lt;p>&lt;strong>Source.&lt;/strong> L5_Cognitive_Core/03_latency_tiering.md&lt;/p>"/>
+        <ownedCapabilityRealizations xsi:type="org.polarsys.capella.core.data.la:CapabilityRealization"
+            id="209b30ce-049e-57aa-af87-dd1d0a800208" name="S13.2 — Model Router (Rev.2)"
+            description="&lt;p>&lt;strong>Layer.&lt;/strong> L5&lt;/p>&lt;p>&lt;strong>Status.&lt;/strong> REAL (initial; written 2026-05-09)&lt;/p>&lt;p>&lt;strong>Schema package.&lt;/strong> aios.modelrouter.v1alpha1&lt;/p>&lt;p>&lt;strong>Source.&lt;/strong> L5_Cognitive_Core/05_model_router.md&lt;/p>"/>
+        <ownedCapabilityRealizations xsi:type="org.polarsys.capella.core.data.la:CapabilityRealization"
+            id="e16ec754-f5c6-5eec-9728-9f4dffd406f4" name="S3.1 — Evidence Log Architecture (Rev.2)"
+            description="&lt;p>&lt;strong>Layer.&lt;/strong> L9&lt;/p>&lt;p>&lt;strong>Status.&lt;/strong> CONTRACT (refined 2026-05-08; awaiting implementation evidence)&lt;/p>&lt;p>&lt;strong>Schema package.&lt;/strong> —&lt;/p>&lt;p>&lt;strong>Source.&lt;/strong> L9_Observability_Admin_Operations/01_evidence_log.md&lt;/p>"/>
+        <ownedCapabilityRealizations xsi:type="org.polarsys.capella.core.data.la:CapabilityRealization"
+            id="d8600f7d-19fc-57aa-92dd-529e5b1537fd" name="S2.4 — Verification Grammar (Rev.2)"
+            description="&lt;p>&lt;strong>Layer.&lt;/strong> L9&lt;/p>&lt;p>&lt;strong>Status.&lt;/strong> CONTRACT (refined 2026-05-08; awaiting implementation evidence)&lt;/p>&lt;p>&lt;strong>Schema package.&lt;/strong> —&lt;/p>&lt;p>&lt;strong>Source.&lt;/strong> L9_Observability_Admin_Operations/02_verification_grammar.md&lt;/p>"/>
+        <ownedCapabilityRealizations xsi:type="org.polarsys.capella.core.data.la:CapabilityRealization"
+            id="28ef7c3b-c0c2-5311-85f2-94b26a3928b1" name="S14.1 — Failure Handling and Degradation (Rev.2)"
+            description="&lt;p>&lt;strong>Layer.&lt;/strong> L9&lt;/p>&lt;p>&lt;strong>Status.&lt;/strong> REAL (initial; written 2026-05-09; E1 evidence — file exists, structural contract complete)&lt;/p>&lt;p>&lt;strong>Schema package.&lt;/strong> aios.failure.v1alpha1&lt;/p>&lt;p>&lt;strong>Source.&lt;/strong> L9_Observability_Admin_Operations/03_failure_handling.md&lt;/p>"/>
+        <ownedCapabilityRealizations xsi:type="org.polarsys.capella.core.data.la:CapabilityRealization"
+            id="f78d00d8-3f8a-5456-a94c-68ddce32e7d7" name="S14.2 — Telemetry Pipeline (Rev.2)"
+            description="&lt;p>&lt;strong>Layer.&lt;/strong> L9&lt;/p>&lt;p>&lt;strong>Status.&lt;/strong> REAL (initial; written 2026-05-09; E1 evidence — file exists, structural contract complete)&lt;/p>&lt;p>&lt;strong>Schema package.&lt;/strong> aios.telemetry.v1alpha1&lt;/p>&lt;p>&lt;strong>Source.&lt;/strong> L9_Observability_Admin_Operations/04_telemetry_pipeline.md&lt;/p>"/>
+      </ownedAbstractCapabilityPkg>
+      <ownedInterfacePkg xsi:type="org.polarsys.capella.core.data.cs:InterfacePkg"
+          id="1ed34c92-799e-48fe-9f5b-247242151f09" name="Interfaces"/>
+      <ownedDataPkg xsi:type="org.polarsys.capella.core.data.information:DataPkg"
+          id="d755d151-7b1f-4df3-b4b8-329953b177dc" name="Data"/>
+      <ownedLogicalComponentPkg xsi:type="org.polarsys.capella.core.data.la:LogicalComponentPkg"
+          id="474e84b1-3485-4012-86ba-c638767cb529" name="Structure">
+        <ownedParts xsi:type="org.polarsys.capella.core.data.cs:Part" id="93fe69a7-45ac-4f91-b78a-1f3f8b198200"
+            name="Logical System" abstractType="#495208df-e9d1-48b8-8258-17f62184ab90"/>
+        <ownedLogicalComponents xsi:type="org.polarsys.capella.core.data.la:LogicalComponent"
+            id="495208df-e9d1-48b8-8258-17f62184ab90" name="AIOS Logical Platform">
+          <ownedComponentRealizations xsi:type="org.polarsys.capella.core.data.cs:ComponentRealization"
+              id="6d7e2a8a-43f7-4aa8-b331-ddc3cba3191e" targetElement="#7af5971f-1a6c-47d3-b9a8-4e709444113e"
+              sourceElement="#495208df-e9d1-48b8-8258-17f62184ab90"/>
+        </ownedLogicalComponents>
+      </ownedLogicalComponentPkg>
+      <ownedSystemAnalysisRealizations xsi:type="org.polarsys.capella.core.data.la:SystemAnalysisRealization"
+          id="0e5346ab-f7d4-4438-92be-bea3e5c50de3" targetElement="#8bd54dcb-81a2-4c22-91cb-e7253fd7c79f"
+          sourceElement="#56d2c105-cb15-4a0a-8800-120ddbb426fc"/>
+    </ownedArchitectures>
+    <ownedArchitectures xsi:type="org.polarsys.capella.core.data.pa:PhysicalArchitecture"
+        id="aa49e2c8-b754-49f4-9528-d2aea0e89648" name="Physical Architecture">
+      <ownedFunctionPkg xsi:type="org.polarsys.capella.core.data.pa:PhysicalFunctionPkg"
+          id="71e0a9c8-29bf-4e18-a664-746213bea06d" name="Physical Functions">
+        <ownedPhysicalFunctions xsi:type="org.polarsys.capella.core.data.pa:PhysicalFunction"
+            id="979c84d7-a19c-4806-9743-3c4bf6a60684" name="AIOS Physical Capability Realization">
+          <ownedFunctionRealizations xsi:type="org.polarsys.capella.core.data.fa:FunctionRealization"
+              id="7702ef35-7257-4c66-81ff-8f525cf37ff1" targetElement="#894f4504-85ce-4d1b-9189-02cb8d234355"
+              sourceElement="#979c84d7-a19c-4806-9743-3c4bf6a60684"/>
+        </ownedPhysicalFunctions>
+      </ownedFunctionPkg>
+      <ownedAbstractCapabilityPkg xsi:type="org.polarsys.capella.core.data.la:CapabilityRealizationPkg"
+          id="82a7a1de-9410-477e-aa78-c641b373a423" name="Capabilities">
+        <ownedCapabilityRealizations xsi:type="org.polarsys.capella.core.data.la:CapabilityRealization"
+            id="97593eeb-077a-5d6b-874c-6b2624bd24ee" name="S11.1 — Repository Model + Trust Roots (Rev.2)"
+            description="&lt;p>&lt;strong>Layer.&lt;/strong> L10&lt;/p>&lt;p>&lt;strong>Status.&lt;/strong> REAL (initial; written 2026-05-09; E1 evidence — file exists, structural contract complete)&lt;/p>&lt;p>&lt;strong>Schema package.&lt;/strong> aios.distribution.v1alpha1&lt;/p>&lt;p>&lt;strong>Source.&lt;/strong> L10_Distribution_Ecosystem_Marketplace/01_repository_model.md&lt;/p>"/>
+        <ownedCapabilityRealizations xsi:type="org.polarsys.capella.core.data.la:CapabilityRealization"
+            id="8a118a0e-90a5-557f-b3f4-b44311eb4aff" name="S11.2 — Marketplace — Publisher Onboarding, Capability Review, Listings (Rev.2)"
+            description="&lt;p>&lt;strong>Layer.&lt;/strong> L10&lt;/p>&lt;p>&lt;strong>Status.&lt;/strong> REAL (initial; written 2026-05-09; E1 evidence — file exists, structural contract complete)&lt;/p>&lt;p>&lt;strong>Schema package.&lt;/strong> aios.marketplace.v1alpha1&lt;/p>&lt;p>&lt;strong>Source.&lt;/strong> L10_Distribution_Ecosystem_Marketplace/02_marketplace.md&lt;/p>"/>
+        <ownedCapabilityRealizations xsi:type="org.polarsys.capella.core.data.la:CapabilityRealization"
+            id="09c01ea2-0d42-53e3-95cf-0cdd61d6fa51" name="S11.3 — External Integrations — Bridges to Flathub, OCI Registries, Distro Repos (Rev.2)"
+            description="&lt;p>&lt;strong>Layer.&lt;/strong> L10&lt;/p>&lt;p>&lt;strong>Status.&lt;/strong> REAL (initial; written 2026-05-09; E1 evidence — file exists, structural contract complete)&lt;/p>&lt;p>&lt;strong>Schema package.&lt;/strong> aios.bridge.v1alpha1&lt;/p>&lt;p>&lt;strong>Source.&lt;/strong> L10_Distribution_Ecosystem_Marketplace/03_external_integrations.md&lt;/p>"/>
+        <ownedCapabilityRealizations xsi:type="org.polarsys.capella.core.data.la:CapabilityRealization"
+            id="a0472ccd-fae4-532b-9eab-73d696be12a7" name="S9.1 — Recovery Boundary (Rev.2)"
+            description="&lt;p>&lt;strong>Layer.&lt;/strong> L1&lt;/p>&lt;p>&lt;strong>Status.&lt;/strong> REAL (initial; written 2026-05-09; E1 evidence — file exists, structural contract complete)&lt;/p>&lt;p>&lt;strong>Schema package.&lt;/strong> aios.recovery.v1alpha1&lt;/p>&lt;p>&lt;strong>Source.&lt;/strong> L1_Kernel_Bootstrap_Recovery/01_recovery_boundary.md&lt;/p>"/>
+        <ownedCapabilityRealizations xsi:type="org.polarsys.capella.core.data.la:CapabilityRealization"
+            id="f2f5a66c-56bf-5853-928e-c8ba1896f993" name="S9.2 — First-Boot Flow (Rev.2)"
+            description="&lt;p>&lt;strong>Layer.&lt;/strong> L1&lt;/p>&lt;p>&lt;strong>Status.&lt;/strong> REAL (initial; written 2026-05-09; E1 evidence — file exists; structural contract complete)&lt;/p>&lt;p>&lt;strong>Schema package.&lt;/strong> aios.firstboot.v1alpha1&lt;/p>&lt;p>&lt;strong>Source.&lt;/strong> L1_Kernel_Bootstrap_Recovery/02_first_boot_flow.md&lt;/p>"/>
+        <ownedCapabilityRealizations xsi:type="org.polarsys.capella.core.data.la:CapabilityRealization"
+            id="89a3c9d8-5f35-572c-bcb7-0b882892b786" name="S9.3 — Dedicated Kernel Pipeline (Rev.2)"
+            description="&lt;p>&lt;strong>Layer.&lt;/strong> L1&lt;/p>&lt;p>&lt;strong>Status.&lt;/strong> REAL (initial; written 2026-05-09; E1 evidence — file exists; structural contract complete)&lt;/p>&lt;p>&lt;strong>Schema package.&lt;/strong> aios.kernel.v1alpha1&lt;/p>&lt;p>&lt;strong>Source.&lt;/strong> L1_Kernel_Bootstrap_Recovery/03_dedicated_kernel_pipeline.md&lt;/p>"/>
+        <ownedCapabilityRealizations xsi:type="org.polarsys.capella.core.data.la:CapabilityRealization"
+            id="0131d10d-6af4-5c1b-9d7e-11b20bfdd1e5" name="S12.1 — App Runtime Model + Cross-Ecosystem Compatibility (Rev.2)"
+            description="&lt;p>&lt;strong>Layer.&lt;/strong> L6&lt;/p>&lt;p>&lt;strong>Status.&lt;/strong> REAL (initial; written 2026-05-09; E1 evidence — file exists, structural contract complete)&lt;/p>&lt;p>&lt;strong>Schema package.&lt;/strong> aios.appcompat.v1alpha1&lt;/p>&lt;p>&lt;strong>Source.&lt;/strong> L6_Apps_Packages_Compatibility/01_app_runtime_model.md&lt;/p>"/>
+        <ownedCapabilityRealizations xsi:type="org.polarsys.capella.core.data.la:CapabilityRealization"
+            id="82978137-ac6a-56ba-b7bb-33df5c90574f" name="S12.2 — Package Object Model — On-Disk Layout, Versioning, Update, Rollback (Rev.2)"
+            description="&lt;p>&lt;strong>Layer.&lt;/strong> L6&lt;/p>&lt;p>&lt;strong>Status.&lt;/strong> REAL (initial; written 2026-05-09; E1 evidence — file exists, structural contract complete)&lt;/p>&lt;p>&lt;strong>Schema package.&lt;/strong> aios.package.v1alpha1&lt;/p>&lt;p>&lt;strong>Source.&lt;/strong> L6_Apps_Packages_Compatibility/02_package_model.md&lt;/p>"/>
+        <ownedCapabilityRealizations xsi:type="org.polarsys.capella.core.data.la:CapabilityRealization"
+            id="3cec5b2a-ff8a-579d-bf53-7356582dd242" name="S12.3 — Compatibility Runtime — Orchestration of EcosystemRuntime Adapters (Rev.2)"
+            description="&lt;p>&lt;strong>Layer.&lt;/strong> L6&lt;/p>&lt;p>&lt;strong>Status.&lt;/strong> REAL (initial; written 2026-05-09; E1 evidence — file exists, structural contract complete)&lt;/p>&lt;p>&lt;strong>Schema package.&lt;/strong> aios.compatruntime.v1alpha1&lt;/p>&lt;p>&lt;strong>Source.&lt;/strong> L6_Apps_Packages_Compatibility/03_compatibility_runtime.md&lt;/p>"/>
+        <ownedCapabilityRealizations xsi:type="org.polarsys.capella.core.data.la:CapabilityRealization"
+            id="cbfa52b4-252e-50ed-a89a-ac1da4781015" name="S3.2 — Sandbox Composition Language (Rev.2)"
+            description="&lt;p>&lt;strong>Layer.&lt;/strong> L6&lt;/p>&lt;p>&lt;strong>Status.&lt;/strong> CONTRACT (refined 2026-05-08)&lt;/p>&lt;p>&lt;strong>Schema package.&lt;/strong> aios.sandbox.v1alpha1&lt;/p>&lt;p>&lt;strong>Source.&lt;/strong> L6_Apps_Packages_Compatibility/04_sandbox_composition.md&lt;/p>"/>
+        <ownedCapabilityRealizations xsi:type="org.polarsys.capella.core.data.la:CapabilityRealization"
+            id="cd2e213e-6acf-5860-b4e3-2556143a082c" name="S12.4 — Compatibility Knowledge — Per-App Profile Database (Rev.2)"
+            description="&lt;p>&lt;strong>Layer.&lt;/strong> L6&lt;/p>&lt;p>&lt;strong>Status.&lt;/strong> REAL (initial; written 2026-05-09; E1 evidence — file exists, structural contract complete)&lt;/p>&lt;p>&lt;strong>Schema package.&lt;/strong> aios.compatknowledge.v1alpha1&lt;/p>&lt;p>&lt;strong>Source.&lt;/strong> L6_Apps_Packages_Compatibility/05_compatibility_knowledge.md&lt;/p>"/>
+        <ownedCapabilityRealizations xsi:type="org.polarsys.capella.core.data.la:CapabilityRealization"
+            id="49b2e90d-5c1b-5776-87f4-05c05ed3db4d" name="S6.5 — Session Container Model — per-group containerized KDE Plasma sessions streamed to browser (Rev.2)"
+            description="&lt;p>&lt;strong>Layer.&lt;/strong> L6&lt;/p>&lt;p>&lt;strong>Status.&lt;/strong> CONTRACT (initial; written 2026-05-23; E1 — file exists, structural contract complete)&lt;/p>&lt;p>&lt;strong>Schema package.&lt;/strong> aios.session.v1alpha1&lt;/p>&lt;p>&lt;strong>Source.&lt;/strong> L6_Apps_Packages_Compatibility/06_session_container_model.md&lt;/p>"/>
+        <ownedCapabilityRealizations xsi:type="org.polarsys.capella.core.data.la:CapabilityRealization"
+            id="117f0f38-febf-52c9-aa19-de7e98ed608d" name="S7.1 — Surface + Composition Model (Rev.2)"
+            description="&lt;p>&lt;strong>Layer.&lt;/strong> L7&lt;/p>&lt;p>&lt;strong>Status.&lt;/strong> CONTRACT (initial; written 2026-05-10)&lt;/p>&lt;p>&lt;strong>Schema package.&lt;/strong> aios.surface.v1alpha1&lt;/p>&lt;p>&lt;strong>Source.&lt;/strong> L7_Interaction_Renderers/01_surface_composition.md&lt;/p>"/>
+        <ownedCapabilityRealizations xsi:type="org.polarsys.capella.core.data.la:CapabilityRealization"
+            id="243c13ae-9c48-57dc-8327-d3da0ecf32a1" name="S7.2 — Shared UI Schema (Rev.2)"
+            description="&lt;p>&lt;strong>Layer.&lt;/strong> L7&lt;/p>&lt;p>&lt;strong>Status.&lt;/strong> CONTRACT (initial; written 2026-05-10)&lt;/p>&lt;p>&lt;strong>Schema package.&lt;/strong> aios.ui.v1alpha1&lt;/p>&lt;p>&lt;strong>Source.&lt;/strong> L7_Interaction_Renderers/02_shared_ui_schema.md&lt;/p>"/>
+        <ownedCapabilityRealizations xsi:type="org.polarsys.capella.core.data.la:CapabilityRealization"
+            id="b0110fcf-473f-58fc-b216-83bc08f0628a" name="S7.3 — Visual Language (Rev.2)"
+            description="&lt;p>&lt;strong>Layer.&lt;/strong> L7&lt;/p>&lt;p>&lt;strong>Status.&lt;/strong> CONTRACT (initial; written 2026-05-10)&lt;/p>&lt;p>&lt;strong>Schema package.&lt;/strong> aios.visual.v1alpha1&lt;/p>&lt;p>&lt;strong>Source.&lt;/strong> L7_Interaction_Renderers/03_visual_language.md&lt;/p>"/>
+        <ownedCapabilityRealizations xsi:type="org.polarsys.capella.core.data.la:CapabilityRealization"
+            id="c3d39c82-2081-5278-970c-40919a801484" name="S7.4 — KDE Plasma Renderer (Rev.2)"
+            description="&lt;p>&lt;strong>Layer.&lt;/strong> L7&lt;/p>&lt;p>&lt;strong>Status.&lt;/strong> CONTRACT (initial; written 2026-05-10)&lt;/p>&lt;p>&lt;strong>Schema package.&lt;/strong> aios.renderer.kde.v1alpha1&lt;/p>&lt;p>&lt;strong>Source.&lt;/strong> L7_Interaction_Renderers/04_kde_renderer.md&lt;/p>"/>
+        <ownedCapabilityRealizations xsi:type="org.polarsys.capella.core.data.la:CapabilityRealization"
+            id="4340efd0-da17-5593-ab8a-9cbf54969b1f" name="S7.5 — Web Renderer (Rev.2)"
+            description="&lt;p>&lt;strong>Layer.&lt;/strong> L7&lt;/p>&lt;p>&lt;strong>Status.&lt;/strong> CONTRACT (initial; written 2026-05-10)&lt;/p>&lt;p>&lt;strong>Schema package.&lt;/strong> aios.renderer.web.v1alpha1&lt;/p>&lt;p>&lt;strong>Source.&lt;/strong> L7_Interaction_Renderers/05_web_renderer.md&lt;/p>"/>
+        <ownedCapabilityRealizations xsi:type="org.polarsys.capella.core.data.la:CapabilityRealization"
+            id="bc1dc085-824c-53c6-a543-80dc1d61c460" name="S7.6 — CLI Renderer (Rev.2)"
+            description="&lt;p>&lt;strong>Layer.&lt;/strong> L7&lt;/p>&lt;p>&lt;strong>Status.&lt;/strong> REAL (initial; written 2026-05-12; E1 evidence — file exists, structural contract complete)&lt;/p>&lt;p>&lt;strong>Schema package.&lt;/strong> aios.renderer.cli.v1alpha1&lt;/p>&lt;p>&lt;strong>Source.&lt;/strong> L7_Interaction_Renderers/06_cli_renderer.md&lt;/p>"/>
+        <ownedCapabilityRealizations xsi:type="org.polarsys.capella.core.data.la:CapabilityRealization"
+            id="6eaf7222-e174-50b9-94b8-86aa1230b850" name="S8.3 — Hardware Graph (Rev.2)"
+            description="&lt;p>&lt;strong>Layer.&lt;/strong> L8&lt;/p>&lt;p>&lt;strong>Status.&lt;/strong> REAL (initial; written 2026-05-09; E1 evidence — file exists; structural contract complete)&lt;/p>&lt;p>&lt;strong>Schema package.&lt;/strong> aios.hardware.v1alpha1&lt;/p>&lt;p>&lt;strong>Source.&lt;/strong> L8_Network_Hardware_Devices/01_hardware_graph.md&lt;/p>"/>
+        <ownedCapabilityRealizations xsi:type="org.polarsys.capella.core.data.la:CapabilityRealization"
+            id="89487a6a-3a9f-5a01-8cfc-b3c66e9d9fbf" name="S8.1 — Network Policy (Rev.2)"
+            description="&lt;p>&lt;strong>Layer.&lt;/strong> L8&lt;/p>&lt;p>&lt;strong>Status.&lt;/strong> REAL (initial; written 2026-05-09)&lt;/p>&lt;p>&lt;strong>Schema package.&lt;/strong> aios.network.v1alpha1&lt;/p>&lt;p>&lt;strong>Source.&lt;/strong> L8_Network_Hardware_Devices/02_network_policy.md&lt;/p>"/>
+        <ownedCapabilityRealizations xsi:type="org.polarsys.capella.core.data.la:CapabilityRealization"
+            id="e8bdff4f-0869-512c-87df-c4f70fd6dd74" name="S8.4 — DNS / VPN Management (Rev.2)"
+            description="&lt;p>&lt;strong>Layer.&lt;/strong> L8&lt;/p>&lt;p>&lt;strong>Status.&lt;/strong> REAL (initial; written 2026-05-09)&lt;/p>&lt;p>&lt;strong>Schema package.&lt;/strong> aios.dnsvpn.v1alpha1&lt;/p>&lt;p>&lt;strong>Source.&lt;/strong> L8_Network_Hardware_Devices/03_dns_vpn_management.md&lt;/p>"/>
+        <ownedCapabilityRealizations xsi:type="org.polarsys.capella.core.data.la:CapabilityRealization"
+            id="35cac9f6-cc0c-55ba-8a04-0a700c0fc5a5" name="S8.5 — Firmware Trust + Signed Update Paths (Rev.2)"
+            description="&lt;p>&lt;strong>Layer.&lt;/strong> L8&lt;/p>&lt;p>&lt;strong>Status.&lt;/strong> REAL (initial; written 2026-05-09; E1 evidence — file exists, structural contract complete)&lt;/p>&lt;p>&lt;strong>Schema package.&lt;/strong> aios.firmware.v1alpha1&lt;/p>&lt;p>&lt;strong>Source.&lt;/strong> L8_Network_Hardware_Devices/04_firmware_trust.md&lt;/p>"/>
+        <ownedCapabilityRealizations xsi:type="org.polarsys.capella.core.data.la:CapabilityRealization"
+            id="f84c6b08-cf21-5a90-b422-61d32e44461f" name="S8.2 — GPU Resource Model (Rev.2)"
+            description="&lt;p>&lt;strong>Layer.&lt;/strong> L8&lt;/p>&lt;p>&lt;strong>Status.&lt;/strong> CONTRACT (initial; written 2026-05-10)&lt;/p>&lt;p>&lt;strong>Schema package.&lt;/strong> aios.gpu.v1alpha1&lt;/p>&lt;p>&lt;strong>Source.&lt;/strong> L8_Network_Hardware_Devices/05_gpu_resource_model.md&lt;/p>"/>
+      </ownedAbstractCapabilityPkg>
+      <ownedInterfacePkg xsi:type="org.polarsys.capella.core.data.cs:InterfacePkg"
+          id="4228c41b-05c7-4c99-a248-d742a04bcfa5" name="Interfaces"/>
+      <ownedDataPkg xsi:type="org.polarsys.capella.core.data.information:DataPkg"
+          id="b1bb0291-e569-41f9-b629-2b0b89c1ffd4" name="Data"/>
+      <ownedPhysicalComponentPkg xsi:type="org.polarsys.capella.core.data.pa:PhysicalComponentPkg"
+          id="494fd973-8168-4c0e-bc0e-0c3d604a7009" name="Structure">
+        <ownedParts xsi:type="org.polarsys.capella.core.data.cs:Part" id="c1735919-95cc-47de-b13d-d4476512e727"
+            name="Physical System" abstractType="#c4d19ab1-7f2b-41a1-8ecb-9f372dc9a41d"/>
+        <ownedPhysicalComponents xsi:type="org.polarsys.capella.core.data.pa:PhysicalComponent"
+            id="c4d19ab1-7f2b-41a1-8ecb-9f372dc9a41d" name="AIOS Physical Platform">
+          <ownedComponentRealizations xsi:type="org.polarsys.capella.core.data.cs:ComponentRealization"
+              id="47e8fd62-8a15-4440-96d3-f68263a097dd" targetElement="#495208df-e9d1-48b8-8258-17f62184ab90"
+              sourceElement="#c4d19ab1-7f2b-41a1-8ecb-9f372dc9a41d"/>
+        </ownedPhysicalComponents>
+      </ownedPhysicalComponentPkg>
+      <ownedLogicalArchitectureRealizations xsi:type="org.polarsys.capella.core.data.pa:LogicalArchitectureRealization"
+          id="312c4cda-3123-4209-8d06-006af3464bff" targetElement="#56d2c105-cb15-4a0a-8800-120ddbb426fc"
+          sourceElement="#aa49e2c8-b754-49f4-9528-d2aea0e89648"/>
+    </ownedArchitectures>
+    <ownedArchitectures xsi:type="org.polarsys.capella.core.data.epbs:EPBSArchitecture"
+        id="07424d25-4b15-4fe7-8635-26a68987e2ff" name="EPBS Architecture">
+      <ownedAbstractCapabilityPkg xsi:type="org.polarsys.capella.core.data.la:CapabilityRealizationPkg"
+          id="21b1e4c3-895a-4001-95b0-f55c51deb5a3" name="Capabilities"/>
+      <ownedConfigurationItemPkg xsi:type="org.polarsys.capella.core.data.epbs:ConfigurationItemPkg"
+          id="05fa6cf2-c4ad-44f8-b43c-86ba67cdcebd" name="Structure">
+        <ownedParts xsi:type="org.polarsys.capella.core.data.cs:Part" id="cb4e8aef-c800-4e05-a088-02e509178f2d"
+            name="System" abstractType="#b871fd0f-9cee-4eb1-af4c-adec649c9a37"/>
+        <ownedConfigurationItems xsi:type="org.polarsys.capella.core.data.epbs:ConfigurationItem"
+            id="b871fd0f-9cee-4eb1-af4c-adec649c9a37" name="System" kind="SystemCI">
+          <ownedPhysicalArtifactRealizations xsi:type="org.polarsys.capella.core.data.epbs:PhysicalArtifactRealization"
+              id="dff27b9b-67f2-48c8-a1bf-44ea53e87ff0" targetElement="#c4d19ab1-7f2b-41a1-8ecb-9f372dc9a41d"
+              sourceElement="#b871fd0f-9cee-4eb1-af4c-adec649c9a37"/>
+        </ownedConfigurationItems>
+      </ownedConfigurationItemPkg>
+      <ownedPhysicalArchitectureRealizations xsi:type="org.polarsys.capella.core.data.epbs:PhysicalArchitectureRealization"
+          id="689e8f15-e46c-4572-95be-ff6d4e38506a" targetElement="#aa49e2c8-b754-49f4-9528-d2aea0e89648"
+          sourceElement="#07424d25-4b15-4fe7-8635-26a68987e2ff"/>
+    </ownedArchitectures>
+  </ownedModelRoots>
+</org.polarsys.capella.core.data.capellamodeller:Project>

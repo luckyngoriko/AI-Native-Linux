@@ -46,6 +46,11 @@ base64        = { workspace = true }
 # `HydratedSubject`-aware `PolicyContext` through pipeline step 2. The path
 # dep mirrors the M3 → M4 layering (L4 → L3 consumes-only edge).
 aios-policy  = { path = "../aios-policy" }
+# T-031 — Evidence Log integration (S10.1 ↔ S3.1). The capability runtime
+# composes an optional `Arc<dyn EvidenceSink>` and emits typed receipts at
+# every §4.2 lifecycle transition. The path dep mirrors the M2 → M4 layering
+# (L0/L9 evidence vocabulary → L3 producer edge per S3.1 §11.4).
+aios-evidence = { path = "../aios-evidence" }
 
 [dev-dependencies]
 # T-027 — `tokio::join!` + `#[tokio::test]` in the pipeline test harness for

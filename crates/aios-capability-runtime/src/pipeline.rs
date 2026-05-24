@@ -53,6 +53,7 @@ use crate::dispatch::{ActionDispatchKind, QueueClass};
 use crate::dispatch_queue::DispatchQueue;
 use crate::dispatcher::ActionDispatcher;
 use crate::error::RuntimeError;
+use crate::evidence_emit::EvidenceEmitter;
 use crate::failure::ExecutionFailureReason;
 use crate::runtime::RuntimeContext;
 use crate::status::ActionLifecycleState;
@@ -536,6 +537,381 @@ impl ActionLifecyclePipeline {
             }
         };
         Ok(state.into_context())
+    }
+
+    /// T-031 — top-level driver with both the full engine set (registry +
+    /// queue + kernel) **and** an [`EvidenceEmitter`] attached.
+    ///
+    /// Behaviour is identical to [`Self::run_with_full_engines`] except
+    /// that one [`aios_evidence::EvidenceReceipt`] is appended via the
+    /// supplied emitter at every §4.2 transition the runtime drives.
+    /// Specifically:
+    ///
+    /// 1. After `step_validate` succeeds (`CREATED → POLICY_PENDING`) —
+    ///    emit `ACTION_RECEIVED` (S3.1 §4 ID 1).
+    /// 2. After `step_policy_evaluate_with_kernel_and_emit` decides —
+    ///    emit `POLICY_DECISION` (S3.1 §4 ID 4) with the
+    ///    `policy_decision_id` from `aios_policy`. On the no-kernel-
+    ///    attached fallback path the emission is skipped because there
+    ///    is no kernel decision to record (the T-030 stub is structural-
+    ///    only).
+    /// 3. After `step_queue_with_engine` enrolls — emit the queued
+    ///    marker via `RecordType::ActionDispatched(dispatched=false)`
+    ///    and, when applicable, the silent §11.4
+    ///    `AI_INTERACTIVE_QUEUE_DOWNGRADE`.
+    /// 4. After `step_execute_with_engines` resolves the adapter —
+    ///    emit `ROUTING_DECISION` (S3.1 §4 ID 3) followed by
+    ///    `EXECUTION_STARTED` (S3.1 §4 ID 8). The adapter handle is
+    ///    addressed via the registry; when no registry is attached the
+    ///    routing/execution emissions are skipped (the T-027 baseline
+    ///    is preserved bit-for-bit).
+    /// 5. After `step_verify` reaches its terminal — emit
+    ///    `EXECUTION_COMPLETED` (S3.1 §4 ID 9) followed by
+    ///    `VERIFICATION_RESULT` (S3.1 §4 ID 10). The verifying-step
+    ///    stub still drives `SUCCEEDED`; T-035 will swap in the real
+    ///    verification engine without touching this emission shape.
+    /// 6. After `step_rollback` reaches its terminal — emit
+    ///    `ROLLBACK_COMPLETED` (S3.1 §4 ID 11). Today's stub never
+    ///    drives rollback so the call is a no-op outside test paths
+    ///    that injected a `FAILED` state directly; T-032 wires the
+    ///    real rollback path against this same emit point.
+    ///
+    /// Emission failures map to [`RuntimeError::EvidenceEmitFailed`].
+    /// Per S10.1 §12.6 the pipeline fails closed: the action does not
+    /// progress past the failing transition (INV-014).
+    ///
+    /// # Errors
+    ///
+    /// Same as [`Self::run_with_full_engines`], additionally returns
+    /// [`RuntimeError::EvidenceEmitFailed`] on any evidence sink failure.
+    #[allow(clippy::too_many_arguments)]
+    pub async fn run_with_full_engines_and_evidence(
+        &self,
+        envelope: &ActionEnvelope,
+        ctx: ActionContext,
+        now: DateTime<Utc>,
+        registry: Option<&InMemoryAdapterRegistry>,
+        queue: Option<&DispatchQueue>,
+        kernel: Option<&dyn PolicyKernel>,
+        runtime_context: Option<&RuntimeContext>,
+        tripwire: Option<&AtomicU64>,
+        emitter: &EvidenceEmitter,
+    ) -> Result<ActionContext, RuntimeError> {
+        // ── Step 1: validate envelope. Emit ACTION_RECEIVED on success. ──
+        let state = self.step_validate(envelope, ctx, now)?;
+        let state = match state {
+            PipelineState::Continue(mut c) => {
+                emitter.emit_action_received(envelope, &mut c).await?;
+                PipelineState::Continue(c)
+            }
+            PipelineState::ShortCircuit(c) => return Ok(c),
+        };
+
+        // ── Step 2: policy evaluate. Emit POLICY_DECISION on a kernel hit. ──
+        let state = match state {
+            PipelineState::Continue(c) => {
+                self.step_policy_evaluate_with_kernel_and_emit(
+                    envelope,
+                    c,
+                    now,
+                    kernel,
+                    runtime_context,
+                    tripwire,
+                    emitter,
+                )
+                .await?
+            }
+            PipelineState::ShortCircuit(c) => return Ok(c),
+        };
+
+        // ── Step 3: approval (T-034 stub today). No emission. ──
+        let state = match state {
+            PipelineState::Continue(c) => self.step_request_approval(envelope, c, now)?,
+            PipelineState::ShortCircuit(c) => return Ok(c),
+        };
+
+        // ── Step 4: queue enroll. Emit ACTION_QUEUED (folded into
+        //    ActionDispatched(dispatched=false)) and the §11.4 downgrade
+        //    marker when applicable. ──
+        let state = match state {
+            PipelineState::Continue(c) => {
+                self.step_queue_with_engine_and_emit(envelope, c, now, queue, emitter)
+                    .await?
+            }
+            PipelineState::ShortCircuit(c) => return Ok(c),
+        };
+
+        // ── Step 5: execute. Emit ROUTING_DECISION + EXECUTION_STARTED. ──
+        let state = match state {
+            PipelineState::Continue(c) => {
+                self.step_execute_with_engines_and_emit(envelope, c, now, registry, emitter)
+                    .await?
+            }
+            PipelineState::ShortCircuit(c) => return Ok(c),
+        };
+
+        // ── Step 6: verify. Emit EXECUTION_COMPLETED + VERIFICATION_RESULT. ──
+        let state = match state {
+            PipelineState::Continue(c) => {
+                self.step_verify_and_emit(envelope, c, now, emitter).await?
+            }
+            PipelineState::ShortCircuit(c) => return Ok(c),
+        };
+
+        // ── Step 7: rollback (T-032 stub today; today's pipeline never
+        //    reaches rollback because verify short-circuits on success). ──
+        let state = match state {
+            PipelineState::Continue(c) => self.step_rollback(envelope, c, now)?,
+            PipelineState::ShortCircuit(c) => return Ok(c),
+        };
+
+        // ── Step 8: terminal evidence pass-through. T-031 emits per-
+        //    transition above, so this final step is a structural no-op. ──
+        let state = match state {
+            PipelineState::Continue(c) | PipelineState::ShortCircuit(c) => {
+                self.step_emit_evidence(envelope, c, now)?
+            }
+        };
+        Ok(state.into_context())
+    }
+
+    /// T-031 — emitter-aware sibling of
+    /// [`Self::step_policy_evaluate_with_kernel`]. Emits
+    /// `POLICY_DECISION` after the kernel returns and before the
+    /// transition fires (so the receipt records both the decision id and
+    /// the lifecycle state the runtime moves into).
+    ///
+    /// On the no-kernel-attached fallback (T-027 stub: unconditional T4)
+    /// no `POLICY_DECISION` evidence is emitted because there is no
+    /// authentic decision to record. T-034 will re-emit at approval-
+    /// resume time once the orchestrator lands.
+    ///
+    /// # Errors
+    ///
+    /// Same as [`Self::step_policy_evaluate_with_kernel`]; additionally
+    /// returns [`RuntimeError::EvidenceEmitFailed`] on emitter failure.
+    #[allow(clippy::too_many_arguments)]
+    pub async fn step_policy_evaluate_with_kernel_and_emit(
+        &self,
+        envelope: &ActionEnvelope,
+        ctx: ActionContext,
+        now: DateTime<Utc>,
+        kernel: Option<&dyn PolicyKernel>,
+        runtime_context: Option<&RuntimeContext>,
+        tripwire: Option<&AtomicU64>,
+        emitter: &EvidenceEmitter,
+    ) -> Result<PipelineState, RuntimeError> {
+        let (Some(kernel), Some(rctx)) = (kernel, runtime_context) else {
+            // No kernel attached → fall back to T-027 stub. No POLICY_DECISION
+            // evidence (no authentic decision to record).
+            return self.step_policy_evaluate(envelope, ctx, now);
+        };
+
+        let policy_context = PolicyContext::new(
+            rctx.subject.clone(),
+            EnrichmentSnapshot::default(),
+            rctx.bundle_version.clone(),
+            rctx.code_version.clone(),
+        );
+
+        let evaluation = kernel.evaluate_policy(envelope, &policy_context).await;
+        let mut ctx = ctx;
+        match evaluation {
+            Ok(decision) => {
+                // Apply the §4.2 transition first so the emitted receipt
+                // records the lifecycle state the runtime moved into.
+                let state = match decision.decision {
+                    Decision::Allow => {
+                        apply_transition(&mut ctx, ActionLifecycleState::Approved, now)?;
+                        rctx.install_policy_constraints(Some(decision.constraints.clone()));
+                        if rctx.subject.is_ai
+                            && !decision.approval.approver_classes.iter().any(|c| {
+                                matches!(c, ApproverClass::Human | ApproverClass::Operator)
+                            })
+                        {
+                            if let Some(counter) = tripwire {
+                                counter.fetch_add(1, Ordering::AcqRel);
+                            }
+                        }
+                        PipelineState::Continue(ctx)
+                    }
+                    Decision::RequireApproval => {
+                        apply_transition(&mut ctx, ActionLifecycleState::ApprovalPending, now)?;
+                        rctx.install_policy_constraints(Some(decision.constraints.clone()));
+                        PipelineState::ShortCircuit(ctx)
+                    }
+                    Decision::Deny => {
+                        apply_transition(&mut ctx, ActionLifecycleState::PolicyDenied, now)?;
+                        rctx.install_policy_constraints(None);
+                        PipelineState::ShortCircuit(ctx)
+                    }
+                    Decision::Unspecified => {
+                        return Err(RuntimeError::PolicyEvalFailed(
+                            "kernel returned Decision::Unspecified (S2.3 §4 invariant violated)"
+                                .to_string(),
+                        ));
+                    }
+                };
+
+                // Emit POLICY_DECISION. The receipt links the decision id
+                // and the lifecycle state we just moved into.
+                let mut ctx_with_emit = state.into_context();
+                emitter
+                    .emit_policy_decision(envelope, &mut ctx_with_emit, &decision)
+                    .await?;
+                // Reconstruct the PipelineState. Allow → Continue; the
+                // other two are short-circuit terminals.
+                match decision.decision {
+                    Decision::Allow => Ok(PipelineState::Continue(ctx_with_emit)),
+                    _ => Ok(PipelineState::ShortCircuit(ctx_with_emit)),
+                }
+            }
+            Err(PolicyError::SubjectUnauthenticated) => {
+                apply_transition(&mut ctx, ActionLifecycleState::PolicyDenied, now)?;
+                ctx.error = Some(ExecutionFailureReason::EnvelopeValidationFailed);
+                rctx.install_policy_constraints(None);
+                // No POLICY_DECISION evidence — the kernel did not produce
+                // a decision. The terminal state alone is the audit
+                // signal; T-031 elects not to synthesise a phantom
+                // decision id.
+                Ok(PipelineState::ShortCircuit(ctx))
+            }
+            Err(other) => Err(RuntimeError::PolicyEvalFailed(other.to_string())),
+        }
+    }
+
+    /// T-031 — emitter-aware sibling of
+    /// [`Self::step_queue_with_engine`]. Emits the queue-enrolment
+    /// marker after the §4.2 T12 transition and the §11.4 downgrade
+    /// marker when the AI-interactive condition fires.
+    ///
+    /// # Errors
+    ///
+    /// Same as [`Self::step_queue_with_engine`]; additionally returns
+    /// [`RuntimeError::EvidenceEmitFailed`] on emitter failure.
+    pub async fn step_queue_with_engine_and_emit(
+        &self,
+        envelope: &ActionEnvelope,
+        ctx: ActionContext,
+        now: DateTime<Utc>,
+        queue: Option<&DispatchQueue>,
+        emitter: &EvidenceEmitter,
+    ) -> Result<PipelineState, RuntimeError> {
+        // §11.4 downgrade: check BEFORE running the queue step because
+        // `step_queue_with_engine` folds the downgrade into the selection
+        // (so by the time it returns, ctx.queue_class is already
+        // AGENT_PROPOSAL, losing the "was downgraded" signal). The
+        // dispatcher's pure `apply_ai_interactive_downgrade` helper
+        // computes the marker against the pre-enrolment context.
+        let downgrade_marker =
+            ActionDispatcher::apply_ai_interactive_downgrade(&ctx, envelope.identity.is_ai);
+
+        let state = self
+            .step_queue_with_engine(envelope, ctx, now, queue)
+            .await?;
+        match state {
+            PipelineState::Continue(mut c) => {
+                let queue_class = c.queue_class;
+                emitter
+                    .emit_action_queued(envelope, &mut c, queue_class)
+                    .await?;
+                if downgrade_marker.is_some() {
+                    emitter
+                        .emit_ai_interactive_queue_downgrade(envelope, &mut c)
+                        .await?;
+                }
+                Ok(PipelineState::Continue(c))
+            }
+            PipelineState::ShortCircuit(c) => Ok(PipelineState::ShortCircuit(c)),
+        }
+    }
+
+    /// T-031 — emitter-aware sibling of
+    /// [`Self::step_execute_with_engines`]. Emits `ROUTING_DECISION`
+    /// (S3.1 §4 ID 3) after the adapter is resolved and
+    /// `EXECUTION_STARTED` (S3.1 §4 ID 8) after the §4.2 T13 transition
+    /// fires.
+    ///
+    /// When no registry is attached the routing/execution emissions are
+    /// skipped — the T-027 baseline is preserved bit-for-bit.
+    ///
+    /// # Errors
+    ///
+    /// Same as [`Self::step_execute_with_engines`]; additionally returns
+    /// [`RuntimeError::EvidenceEmitFailed`] on emitter failure.
+    pub async fn step_execute_with_engines_and_emit(
+        &self,
+        envelope: &ActionEnvelope,
+        ctx: ActionContext,
+        now: DateTime<Utc>,
+        registry: Option<&InMemoryAdapterRegistry>,
+        emitter: &EvidenceEmitter,
+    ) -> Result<PipelineState, RuntimeError> {
+        // Reuse the existing engine-aware step which sets `ctx.dispatch_kind`
+        // when a registry is attached and drives the §4.2 T13 / T14
+        // transition.
+        let routed_adapter_id = registry.and_then(|reg| {
+            use crate::runtime::AdapterRegistry;
+            reg.lookup(&envelope.request.action)
+                .map(|_| envelope.request.action.clone())
+        });
+        let state = self.step_execute_with_engines(envelope, ctx, now, registry)?;
+        match state {
+            PipelineState::Continue(mut c) => {
+                // Adapter resolved: emit ROUTING_DECISION then
+                // EXECUTION_STARTED.
+                if let Some(adapter_kind) = routed_adapter_id {
+                    let dispatch_kind = c.dispatch_kind;
+                    emitter
+                        .emit_routing_decision(envelope, &mut c, &adapter_kind, dispatch_kind)
+                        .await?;
+                }
+                emitter.emit_execution_started(envelope, &mut c).await?;
+                Ok(PipelineState::Continue(c))
+            }
+            PipelineState::ShortCircuit(c) => Ok(PipelineState::ShortCircuit(c)),
+        }
+    }
+
+    /// T-031 — emitter-aware sibling of [`Self::step_verify`]. Emits
+    /// `EXECUTION_COMPLETED` (S3.1 §4 ID 9) then `VERIFICATION_RESULT`
+    /// (S3.1 §4 ID 10). Today's stub always drives `SUCCEEDED`; T-035
+    /// will swap in the real verification engine without changing the
+    /// emission shape.
+    ///
+    /// # Errors
+    ///
+    /// Same as [`Self::step_verify`]; additionally returns
+    /// [`RuntimeError::EvidenceEmitFailed`] on emitter failure.
+    pub async fn step_verify_and_emit(
+        &self,
+        envelope: &ActionEnvelope,
+        ctx: ActionContext,
+        now: DateTime<Utc>,
+        emitter: &EvidenceEmitter,
+    ) -> Result<PipelineState, RuntimeError> {
+        // First emit EXECUTION_COMPLETED for the EXECUTING → VERIFYING
+        // transition. We do this before driving step_verify because that
+        // step performs two consecutive transitions (T15 then T17) and
+        // we need to fence the EXECUTION_COMPLETED before the
+        // VERIFICATION_RESULT.
+        let mut pre = ctx;
+        emitter
+            .emit_execution_completed(envelope, &mut pre, "ADAPTER_OK")
+            .await?;
+        let state = self.step_verify(envelope, pre, now)?;
+        match state {
+            PipelineState::Continue(mut c) | PipelineState::ShortCircuit(mut c) => {
+                let passed = c.status == ActionLifecycleState::Succeeded;
+                emitter
+                    .emit_verification_result(envelope, &mut c, passed)
+                    .await?;
+                // Re-wrap as ShortCircuit because step_verify always ends
+                // in a terminal in T-031 scope (today's stub drives
+                // SUCCEEDED unconditionally).
+                Ok(PipelineState::ShortCircuit(c))
+            }
+        }
     }
 
     /// T-030 — sibling of [`Self::step_policy_evaluate`] that consults the

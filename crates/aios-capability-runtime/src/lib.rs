@@ -48,6 +48,8 @@ pub mod dispatch;
 pub mod dispatch_queue;
 pub mod dispatcher;
 pub mod error;
+pub mod evidence_emit;
+pub mod evidence_payloads;
 pub mod failure;
 pub mod pipeline;
 pub mod runtime;
@@ -67,6 +69,14 @@ pub use dispatch_queue::{
 };
 pub use dispatcher::{ActionDispatcher, AI_INTERACTIVE_DOWNGRADE_MARKER};
 pub use error::RuntimeError;
+pub use evidence_emit::{
+    EvidenceEmitter, EvidenceSink, InMemoryEvidenceSink, CAPABILITY_RUNTIME_SUBJECT,
+};
+pub use evidence_payloads::{
+    ActionQueuedPayload, ActionReceivedPayload, AiInteractiveQueueDowngradePayload,
+    ExecutionCompletedPayload, ExecutionStartedPayload, PolicyDecisionPayload,
+    RollbackCompletedPayload, RoutingDecisionPayload, VerificationResultPayload,
+};
 pub use failure::{ExecutionFailureReason, RollbackOutcome, RuntimeErrorCode};
 pub use pipeline::{
     apply_transition, compute_dispatch_kind, fresh_context, ActionLifecyclePipeline,

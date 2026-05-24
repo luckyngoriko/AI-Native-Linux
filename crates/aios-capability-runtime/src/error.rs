@@ -120,4 +120,14 @@ pub enum RuntimeError {
     /// runtime's input contract.
     #[error("policy evaluation failed: {0}")]
     PolicyEvalFailed(String),
+
+    /// The configured [`crate::EvidenceSink`] refused an append (sealing
+    /// failure, chain-broken, signing key unavailable, storage error, …).
+    /// T-031 surface. Per S10.1 §3.8 / §12.6 the runtime fails closed on
+    /// evidence emission failure: the action does not progress to
+    /// `SUCCEEDED` while the evidence chain is degraded (INV-014). The
+    /// gRPC adapter (T-033) maps this onto
+    /// [`crate::RuntimeErrorCode::EvidenceLogUnavailable`].
+    #[error("evidence emission failed: {0}")]
+    EvidenceEmitFailed(String),
 }

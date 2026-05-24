@@ -43,6 +43,7 @@ use crate::context::ActionContext;
 use crate::dispatch::ActionDispatchKind;
 use crate::dispatch_queue::DispatchQueue;
 use crate::error::RuntimeError;
+use crate::evidence_emit::EvidenceEmitter;
 use crate::pipeline::{fresh_context, ActionLifecyclePipeline};
 
 // ---------------------------------------------------------------------------
@@ -424,6 +425,19 @@ pub struct InMemoryCapabilityRuntime {
     /// When `None`, step 2 falls back to the T-027 stub (unconditional T4)
     /// so the T-027 / T-028 / T-029 test baselines stay green.
     policy_kernel: Option<Arc<dyn PolicyKernel>>,
+    /// T-031 — optional [`EvidenceEmitter`] handle.
+    ///
+    /// When `Some(...)`, the runtime routes the pipeline through
+    /// [`ActionLifecyclePipeline::run_with_full_engines_and_evidence`]
+    /// which emits one [`aios_evidence::EvidenceReceipt`] at every §4.2
+    /// transition and records the receipt id on
+    /// [`crate::ActionContext::evidence_chain`].
+    ///
+    /// When `None`, the runtime preserves the T-027 / T-028 / T-029 /
+    /// T-030 baseline: `step_emit_evidence` is a structural no-op and the
+    /// per-action evidence chain remains empty. This keeps the existing
+    /// test surfaces bit-for-bit compatible.
+    evidence_emitter: Option<Arc<EvidenceEmitter>>,
     /// T-030 — defense-in-depth tripwire counter for the §17 AI
     /// self-approval prevention boundary.
     ///
@@ -452,6 +466,7 @@ impl std::fmt::Debug for InMemoryCapabilityRuntime {
             .field("adapter_registry", &self.adapter_registry.is_some())
             .field("dispatch_queue", &self.dispatch_queue.is_some())
             .field("policy_kernel", &self.policy_kernel.is_some())
+            .field("evidence_emitter", &self.evidence_emitter.is_some())
             .field(
                 "policy_double_check_warnings",
                 &self.policy_double_check_warnings.load(Ordering::Acquire),
@@ -476,6 +491,7 @@ impl InMemoryCapabilityRuntime {
             adapter_registry: None,
             dispatch_queue: None,
             policy_kernel: None,
+            evidence_emitter: None,
             policy_double_check_warnings: Arc::new(AtomicU64::new(0)),
         }
     }
@@ -553,6 +569,30 @@ impl InMemoryCapabilityRuntime {
         self.policy_kernel.as_ref()
     }
 
+    /// Attach an [`EvidenceEmitter`] to the runtime. Returns `self` for
+    /// chaining.
+    ///
+    /// **T-031 entry point.** With an emitter attached, the runtime
+    /// routes through
+    /// [`ActionLifecyclePipeline::run_with_full_engines_and_evidence`]
+    /// which appends one [`aios_evidence::EvidenceReceipt`] at every
+    /// §4.2 transition and threads the receipt id onto
+    /// [`crate::ActionContext::evidence_chain`]. Without an emitter, the
+    /// T-027 / T-028 / T-029 / T-030 baselines are preserved verbatim:
+    /// `step_emit_evidence` is a structural no-op and the per-action
+    /// evidence chain stays empty.
+    #[must_use]
+    pub fn with_evidence_emitter(mut self, emitter: Arc<EvidenceEmitter>) -> Self {
+        self.evidence_emitter = Some(emitter);
+        self
+    }
+
+    /// Borrow the attached evidence emitter, if any.
+    #[must_use]
+    pub const fn evidence_emitter(&self) -> Option<&Arc<EvidenceEmitter>> {
+        self.evidence_emitter.as_ref()
+    }
+
     /// Snapshot the count of `Decision::Allow` results the §17 tripwire
     /// has flagged for an AI subject without a human approver class.
     ///
@@ -610,19 +650,38 @@ impl CapabilityRuntime for InMemoryCapabilityRuntime {
         let registry_ref = self.adapter_registry.as_deref();
         let queue_ref = self.dispatch_queue.as_deref();
         let kernel_ref = self.policy_kernel.as_deref();
-        let final_ctx = self
-            .pipeline
-            .run_with_full_engines(
-                envelope,
-                ctx,
-                now,
-                registry_ref,
-                queue_ref,
-                kernel_ref,
-                Some(context),
-                Some(&self.policy_double_check_warnings),
-            )
-            .await?;
+        let final_ctx = if let Some(emitter) = self.evidence_emitter.as_deref() {
+            // T-031 path — every §4.2 transition emits an evidence receipt.
+            self.pipeline
+                .run_with_full_engines_and_evidence(
+                    envelope,
+                    ctx,
+                    now,
+                    registry_ref,
+                    queue_ref,
+                    kernel_ref,
+                    Some(context),
+                    Some(&self.policy_double_check_warnings),
+                    emitter,
+                )
+                .await?
+        } else {
+            // T-027 / T-028 / T-029 / T-030 baseline — no emitter, no
+            // evidence appended. The pipeline's `step_emit_evidence` is a
+            // structural no-op.
+            self.pipeline
+                .run_with_full_engines(
+                    envelope,
+                    ctx,
+                    now,
+                    registry_ref,
+                    queue_ref,
+                    kernel_ref,
+                    Some(context),
+                    Some(&self.policy_double_check_warnings),
+                )
+                .await?
+        };
 
         // Persist for subsequent `get_action_status` reads.
         self.contexts

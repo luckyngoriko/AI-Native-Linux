@@ -34,6 +34,7 @@ pub mod impl_space;
 pub mod in_memory;
 pub mod lifecycle;
 pub mod namespace;
+pub mod namespace_policy;
 pub mod object;
 pub mod pointer;
 pub mod quarantine;
@@ -56,7 +57,8 @@ pub use impl_space::{
 };
 pub use in_memory::InMemoryAiosFs;
 pub use lifecycle::LifecycleState;
-pub use namespace::{AiosPath, NamespaceClass};
+pub use namespace::{AiosPath, EvidenceGradeFloor, NamespaceClass};
+pub use namespace_policy::NamespacePolicy;
 pub use object::{
     Object, ObjectId, ObjectInit, ObjectKind, ObjectMetadata, PrivacyClass, ScopeBinding,
     ScopeKind, SubjectRef,

@@ -3,6 +3,25 @@
 use serde::{Deserialize, Serialize};
 use strum_macros::{EnumCount, EnumIter};
 
+/// Minimum evidence grade required before a namespace mutation can claim REAL.
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[serde(transparent)]
+pub struct EvidenceGradeFloor(String);
+
+impl EvidenceGradeFloor {
+    /// Adopt a closed evidence grade string.
+    #[must_use]
+    pub fn new(grade: impl Into<String>) -> Self {
+        Self(grade.into())
+    }
+
+    /// Borrow the evidence grade string.
+    #[must_use]
+    pub fn as_str(&self) -> &str {
+        &self.0
+    }
+}
+
 /// AIOS namespace path string.
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(transparent)]
@@ -65,6 +84,38 @@ pub enum NamespaceClass {
     SystemRuntime,
     /// `/aios/system/recovery` — recovery-only mutation.
     SystemRecovery,
+    /// `/aios/system/boot`.
+    SystemBoot,
+    /// `/aios/system/firstboot`.
+    SystemFirstboot,
+    /// `/aios/system/governance`.
+    SystemGovernance,
+    /// `/aios/system/identity`.
+    SystemIdentity,
+    /// `/aios/system/kernel`.
+    SystemKernel,
+    /// `/aios/system/hardware`.
+    SystemHardware,
+    /// `/aios/system/drivers`.
+    SystemDrivers,
+    /// `/aios/system/firmware`.
+    SystemFirmware,
+    /// `/aios/system/network`.
+    SystemNetwork,
+    /// `/aios/system/sgr`.
+    SystemSgr,
+    /// `/aios/system/units`.
+    SystemUnits,
+    /// `/aios/system/runbooks`.
+    SystemRunbooks,
+    /// `/aios/system/themes`.
+    SystemThemes,
+    /// `/aios/system/renderers`.
+    SystemRenderers,
+    /// `/aios/system/web`.
+    SystemWeb,
+    /// `/aios/system/distribution`.
+    SystemDistribution,
     /// `/aios/groups`.
     Groups,
     /// `/aios/groups/<group_id>`.
@@ -91,6 +142,10 @@ pub enum NamespaceClass {
     GroupVault,
     /// `/aios/groups/<group_id>/audit`.
     GroupAudit,
+    /// `/aios/groups/<group_id>/services`.
+    GroupServices,
+    /// `/aios/groups/<group_id>/system`.
+    GroupSystem,
     /// `/aios/groups/<group_id>/users/<user_id>`.
     User,
     /// `/aios/groups/<group_id>/users/<user_id>/home`.
@@ -109,6 +164,82 @@ pub enum NamespaceClass {
     UserDrafts,
     /// `/aios/groups/<group_id>/users/<user_id>/trust`.
     UserTrust,
+    /// `/aios/groups/<group_id>/users/<user_id>/apps`.
+    UserApps,
+    /// `/aios/groups/<group_id>/users/<user_id>/runtime`.
+    UserRuntime,
+    /// `/aios/groups/<group_id>/users/<user_id>/exports`.
+    UserExports,
+}
+
+impl NamespaceClass {
+    /// Return true for namespaces whose mutation surface is recovery-bound.
+    #[must_use]
+    pub const fn is_recovery_only_mutation(&self) -> bool {
+        matches!(
+            self,
+            Self::SystemPolicy
+                | Self::SystemCapabilities
+                | Self::SystemVault
+                | Self::SystemRecovery
+                | Self::SystemBoot
+                | Self::SystemFirstboot
+                | Self::SystemGovernance
+                | Self::SystemIdentity
+                | Self::SystemKernel
+                | Self::SystemFirmware
+        )
+    }
+
+    /// Return true for namespaces where AI subjects are never mutation actors.
+    #[must_use]
+    pub const fn is_read_only_for_ai(&self) -> bool {
+        matches!(
+            self,
+            Self::System
+                | Self::SystemApps
+                | Self::SystemAgents
+                | Self::SystemPolicy
+                | Self::SystemCapabilities
+                | Self::SystemEvidence
+                | Self::SystemVault
+                | Self::SystemRuntime
+                | Self::SystemRecovery
+                | Self::SystemBoot
+                | Self::SystemFirstboot
+                | Self::SystemGovernance
+                | Self::SystemIdentity
+                | Self::SystemKernel
+                | Self::SystemHardware
+                | Self::SystemDrivers
+                | Self::SystemFirmware
+                | Self::SystemNetwork
+                | Self::SystemSgr
+                | Self::SystemUnits
+                | Self::SystemRunbooks
+                | Self::SystemThemes
+                | Self::SystemRenderers
+                | Self::SystemWeb
+                | Self::SystemDistribution
+                | Self::GroupSystem
+        )
+    }
+
+    /// Minimum evidence grade for mutating this namespace class.
+    #[must_use]
+    pub fn evidence_grade_floor(&self) -> EvidenceGradeFloor {
+        let grade = if self.is_read_only_for_ai()
+            || matches!(
+                self,
+                Self::GroupPolicy | Self::GroupVault | Self::GroupAudit | Self::UserTrust
+            ) {
+            "E4"
+        } else {
+            "E3"
+        };
+
+        EvidenceGradeFloor::new(grade)
+    }
 }
 
 fn parse_segments(path: &str) -> Option<Vec<&str>> {
@@ -138,6 +269,22 @@ fn system_reserved_class(segment: &str) -> Option<NamespaceClass> {
         "vault" => Some(NamespaceClass::SystemVault),
         "runtime" => Some(NamespaceClass::SystemRuntime),
         "recovery" => Some(NamespaceClass::SystemRecovery),
+        "boot" => Some(NamespaceClass::SystemBoot),
+        "firstboot" => Some(NamespaceClass::SystemFirstboot),
+        "governance" => Some(NamespaceClass::SystemGovernance),
+        "identity" => Some(NamespaceClass::SystemIdentity),
+        "kernel" => Some(NamespaceClass::SystemKernel),
+        "hardware" => Some(NamespaceClass::SystemHardware),
+        "drivers" => Some(NamespaceClass::SystemDrivers),
+        "firmware" => Some(NamespaceClass::SystemFirmware),
+        "network" => Some(NamespaceClass::SystemNetwork),
+        "sgr" => Some(NamespaceClass::SystemSgr),
+        "units" => Some(NamespaceClass::SystemUnits),
+        "runbooks" => Some(NamespaceClass::SystemRunbooks),
+        "themes" => Some(NamespaceClass::SystemThemes),
+        "renderers" => Some(NamespaceClass::SystemRenderers),
+        "web" => Some(NamespaceClass::SystemWeb),
+        "distribution" => Some(NamespaceClass::SystemDistribution),
         _ => None,
     }
 }
@@ -155,6 +302,8 @@ fn group_reserved_class(segment: &str) -> Option<NamespaceClass> {
         "evidence" => Some(NamespaceClass::GroupEvidence),
         "vault" => Some(NamespaceClass::GroupVault),
         "audit" => Some(NamespaceClass::GroupAudit),
+        "services" => Some(NamespaceClass::GroupServices),
+        "system" => Some(NamespaceClass::GroupSystem),
         _ => None,
     }
 }
@@ -169,6 +318,9 @@ fn user_reserved_class(segment: &str) -> Option<NamespaceClass> {
         "outbox" => Some(NamespaceClass::UserOutbox),
         "drafts" => Some(NamespaceClass::UserDrafts),
         "trust" => Some(NamespaceClass::UserTrust),
+        "apps" => Some(NamespaceClass::UserApps),
+        "runtime" => Some(NamespaceClass::UserRuntime),
+        "exports" => Some(NamespaceClass::UserExports),
         _ => None,
     }
 }

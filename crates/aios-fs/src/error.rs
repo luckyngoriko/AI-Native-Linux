@@ -57,6 +57,15 @@ pub enum FsError {
     #[error("invalid AIOS path: {0}")]
     InvalidPath(String),
 
+    /// Namespace policy rejected a mutation request.
+    #[error("namespace mutation denied for {path}: {reason}")]
+    NamespaceMutationDenied {
+        /// Target path that was rejected.
+        path: String,
+        /// Human-readable rejection reason.
+        reason: String,
+    },
+
     /// Read or mutation attempted to cross quarantine boundaries.
     #[error("quarantine violation: {0}")]
     QuarantineViolation(String),

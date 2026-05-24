@@ -222,6 +222,12 @@
       "title": "aios-fs - Implementation space binding (S2.2)",
       "completed_at": "2026-05-24",
       "evidence": "911 tests workspace (+20 over T-040 baseline 891). New crates/aios-fs/src/impl_space.rs with ImplSpace async trait, ImplSpaceTarget, ImplSpaceSource, IntegrityState, ImplSpaceBinding, and InMemoryImplSpace + with_fixtures(). FsError additions: ImplSpaceBindingNotFound, ImplSpaceTargetUnreachable, ImplSpaceIntegrityFailed. Tests: crates/aios-fs/tests/impl_space.rs (20). Gates PASS: cargo check --workspace + cargo test --workspace + cargo clippy --workspace --all-targets -- -D warnings + cargo fmt --all -- --check. Scope guard held: no namespace expansion, no gRPC, no evidence emission, no real I/O/encryption/network."
+    },
+    {
+      "id": "T-042",
+      "title": "aios-fs - Namespace layout full vocabulary + recovery-only mutation policy (S4.1 + INV-022)",
+      "completed_at": "2026-05-24",
+      "evidence": "930 tests workspace (+19 over T-041 baseline 911). NamespaceClass expanded to S4.1 Wave 8 vocabulary (52 classes including retained bare System/Groups/Group/User classes), EvidenceGradeFloor helper added, recovery-only and AI-read-only mutation helpers added, NamespacePolicy::can_mutate added as the recovery/AI namespace admission gate, FsError::NamespaceMutationDenied added. Tests: crates/aios-fs/tests/namespace.rs (19). Gates PASS: cargo check --workspace + cargo test --workspace + cargo clippy --workspace --all-targets -- -D warnings + cargo fmt --all -- --check. Scope guard: no gRPC, no evidence emission, no M5 closer. Note: crates/aios-fs/src/query_eval.rs required mechanical token arms for the expanded enum so Rust exhaustive matching still compiles."
     }
   ],
   "blocked": [],
@@ -324,9 +330,10 @@
         "T-038",
         "T-039",
         "T-040",
-        "T-041"
+        "T-041",
+        "T-042"
       ],
-      "current_test_count": 911,
+      "current_test_count": 930,
       "rationale": "Closes \u00a722 phase-2 (mount /aios + versioned object + semantic view). Unblocks M4 enrichment stub."
     },
     "M6": {

@@ -122,32 +122,43 @@ def analyze(model_path: Path) -> dict:
             orphan_specs.append({"name": spec.name, "uuid": spec.uuid})
 
     # ── Gap 3: Layer inversion (INV-007 candidates) ─────────────────────
-    # Walk Consumes traces (we stored them in cap.traces).
-    # Determine consumer layer + producer layer from description.
+    # Walk project-owned MergeLink traces (Iteration 3 — replaces the
+    # iter-2 cap.traces approach which only saw 33/238 due to capellambse
+    # API quirk; project.traces sees all 238 fully-persisted edges).
+    # Skip CapabilityRealization entries (those are INV → sub-spec links
+    # which appear in the same traces collection; we want Consumes here).
     layer_inversions = []
     consumes_edges: list[tuple[str, str]] = []  # (consumer, producer) names
-    for spec in spec_caps:
-        consumer_layer = _extract_layer_from_description(getattr(spec, "description", None))
-        for traced in spec.traces:
-            consumes_edges.append((spec.name, traced.name))
-            producer_layer = _extract_layer_from_description(
-                getattr(traced, "description", None)
+    spec_uuids = {c.uuid for layer, c in all_caps if not c.name.startswith("INV-")}
+
+    for trace in model.project.traces:
+        src = getattr(trace, "source", None)
+        tgt = getattr(trace, "target", None)
+        if src is None or tgt is None:
+            continue
+        # Only count Consumes-style traces: both endpoints are sub-spec
+        # capabilities (not INVs); skip CapabilityRealization links
+        if type(trace).__name__ in ("CapabilityRealization", "AbstractCapabilityRealization"):
+            continue
+        if src.uuid not in spec_uuids or tgt.uuid not in spec_uuids:
+            continue
+        consumes_edges.append((src.name, tgt.name))
+        consumer_layer = _extract_layer_from_description(getattr(src, "description", None))
+        producer_layer = _extract_layer_from_description(getattr(tgt, "description", None))
+        if consumer_layer is None or producer_layer is None:
+            continue
+        c_idx = LAYER_ORDER.get(consumer_layer, 999)
+        p_idx = LAYER_ORDER.get(producer_layer, 999)
+        if p_idx > c_idx and consumer_layer != "XX" and producer_layer != "XX":
+            layer_inversions.append(
+                {
+                    "consumer": src.name,
+                    "consumer_layer": consumer_layer,
+                    "producer": tgt.name,
+                    "producer_layer": producer_layer,
+                    "note": "Consumer's layer index is numerically lower than producer's — INV-007 candidate. Verify whether the Consumes header marks this as `imports-vocabulary-from` (allowed) or `requires-for-correctness` (forbidden).",
+                }
             )
-            if consumer_layer is None or producer_layer is None:
-                continue
-            c_idx = LAYER_ORDER.get(consumer_layer, 999)
-            p_idx = LAYER_ORDER.get(producer_layer, 999)
-            if p_idx > c_idx and consumer_layer != "XX" and producer_layer != "XX":
-                # Higher-numbered producer = upward consumption
-                layer_inversions.append(
-                    {
-                        "consumer": spec.name,
-                        "consumer_layer": consumer_layer,
-                        "producer": traced.name,
-                        "producer_layer": producer_layer,
-                        "note": "Consumer's layer index is numerically lower than producer's — INV-007 candidate. Verify whether the Consumes header marks this as `imports-vocabulary-from` (allowed) or `requires-for-correctness` (forbidden).",
-                    }
-                )
 
     # ── Gap 4: Cycles in Consumes graph ─────────────────────────────────
     graph: dict[str, list[str]] = defaultdict(list)

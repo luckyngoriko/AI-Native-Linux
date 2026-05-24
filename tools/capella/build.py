@@ -271,14 +271,18 @@ def wire_inv_traces(model, inv_records: list[dict], spec_records: list[dict], tr
 
 
 def wire_consumes_traces(model, spec_records: list[dict], consumes_rows: list[dict]) -> int:
-    """For each sub-spec X that consumes from sub-spec Y, create a generic
-    trace link X → Y. Captures the cross-spec vocabulary-import dependency
-    graph (the 238 edges from manifests/trace_consumes.csv).
+    """For each sub-spec X that consumes from sub-spec Y, create an explicit
+    project-owned MergeLink (source=X, target=Y) capturing the cross-spec
+    vocabulary-import dependency graph (the 238 edges from
+    manifests/trace_consumes.csv).
 
-    Capella semantic: traces are generic "is related to" links; we use them
-    here as the consumer→producer dependency. NOT capability realization
-    (those go INV → sub-spec, not sub-spec → sub-spec) and NOT functional
-    chains (those require typed exchanges we don't yet model).
+    Iteration 3 correction (vs iteration 2): the previous
+    `consumer_cap.traces.append(producer_cap)` pattern relied on a derived
+    collection that did NOT reliably persist generic cross-package traces
+    (only 33/238 visible on reload — most were no-ops). The correct
+    capellambse API is `model.project.traces.create(source=, target=)`
+    which materialises a real MergeLink owned by the project root, fully
+    persistent on save+reload.
     """
     spec_lookup = {r["phase_tag"]: r["uuid"] for r in spec_records}
     cap_by_uuid = {}
@@ -286,6 +290,7 @@ def wire_consumes_traces(model, spec_records: list[dict], consumes_rows: list[di
         for cap in getattr(model, layer).all_capabilities:
             cap_by_uuid[cap.uuid] = cap
 
+    traces_collection = model.project.traces
     wired = 0
     skipped = []
     for row in consumes_rows:
@@ -300,7 +305,7 @@ def wire_consumes_traces(model, spec_records: list[dict], consumes_rows: list[di
             skipped.append((consumer, producer))
             continue
         try:
-            consumer_cap.traces.append(producer_cap)
+            traces_collection.create(source=consumer_cap, target=producer_cap)
             wired += 1
         except Exception as e:
             skipped.append((consumer, producer, str(e)[:80]))

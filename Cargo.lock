@@ -178,6 +178,9 @@ dependencies = [
  "ed25519-dalek",
  "hkdf",
  "hmac",
+ "prost",
+ "prost-types",
+ "protoc-bin-vendored",
  "rand_core 0.6.4",
  "serde",
  "serde_json",
@@ -186,6 +189,8 @@ dependencies = [
  "strum_macros",
  "thiserror",
  "tokio",
+ "tonic",
+ "tonic-build",
  "ulid",
  "x25519-dalek",
 ]

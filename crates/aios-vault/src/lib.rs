@@ -25,6 +25,7 @@ pub mod key_material;
 pub mod lifecycle;
 pub mod override_broker;
 pub mod override_class;
+pub mod service;
 
 pub use audit::{CapabilityAuditEntry, CapabilityAuditLog};
 pub use broker::{
@@ -42,3 +43,7 @@ pub use key_material::{KeyAlgorithm, KeyMaterial};
 pub use lifecycle::{CapabilityLifecycleDriver, ExpirationPassReport};
 pub use override_broker::{GrantOverrideRequest, InMemoryOverrideBroker, OverrideBroker};
 pub use override_class::{OverrideBinding, OverrideBindingState, OverrideClass};
+pub use service::{VaultBrokerClient, VaultBrokerGrpcServer, VaultBrokerService};
+
+/// Default Rust crate code version for the T-052 `VaultBroker` service surface.
+pub const DEFAULT_CODE_VERSION: &str = service::server::DEFAULT_CODE_VERSION;

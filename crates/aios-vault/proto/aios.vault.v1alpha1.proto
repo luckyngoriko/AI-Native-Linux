@@ -1,0 +1,429 @@
+// AIOS S5.2 — VaultBroker gRPC service surface (T-052).
+//
+// INV-018: response messages never carry raw key bytes. Imported
+// IssueCapabilityRequest.key_material_bytes is accepted only as an inbound
+// material source; VaultCapabilityProto exposes key_material_handle only.
+
+syntax = "proto3";
+package aios.vault.v1alpha1;
+
+import "google/protobuf/timestamp.proto";
+
+service VaultBroker {
+  rpc IssueCapability(IssueCapabilityRequest) returns (IssueCapabilityResponse);
+  rpc UseCapability(UseCapabilityRequest) returns (UseCapabilityResponse);
+  rpc ListCapabilities(ListCapabilitiesRequest) returns (ListCapabilitiesResponse);
+  rpc RevokeCapability(RevokeCapabilityRequest) returns (RevokeCapabilityResponse);
+
+  rpc GrantOverride(GrantOverrideRequest) returns (GrantOverrideResponse);
+  rpc ConsumeOverride(ConsumeOverrideRequest) returns (ConsumeOverrideResponse);
+  rpc RevokeOverride(RevokeOverrideRequest) returns (RevokeOverrideResponse);
+  rpc LookupOverride(LookupOverrideRequest) returns (LookupOverrideResponse);
+  rpc ListOverridesForSubject(ListOverridesForSubjectRequest) returns (ListOverridesForSubjectResponse);
+
+  rpc RegisterSubject(RegisterSubjectRequest) returns (RegisterSubjectResponse);
+  rpc LookupSubject(LookupSubjectRequest) returns (LookupSubjectResponse);
+  rpc StartSession(StartSessionRequest) returns (StartSessionResponse);
+  rpc LookupSession(LookupSessionRequest) returns (LookupSessionResponse);
+  rpc SuspendSession(SuspendSessionRequest) returns (SuspendSessionResponse);
+  rpc RevokeSession(RevokeSessionRequest) returns (RevokeSessionResponse);
+
+  rpc GetAuditEntry(GetAuditEntryRequest) returns (GetAuditEntryResponse);
+  rpc ListAuditEntries(ListAuditEntriesRequest) returns (ListAuditEntriesResponse);
+  rpc RunExpirationPass(RunExpirationPassRequest) returns (RunExpirationPassResponse);
+
+  rpc GetVaultInfo(GetVaultInfoRequest) returns (GetVaultInfoResponse);
+}
+
+enum VaultCapabilityClass {
+  VAULT_CAPABILITY_CLASS_UNSPECIFIED = 0;
+  KEY_SIGN = 1;
+  KEY_VERIFY = 2;
+  KEY_ENCRYPT = 3;
+  KEY_DECRYPT = 4;
+  MAC_GENERATE = 5;
+  MAC_VERIFY = 6;
+  RANDOM_GENERATE = 7;
+  SECRET_GET = 8;
+  BOOTSTRAP_KEY_SIGN = 9;
+}
+
+enum CapabilityState {
+  CAPABILITY_STATE_UNSPECIFIED = 0;
+  DRAFT = 1;
+  ACTIVE = 2;
+  EXPIRED = 3;
+  REVOKED = 4;
+  ROTATED = 5;
+  DISCARDED = 6;
+}
+
+enum KeyAlgorithm {
+  KEY_ALGORITHM_UNSPECIFIED = 0;
+  AES_256_GCM = 1;
+  HMAC_SHA256 = 2;
+  HKDF_SHA256 = 3;
+  ED25519 = 4;
+  X25519 = 5;
+}
+
+enum OverrideClass {
+  OVERRIDE_CLASS_UNSPECIFIED = 0;
+  STRONG_SOLO = 1;
+  DUAL_HUMAN = 2;
+  TRIPLE_HUMAN = 3;
+}
+
+enum OverrideBindingState {
+  OVERRIDE_BINDING_STATE_UNSPECIFIED = 0;
+  OVERRIDE_BINDING_STATE_GRANTED = 1;
+  OVERRIDE_BINDING_STATE_CONSUMED = 2;
+  OVERRIDE_BINDING_STATE_REVOKED = 3;
+  OVERRIDE_BINDING_STATE_EXPIRED = 4;
+}
+
+enum SubjectType {
+  SUBJECT_TYPE_UNSPECIFIED = 0;
+  HUMAN_USER = 1;
+  AI_AGENT = 2;
+  APPLICATION = 3;
+  SERVICE = 4;
+  DEVICE = 5;
+  WORKFLOW = 6;
+  REMOTE_OPERATOR = 7;
+  LOCAL_OPERATOR = 8;
+}
+
+enum SessionState {
+  SESSION_STATE_UNSPECIFIED = 0;
+  SESSION_ACTIVE = 1;
+  SESSION_SUSPENDED = 2;
+  SESSION_REVOKED = 3;
+  SESSION_EXPIRED = 4;
+}
+
+message VaultCapabilityProto {
+  string capability_id = 1;
+  VaultCapabilityClass class = 2;
+  string issued_to = 3;
+  google.protobuf.Timestamp issued_at = 4;
+  google.protobuf.Timestamp expires_at = 5;
+  CapabilityState state = 6;
+  string key_material_handle = 7;
+}
+
+message IssueCapabilityRequest {
+  VaultCapabilityClass class = 1;
+  string issued_to = 2;
+  google.protobuf.Timestamp expires_at = 3;
+  KeyAlgorithm key_algorithm = 4;
+  optional bytes key_material_bytes = 5;
+}
+
+message IssueCapabilityResponse {
+  VaultCapabilityProto capability = 1;
+}
+
+message EncryptRequest {
+  bytes plaintext = 1;
+  bytes aad = 2;
+}
+
+message DecryptRequest {
+  bytes ciphertext = 1;
+  bytes aad = 2;
+}
+
+message MacGenerateRequest {
+  bytes message = 1;
+}
+
+message MacVerifyRequest {
+  bytes message = 1;
+  bytes tag = 2;
+}
+
+message KdfDeriveRequest {
+  bytes info = 1;
+  uint32 length = 2;
+}
+
+message SignRequest {
+  bytes message = 1;
+}
+
+message VerifyRequest {
+  bytes message = 1;
+  bytes signature = 2;
+}
+
+message RandomGenerateRequest {
+  uint32 byte_count = 1;
+}
+
+message SecretGetRequest {
+  string co_signer_approval_id = 1;
+}
+
+message VaultOperation {
+  oneof operation {
+    EncryptRequest enc = 1;
+    DecryptRequest dec = 2;
+    MacGenerateRequest mac_gen = 3;
+    MacVerifyRequest mac_verify = 4;
+    KdfDeriveRequest kdf_derive = 5;
+    SignRequest sign = 6;
+    VerifyRequest verify = 7;
+    RandomGenerateRequest random_generate = 8;
+    SecretGetRequest secret_get = 9;
+  }
+}
+
+message UseCapabilityRequest {
+  string capability_id = 1;
+  VaultOperation operation = 2;
+}
+
+message EncryptedResult {
+  bytes ciphertext = 1;
+  bytes nonce = 2;
+  bytes aad = 3;
+}
+
+message DecryptedResult {
+  bytes plaintext = 1;
+}
+
+message MacGeneratedResult {
+  bytes tag = 1;
+}
+
+message MacVerifiedResult {
+  bool valid = 1;
+}
+
+message KdfDerivedResult {
+  string derived_key_handle = 1;
+}
+
+message SignedResult {
+  bytes signature = 1;
+}
+
+message VerifiedResult {
+  bool valid = 1;
+}
+
+message RandomGeneratedResult {
+  bytes random_bytes = 1;
+}
+
+message UseCapabilityResult {
+  oneof result {
+    EncryptedResult encrypted = 1;
+    DecryptedResult decrypted = 2;
+    MacGeneratedResult mac_generated = 3;
+    MacVerifiedResult mac_verified = 4;
+    KdfDerivedResult kdf_derived = 5;
+    SignedResult signed = 6;
+    VerifiedResult verified = 7;
+    RandomGeneratedResult random_generated = 8;
+  }
+}
+
+message UseCapabilityResponse {
+  UseCapabilityResult result = 1;
+}
+
+message ListCapabilitiesRequest {
+  string subject = 1;
+}
+
+message ListCapabilitiesResponse {
+  repeated VaultCapabilityProto capabilities = 1;
+}
+
+message RevokeCapabilityRequest {
+  string capability_id = 1;
+  string revoked_by = 2;
+}
+
+message RevokeCapabilityResponse {
+  string capability_id = 1;
+  CapabilityState state = 2;
+}
+
+message GrantOverrideRequest {
+  OverrideClass class = 1;
+  repeated string granted_by = 2;
+  optional bytes target_action_id_proto = 3;
+  google.protobuf.Timestamp expires_at = 4;
+  string reason = 5;
+}
+
+message GrantOverrideResponse {
+  OverrideBindingProto binding = 1;
+}
+
+message ConsumeOverrideRequest {
+  string binding_id = 1;
+  string consumer = 2;
+}
+
+message ConsumeOverrideResponse {
+  OverrideBindingProto binding = 1;
+}
+
+message RevokeOverrideRequest {
+  string binding_id = 1;
+  string revoker = 2;
+}
+
+message RevokeOverrideResponse {
+  string binding_id = 1;
+  OverrideBindingState state = 2;
+}
+
+message LookupOverrideRequest {
+  string binding_id = 1;
+}
+
+message LookupOverrideResponse {
+  OverrideBindingProto binding = 1;
+}
+
+message ListOverridesForSubjectRequest {
+  string subject = 1;
+}
+
+message ListOverridesForSubjectResponse {
+  repeated OverrideBindingProto bindings = 1;
+}
+
+message OverrideBindingProto {
+  string binding_id = 1;
+  OverrideClass class = 2;
+  repeated string granted_by = 3;
+  google.protobuf.Timestamp granted_at = 4;
+  google.protobuf.Timestamp expires_at = 5;
+  optional bytes target_action_id_proto = 6;
+  OverrideBindingState state = 7;
+}
+
+message SubjectProto {
+  string canonical_subject_id = 1;
+  SubjectType subject_type = 2;
+  string provisional_name = 3;
+  repeated string groups = 4;
+  bool is_ai = 5;
+  google.protobuf.Timestamp created_at = 6;
+}
+
+message RegisterSubjectRequest {
+  SubjectProto subject = 1;
+}
+
+message RegisterSubjectResponse {
+  SubjectProto subject = 1;
+}
+
+message LookupSubjectRequest {
+  string canonical_subject_id = 1;
+}
+
+message LookupSubjectResponse {
+  SubjectProto subject = 1;
+}
+
+message SessionProto {
+  string session_id = 1;
+  string subject_id = 2;
+  google.protobuf.Timestamp started_at = 3;
+  google.protobuf.Timestamp expires_at = 4;
+  SessionState state = 5;
+}
+
+message StartSessionRequest {
+  string subject_id = 1;
+  google.protobuf.Timestamp expires_at = 2;
+}
+
+message StartSessionResponse {
+  SessionProto session = 1;
+}
+
+message LookupSessionRequest {
+  string session_id = 1;
+}
+
+message LookupSessionResponse {
+  SessionProto session = 1;
+}
+
+message SuspendSessionRequest {
+  string session_id = 1;
+}
+
+message SuspendSessionResponse {
+  SessionProto session = 1;
+}
+
+message RevokeSessionRequest {
+  string session_id = 1;
+}
+
+message RevokeSessionResponse {
+  SessionProto session = 1;
+}
+
+message CapabilityAuditEntryProto {
+  string capability_id = 1;
+  uint64 use_count = 2;
+  google.protobuf.Timestamp last_used_at = 3;
+  optional string last_used_op_kind = 4;
+  string issued_by = 5;
+  optional string revoked_by = 6;
+  google.protobuf.Timestamp revoked_at = 7;
+  google.protobuf.Timestamp expired_at = 8;
+}
+
+message GetAuditEntryRequest {
+  string capability_id = 1;
+}
+
+message GetAuditEntryResponse {
+  CapabilityAuditEntryProto entry = 1;
+}
+
+message ListAuditEntriesRequest {}
+
+message ListAuditEntriesResponse {
+  repeated CapabilityAuditEntryProto entries = 1;
+}
+
+message ExpirationPassReportProto {
+  string pass_id = 1;
+  google.protobuf.Timestamp started_at = 2;
+  google.protobuf.Timestamp completed_at = 3;
+  uint64 capabilities_inspected = 4;
+  uint64 capabilities_expired = 5;
+}
+
+message RunExpirationPassRequest {
+  google.protobuf.Timestamp now = 1;
+}
+
+message RunExpirationPassResponse {
+  ExpirationPassReportProto report = 1;
+}
+
+message GetVaultInfoRequest {}
+
+message GetVaultInfoResponse {
+  string schema_version = 1;
+  string code_version = 2;
+  string vault_id = 3;
+  uint64 audit_entry_count = 4;
+  uint64 active_capability_count = 5;
+  google.protobuf.Timestamp started_at = 6;
+}

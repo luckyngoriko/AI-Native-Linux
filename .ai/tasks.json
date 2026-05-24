@@ -282,6 +282,12 @@
       "title": "aios-vault - capability audit log + expiration driver (S5.2 lifecycle)",
       "completed_at": "2026-05-24",
       "evidence": "1087 tests workspace (+12 over T-050 baseline 1075). Added CapabilityAuditEntry + CapabilityAuditLog, CapabilityLifecycleDriver with expire_capability and run_expiration_pass, ExpirationPassReport, InMemoryVaultBroker.with_audit_log, audit hooks for issue/use/revoke, and lazy Active -> Expired transition on use when expires_at is in the past. Tests: crates/aios-vault/tests/lifecycle.rs (12). Gates PASS: cargo check --workspace + cargo test --workspace + cargo clippy --workspace --all-targets -- -D warnings + cargo fmt --all -- --check. Scope guard: gRPC (T-052), evidence (T-053), cross-crate (T-054), and M6 closer (T-055) deferred."
+    },
+    {
+      "id": "T-052",
+      "title": "aios-vault - gRPC VaultBroker service surface (S5.2 §10)",
+      "completed_at": "2026-05-24",
+      "evidence": "1105 tests workspace (+18 over T-051 baseline 1087). Added proto/aios.vault.v1alpha1.proto, build.rs tonic-build wiring, src/service/{mod,conversions,server}.rs, lib.rs service re-exports + DEFAULT_CODE_VERSION, and Cargo tonic/prost/prost-types deps. VaultBrokerService wraps Arc<InMemoryVaultBroker>, Arc<InMemoryOverrideBroker>, Arc<IdentityCatalog>, Arc<CapabilityAuditLog>, Arc<CapabilityLifecycleDriver>; delegates issue/use/list/revoke, override grant/consume/revoke/lookup/list, identity subject/session RPCs, audit lookup/list, expiration pass, and info. VaultError -> tonic::Status mapping table added. INV-018 wire assertions cover IssueCapabilityResponse and ListCapabilitiesResponse bytes. Tests: crates/aios-vault/tests/grpc_roundtrip.rs (15) + 3 service unit tests. Gates PASS: cargo check --workspace + cargo test --workspace + cargo clippy --workspace --all-targets -- -D warnings + cargo fmt --all -- --check. Scope guard: evidence emission (T-053), cross-crate reconciliation (T-054), and M6 closer (T-055) deferred. Spec note: current repository Appendix A for S5.2 still shows the older SignBlob/EncryptBlob-style surface; T-052 implements the task-required Rust-backed UseCapability/identity/override/audit/lifecycle VaultBroker surface while preserving task #26 placeholder bytes for cross-crate ActionId."
     }
   ],
   "blocked": [],
@@ -412,9 +418,10 @@
         "T-048",
         "T-049",
         "T-050",
-        "T-051"
+        "T-051",
+        "T-052"
       ],
-      "current_test_count": 1087,
+      "current_test_count": 1105,
       "crate_version_target": "aios-vault/0.1.0",
       "rationale": "Secrets-as-capabilities (INV-018). Unblocks signed bundle/manifest infra + external model calls."
     },

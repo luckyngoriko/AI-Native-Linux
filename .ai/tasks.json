@@ -270,6 +270,12 @@
       "title": "aios-vault - real crypto operations AES-256-GCM/HMAC-SHA256/HKDF/Ed25519 (S5.2 §5)",
       "completed_at": "2026-05-24",
       "evidence": "1059 tests workspace (+18 over T-048 baseline 1041). Added crypto modules for AES-256-GCM, HMAC-SHA256, HKDF-SHA256, and Ed25519; InMemoryVaultBroker now performs real crypto operations, issue-time KeyAlgorithmMismatch validation, OsRng key generation, and stores HKDF-derived bytes behind opaque handles. VaultError gained CryptoError and KeyAlgorithmMismatch; SECRET_GET now returns OperationUnsupportedInT049. Tests: crates/aios-vault/tests/crypto_ops.rs (18) plus T-047 broker tests updated from operation_simulated placeholders to real outputs. Gates PASS: cargo check --workspace + cargo test --workspace + cargo clippy --workspace --all-targets -- -D warnings + cargo fmt --all -- --check. Scope guard: no override broker, no lifecycle driver, no gRPC, no evidence emission, no cross-crate reconciliation."
+    },
+    {
+      "id": "T-050",
+      "title": "aios-vault - EmergencyOverride broker + AI self-override hard-deny (S5.4)",
+      "completed_at": "2026-05-24",
+      "evidence": "1075 tests workspace (+16 over T-049 baseline 1059). Added OverrideBroker async trait, GrantOverrideRequest, and InMemoryOverrideBroker backed by RwLock<HashMap<String, OverrideBinding>> plus Arc<IdentityCatalog>. Enforced STRONG_SOLO/DUAL_HUMAN/TRIPLE_HUMAN approver counts, subject existence, human-only granting, and constitutional Agent/Application hard-deny via VaultError::AiCannotGrantOverride. consume_override performs atomic Granted -> Consumed under one write lock and rejects replay with OverrideAlreadyConsumed; lookup/list transition live expired bindings to Expired; revoke moves any state to Revoked. VaultError gained OverrideRequiresHumanApprovers, AiCannotGrantOverride, OverrideClassApproverCountMismatch, and OverrideExpired. Tests: crates/aios-vault/tests/override_broker.rs (16), including parallel anti-replay. Gates PASS: cargo check --workspace + cargo test --workspace + cargo clippy --workspace --all-targets -- -D warnings + cargo fmt --all -- --check. Scope guard: lifecycle, gRPC, evidence, and cross-crate policy integration deferred."
     }
   ],
   "blocked": [],
@@ -398,9 +404,10 @@
         "T-046",
         "T-047",
         "T-048",
-        "T-049"
+        "T-049",
+        "T-050"
       ],
-      "current_test_count": 1059,
+      "current_test_count": 1075,
       "crate_version_target": "aios-vault/0.1.0",
       "rationale": "Secrets-as-capabilities (INV-018). Unblocks signed bundle/manifest infra + external model calls."
     },

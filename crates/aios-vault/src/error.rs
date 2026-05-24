@@ -5,6 +5,7 @@ use thiserror::Error;
 use crate::broker::VaultOperation;
 use crate::capability::{CapabilityClass, CapabilityId, CapabilityState};
 use crate::key_material::KeyAlgorithm;
+use crate::override_class::OverrideClass;
 
 /// Typed vault error surface.
 #[derive(Debug, Error, Clone, PartialEq, Eq)]
@@ -48,6 +49,36 @@ pub enum VaultError {
     /// Override binding has already been consumed.
     #[error("override binding already consumed")]
     OverrideAlreadyConsumed,
+
+    /// Override class requires human approvers only.
+    #[error(
+        "override requires human approvers for {class:?}; non-human subjects: {found_non_human:?}"
+    )]
+    OverrideRequiresHumanApprovers {
+        /// Override class being granted.
+        class: OverrideClass,
+        /// Canonical ids whose subject kind was not `Human`.
+        found_non_human: Vec<String>,
+    },
+
+    /// AI/application subjects are constitutionally barred from granting overrides.
+    #[error("ai subject cannot grant override: {0}")]
+    AiCannotGrantOverride(String),
+
+    /// Override approver count does not match the selected class.
+    #[error("override approver count mismatch for {class:?}: expected {expected}, found {found}")]
+    OverrideClassApproverCountMismatch {
+        /// Override class being granted.
+        class: OverrideClass,
+        /// Required number of approvers.
+        expected: u32,
+        /// Supplied number of approvers.
+        found: u32,
+    },
+
+    /// Override binding has expired.
+    #[error("override binding expired: {0}")]
+    OverrideExpired(String),
 
     /// Capability state transition is not permitted by S5.2.
     #[error("invalid capability transition: {from:?} -> {to:?}")]

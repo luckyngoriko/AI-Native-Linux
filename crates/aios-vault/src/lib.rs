@@ -20,6 +20,7 @@ pub mod identity;
 pub mod identity_catalog;
 pub mod in_memory_broker;
 pub mod key_material;
+pub mod override_broker;
 pub mod override_class;
 
 pub use broker::{
@@ -34,4 +35,5 @@ pub use identity::{Session, SessionState, Subject, SubjectRef, SubjectType};
 pub use identity_catalog::IdentityCatalog;
 pub use in_memory_broker::InMemoryVaultBroker;
 pub use key_material::{KeyAlgorithm, KeyMaterial};
+pub use override_broker::{GrantOverrideRequest, InMemoryOverrideBroker, OverrideBroker};
 pub use override_class::{OverrideBinding, OverrideBindingState, OverrideClass};

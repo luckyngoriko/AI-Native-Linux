@@ -41,6 +41,7 @@ pub mod quarantine;
 pub mod query;
 pub mod query_eval;
 pub mod query_parser;
+pub mod service;
 pub mod snapshot_id;
 pub mod transaction;
 pub mod version;
@@ -72,6 +73,7 @@ pub use query_eval::{
     evaluate as evaluate_query, materialize_view, ObjectRef, QueryEvalContext, QueryEvalError, View,
 };
 pub use query_parser::{parse as parse_query, QueryParseError};
+pub use service::{AiosFsClient, AiosFsGrpcServer, AiosFsService, DEFAULT_CODE_VERSION};
 pub use snapshot_id::SnapshotId;
 pub use transaction::{
     ConsistencyClass, PointerMoveOp, Transaction, TransactionId, TransactionState, WriteOp,

@@ -1,0 +1,434 @@
+// AIOS S1.3 — AIOS-FS gRPC service surface (T-043).
+//
+// This IDL exposes the current in-tree Rust `AiosFs` surface plus the M5
+// maintenance drivers (`QuarantineDriver`, `GcPassDriver`, query
+// materialization). Cross-crate `aios-action::ActionId` fields stay as opaque
+// bytes until the shared `aios.action.v1alpha1` proto lands (open task #26).
+
+syntax = "proto3";
+package aios.fs.v1alpha1;
+
+import "google/protobuf/timestamp.proto";
+import "google/protobuf/struct.proto";
+
+// ─────────────────────────────────────────────────────────────────
+// Enums
+// ─────────────────────────────────────────────────────────────────
+
+enum ObjectKindProto {
+  OBJECT_KIND_UNSPECIFIED = 0;
+  PROJECT                 = 1;
+  APPLICATION             = 2;
+  FILE                    = 3;
+  MEMORY                  = 4;
+  POLICY                  = 5;
+  MODEL                   = 6;
+  PACKAGE                 = 7;
+  EVIDENCE_REF            = 8;
+  WORKSPACE               = 9;
+  CONFIG                  = 10;
+}
+
+enum PrivacyClassProto {
+  PRIVACY_CLASS_UNSPECIFIED = 0;
+  PUBLIC                    = 1;
+  INTERNAL                  = 2;
+  SENSITIVE                 = 3;
+  SECRET_BEARING            = 4;
+  CLASSIFIED                = 5;
+}
+
+enum LifecycleStateProto {
+  LIFECYCLE_STATE_UNSPECIFIED = 0;
+  ACTIVE                      = 1;
+  RETIRED                     = 2;
+  PURGED                      = 3;
+}
+
+enum VersionStateProto {
+  VERSION_STATE_UNSPECIFIED = 0;
+  STAGED                    = 1;
+  VERIFIED                  = 2;
+  QUARANTINED               = 3;
+  RETIRED_VERSION           = 4;
+}
+
+enum PointerKindProto {
+  POINTER_KIND_UNSPECIFIED = 0;
+  CURRENT                  = 1;
+  STABLE                   = 2;
+  CANDIDATE                = 3;
+  ROLLBACK                 = 4;
+  QUARANTINE               = 5;
+}
+
+enum ConsistencyClassProto {
+  CONSISTENCY_CLASS_UNSPECIFIED = 0;
+  SNAPSHOT                      = 1;
+  LINEARIZABLE                  = 2;
+  EVENTUAL                      = 3;
+}
+
+enum ScopeKindProto {
+  SCOPE_KIND_UNSPECIFIED = 0;
+  SYSTEM                 = 1;
+  GROUP                  = 2;
+  USER                   = 3;
+}
+
+enum QuarantineTriggerProto {
+  QUARANTINE_TRIGGER_UNSPECIFIED = 0;
+  VALIDATION_FAILURE             = 1;
+  INTEGRITY_FAILURE              = 2;
+  POLICY_VIOLATION               = 3;
+  ATTESTATION_FAILURE            = 4;
+  OPERATOR_MANUAL                = 5;
+}
+
+enum QuarantineDispositionProto {
+  QUARANTINE_DISPOSITION_UNSPECIFIED = 0;
+  RELEASED                           = 1;
+  PURGED_DISPOSITION                  = 2;
+}
+
+enum VersionPurgeReasonProto {
+  VERSION_PURGE_REASON_UNSPECIFIED = 0;
+  RETIRED_PURGE                    = 1;
+  QUARANTINED_PURGE                = 2;
+  OPERATOR_REQUESTED_PURGE         = 3;
+}
+
+enum QueryNamespaceProto {
+  QUERY_NAMESPACE_UNSPECIFIED = 0;
+  OBJECT                      = 1;
+  VERSION                     = 2;
+  POINTER                     = 3;
+  CHUNK                       = 4;
+  NAMESPACE                   = 5;
+}
+
+enum QueryFieldProto {
+  QUERY_FIELD_UNSPECIFIED     = 0;
+  OBJECT_KIND                 = 1;
+  OBJECT_PRIVACY_CLASS        = 2;
+  OBJECT_LIFECYCLE_STATE      = 3;
+  OBJECT_METADATA_NAME        = 4;
+  OBJECT_POLICY_TAGS          = 5;
+  VERSION_STATE               = 6;
+  VERSION_CREATED_AT          = 7;
+  VERSION_CREATED_BY          = 8;
+  POINTER_KIND                = 9;
+  NAMESPACE_CLASS             = 10;
+}
+
+enum QueryOperatorProto {
+  QUERY_OPERATOR_UNSPECIFIED = 0;
+  EQ                         = 1;
+  NEQ                        = 2;
+  LT                         = 3;
+  LTE                        = 4;
+  GT                         = 5;
+  GTE                        = 6;
+  IN                         = 7;
+  CONTAINS                   = 8;
+  MATCHES                    = 9;
+}
+
+enum IntegrityStateProto {
+  INTEGRITY_STATE_UNSPECIFIED = 0;
+  VERIFIED_INTEGRITY          = 1;
+  STALE                       = 2;
+  INTEGRITY_FAILED            = 3;
+  UNKNOWN_INTEGRITY           = 4;
+}
+
+// ─────────────────────────────────────────────────────────────────
+// Core records
+// ─────────────────────────────────────────────────────────────────
+
+message ScopeBindingProto {
+  ScopeKindProto scope_kind = 1;
+  string group_id = 2;
+  string user_id = 3;
+}
+
+message ObjectMetadataProto {
+  string name = 1;
+  repeated string labels = 2;
+  string mime = 3;
+  google.protobuf.Struct extra = 4;
+}
+
+message ObjectProto {
+  string object_id = 1;
+  ObjectKindProto kind = 2;
+  google.protobuf.Timestamp created_at = 3;
+  string created_by = 4;
+  string current_pointer_id = 5;
+  ObjectMetadataProto metadata = 6;
+  repeated string policy_tags = 7;
+  PrivacyClassProto privacy_class = 8;
+  LifecycleStateProto lifecycle_state = 9;
+  google.protobuf.Timestamp retired_at = 10;
+  google.protobuf.Timestamp purge_at = 11;
+  repeated string index_hints = 12;
+  ScopeBindingProto scope_binding = 13;
+}
+
+message VersionProto {
+  string version_id = 1;
+  string object_id = 2;
+  repeated string parent_version_ids = 3;
+  repeated string chunk_refs = 4;
+  string content_hash = 5;
+  google.protobuf.Struct metadata_delta = 6;
+  bytes created_by_action_id_proto = 7;
+  string created_by_transaction_id = 8;
+  google.protobuf.Timestamp created_at = 9;
+  VersionStateProto state = 10;
+  google.protobuf.Timestamp quarantined_at = 11;
+  string quarantine_reason = 12;
+}
+
+message ChunkProto {
+  string chunk_id = 1;
+  uint64 size_bytes = 2;
+  uint32 ref_count = 3;
+  google.protobuf.Timestamp created_at = 4;
+}
+
+message PointerProto {
+  string pointer_id = 1;
+  string object_id = 2;
+  PointerKindProto kind = 3;
+  string current_version_id = 4;
+  google.protobuf.Timestamp last_promoted_at = 5;
+  string last_promoted_by_transaction_id = 6;
+}
+
+message SnapshotIdProto {
+  string snapshot_id = 1;
+}
+
+message SnapshotSummaryProto {
+  string snapshot_id = 1;
+  google.protobuf.Timestamp at = 2;
+  uint64 object_count = 3;
+  uint64 pointer_count = 4;
+}
+
+message ObjectReadResultProto {
+  ObjectProto object = 1;
+  VersionProto version = 2;
+  repeated ChunkProto chunks = 3;
+  string snapshot_id = 4;
+}
+
+message ObjectWriteResultProto {
+  string object_id = 1;
+  string version_id = 2;
+  string transaction_id = 3;
+  string snapshot_id_after = 4;
+}
+
+// ─────────────────────────────────────────────────────────────────
+// Query / view
+// ─────────────────────────────────────────────────────────────────
+
+message StringListProto {
+  repeated string values = 1;
+}
+
+message TimeRangeProto {
+  string start = 1;
+  string end = 2;
+}
+
+message QueryValueProto {
+  oneof value {
+    string string_value = 1;
+    int64 int_value = 2;
+    bool bool_value = 3;
+    StringListProto string_list = 4;
+    TimeRangeProto time_range = 5;
+  }
+}
+
+message PredicateProto {
+  QueryNamespaceProto namespace = 1;
+  QueryFieldProto field = 2;
+  QueryOperatorProto op = 3;
+  QueryValueProto rhs = 4;
+}
+
+message QueryProto {
+  // Human-authored DSL source. If set, the server parses this and ignores
+  // `predicates`; otherwise `predicates` encodes the closed AND-only AST.
+  string source = 1;
+  repeated PredicateProto predicates = 2;
+}
+
+message ObjectRefProto {
+  string object_id = 1;
+}
+
+message ViewProto {
+  string snapshot_id = 1;
+  repeated ObjectRefProto matched = 2;
+  string query_hash = 3;
+}
+
+// ─────────────────────────────────────────────────────────────────
+// Quarantine / GC
+// ─────────────────────────────────────────────────────────────────
+
+message QuarantineReceiptProto {
+  string quarantine_id = 1;
+  string version_id = 2;
+  google.protobuf.Timestamp transitioned_at = 3;
+  QuarantineTriggerProto trigger = 4;
+  QuarantineDispositionProto disposition = 5;
+  string reason = 6;
+}
+
+message VersionPurgedReasonProto {
+  string version_id = 1;
+  VersionPurgeReasonProto reason = 2;
+}
+
+message GcReasonProto {
+  oneof reason {
+    string orphan_chunk_reclaimed = 1;
+    VersionPurgedReasonProto version_purged = 2;
+  }
+}
+
+message GcPassReportProto {
+  string pass_id = 1;
+  google.protobuf.Timestamp started_at = 2;
+  google.protobuf.Timestamp completed_at = 3;
+  uint64 chunks_inspected = 4;
+  uint64 chunks_reclaimed = 5;
+  uint64 versions_inspected = 6;
+  uint64 versions_purged = 7;
+  repeated GcReasonProto reasons = 8;
+}
+
+// ─────────────────────────────────────────────────────────────────
+// Implementation space
+// ─────────────────────────────────────────────────────────────────
+
+message LocalFileTargetProto {
+  string path = 1;
+}
+
+message EncryptedBlobTargetProto {
+  string blob_id = 1;
+  string key_capability_id = 2;
+}
+
+message RemoteBlobTargetProto {
+  string url = 1;
+  string etag = 2;
+}
+
+message AiosFsManagedTargetProto {
+  string handle = 1;
+}
+
+message ImplSpaceTargetProto {
+  oneof target {
+    LocalFileTargetProto local_file = 1;
+    EncryptedBlobTargetProto encrypted_blob = 2;
+    RemoteBlobTargetProto remote_blob = 3;
+    AiosFsManagedTargetProto aios_fs_managed = 4;
+  }
+}
+
+message ImplSpaceSourceProto {
+  oneof source {
+    string object_id = 1;
+    string chunk_id = 2;
+    string version_id = 3;
+  }
+}
+
+message ImplSpaceBindingProto {
+  string binding_id = 1;
+  ImplSpaceSourceProto object_or_chunk_id = 2;
+  ImplSpaceTargetProto target = 3;
+  google.protobuf.Timestamp created_at = 4;
+  string created_by = 5;
+  google.protobuf.Timestamp last_verified_at = 6;
+  IntegrityStateProto integrity_state = 7;
+}
+
+// ─────────────────────────────────────────────────────────────────
+// Requests / responses
+// ─────────────────────────────────────────────────────────────────
+
+message ReadObjectRequestProto {
+  string object_id = 1;
+  string snapshot_id = 2;
+  ConsistencyClassProto consistency_class = 3;
+}
+
+message ObjectWriteRequestProto {
+  string object_id = 1;
+  repeated string parent_version_ids = 2;
+  repeated string chunk_refs = 3;
+  google.protobuf.Struct metadata_delta = 4;
+  bytes action_id_proto = 5;
+  string subject = 6;
+  string expected_snapshot_id = 7;
+  ConsistencyClassProto consistency_class = 8;
+}
+
+message ListVersionsRequestProto {
+  string object_id = 1;
+}
+
+message ListVersionsResponseProto {
+  repeated VersionProto versions = 1;
+}
+
+message ResolvePointerRequestProto {
+  string pointer_id = 1;
+}
+
+message GetSnapshotRequestProto {
+  string snapshot_id = 1;
+}
+
+message QuarantineObjectRequestProto {
+  string version_id = 1;
+  QuarantineTriggerProto trigger = 2;
+  string reason = 3;
+  bytes action_id_proto = 4;
+  string subject = 5;
+}
+
+message RunGcPassRequestProto {
+  uint64 max_chunks_per_pass = 1;
+  uint64 max_versions_per_pass = 2;
+}
+
+message MaterializeViewRequestProto {
+  QueryProto query = 1;
+  string snapshot_id = 2;
+}
+
+// ─────────────────────────────────────────────────────────────────
+// Service
+// ─────────────────────────────────────────────────────────────────
+
+service AiosFs {
+  rpc ReadObject(ReadObjectRequestProto) returns (ObjectReadResultProto);
+  rpc WriteObject(ObjectWriteRequestProto) returns (ObjectWriteResultProto);
+  rpc ListVersions(ListVersionsRequestProto) returns (ListVersionsResponseProto);
+  rpc ResolvePointer(ResolvePointerRequestProto) returns (PointerProto);
+  rpc GetSnapshot(GetSnapshotRequestProto) returns (SnapshotSummaryProto);
+  rpc QuarantineObject(QuarantineObjectRequestProto) returns (QuarantineReceiptProto);
+  rpc RunGcPass(RunGcPassRequestProto) returns (GcPassReportProto);
+  rpc MaterializeView(MaterializeViewRequestProto) returns (ViewProto);
+}

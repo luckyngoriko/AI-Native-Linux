@@ -33,6 +33,7 @@ use crate::error::PolicyError;
 use crate::hard_deny_engine::HardDenyEngine;
 use crate::pipeline::DecisionPipeline;
 use crate::subject::HydratedSubject;
+use crate::subject_hydration::SubjectHydrator;
 
 /// Resource-enrichment snapshot — S2.3 §8.
 ///
@@ -133,7 +134,7 @@ pub trait PolicyKernel: Send + Sync {
 /// add a field, expose a `new_with_*` ctor, and route the pipeline driver
 /// through the engine-aware overload — never break the bare `new()` baseline
 /// that the T-017 tests pin.
-#[derive(Debug, Default, Clone)]
+#[derive(Default, Clone)]
 pub struct InMemoryPolicyKernel {
     pipeline: DecisionPipeline,
     /// `None` = T-017 baseline (step 4 is a stub pass-through). `Some(engine)`
@@ -141,6 +142,24 @@ pub struct InMemoryPolicyKernel {
     /// behind an `Arc` so cloning the kernel (and so cloning the future
     /// `Arc<dyn PolicyKernel>` server handle) is `O(1)`.
     hard_deny_engine: Option<Arc<HardDenyEngine>>,
+    /// `None` = T-017 baseline (step 2 uses the supplied [`HydratedSubject`]
+    /// as-passed). `Some(hydrator)` = T-021+ (step 2 calls
+    /// [`SubjectHydrator::hydrate`] with the envelope's provisional id and
+    /// replaces the context's subject with the canonical record; lookup
+    /// failure short-circuits to `DENY` / `SubjectUnauthenticated` per §7).
+    /// The hydrator is held behind an `Arc<dyn ...>` so production wiring can
+    /// swap implementations without touching this struct.
+    subject_hydrator: Option<Arc<dyn SubjectHydrator + Send + Sync>>,
+}
+
+impl std::fmt::Debug for InMemoryPolicyKernel {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("InMemoryPolicyKernel")
+            .field("pipeline", &self.pipeline)
+            .field("hard_deny_engine", &self.hard_deny_engine)
+            .field("subject_hydrator", &self.subject_hydrator.is_some())
+            .finish()
+    }
 }
 
 impl InMemoryPolicyKernel {
@@ -154,6 +173,7 @@ impl InMemoryPolicyKernel {
         Self {
             pipeline: DecisionPipeline::new(),
             hard_deny_engine: None,
+            subject_hydrator: None,
         }
     }
 
@@ -169,6 +189,39 @@ impl InMemoryPolicyKernel {
         Self {
             pipeline: DecisionPipeline::new(),
             hard_deny_engine: Some(Arc::new(engine)),
+            subject_hydrator: None,
+        }
+    }
+
+    /// Construct a kernel pre-loaded with both a [`HardDenyEngine`] (T-018)
+    /// and a [`SubjectHydrator`] (T-021).
+    ///
+    /// This is the full §3-pipeline wiring: step 2 calls the hydrator (and
+    /// short-circuits on `SubjectUnauthenticated`), step 4 calls the
+    /// hard-deny engine. The two are kept as separate ctors (`new()`,
+    /// `new_with_hard_deny()`, this one) so the T-017 / T-018 baseline tests
+    /// continue to pin the partial-wiring contract.
+    #[must_use]
+    pub fn new_with_full_chain(
+        hydrator: Arc<dyn SubjectHydrator + Send + Sync>,
+        engine: HardDenyEngine,
+    ) -> Self {
+        Self {
+            pipeline: DecisionPipeline::new(),
+            hard_deny_engine: Some(Arc::new(engine)),
+            subject_hydrator: Some(hydrator),
+        }
+    }
+
+    /// Construct a kernel pre-loaded with a [`SubjectHydrator`] only — no
+    /// hard-deny engine. Used by the T-021 tests that exercise the §17
+    /// AI self-approval prevention path in isolation from the §6 floor.
+    #[must_use]
+    pub fn new_with_subject_hydrator(hydrator: Arc<dyn SubjectHydrator + Send + Sync>) -> Self {
+        Self {
+            pipeline: DecisionPipeline::new(),
+            hard_deny_engine: None,
+            subject_hydrator: Some(hydrator),
         }
     }
 
@@ -176,6 +229,12 @@ impl InMemoryPolicyKernel {
     #[must_use]
     pub const fn has_hard_deny_engine(&self) -> bool {
         self.hard_deny_engine.is_some()
+    }
+
+    /// `true` when this kernel has a subject hydrator attached.
+    #[must_use]
+    pub const fn has_subject_hydrator(&self) -> bool {
+        self.subject_hydrator.is_some()
     }
 }
 
@@ -186,16 +245,34 @@ impl PolicyKernel for InMemoryPolicyKernel {
         envelope: &ActionEnvelope,
         context: &PolicyContext,
     ) -> Result<PolicyDecision, PolicyError> {
-        // T-017 cannot raise PolicyError today — subject hydration is supplied by the
-        // caller (T-021 lands the real hydrator that can fail), enrichment is a stub
-        // (T-018+), and bundle loading is a stub (T-022). When those tasks land, the
-        // failure modes will surface here as `Err(...)`. For now every evaluation flows
-        // through the pipeline; with the hard-deny engine attached step 4 may
-        // short-circuit on a §6 class, otherwise the evaluation lands at the
-        // default-deny floor (S2.3 §11).
-        Ok(self.pipeline.evaluate_with_hard_deny_engine(
+        // T-021: step 2 calls the hydrator when one is attached and replaces
+        // the context's subject with the canonical record. Hydrator failure
+        // (`SubjectUnauthenticated`) is converted into a `DENY` decision by
+        // the pipeline driver so callers see a uniform short-circuit shape;
+        // the typed error is not propagated out — per §7 every envelope
+        // produces a decision, never `Err(...)`. Enrichment + bundle loading
+        // can still raise their own typed errors when those wires land.
+        let hydrated_context = if let Some(hydrator) = self.subject_hydrator.as_deref() {
+            match hydrator
+                .hydrate(&envelope.identity.subject_canonical_id)
+                .await
+            {
+                Ok(subject) => {
+                    let mut c = context.clone();
+                    c.subject = subject;
+                    Some(c)
+                }
+                Err(PolicyError::SubjectUnauthenticated) => None,
+                Err(other) => return Err(other),
+            }
+        } else {
+            Some(context.clone())
+        };
+
+        Ok(self.pipeline.evaluate_with_chain(
             envelope,
             context,
+            hydrated_context.as_ref(),
             self.hard_deny_engine.as_deref(),
         ))
     }

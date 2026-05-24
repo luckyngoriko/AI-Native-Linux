@@ -54,6 +54,7 @@ pub mod kernel;
 pub mod pipeline;
 pub mod precedence;
 pub mod subject;
+pub mod subject_hydration;
 
 pub use bundle::{PolicyBundle, PolicyRule, RuleEffect, RuleScope};
 pub use bundle_loader::BundleLoader;
@@ -74,6 +75,9 @@ pub use hard_deny_engine::{
     HardDenyEngineConfig,
 };
 pub use kernel::{EnrichmentSnapshot, InMemoryPolicyKernel, PolicyContext, PolicyKernel};
-pub use pipeline::{reason_code, DecisionPipeline, PipelineState};
+pub use pipeline::{
+    evaluate_ai_self_approval_prevention, reason_code, DecisionPipeline, PipelineState,
+};
 pub use precedence::RulePrecedence;
 pub use subject::{HydratedSubject, SubjectType};
+pub use subject_hydration::{HydratedRecord, InMemoryHydrator, SubjectHydrator};

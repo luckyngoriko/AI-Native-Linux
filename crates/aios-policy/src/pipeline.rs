@@ -30,10 +30,11 @@ use ulid::Ulid;
 
 use aios_action::ActionEnvelope;
 
-use crate::constraints::{ApprovalRequirement, Constraints};
+use crate::constraints::{ApprovalRequirement, ApprovalScope, ApproverClass, Constraints};
 use crate::decision::{Decision, PolicyDecision};
 use crate::hard_deny_engine::{reason_code_for, reason_message_for, HardDenyEngine};
 use crate::kernel::PolicyContext;
+use crate::subject::HydratedSubject;
 
 /// Outcome of a single pipeline step.
 ///
@@ -63,6 +64,93 @@ pub mod reason_code {
     pub const SCHEMA_INVALID: &str = "SchemaInvalid";
     /// Step 9 — no rule matched; default-deny floor fired (S2.3 §11).
     pub const DEFAULT_DENY: &str = "DefaultDeny";
+    /// Step 2 — subject hydration via L4 identity failed (S2.3 §3 step 2 / §7).
+    ///
+    /// Decision short-circuits to `DENY` whether the provisional id was unknown,
+    /// expired, or revoked — §7 deliberately collapses the three failure modes
+    /// at the policy boundary so identity-existence cannot leak.
+    pub const SUBJECT_UNAUTHENTICATED: &str = "SubjectUnauthenticated";
+    /// Step 8 — §17 AI self-approval prevention upgraded a scoped `ALLOW` to
+    /// `REQUIRE_APPROVAL` because the subject is AI and at least one risk flag
+    /// is set on the request.
+    pub const AI_SELF_APPROVAL_UPGRADE: &str = "AiSelfApprovalUpgrade";
+}
+
+/// Truthiness of a risk flag inside `request.target.risk.<flag>`.
+///
+/// Per S2.3 §17.1 the risk fields are `request.risk.destructive`,
+/// `request.risk.privileged`, `request.risk.network_exposure`,
+/// `request.risk.secret_access`, `request.risk.recovery_path_affected`. The
+/// envelope carries the request payload as a free-form `serde_json::Value`
+/// (S0.1 §4.3 — the adapter manifest restores schema at the adapter layer);
+/// §17 only needs the boolean projection. A missing or non-boolean field is
+/// treated as `false`.
+fn risk_flag(envelope: &ActionEnvelope, flag: &str) -> bool {
+    envelope
+        .request
+        .target
+        .get("risk")
+        .and_then(|r| r.get(flag))
+        .and_then(serde_json::Value::as_bool)
+        .unwrap_or(false)
+}
+
+/// `true` when **any** of the five §17 risk flags on the envelope's request is `true`.
+///
+/// Mirrors §17.1: `destructive ∨ privileged ∨ network_exposure ∨ secret_access ∨
+/// recovery_path_affected`. The five flags are constitutional — adding a sixth
+/// triggers a new bundle-load shape, so the list is closed.
+fn any_risk_flag(envelope: &ActionEnvelope) -> bool {
+    risk_flag(envelope, "destructive")
+        || risk_flag(envelope, "privileged")
+        || risk_flag(envelope, "network_exposure")
+        || risk_flag(envelope, "secret_access")
+        || risk_flag(envelope, "recovery_path_affected")
+}
+
+/// Pure §17 evaluator — given the current `(decision, subject, envelope)`,
+/// return the upgraded [`ApprovalRequirement`] when §17 applies, or `None`
+/// when the decision is unchanged.
+///
+/// §17 fires only when **all three** hold:
+/// 1. `decision == Decision::Allow` (it is a post-§5-step-5 filter; never
+///    downgrades a `DENY`, never touches `REQUIRE_APPROVAL` on its own — §17.2).
+/// 2. `subject.is_ai == true` (AI agents and applications — §7).
+/// 3. At least one risk flag on the envelope's request is true (§17.1).
+///
+/// The §17.3 carve-out is also applied: when all five risk flags are `false`
+/// the subject's AI nature does **not** trigger an upgrade. The pure
+/// `any_risk_flag(envelope) == false` short-circuit before the `is_ai` check
+/// implements this carve-out without a separate code path.
+#[must_use]
+pub fn evaluate_ai_self_approval_prevention(
+    decision: Decision,
+    subject: &HydratedSubject,
+    envelope: &ActionEnvelope,
+) -> Option<ApprovalRequirement> {
+    if decision != Decision::Allow {
+        return None;
+    }
+    if !subject.is_ai {
+        return None;
+    }
+    if !any_risk_flag(envelope) {
+        // §17.3 carve-out: self-management low-risk actions remain ALLOW for
+        // AI subjects. Returning `None` leaves the decision unchanged.
+        return None;
+    }
+    Some(ApprovalRequirement {
+        required: true,
+        approval_scope: ApprovalScope::ExactRequestHash,
+        // Approval validity inherits from §13.2 default (300 s); the rule
+        // does not pin a value, the bundle / approval-mechanics layer does.
+        ttl_seconds: 300,
+        // §17.1: "approval.approver_classes must include 'human' (and exclude
+        // AI types)". The minimal §17 contract is `[Human]`; bundle authors
+        // may widen to `[Human, Operator]` etc. but never include AI classes.
+        approver_classes: vec![ApproverClass::Human],
+        require_human_co_signer: false,
+    })
 }
 
 /// Fields the [`DecisionPipeline::emit_decision`] helper needs to assemble a
@@ -132,20 +220,59 @@ impl DecisionPipeline {
         context: &PolicyContext,
         engine: Option<&HardDenyEngine>,
     ) -> PolicyDecision {
+        self.evaluate_with_chain(envelope, context, Some(context), engine)
+    }
+
+    /// Drive the full pipeline with subject hydration already resolved by the
+    /// kernel (T-021).
+    ///
+    /// `hydrated_context` is what step 2 would have produced if the kernel had
+    /// run hydration inline; the kernel runs `async` hydration outside the
+    /// pipeline driver and passes the result in. `None` signals
+    /// `SubjectUnauthenticated` per §7 — step 2 short-circuits to `DENY` with
+    /// `reason_code = SubjectUnauthenticated`. `Some(c)` means hydration
+    /// succeeded; the pipeline uses `c` for the rest of evaluation. When the
+    /// kernel has no hydrator attached, callers pass `Some(context)` (the
+    /// original context, T-017 baseline).
+    ///
+    /// `original_context` is only used to mint the `SubjectUnauthenticated`
+    /// short-circuit decision so the rejected decision still references the
+    /// pre-hydration bundle / enrichment ids — the decision must be assembleable
+    /// even when hydration failed.
+    #[must_use]
+    pub fn evaluate_with_chain(
+        self,
+        envelope: &ActionEnvelope,
+        original_context: &PolicyContext,
+        hydrated_context: Option<&PolicyContext>,
+        engine: Option<&HardDenyEngine>,
+    ) -> PolicyDecision {
         let request_hash = compute_request_hash(envelope);
 
-        // Step 1 — schema validation.
+        // Step 1 — schema validation. Uses the original context so the
+        // assembled decision still has bundle_version + enrichment snapshot id
+        // when the malformed envelope never reaches hydration.
         if let PipelineState::ShortCircuit(d) =
-            self.step_1_validate_schema(envelope, context, &request_hash)
+            self.step_1_validate_schema(envelope, original_context, &request_hash)
         {
             return *d;
         }
 
-        // Step 2 — subject normalization (pass-through in T-017; uses supplied
-        // HydratedSubject as-is; full §7 hydrator lands in T-021).
-        if let PipelineState::ShortCircuit(d) = Self::step_2_normalize_subject() {
-            return *d;
-        }
+        // Step 2 — subject normalization (S2.3 §7). When the kernel's
+        // hydrator returned `Err(SubjectUnauthenticated)`, the kernel passed
+        // `hydrated_context = None`; we short-circuit to DENY here.
+        let Some(context) = hydrated_context else {
+            return Self::emit_decision(EmitDecision {
+                envelope,
+                context: original_context,
+                request_hash: &request_hash,
+                decision: Decision::Deny,
+                reason_code: reason_code::SUBJECT_UNAUTHENTICATED,
+                reason_message:
+                    "subject hydration failed: unknown, expired, or revoked subject (S2.3 §7)",
+                rules_consulted: 1,
+            });
+        };
 
         // Step 3 — enrichment (stub; T-018+ populates EnrichmentSnapshot).
         if let PipelineState::ShortCircuit(d) = Self::step_3_enrich_resources() {
@@ -170,12 +297,20 @@ impl DecisionPipeline {
             return *d;
         }
 
-        // Step 7 — scoped allows (stub; T-022 bundle loader).
+        // Step 7 — scoped allows (stub; T-022 bundle loader). When a future
+        // task lands the rule index, scoped ALLOW partial decisions flow from
+        // here into step 8 (§17 filter) via [`Self::apply_step_8`]; for now
+        // the stub returns `Continue` and step 8 is a no-op on the end-to-end
+        // path. Step 8's pure §17 evaluator is tested directly.
         if let PipelineState::ShortCircuit(d) = Self::step_7_evaluate_scoped_allows() {
             return *d;
         }
 
-        // Step 8 — AI self-approval prevention (stub; T-021 implements full §17 filter).
+        // Step 8 — AI self-approval prevention (S2.3 §17). Today the stub
+        // upstream means no ALLOW partial state reaches this point; the
+        // pure evaluator [`evaluate_ai_self_approval_prevention`] is wired
+        // into [`Self::apply_step_8`] for when T-022 lands the scoped-allow
+        // path.
         if let PipelineState::ShortCircuit(d) = Self::step_8_ai_self_approval_prevention() {
             return *d;
         }
@@ -340,12 +475,72 @@ impl DecisionPipeline {
 
     /// Step 8 — apply AI self-approval prevention (S2.3 §3 step 9 / §17).
     ///
-    /// **STUB** — T-021 lands the full §17 filter (upgrade `ALLOW` to
-    /// `REQUIRE_APPROVAL` for AI subjects on any risk-flagged action; capability
-    /// `system_admin` does NOT grant bypass).
+    /// **Pipeline-driver hook (no-op until scoped allows land).** The full §17
+    /// filter is implemented as the pure function
+    /// [`evaluate_ai_self_approval_prevention`] and applied to scoped-allow
+    /// partial decisions via [`Self::apply_step_8`]. T-021 ships both
+    /// pieces; the driver's step-7 stub means no ALLOW partial state reaches
+    /// this point on the end-to-end path until T-022 lands the scoped-allow
+    /// rule index. The hook remains a `Continue` no-op for the driver loop
+    /// so the precedence ladder stays honest (no fake ALLOWs minted here).
     #[must_use]
     pub const fn step_8_ai_self_approval_prevention() -> PipelineState {
         PipelineState::Continue
+    }
+
+    /// Apply step 8 (§17 AI self-approval prevention) to a partial-state
+    /// scoped-ALLOW [`PolicyDecision`].
+    ///
+    /// This is the API the future scoped-allow path (T-022) calls **after**
+    /// step 7 produces a partial ALLOW decision and **before** step 9 emits
+    /// the terminal result. It is also what the T-021 integration tests call
+    /// to anchor the §17 contract end-to-end without depending on the
+    /// rule-index implementation.
+    ///
+    /// Semantics:
+    ///
+    /// - When the input decision is not `Allow`, the decision is returned
+    ///   unchanged (§17.2: never downgrades a `DENY`; never touches an existing
+    ///   `REQUIRE_APPROVAL` on its own).
+    /// - When the input is `Allow` and `subject.is_ai` is true and at least
+    ///   one risk flag on the request is true, the decision is upgraded:
+    ///     - `decision` → `RequireApproval`,
+    ///     - `reason_code` → `"AiSelfApprovalUpgrade"`,
+    ///     - `reason_message` → English §17 explanation,
+    ///     - `approval` → `ApprovalRequirement { required: true, ...,
+    ///       approver_classes: [Human] }`.
+    /// - When the input is `Allow` but all risk flags are `false`, the §17.3
+    ///   carve-out (self-management low-risk actions) applies and the
+    ///   decision is returned unchanged.
+    ///
+    /// The original `policy_decision_id`, `request_hash`, `bundle_version`,
+    /// `enrichment_snapshot_id`, `evaluated_at` and `rules_consulted` are
+    /// preserved so the upgrade is auditable — the same decision id appears
+    /// in both the partial `ALLOW` evidence record and the upgraded
+    /// `REQUIRE_APPROVAL` emission, and an explain-decision query reconstructs
+    /// the full §5 ladder.
+    #[must_use]
+    pub fn apply_step_8(
+        decision: PolicyDecision,
+        subject: &HydratedSubject,
+        envelope: &ActionEnvelope,
+    ) -> PolicyDecision {
+        let Some(approval) =
+            evaluate_ai_self_approval_prevention(decision.decision, subject, envelope)
+        else {
+            return decision;
+        };
+        PolicyDecision {
+            decision: Decision::RequireApproval,
+            reason_code: reason_code::AI_SELF_APPROVAL_UPGRADE.to_owned(),
+            reason_message:
+                "AI subject self-approval prevented; human approval required (S2.3 §17)".to_owned(),
+            approval,
+            // Step 8 consults one constitutional rule (§17). Count it so the
+            // §19 budget audit sees the upgrade.
+            rules_consulted: decision.rules_consulted.saturating_add(1),
+            ..decision
+        }
     }
 
     /// Step 9 — apply default deny (S2.3 §3 step 10 / §11).

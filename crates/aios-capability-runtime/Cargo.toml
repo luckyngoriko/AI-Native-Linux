@@ -24,6 +24,22 @@ strum_macros = { workspace = true }
 # ULID-based identifiers for adapter manifest ids (`adapter:<...>` prefix is
 # §10.1; ULID is the cross-crate convention from S0.1 §3.2 / aios-action).
 ulid         = { workspace = true }
+# T-027 — async trait surface for the `CapabilityRuntime` contract + interior
+# state for the `InMemoryCapabilityRuntime` harness. Mirrors the M3 T-017
+# pattern in `aios-policy`: `async_trait` for the trait object and `tokio`
+# for the RwLock-backed in-memory action context registry. `macros` + `rt` +
+# `sync` are sufficient for both the runtime's `RwLock<HashMap<..>>` and the
+# integration tests' single-threaded `tokio::test`. Wire-protocol features
+# (`net`, `signal`, ...) are deferred to T-033 (gRPC surface).
+tokio        = { workspace = true }
+async-trait  = { workspace = true }
+
+[dev-dependencies]
+# T-027 — `tokio::join!` + `#[tokio::test]` in the pipeline test harness for
+# the concurrent submission test. The `macros` feature provides the test
+# attribute; `rt-multi-thread` lets the join! exercise true concurrency
+# rather than cooperative interleaving.
+tokio        = { workspace = true, features = ["macros", "rt-multi-thread", "sync"] }
 
 [lints]
 workspace = true

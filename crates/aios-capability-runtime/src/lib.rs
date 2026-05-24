@@ -45,6 +45,8 @@ pub mod context;
 pub mod dispatch;
 pub mod error;
 pub mod failure;
+pub mod pipeline;
+pub mod runtime;
 pub mod status;
 
 pub use adapter_manifest::AdapterManifest;
@@ -52,4 +54,11 @@ pub use context::ActionContext;
 pub use dispatch::{ActionDispatchKind, AdapterIOMode, AdapterStability, QueueClass};
 pub use error::RuntimeError;
 pub use failure::{ExecutionFailureReason, RollbackOutcome, RuntimeErrorCode};
+pub use pipeline::{
+    apply_transition, fresh_context, ActionLifecyclePipeline, PipelineState, TRANSITIONS,
+};
+pub use runtime::{
+    AdapterHandle, AdapterRegistry, CapabilityRuntime, InMemoryCapabilityRuntime,
+    NoOpAdapterHandle, NoOpAdapterRegistry, RuntimeContext,
+};
 pub use status::ActionLifecycleState;

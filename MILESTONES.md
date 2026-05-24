@@ -16,7 +16,8 @@ Source of truth: `.ai/tasks.json` (machine-readable). This document is the human
 | M2             | aios-evidence           | S3.1                 | L9                 | ✓ closed |     262 |
 | M3             | aios-policy             | S2.3                 | L4                 | ✓ closed |     235 |
 | M4             | aios-capability-runtime | S10.1                | L3                 | ✓ closed |     222 |
-| **Total done** | **4 crates**            | **4 / 53 sub-specs** | —                  | —        | **821** |
+| M5             | aios-fs                 | S1.3, S2.1, S2.2, S4.1 | L2              | ✓ closed |     176 |
+| **Total done** | **5 crates**            | **8 / 53 sub-specs** | —                  | —        | **997** |
 
 ## §22 MVP Golden Path closure (M5 → M7)
 
@@ -24,8 +25,8 @@ These 3 milestones make the §22 MVP runnable end-to-end. After M7, AIOS boots f
 
 | Milestone | Crate             | Sub-specs              | Layer | Rationale                                                                                                                                                 |
 | --------- | ----------------- | ---------------------- | ----- | --------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| M5        | aios-fs           | S1.3, S2.1, S2.2, S4.1 | L2    | Object model + namespace + query/view + implementation space. Closes §22 phase-2 (mount + versioned object + semantic view). Unblocks M4 enrichment stub. |
-| M6        | aios-vault        | S5.1, S5.2, S5.4       | L4    | Identity + vault broker + emergency override. Secrets-as-capabilities (INV-018). Unblocks signed bundle/manifest infra + external model calls.            |
+| M5        | aios-fs           | S1.3, S2.1, S2.2, S4.1 | L2    | ✓ closed at 176 crate tests / 997 workspace tests. Object model + namespace + query/view + implementation space; proves §22 phase-2 at the AIOS-FS layer. |
+| M6        | aios-vault        | S5.1, S5.2, S5.4       | L4    | ready. Identity + vault broker + emergency override. Secrets-as-capabilities (INV-018). Unblocks signed bundle/manifest infra + external model calls.       |
 | M7        | aios-renderer-cli | S7.6                   | L7    | Simplest renderer first. Closes §22 phase-9. §22 MVP golden path FULLY RUNNABLE after this.                                                               |
 
 ## Beyond MVP — full distro (M8 → M18)
@@ -46,10 +47,10 @@ These 3 milestones make the §22 MVP runnable end-to-end. After M7, AIOS boots f
 
 ## Progress projection
 
-- **Current pace**: ~225 tests/milestone, ~10 commits/milestone
-- **At M7 (MVP runnable)**: ~1,500 tests, 7 crates
+- **Current pace**: ~199 tests/milestone, ~9 commits/milestone
+- **At M7 (MVP runnable)**: ~1,400 tests, 7 crates
 - **At M18 (full distro)**: ~3,800–4,200 tests, 18 crates
-- **53 sub-specs total → 4 done → 49 remaining** distributed across M5–M18
+- **53 sub-specs total → 8 done → 45 remaining** distributed across M6–M18
 - **Cross-cutting (XX) sub-specs** beyond the 18-milestone plan may land as targeted T-tasks inside existing milestones (e.g. ECDSA signing variants, additional renderer protocols).
 
 ## Closure criteria per milestone
@@ -76,4 +77,4 @@ Reused from M1–M4 closure pattern:
 # 5. Final T-task is the milestone closer: §22-style acceptance fixtures + version bump + closure-invariant tests
 ```
 
-Last update: 2026-05-24 (M4 closed at commit 99e8b3f, 821 workspace tests).
+Last update: 2026-05-24 (M5 closed at T-045, 997 workspace tests; M6 queued).

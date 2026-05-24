@@ -79,7 +79,8 @@ pub use quarantine::{
 };
 pub use query::{Predicate, Query, QueryField, QueryNamespace, QueryOperator, QueryValue};
 pub use query_eval::{
-    evaluate as evaluate_query, materialize_view, ObjectRef, QueryEvalContext, QueryEvalError, View,
+    evaluate as evaluate_query, materialize_view, FsEnumerator, ObjectRef, QueryEvalContext,
+    QueryEvalError, View,
 };
 pub use query_parser::{parse as parse_query, QueryParseError};
 pub use service::{AiosFsClient, AiosFsGrpcServer, AiosFsService, DEFAULT_CODE_VERSION};

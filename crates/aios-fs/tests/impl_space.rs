@@ -115,8 +115,10 @@ async fn record_binding_rejects_duplicate_binding_id() {
         .await
         .expect_err("duplicate binding id must fail");
 
-    assert!(matches!(err, FsError::Internal(_)));
-    assert!(err.to_string().contains("duplicate impl-space binding"));
+    assert_eq!(
+        err,
+        FsError::ImplSpaceBindingDuplicate("ispb_01HXY8K2JPQ7N3M4R5S6T7V8W9".to_owned())
+    );
 }
 
 #[tokio::test]

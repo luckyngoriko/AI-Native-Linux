@@ -240,6 +240,12 @@
       "title": "aios-fs - evidence emission (S1.3 <-> S3.1)",
       "completed_at": "2026-05-24",
       "evidence": "960 tests workspace (+16 over T-043 baseline 944). Added aios-fs -> aios-evidence path dependency plus ed25519-dalek for receipt signing. New evidence_emit.rs mirrors the aios-capability-runtime T-031 pattern with FsEvidenceLog, InMemoryFsEvidenceLog, FsEvidenceEmitter, ACTION_RECEIVED / QUARANTINE_EVENT / CONFLICT_EVENT / GC_PASS helpers, BLAKE3 chain linkage through ReceiptChain, and Ed25519 signing. New evidence_payloads.rs typed JSON payloads for ActionReceivedPayload, QuarantineEventPayload, ConflictEventPayload, ConflictResolutionKind, and GcPassPayload. Wired optional Arc<FsEvidenceEmitter> into InMemoryAiosFs::write_object, QuarantineDriver enter/exit, and GcPassDriver run_pass; added record_conflict_event helper. FsError gained EvidenceEmitFailed(String); gRPC status conversion maps it to INTERNAL only to keep exhaustive matching compiling. Tests: crates/aios-fs/tests/evidence_emission.rs (16). Gates PASS: cargo check --workspace + cargo test --workspace + cargo clippy --workspace --all-targets -- -D warnings + cargo fmt --all -- --check. Scope guard: no M5 closer/version bump/golden path fixtures."
+    },
+    {
+      "id": "T-045",
+      "title": "aios-fs v0.1.0 - M5 closer: §22 phase-2/3 + acceptance fixtures + M5 CLOSED",
+      "completed_at": "2026-05-24",
+      "evidence": "997 tests workspace (+37 over T-044 baseline 960). Added tests/mvp_golden_path.rs (6 tests), tests/acceptance_fixtures.rs (23 S1.3/S2.1/S4.1 fixtures), and tests/m5_closure.rs (8 invariants). Bumped aios-fs Cargo.toml 0.0.1 -> 0.1.0 and DEFAULT_CODE_VERSION -> aios-fs/0.1.0-T045. Cleanups: FsEnumerator replaced Debug discovery in materialize_view; FsError::ImplSpaceBindingDuplicate typed duplicate binding; InMemoryAiosFs write metadata now carries kind/privacy/policy_tags/scope; NamespacePolicy enforces cross-group, reserved-id, and virtual-view mutation denial. Required gates PASS: cargo check --workspace + cargo test --workspace + cargo clippy --workspace --all-targets -- -D warnings + cargo fmt --all -- --check + cargo bench -p aios-policy --no-run. M5 CLOSED; M6 ready."
     }
   ],
   "blocked": [],
@@ -325,9 +331,10 @@
       "crate_version_target": "aios-capability-runtime/0.1.0"
     },
     "M5": {
-      "status": "in_progress",
+      "status": "CLOSED",
       "title": "AIOS-FS Object Model + Namespace + Query/View",
       "started_at": "2026-05-24",
+      "closed_at": "2026-05-24",
       "sub_specs": [
         "S1.3",
         "S2.1",
@@ -345,13 +352,15 @@
         "T-041",
         "T-042",
         "T-043",
-        "T-044"
+        "T-044",
+        "T-045"
       ],
-      "current_test_count": 960,
+      "current_test_count": 997,
+      "crate_version": "aios-fs/0.1.0",
       "rationale": "Closes \u00a722 phase-2 (mount /aios + versioned object + semantic view). Unblocks M4 enrichment stub."
     },
     "M6": {
-      "status": "planned",
+      "status": "ready",
       "title": "Vault Broker + Identity + Emergency Override",
       "sub_specs": [
         "S5.1",

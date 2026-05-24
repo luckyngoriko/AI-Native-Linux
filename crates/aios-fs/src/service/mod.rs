@@ -48,4 +48,4 @@ pub use proto::aios_fs_server::{AiosFs as AiosFsGrpc, AiosFsServer as AiosFsGrpc
 pub use server::{build_router, serve, AiosFsService, DEFAULT_CODE_VERSION, DEFAULT_FS_ID};
 
 /// Schema version string for the AIOS-FS service adapter.
-pub const SCHEMA_VERSION: &str = "aios.fs.v1alpha1+T043";
+pub const SCHEMA_VERSION: &str = "aios.fs.v1alpha1+0.1.0-T045";

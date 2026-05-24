@@ -27,8 +27,8 @@ use crate::AiosFs;
 /// lands. Kept public to mirror the policy/runtime service adapters.
 pub const DEFAULT_FS_ID: &str = "aios-fs-inproc";
 
-/// Default Rust crate code version for T-043 service wiring.
-pub const DEFAULT_CODE_VERSION: &str = "aios-fs/0.0.1-T043";
+/// Default Rust crate code version for T-045 M5 closure wiring.
+pub const DEFAULT_CODE_VERSION: &str = "aios-fs/0.1.0-T045";
 
 /// gRPC adapter mounting an [`InMemoryAiosFs`] behind tonic.
 #[derive(Clone, Debug)]

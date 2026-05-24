@@ -5,8 +5,7 @@
     reason = "AIOS-FS public names mirror the spec vocabulary"
 )]
 
-use std::fmt;
-
+use async_trait::async_trait;
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
@@ -22,6 +21,24 @@ use crate::pointer::{Pointer, PointerKind};
 use crate::query::{Predicate, Query, QueryField, QueryOperator, QueryValue};
 use crate::snapshot_id::SnapshotId;
 use crate::version::{Version, VersionState};
+
+/// Additive metadata enumeration surface for read-only view materialization.
+///
+/// This keeps the frozen [`AiosFs`] trait focused on authoritative reads/writes
+/// while allowing query materialization to discover candidate object ids without
+/// relying on debug formatting.
+#[async_trait]
+pub trait FsEnumerator: AiosFs {
+    /// Return object ids visible to the local metadata enumerator.
+    ///
+    /// # Errors
+    ///
+    /// Backends may return [`FsError::Internal`] for catalog scan failures.
+    async fn object_ids(&self) -> Result<Vec<ObjectId>, FsError>;
+
+    /// Return the current head snapshot id for empty materialized views.
+    fn head_snapshot_id(&self) -> SnapshotId;
+}
 
 /// Borrowed predicate evaluation context.
 #[derive(Debug, Clone, Copy)]
@@ -109,10 +126,8 @@ pub fn evaluate(query: &Query, ctx: &QueryEvalContext<'_>) -> Result<bool, Query
 
 /// Materialize a read-only object view over the current AIOS-FS state.
 ///
-/// T-040 keeps the existing [`AiosFs`] trait frozen, so this function discovers
-/// object ids from the in-memory harness debug view and then performs every
-/// authoritative access through [`AiosFs::read_object`]. T-041 should replace the
-/// discovery step with the real metadata catalog/index scan.
+/// Candidate discovery is supplied by [`FsEnumerator`], while every authoritative
+/// object access still goes through [`AiosFs::read_object`].
 ///
 /// # Errors
 ///
@@ -124,10 +139,10 @@ pub async fn materialize_view<'a, F>(
     snapshot: Option<&'a SnapshotId>,
 ) -> Result<View, FsError>
 where
-    F: AiosFs + fmt::Debug + ?Sized + 'a,
+    F: AiosFs + FsEnumerator + ?Sized + 'a,
 {
     let query_hash = hash_query(query)?;
-    let object_ids = discover_object_ids(fs);
+    let object_ids = fs.object_ids().await?;
     let mut matched = Vec::new();
     let mut view_snapshot_id = snapshot.cloned();
 
@@ -153,9 +168,7 @@ where
     matched.sort_by(|left, right| left.object_id.as_str().cmp(right.object_id.as_str()));
 
     Ok(View {
-        snapshot_id: view_snapshot_id
-            .or_else(|| discover_head_snapshot_id(fs))
-            .unwrap_or_else(empty_snapshot_id),
+        snapshot_id: view_snapshot_id.unwrap_or_else(|| fs.head_snapshot_id()),
         matched,
         query_hash,
     })
@@ -379,60 +392,6 @@ fn hash_query(query: &Query) -> Result<String, FsError> {
     jcs_canonicalize(query)
         .map(|canonical| blake3_hash(canonical.as_bytes()))
         .map_err(|err| FsError::QueryEval(format!("query canonicalization failed: {err}")))
-}
-
-fn discover_object_ids<F>(fs: &F) -> Vec<ObjectId>
-where
-    F: fmt::Debug + ?Sized,
-{
-    let debug = format!("{fs:?}");
-    let mut ids = collect_debug_newtype_values(&debug, "ObjectId")
-        .into_iter()
-        .filter_map(|value| ObjectId::parse(&value).ok())
-        .collect::<Vec<_>>();
-    ids.sort_by(|left, right| left.as_str().cmp(right.as_str()));
-    ids.dedup_by(|left, right| left.as_str() == right.as_str());
-    ids
-}
-
-fn discover_head_snapshot_id<F>(fs: &F) -> Option<SnapshotId>
-where
-    F: fmt::Debug + ?Sized,
-{
-    let debug = format!("{fs:?}");
-    collect_debug_newtype_values(&debug, "SnapshotId")
-        .into_iter()
-        .find(|value| {
-            value.starts_with(SnapshotId::PREFIX)
-                && value.len() == SnapshotId::PREFIX.len() + 32
-                && value[SnapshotId::PREFIX.len()..]
-                    .chars()
-                    .all(|c| c.is_ascii_digit() || ('a'..='f').contains(&c))
-        })
-        .map(SnapshotId)
-}
-
-fn collect_debug_newtype_values(debug: &str, type_name: &str) -> Vec<String> {
-    let marker = format!("{type_name}(\"");
-    let mut values = Vec::new();
-    let mut rest = debug;
-    while let Some(index) = rest.find(&marker) {
-        let after_marker = &rest[index + marker.len()..];
-        let Some(end) = after_marker.find("\")") else {
-            break;
-        };
-        values.push(after_marker[..end].to_owned());
-        rest = &after_marker[end + 2..];
-    }
-    values
-}
-
-fn empty_snapshot_id() -> SnapshotId {
-    SnapshotId::compute(
-        std::iter::empty::<&str>(),
-        std::iter::empty::<&str>(),
-        std::iter::empty::<&str>(),
-    )
 }
 
 const fn namespace_class_for_object(object: &Object) -> NamespaceClass {

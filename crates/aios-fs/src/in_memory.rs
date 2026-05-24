@@ -29,6 +29,7 @@ use crate::pointer::{Pointer, PointerId, PointerKind};
 use crate::quarantine::{
     new_quarantine_id, MutableAiosFs, QuarantineDisposition, QuarantineReceipt, QuarantineTrigger,
 };
+use crate::query_eval::FsEnumerator;
 use crate::snapshot_id::SnapshotId;
 use crate::transaction::{PointerMoveOp, Transaction, TransactionId, TransactionState, WriteOp};
 use crate::version::{Version, VersionId, VersionState};
@@ -417,6 +418,22 @@ impl AiosFs for InMemoryAiosFs {
             .get(snapshot_id)
             .cloned()
             .ok_or_else(|| FsError::Internal(format!("snapshot not found: {snapshot_id}")))
+    }
+}
+
+#[async_trait]
+impl FsEnumerator for InMemoryAiosFs {
+    async fn object_ids(&self) -> Result<Vec<ObjectId>, FsError> {
+        let store = self.read_state();
+        let mut object_ids = store.objects.keys().cloned().collect::<Vec<_>>();
+        drop(store);
+
+        object_ids.sort_by(|left, right| left.as_str().cmp(right.as_str()));
+        Ok(object_ids)
+    }
+
+    fn head_snapshot_id(&self) -> SnapshotId {
+        self.read_state().head_snapshot_id()
     }
 }
 
@@ -949,21 +966,101 @@ fn create_object_pointer_pair(
     };
     let object = Object::new(ObjectInit {
         object_id: object_id.clone(),
-        kind: ObjectKind::File,
+        kind: object_kind_from_delta(&write.metadata_delta),
         created_at: now,
         created_by: write.subject.clone(),
         current_pointer_id: pointer_id.clone(),
         metadata: metadata_from_delta(object_id, &write.metadata_delta),
-        privacy_class: PrivacyClass::Sensitive,
-        scope_binding: ScopeBinding {
+        privacy_class: privacy_class_from_delta(&write.metadata_delta),
+        scope_binding: scope_binding_from_delta(&write.metadata_delta),
+    })
+    .with_policy_tags(policy_tags_from_delta(&write.metadata_delta));
+
+    store.pointers.insert(pointer_id, pointer);
+    store.objects.insert(object_id.clone(), object);
+}
+
+fn object_kind_from_delta(delta: &serde_json::Value) -> ObjectKind {
+    match delta
+        .get("kind")
+        .and_then(serde_json::Value::as_str)
+        .map(str::to_ascii_uppercase)
+        .as_deref()
+    {
+        Some("PROJECT") => ObjectKind::Project,
+        Some("APPLICATION") => ObjectKind::Application,
+        Some("MEMORY") => ObjectKind::Memory,
+        Some("POLICY") => ObjectKind::Policy,
+        Some("MODEL") => ObjectKind::Model,
+        Some("PACKAGE") => ObjectKind::Package,
+        Some("EVIDENCE_REF") => ObjectKind::EvidenceRef,
+        Some("WORKSPACE") => ObjectKind::Workspace,
+        Some("CONFIG") => ObjectKind::Config,
+        Some("FILE" | _) | None => ObjectKind::File,
+    }
+}
+
+fn privacy_class_from_delta(delta: &serde_json::Value) -> PrivacyClass {
+    match delta
+        .get("privacy_class")
+        .and_then(serde_json::Value::as_str)
+        .map(str::to_ascii_uppercase)
+        .as_deref()
+    {
+        Some("PUBLIC") => PrivacyClass::Public,
+        Some("INTERNAL") => PrivacyClass::Internal,
+        Some("SECRET_BEARING") => PrivacyClass::SecretBearing,
+        Some("CLASSIFIED") => PrivacyClass::Classified,
+        Some("SENSITIVE" | _) | None => PrivacyClass::Sensitive,
+    }
+}
+
+fn scope_binding_from_delta(delta: &serde_json::Value) -> ScopeBinding {
+    let scope = delta.get("scope");
+    let kind = scope
+        .and_then(|value| value.get("kind"))
+        .and_then(serde_json::Value::as_str)
+        .map(str::to_ascii_uppercase);
+    let group_id = scope
+        .and_then(|value| value.get("group_id"))
+        .and_then(serde_json::Value::as_str)
+        .map(ToOwned::to_owned);
+    let user_id = scope
+        .and_then(|value| value.get("user_id"))
+        .and_then(serde_json::Value::as_str)
+        .map(ToOwned::to_owned);
+
+    match kind.as_deref() {
+        Some("USER") => ScopeBinding {
+            scope_kind: ScopeKind::User,
+            group_id,
+            user_id,
+        },
+        Some("GROUP") => ScopeBinding {
+            scope_kind: ScopeKind::Group,
+            group_id,
+            user_id: None,
+        },
+        Some("SYSTEM" | _) | None => ScopeBinding {
             scope_kind: ScopeKind::System,
             group_id: None,
             user_id: None,
         },
-    });
+    }
+}
 
-    store.pointers.insert(pointer_id, pointer);
-    store.objects.insert(object_id.clone(), object);
+fn policy_tags_from_delta(delta: &serde_json::Value) -> Vec<String> {
+    delta
+        .get("policy_tags")
+        .and_then(serde_json::Value::as_array)
+        .map(|values| {
+            values
+                .iter()
+                .filter_map(serde_json::Value::as_str)
+                .map(ToOwned::to_owned)
+                .collect()
+        })
+        .unwrap_or_default()
 }
 
 fn metadata_from_delta(object_id: &ObjectId, delta: &serde_json::Value) -> ObjectMetadata {

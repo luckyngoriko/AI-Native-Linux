@@ -201,10 +201,7 @@ impl ImplSpace for InMemoryImplSpace {
             .flatten()
             .any(|stored| stored.binding_id == binding.binding_id)
         {
-            return Err(FsError::Internal(format!(
-                "duplicate impl-space binding: {}",
-                binding.binding_id
-            )));
+            return Err(FsError::ImplSpaceBindingDuplicate(binding.binding_id));
         }
 
         bindings

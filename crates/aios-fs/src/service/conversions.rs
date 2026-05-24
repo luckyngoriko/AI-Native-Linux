@@ -148,6 +148,7 @@ pub fn fs_error_to_status(err: &FsError) -> Status {
         | FsError::PointerNotFound(_)
         | FsError::ChunkUnknown(_)
         | FsError::ImplSpaceBindingNotFound(_) => Status::not_found(err.to_string()),
+        FsError::ImplSpaceBindingDuplicate(_) => Status::already_exists(err.to_string()),
         FsError::InvalidPath(_)
         | FsError::WriteRequiresParent
         | FsError::InvalidTransition { .. }

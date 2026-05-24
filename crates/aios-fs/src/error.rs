@@ -103,6 +103,10 @@ pub enum FsError {
     #[error("implementation-space binding not found: {0}")]
     ImplSpaceBindingNotFound(String),
 
+    /// Implementation-space binding id already exists in the binding catalog.
+    #[error("implementation-space binding duplicate: {0}")]
+    ImplSpaceBindingDuplicate(String),
+
     /// Implementation-space target could not be reached by a backend verifier.
     #[error("implementation-space target unreachable: {0}")]
     ImplSpaceTargetUnreachable(String),

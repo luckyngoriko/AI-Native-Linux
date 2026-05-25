@@ -5,6 +5,7 @@
 pub mod adapter;
 pub mod dependency;
 pub mod error;
+pub mod evaluator;
 pub mod graph;
 pub mod in_memory_graph;
 pub mod state;
@@ -18,6 +19,7 @@ pub use adapter::{
 };
 pub use dependency::{DependencyEdge, DependencyKind, UnitDependency};
 pub use error::SgrError;
+pub use evaluator::GraphEvaluator;
 pub use graph::ServiceGraph;
 pub use in_memory_graph::InMemoryServiceGraph;
 pub use state::{

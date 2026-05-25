@@ -492,6 +492,12 @@
       "title": "aios-sgr - UnitFsmDriver + S15.1/S15.2 unit transition table",
       "completed_at": "2026-05-25",
       "evidence": "1645 tests workspace (+20 over T-085 baseline 1625). Added crates/aios-sgr/src/state_fsm.rs with UnitFsmDriver over Arc<dyn ServiceGraph>, TRANSITIONS const with the exhaustive S15.1 §3.2.1 UnitState FSM table consumed by S15.2, and is_legal_transition helper. start/stop/restart/mark_failed/transition drive only legal low-level set_unit_state edges, preserve idempotency for already-running/already-stopped paths, and tolerate concurrent start races by re-reading when another caller advanced the state. Failure recovery follows spec: FAILED -> STARTING -> RUNNING via restart/manual retry; direct FAILED -> RUNNING and FAILED -> STOPPED are rejected. Tests: crates/aios-sgr/tests/state_fsm.rs adds 20 tests covering table entries, helper truth table, start/stop/restart, mark_failed, illegal direct transitions, Failed recovery edge, and concurrent start/start+stop. Gates PASS: cargo check --workspace; cargo test --workspace; cargo clippy --workspace --all-targets -- -D warnings; cargo fmt --all -- --check. Scope guard held: no graph evaluator/cycle detection, adapter registry, gRPC, evidence, cross-crate integration, renderer, or M10 closer."
+    },
+    {
+      "id": "T-087",
+      "title": "aios-sgr - GraphEvaluator + Tarjan SCC + topological sort (S15.2)",
+      "completed_at": "2026-05-25",
+      "evidence": "1664 tests workspace (+19 over T-086 baseline 1645). Added crates/aios-sgr/src/evaluator.rs with GraphEvaluator over Arc<dyn ServiceGraph>, Kahn topological_sort with alphabetical UnitId tie-break and DependencyCycleDetected errors, iterative Tarjan SCC detect_cycles including self-loops, identify_parallel_batches for concurrent startup levels, evaluate_readiness, is_converged, and convergence_state. Added crates/aios-sgr/tests/evaluator.rs with 19 tests covering empty/linear/diamond topo ordering, cycle detection, multiple SCCs, self-loop SCC, parallel batches, readiness, convergence, graph states, and 100-unit <100ms performance smoke. lib.rs exports evaluator and GraphEvaluator. Gates PASS: cargo check --workspace; cargo test --workspace; cargo clippy --workspace --all-targets -- -D warnings; cargo fmt --all -- --check. Scope guard held: no adapter model, gRPC, evidence, cross-crate integration, renderer, or M10 closer."
     }
   ],
   "blocked": [],
@@ -724,9 +730,10 @@
       "tasks": [
         "T-084",
         "T-085",
-        "T-086"
+        "T-086",
+        "T-087"
       ],
-      "current_test_count": 1645,
+      "current_test_count": 1664,
       "crate_version": "aios-sgr/0.0.1",
       "rationale": "Beyond capability runtime: AIOS-SGR desired-state graph, unit manifest, adapter declaration."
     },

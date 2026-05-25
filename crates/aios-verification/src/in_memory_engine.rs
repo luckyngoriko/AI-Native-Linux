@@ -17,10 +17,11 @@ use tokio::sync::RwLock;
 use ulid::Ulid;
 
 use crate::engine::{VerificationContext, VerificationEngine};
+use crate::grammar_parser;
 use crate::primitives::{self, LocalProbe, PrimitiveTier, StdLocalProbe};
 use crate::{
-    IntentId, PrimitiveResult, VerificationError, VerificationIntent, VerificationPrimitive,
-    VerificationResult, VerificationStatus,
+    IntentId, PrimitiveInvocation, PrimitiveResult, VerificationError, VerificationGrammar,
+    VerificationIntent, VerificationPrimitive, VerificationResult, VerificationStatus,
 };
 
 /// HashMap-backed in-process verification engine used by tests and successor slices.
@@ -75,7 +76,8 @@ impl VerificationEngine for InMemoryVerificationEngine {
         intent: &VerificationIntent,
         context: &VerificationContext,
     ) -> Result<VerificationResult, VerificationError> {
-        let invocations = parse_primitive_expression(&intent.expression)?;
+        let grammar = compile_intent(intent)?;
+        let invocations = executable_invocations(grammar)?;
         let started_at = context.started_at;
         let mut per_primitive = Vec::with_capacity(invocations.len());
         for invocation in invocations {
@@ -107,29 +109,50 @@ impl VerificationEngine for InMemoryVerificationEngine {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
-struct PrimitiveInvocation {
-    kind: VerificationPrimitive,
-    expected: Value,
+/// Compile a verification intent expression into the typed S2.4 grammar AST.
+///
+/// JSON arrays/objects are accepted for T-065/T-066 backward compatibility.
+/// Non-JSON sources are parsed with the S2.4 text grammar.
+///
+/// # Errors
+///
+/// Returns [`VerificationError`] when JSON decoding, primitive resolution, or
+/// grammar parsing fails.
+pub fn compile_intent(
+    intent: &VerificationIntent,
+) -> Result<VerificationGrammar, VerificationError> {
+    let expression = intent.expression.trim_start();
+    if expression.starts_with('[') || expression.starts_with('{') {
+        parse_json_expression(expression)
+    } else {
+        grammar_parser::parse(expression)
+    }
 }
 
-fn parse_primitive_expression(
-    expression: &str,
-) -> Result<Vec<PrimitiveInvocation>, VerificationError> {
-    let primitive_values = serde_json::from_str::<Vec<Value>>(expression)
+fn parse_json_expression(expression: &str) -> Result<VerificationGrammar, VerificationError> {
+    let value = serde_json::from_str::<Value>(expression)
         .map_err(|err| VerificationError::IntentParseFailed(err.to_string()))?;
-
-    primitive_values
-        .into_iter()
-        .map(parse_primitive_invocation)
-        .collect()
+    match value {
+        Value::Array(values) => values
+            .into_iter()
+            .map(parse_primitive_invocation)
+            .map(|result| result.map(VerificationGrammar::Primitive))
+            .collect::<Result<Vec<_>, _>>()
+            .map(VerificationGrammar::All),
+        single @ (Value::Object(_) | Value::String(_)) => parse_primitive_invocation(single)
+            .map(VerificationGrammar::Primitive)
+            .map(|primitive| VerificationGrammar::All(vec![primitive])),
+        _ => Err(VerificationError::IntentParseFailed(
+            "JSON verification expression must be an object or array".to_owned(),
+        )),
+    }
 }
 
 fn parse_primitive_invocation(value: Value) -> Result<PrimitiveInvocation, VerificationError> {
     match value {
         Value::String(name) => Ok(PrimitiveInvocation {
             kind: parse_primitive_wire_name(name)?,
-            expected: Value::Null,
+            args: Value::Null,
         }),
         Value::Object(mut object) => {
             let Some(name) = object
@@ -150,7 +173,7 @@ fn parse_primitive_invocation(value: Value) -> Result<PrimitiveInvocation, Verif
 
             Ok(PrimitiveInvocation {
                 kind: parse_primitive_wire_name(name.to_owned())?,
-                expected,
+                args: expected,
             })
         }
         _ => Err(VerificationError::IntentParseFailed(
@@ -161,7 +184,45 @@ fn parse_primitive_invocation(value: Value) -> Result<PrimitiveInvocation, Verif
 
 fn parse_primitive_wire_name(name: String) -> Result<VerificationPrimitive, VerificationError> {
     serde_json::from_value(Value::String(name.clone()))
+        .or_else(|_err| {
+            serde_json::from_value(Value::String(name.replace('.', "_").to_ascii_uppercase()))
+        })
         .map_err(|_err| VerificationError::UnknownPrimitive(name))
+}
+
+fn executable_invocations(
+    grammar: VerificationGrammar,
+) -> Result<Vec<PrimitiveInvocation>, VerificationError> {
+    let mut invocations = Vec::new();
+    collect_executable_invocations(grammar, &mut invocations)?;
+    Ok(invocations)
+}
+
+fn collect_executable_invocations(
+    grammar: VerificationGrammar,
+    invocations: &mut Vec<PrimitiveInvocation>,
+) -> Result<(), VerificationError> {
+    match grammar {
+        VerificationGrammar::Primitive(invocation) => {
+            invocations.push(invocation);
+            Ok(())
+        }
+        VerificationGrammar::All(terms) => {
+            for term in terms {
+                collect_executable_invocations(term, invocations)?;
+            }
+            Ok(())
+        }
+        VerificationGrammar::Any(_) => unsupported_runtime_combinator("any"),
+        VerificationGrammar::Not(_) => unsupported_runtime_combinator("not"),
+        VerificationGrammar::Eventually { .. } => unsupported_runtime_combinator("eventually"),
+    }
+}
+
+fn unsupported_runtime_combinator(combinator: &str) -> Result<(), VerificationError> {
+    Err(VerificationError::IntentParseFailed(format!(
+        "`{combinator}` execution semantics are deferred to T-068"
+    )))
 }
 
 async fn execute_primitive(
@@ -169,12 +230,12 @@ async fn execute_primitive(
     local_probe: &dyn LocalProbe,
 ) -> PrimitiveResult {
     match primitives::primitive_tier(invocation.kind) {
-        PrimitiveTier::Tier1 => primitives::tier1::execute(invocation.kind, &invocation.expected),
+        PrimitiveTier::Tier1 => primitives::tier1::execute(invocation.kind, &invocation.args),
         PrimitiveTier::Tier2 => {
-            primitives::tier2::execute(invocation.kind, &invocation.expected, local_probe).await
+            primitives::tier2::execute(invocation.kind, &invocation.args, local_probe).await
         }
         PrimitiveTier::Tier3 => {
-            primitives::tier3::deferred_result(invocation.kind, &invocation.expected)
+            primitives::tier3::deferred_result(invocation.kind, &invocation.args)
         }
     }
 }

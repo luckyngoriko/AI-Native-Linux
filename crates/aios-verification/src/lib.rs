@@ -10,6 +10,8 @@
 
 pub mod engine;
 pub mod error;
+pub mod grammar;
+pub mod grammar_parser;
 pub mod in_memory_engine;
 pub mod intent;
 pub mod primitive;
@@ -18,7 +20,10 @@ pub mod result;
 
 pub use engine::{VerificationContext, VerificationEngine};
 pub use error::VerificationError;
-pub use in_memory_engine::InMemoryVerificationEngine;
+pub use grammar::{
+    PrimitiveInvocation, VerificationDuration, VerificationDurationUnit, VerificationGrammar,
+};
+pub use in_memory_engine::{compile_intent, InMemoryVerificationEngine};
 pub use intent::{IntentId, VerificationIntent};
 pub use primitive::VerificationPrimitive;
 pub use primitives::{LocalProbe, MockLocalProbe, StdLocalProbe};

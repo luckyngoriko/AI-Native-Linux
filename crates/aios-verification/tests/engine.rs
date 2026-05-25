@@ -5,9 +5,9 @@ use std::sync::Arc;
 
 use aios_action::ActionId;
 use aios_verification::{
-    InMemoryVerificationEngine, IntentId, LocalProbe, MockLocalProbe, VerificationContext,
-    VerificationEngine, VerificationError, VerificationIntent, VerificationPrimitive,
-    VerificationStatus,
+    compile_intent, InMemoryVerificationEngine, IntentId, LocalProbe, MockLocalProbe,
+    VerificationContext, VerificationEngine, VerificationError, VerificationGrammar,
+    VerificationIntent, VerificationPrimitive, VerificationStatus,
 };
 use chrono::Utc;
 use serde_json::{json, Map, Value};
@@ -134,6 +134,42 @@ async fn run_verification_with_multiple_primitives_lists_all_results() -> TestRe
     assert!(result.per_primitive[0].passed);
     assert!(result.per_primitive[1].error.is_some());
     assert!(result.per_primitive[2].error.is_some());
+    Ok(())
+}
+
+#[test]
+fn compile_intent_keeps_json_expression_compatibility() -> TestResult {
+    let intent = intent_with_invocation(
+        VerificationPrimitive::FileExists,
+        json!({"object_or_path": "/tmp/aios-ok"}),
+    )?;
+
+    let ast = compile_intent(&intent)?;
+
+    assert!(matches!(ast, VerificationGrammar::All(terms) if terms.len() == 1));
+    Ok(())
+}
+
+#[tokio::test]
+async fn run_verification_accepts_s24_grammar_expression() -> TestResult {
+    let probe: Arc<dyn LocalProbe> =
+        Arc::new(MockLocalProbe::default().with_file_exists("/tmp/aios-ok", true));
+    let engine = InMemoryVerificationEngine::new().with_local_probe(probe);
+    let intent = VerificationIntent::new(
+        ActionId::new(),
+        r#"file.exists(object_or_path="/tmp/aios-ok")"#,
+        5,
+    );
+    let context = context_for(intent.action_id.clone());
+
+    let result = engine.run_verification(&intent, &context).await?;
+
+    assert_eq!(result.status, VerificationStatus::Passed);
+    assert_eq!(result.per_primitive.len(), 1);
+    assert_eq!(
+        result.per_primitive[0].primitive_kind,
+        VerificationPrimitive::FileExists
+    );
     Ok(())
 }
 

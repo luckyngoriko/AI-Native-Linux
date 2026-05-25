@@ -574,3 +574,4 @@ Format: ISO-8601 timestamp | task_id | step | command(s) | result | status | nex
 2026-05-25 T-088 codex exec aios-sgr SgrAdapterRegistry + capability matching ready gates=green tests=1680
 2026-05-25 T-089 codex exec aios-sgr gRPC SgrService ready gates=green tests=1705
 2026-05-25 T-090 codex exec aios-sgr evidence emission ready gates=green tests=1719
+2026-05-25 T-091 codex exec aios-sgr runtime/recovery cross-crate integration ready gates=green tests=1734

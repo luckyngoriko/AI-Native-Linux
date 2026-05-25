@@ -11,6 +11,8 @@ pub mod evidence_emit;
 pub mod evidence_payloads;
 pub mod graph;
 pub mod in_memory_graph;
+pub mod recovery_adapter;
+pub mod runtime_adapter;
 pub mod service;
 pub mod state;
 pub mod state_fsm;
@@ -35,6 +37,8 @@ pub use evidence_payloads::{
 };
 pub use graph::ServiceGraph;
 pub use in_memory_graph::InMemoryServiceGraph;
+pub use recovery_adapter::SgrRecoveryHook;
+pub use runtime_adapter::{DefaultUnitActionFactory, SgrCapabilityAdapter, UnitActionFactory};
 pub use service::{
     build_router, serve, SgrServiceClient, SgrServiceGrpc, SgrServiceGrpcServer, SgrServiceImpl,
     SCHEMA_VERSION,

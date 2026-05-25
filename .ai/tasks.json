@@ -516,6 +516,12 @@
       "title": "aios-sgr - evidence emission (S15.x <-> S3.1)",
       "completed_at": "2026-05-25",
       "evidence": "1719 tests workspace (+14 over T-089 baseline 1705). Added aios-evidence path dependency, SgrEvidenceEmitter/SgrEvidenceLog/InMemorySgrEvidenceLog, typed payloads, optional emitter wiring in InMemoryServiceGraph/UnitFsmDriver/GraphEvaluator/SgrAdapterRegistry, SgrError::EvidenceEmitFailed, and evidence_emission.rs with 14 tests. Gates PASS: cargo check --workspace; cargo test -p aios-sgr; cargo test --workspace; cargo clippy --workspace --all-targets -- -D warnings; cargo fmt --all -- --check. Spec note: no dedicated DEPENDENCY_DECLARED RecordType exists, so dependency declarations fold to GRAPH_EVALUATED; E2E emits 8 receipts because UNIT_STARTED is emitted for each started unit. Scope guard held: no cross-crate runtime integration, renderer, or M10 closer."
+    },
+    {
+      "id": "T-091",
+      "title": "aios-sgr - cross-crate integration (sgr <-> capability-runtime + recovery)",
+      "completed_at": "2026-05-25",
+      "evidence": "1734 tests workspace (+15 over T-090 baseline 1719). Added aios-capability-runtime and aios-recovery path dependencies to aios-sgr. Added runtime_adapter.rs with UnitActionFactory, DefaultUnitActionFactory, and SgrCapabilityAdapter driving start/stop through CapabilityRuntime and UnitFsmDriver state transitions. Added recovery_adapter.rs with SgrRecoveryHook implementing RuntimeRecoveryHook and pausing/resuming normal-mode units across recovery boundaries. Added crates/aios-sgr/tests/cross_crate_integration.rs with 15 tests covering runtime success/denial, default envelope construction, recovery pause/resume, backward-compatible runtime/recovery behavior, end-to-end SGR/runtime/evidence receipts, concurrency, factory errors, and missing adapter_id. Gates PASS: cargo check --workspace; cargo test -p aios-sgr; cargo test -p aios-capability-runtime; cargo test -p aios-recovery; cargo test --workspace; cargo clippy --workspace --all-targets -- -D warnings; cargo fmt --all -- --check. Scope guard held: no closed crate source changes, renderer and M10 closer deferred."
     }
   ],
   "blocked": [],
@@ -752,9 +758,10 @@
         "T-087",
         "T-088",
         "T-089",
-        "T-090"
+        "T-090",
+        "T-091"
       ],
-      "current_test_count": 1719,
+      "current_test_count": 1734,
       "crate_version": "aios-sgr/0.0.1",
       "rationale": "Beyond capability runtime: AIOS-SGR desired-state graph, unit manifest, adapter declaration."
     },

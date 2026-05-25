@@ -226,7 +226,9 @@ name = "aios-sgr"
 version = "0.0.1"
 dependencies = [
  "aios-action",
+ "aios-capability-runtime",
  "aios-evidence",
+ "aios-recovery",
  "async-trait",
  "blake3",
  "chrono",

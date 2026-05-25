@@ -438,6 +438,12 @@
       "title": "aios-recovery - KernelPipelineDriver (S9.3 dedicated kernel pipeline)",
       "completed_at": "2026-05-25",
       "evidence": "1491 tests workspace (+15 over T-076 baseline 1476). Added crates/aios-recovery/src/kernel_pipeline.rs with KernelPipelineDriver over candidate store, active id, trusted authorities, recovery boundary, and bounded rollback stack (last 8). register_candidate verifies Ed25519 signatures over deterministic manifest bytes against configured VerifyingKey authorities and creates BUILT candidates; verify_candidate applies BUILT -> GATING -> GATE_PASSED; activate_candidate applies GATE_PASSED -> A_PROMOTED, enforces requires_recovery_install via RecoveryBoundary::is_recovery_active, and records displaced active candidates for rollback; rollback_candidate applies A_PROMOTED -> ROLLBACK and restores prior active id; retire/list/get_active landed. Added RecoveryError::KernelUnknownAuthority and lib.rs re-export. Tests: crates/aios-recovery/tests/kernel_pipeline.rs adds 15 tests covering valid/bad/unknown signatures, verification, activation gates, rollback restore and empty-stack rejection, retirement, invalid transition, concurrent activate one-winner, get_active, and list_candidates. Required gates PASS: cargo check --workspace + cargo test --workspace + cargo clippy --workspace --all-targets -- -D warnings + cargo fmt --all -- --check. Scope guard held: no INV-012 enforcement, no gRPC, no evidence emission, no cross-crate integration."
+    },
+    {
+      "id": "T-078",
+      "title": "aios-recovery - RecoveryGuard cross-crate INV-012 runtime enforcement (S9.1)",
+      "completed_at": "2026-05-25",
+      "evidence": "1503 tests workspace (+12 over T-077 baseline 1491). Added Cargo edge aios-recovery -> aios-fs. Added crates/aios-recovery/src/recovery_guard.rs with RecoveryGuard over Arc<dyn RecoveryBoundary>, reading live boundary.is_recovery_active() and composing with aios_fs::NamespacePolicy::can_mutate. Added RecoveryError::RecoveryOnlyPathMutationDenied { path, reason } and RecoveryError::AiPathMutationDenied { path }. Tests: crates/aios-recovery/tests/recovery_guard.rs adds 12 tests covering normal/recovery mode recovery-only mutation, user-space allow, AI-locked deny, AI-allowed allow, human allow on AI-locked path, live enter/exit reflection, 5-task concurrent consistency, NamespacePolicy composition, aios-fs backward compatibility, and foreign namespace rejection. Required gates PASS: cargo check --workspace + cargo test -p aios-recovery + cargo test -p aios-fs + cargo test --workspace + cargo clippy --workspace --all-targets -- -D warnings + cargo fmt --all -- --check. Scope guard held: no aios-fs source changes, no gRPC, no evidence emission, no T-081 cross-crate service integration, no renderer."
     }
   ],
   "blocked": [],
@@ -643,9 +649,10 @@
         "T-074",
         "T-075",
         "T-076",
-        "T-077"
+        "T-077",
+        "T-078"
       ],
-      "current_test_count": 1491,
+      "current_test_count": 1503,
       "crate_version_target": "aios-recovery/0.1.0",
       "rationale": "Resolves S9.1 'degraded subset' exception findings from Capella iter 6."
     },

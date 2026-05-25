@@ -559,3 +559,4 @@ Format: ISO-8601 timestamp | task_id | step | command(s) | result | status | nex
 2026-05-25 T-075 codex exec aios-recovery RecoveryBoundary + InMemory boundary ready gates=green tests=1462
 2026-05-25 T-076 codex exec aios-recovery FirstBootDriver S9.2 FSM shell ready gates=green tests=1476
 2026-05-25 T-077 codex exec aios-recovery KernelPipelineDriver S9.3 dedicated pipeline ready gates=green tests=1491
+2026-05-25 T-078 codex exec aios-recovery RecoveryGuard INV-012 runtime enforcement ready gates=green tests=1503

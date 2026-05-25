@@ -16,6 +16,20 @@ pub enum RecoveryError {
     /// Recovery entry or exit lacked the required operator/fallback authority.
     #[error("recovery authorization invalid: {0}")]
     RecoveryAuthorizationInvalid(String),
+    /// Recovery-only namespace mutation was attempted outside recovery mode.
+    #[error("recovery-only path mutation denied for {path}: {reason}")]
+    RecoveryOnlyPathMutationDenied {
+        /// Target path that was rejected.
+        path: String,
+        /// Human-readable rejection reason.
+        reason: String,
+    },
+    /// AI subject attempted to mutate an AI-locked namespace path.
+    #[error("AI path mutation denied for {path}")]
+    AiPathMutationDenied {
+        /// Target path that was rejected.
+        path: String,
+    },
     /// Recovery bundle signature verification failed.
     #[error("recovery bundle signature is invalid")]
     BundleSignatureInvalid,

@@ -15,6 +15,7 @@ pub mod in_memory_boundary;
 pub mod kernel;
 pub mod kernel_pipeline;
 pub mod mode;
+pub mod recovery_guard;
 
 pub use boot::{BootId, BootPhase, FirstBootContext, FirstBootPhase, FirstBootStatus};
 pub use boundary::{EnterRecoveryRequest, RecoveryBoundary};
@@ -25,3 +26,4 @@ pub use in_memory_boundary::InMemoryRecoveryBoundary;
 pub use kernel::{CandidateId, CandidateState, KernelCandidate, KernelManifest};
 pub use kernel_pipeline::KernelPipelineDriver;
 pub use mode::{RecoveryMode, RecoveryState};
+pub use recovery_guard::RecoveryGuard;

@@ -129,6 +129,21 @@ impl InMemoryOverrideBroker {
         self
     }
 
+    /// Return every known override binding, transitioning expired live
+    /// bindings before the snapshot is cloned.
+    #[must_use]
+    pub async fn list_overrides(&self) -> Vec<OverrideBinding> {
+        let now = Utc::now();
+        let mut overrides = self.overrides.write().await;
+        let mut bindings = Vec::with_capacity(overrides.len());
+        for binding in overrides.values_mut() {
+            transition_expired_binding(binding, now);
+            bindings.push(binding.clone());
+        }
+        bindings.sort_by(|left, right| left.binding_id.cmp(&right.binding_id));
+        bindings
+    }
+
     async fn lookup_granting_subjects(
         &self,
         granted_by: &[SubjectRef],

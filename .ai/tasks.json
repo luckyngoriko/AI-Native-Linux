@@ -294,6 +294,12 @@
       "title": "aios-vault - evidence emission (S5.2 ↔ S3.1)",
       "completed_at": "2026-05-24",
       "evidence": "1126 tests workspace (+21 over T-052 baseline 1105). Added Cargo edge aios-vault -> aios-evidence, VaultEvidenceEmitter + InMemoryVaultEvidenceLog, typed evidence payloads, optional emitters on InMemoryVaultBroker/InMemoryOverrideBroker/CapabilityLifecycleDriver, and VaultError::EvidenceEmitFailed. Successful issue/use/revoke/expire and override grant/consume/revoke now emit signed, BLAKE3-chained receipts when configured; no-emitter paths preserve existing behavior. INV-015 + INV-018 tests assert no plaintext, signing input, key bytes, or internal handles in payload JSON. Tests: crates/aios-vault/tests/evidence_emission.rs (21). Gates PASS: cargo check --workspace + cargo test --workspace + cargo clippy --workspace --all-targets -- -D warnings + cargo fmt --all -- --check. Scope guard: cross-crate vault↔policy/runtime integration (T-054) and M6 closer (T-055) deferred. Spec note: current S3.1 Rust RecordType vocabulary has VAULT_OPERATION, not CAPABILITY_USED or VAULT_CAPABILITY_EXPIRED; use and expiration payloads are emitted as VAULT_OPERATION."
+    },
+    {
+      "id": "T-054",
+      "title": "aios-vault - cross-crate integration (vault ↔ policy + runtime)",
+      "completed_at": "2026-05-25",
+      "evidence": "1137 tests workspace (+11 over T-053 baseline 1126). Added Cargo edge aios-vault -> aios-policy; new integration.rs with From<HydratedSubjectSnapshot> for aios_policy::HydratedSubject, From<OverrideBinding> for aios_policy::EmergencyOverride, VaultPolicyHydrator implementing aios_policy::SubjectHydrator, and VaultPolicyOverrideBoundary standalone shim. InMemoryOverrideBroker gained read-only list_overrides snapshot. Tests: crates/aios-vault/tests/cross_crate_integration.rs (11). Backward compat: aios-policy subject_hydration and aios-capability-runtime adapter_registry pass. Gates PASS: cargo check --workspace; cargo test --workspace; cargo clippy --workspace --all-targets -- -D warnings; cargo fmt --all -- --check. Scope guard: no aios-policy/src changes, no aios-capability-runtime/src changes; vault-backed runtime manifest verification deferred to M7+."
     }
   ],
   "blocked": [],
@@ -426,9 +432,10 @@
         "T-050",
         "T-051",
         "T-052",
-        "T-053"
+        "T-053",
+        "T-054"
       ],
-      "current_test_count": 1126,
+      "current_test_count": 1137,
       "crate_version_target": "aios-vault/0.1.0",
       "rationale": "Secrets-as-capabilities (INV-018). Unblocks signed bundle/manifest infra + external model calls."
     },

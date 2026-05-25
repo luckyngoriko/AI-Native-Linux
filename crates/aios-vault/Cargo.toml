@@ -3,7 +3,7 @@ name = "aios-vault"
 description = "AIOS S5.1/S5.2/S5.4 — vault identity, capability, and override core types."
 edition.workspace = true
 rust-version.workspace = true
-version = "0.0.1"
+version = "0.1.0"
 license.workspace = true
 repository.workspace = true
 authors.workspace = true
@@ -37,6 +37,9 @@ x25519-dalek   = { workspace = true }
 [build-dependencies]
 tonic-build         = { workspace = true }
 protoc-bin-vendored = { workspace = true }
+
+[dev-dependencies]
+aios-capability-runtime = { path = "../aios-capability-runtime" }
 
 [lints]
 workspace = true

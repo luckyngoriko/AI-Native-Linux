@@ -8,7 +8,7 @@ Source of truth: `.ai/tasks.json` (machine-readable). This document is the human
 - Tasks within a milestone are labeled `T-NNN`, sequential across milestones (T-001 .. T-035 are M1..M4; T-036+ continue into M5+).
 - Cross-milestone debt is forbidden by the global `feedback_no_technical_debt.md` rule.
 
-## Status snapshot (2026-05-24)
+## Status snapshot (2026-05-25)
 
 | Milestone      | Crate                   | Sub-specs            | Layer              | Status   |   Tests |
 | -------------- | ----------------------- | -------------------- | ------------------ | -------- | ------: |
@@ -17,7 +17,8 @@ Source of truth: `.ai/tasks.json` (machine-readable). This document is the human
 | M3             | aios-policy             | S2.3                 | L4                 | ✓ closed |     235 |
 | M4             | aios-capability-runtime | S10.1                | L3                 | ✓ closed |     222 |
 | M5             | aios-fs                 | S1.3, S2.1, S2.2, S4.1 | L2              | ✓ closed |     176 |
-| **Total done** | **5 crates**            | **8 / 53 sub-specs** | —                  | —        | **997** |
+| M6             | aios-vault              | S5.1, S5.2, S5.4    | L4                 | ✓ closed |     163 |
+| **Total done** | **6 crates**            | **11 / 53 sub-specs** | —                 | —        | **1160** |
 
 ## §22 MVP Golden Path closure (M5 → M7)
 
@@ -26,8 +27,8 @@ These 3 milestones make the §22 MVP runnable end-to-end. After M7, AIOS boots f
 | Milestone | Crate             | Sub-specs              | Layer | Rationale                                                                                                                                                 |
 | --------- | ----------------- | ---------------------- | ----- | --------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | M5        | aios-fs           | S1.3, S2.1, S2.2, S4.1 | L2    | ✓ closed at 176 crate tests / 997 workspace tests. Object model + namespace + query/view + implementation space; proves §22 phase-2 at the AIOS-FS layer. |
-| M6        | aios-vault        | S5.1, S5.2, S5.4       | L4    | ready. Identity + vault broker + emergency override. Secrets-as-capabilities (INV-018). Unblocks signed bundle/manifest infra + external model calls.       |
-| M7        | aios-renderer-cli | S7.6                   | L7    | Simplest renderer first. Closes §22 phase-9. §22 MVP golden path FULLY RUNNABLE after this.                                                               |
+| M6        | aios-vault        | S5.1, S5.2, S5.4       | L4    | ✓ closed at 163 crate tests / 1160 workspace tests. Identity + vault broker + emergency override; §22 vault-mediated external-call path proven with INV-018. |
+| M7        | aios-renderer-cli | S7.6                   | L7    | ready. Simplest renderer first. Closes §22 phase-9. §22 MVP golden path FULLY RUNNABLE after this.                                                        |
 
 ## Beyond MVP — full distro (M8 → M18)
 
@@ -47,15 +48,15 @@ These 3 milestones make the §22 MVP runnable end-to-end. After M7, AIOS boots f
 
 ## Progress projection
 
-- **Current pace**: ~199 tests/milestone, ~9 commits/milestone
-- **At M7 (MVP runnable)**: ~1,400 tests, 7 crates
-- **At M18 (full distro)**: ~3,800–4,200 tests, 18 crates
-- **53 sub-specs total → 8 done → 45 remaining** distributed across M6–M18
+- **Current pace**: ~193 tests/milestone, ~9 commits/milestone
+- **At M7 (MVP runnable)**: ~1,330–1,400 tests, 7 crates
+- **At M18 (full distro)**: ~3,600–4,100 tests, 18 crates
+- **53 sub-specs total → 11 done → 42 remaining** distributed across M7–M18
 - **Cross-cutting (XX) sub-specs** beyond the 18-milestone plan may land as targeted T-tasks inside existing milestones (e.g. ECDSA signing variants, additional renderer protocols).
 
 ## Closure criteria per milestone
 
-Reused from M1–M4 closure pattern:
+Reused from M1–M6 closure pattern:
 
 1. Every listed sub-spec at L0 status = `REAL` (E2+ evidence)
 2. Workspace tests grow honestly (no skipped/ignored production tests)
@@ -77,4 +78,4 @@ Reused from M1–M4 closure pattern:
 # 5. Final T-task is the milestone closer: §22-style acceptance fixtures + version bump + closure-invariant tests
 ```
 
-Last update: 2026-05-24 (M5 closed at T-045, 997 workspace tests; M6 queued).
+Last update: 2026-05-25 (M6 closed at T-055, 1160 workspace tests; M7 ready).

@@ -168,10 +168,11 @@ dependencies = [
 
 [[package]]
 name = "aios-vault"
-version = "0.0.1"
+version = "0.1.0"
 dependencies = [
  "aes-gcm",
  "aios-action",
+ "aios-capability-runtime",
  "aios-evidence",
  "aios-policy",
  "async-trait",

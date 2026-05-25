@@ -31,8 +31,8 @@ use crate::{
 /// Default `VaultBroker` service id reported by the info RPC.
 pub const DEFAULT_VAULT_ID: &str = "aios-vault-inproc";
 
-/// Default Rust crate code version for T-052 service wiring.
-pub const DEFAULT_CODE_VERSION: &str = "aios-vault/0.0.1-T052";
+/// Default Rust crate code version for T-055 / M6 closure.
+pub const DEFAULT_CODE_VERSION: &str = "aios-vault/0.1.0-T055";
 
 /// gRPC adapter mounting the in-memory vault stack behind tonic.
 #[derive(Clone, Debug)]

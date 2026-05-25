@@ -17,6 +17,7 @@ pub mod intent;
 pub mod primitive;
 pub mod primitives;
 pub mod result;
+pub mod service;
 
 pub use engine::{VerificationContext, VerificationEngine};
 pub use error::VerificationError;
@@ -29,3 +30,10 @@ pub use intent::{IntentId, VerificationIntent};
 pub use primitive::VerificationPrimitive;
 pub use primitives::{LocalProbe, MockLocalProbe, StdLocalProbe};
 pub use result::{PrimitiveResult, VerificationResult, VerificationStatus};
+pub use service::{
+    build_router, serve, VerificationEngineClient, VerificationEngineGrpc,
+    VerificationEngineGrpcServer, VerificationEngineService, SCHEMA_VERSION,
+};
+
+/// Default Rust crate code version reported by the T-069 gRPC service adapter.
+pub const DEFAULT_CODE_VERSION: &str = "aios-verification/0.1.0-T069";

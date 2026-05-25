@@ -229,6 +229,9 @@ dependencies = [
  "async-trait",
  "blake3",
  "chrono",
+ "prost",
+ "prost-types",
+ "protoc-bin-vendored",
  "regex",
  "serde",
  "serde_json",
@@ -236,6 +239,8 @@ dependencies = [
  "strum_macros",
  "thiserror",
  "tokio",
+ "tonic",
+ "tonic-build",
  "ulid",
 ]
 

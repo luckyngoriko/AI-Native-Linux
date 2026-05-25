@@ -384,6 +384,12 @@
       "title": "aios-verification - combinator executor + result aggregation (S2.4)",
       "completed_at": "2026-05-25",
       "evidence": "1358 tests workspace (+14 over T-067 baseline 1344). Added VerificationExecutor with all/any/not/eventually execution, short-circuit placeholders, tokio timeout enforcement, explicit S2.4 max_duration/interval retry window, per-primitive elapsed_ms, retry_count annotation, and load-bearing ProbeError aggregation. InMemoryVerificationEngine now routes parsed grammar through the executor while preserving flat primitive-list compatibility. Gates PASS: cargo check --workspace + cargo test -p aios-verification + cargo test --workspace + cargo clippy --workspace --all-targets -- -D warnings + cargo fmt --all -- --check."
+    },
+    {
+      "id": "T-069",
+      "title": "aios-verification - gRPC VerificationEngine service (S2.4 section 10)",
+      "completed_at": "2026-05-25",
+      "evidence": "1373 tests workspace (+15 over T-068 baseline 1358). Added aios.verification.v1alpha1 proto, build.rs tonic-build wiring, src/service/{mod,conversions,server}.rs, lib.rs service re-exports, VerificationError-to-tonic::Status mapping, and 13 grpc_roundtrip integration tests plus 2 service unit tests. Implemented spec section 10 RPC list: RunVerification, ExplainResult, GetEngineInfo. Required gates PASS: cargo check --workspace + cargo test -p aios-verification + cargo test --workspace + cargo clippy --workspace --all-targets -- -D warnings + cargo fmt --all -- --check. Scope guard held: no evidence emission, runtime integration, renderer, or M8 closer."
     }
   ],
   "blocked": [],
@@ -562,11 +568,12 @@
         "T-065",
         "T-066",
         "T-067",
-        "T-068"
+        "T-068",
+        "T-069"
       ],
-      "current_test_count": 1358,
+      "current_test_count": 1373,
       "crate_version": "aios-verification/0.0.1",
-      "rationale": "Real VerificationEngine.RunVerification \u2014 M8 now has local deterministic primitive execution, closed grammar parsing, and combinator execution. gRPC/evidence/runtime integration continue in T-069+."
+      "rationale": "Real VerificationEngine.RunVerification \u2014 M8 now has local deterministic primitive execution, closed grammar parsing, combinator execution, and the S2.4 section 10 gRPC service surface. Evidence/runtime integration continue in T-070+."
     },
     "M9": {
       "status": "planned",

@@ -474,6 +474,12 @@
       "title": "aios-recovery v0.1.0 - §22 FULL-REAL MVP + S9.x acceptance fixtures (M9 CLOSED)",
       "completed_at": "2026-05-25",
       "evidence": "1592 tests workspace (+24 over T-082 baseline 1568). Added crates/aios-recovery/tests/mvp_full_real_path.rs with the full §22 path through real L1 boot/recovery, AIOS-FS mount/object/view, runtime submit_action, policy allow, adapter dispatch, VerificationEngine, evidence chain, and renderer output. Added tests/acceptance_fixtures.rs with 12 S9.1/S9.2/S9.3 worked-example/adversarial fixtures. Added tests/m9_closure.rs with 11 closure invariants: version, DEFAULT_CODE_VERSION, no Unimplemented/todo/unimplemented, every RecoveryService RPC implemented, every RecoveryMode/CandidateState/FirstBootPhase reachable, and deferred surfaces documented. Bumped aios-recovery Cargo.toml 0.0.1 -> 0.1.0 and DEFAULT_CODE_VERSION -> 0.1.0-T083. §22 FULL-REAL MVP confirmed: boot, mount, versioned object, semantic view, action, policy, adapter, verify, evidence, and render are all backed by real components on the golden path. M9 CLOSED; M10 ready."
+    },
+    {
+      "id": "T-084",
+      "title": "aios-sgr crate skeleton - S15.1 + S15.2 + S15.3 typed core",
+      "completed_at": "2026-05-25",
+      "evidence": "1607 tests workspace (+15 over T-083 baseline 1592). New crates/aios-sgr v0.0.1 registered in workspace. Types-only skeleton for UnitManifest/ServiceUnit/UnitKind/DesiredState, UnitState/GraphState/S15.2 graph enums, UnitDependency/DependencyEdge/DependencyKind, AdapterManifest/AdapterCapability/AdapterDeclaration/S15.3 closed enums, and SgrError. Gates PASS: cargo check --workspace; cargo test --workspace; cargo clippy --workspace --all-targets -- -D warnings; cargo fmt --all -- --check. Scope guard held: no ServiceGraph trait, FSM driver, graph evaluator, adapter registry, gRPC, evidence emission, cross-crate integration, or renderer."
     }
   ],
   "blocked": [],
@@ -693,8 +699,9 @@
       "rationale": "Resolves S9.1 'degraded subset' exception findings from Capella iter 6 and closes §22 FULL-REAL MVP: L1 boot through L7 render now uses real backends on the golden path."
     },
     "M10": {
-      "status": "ready",
+      "status": "in_progress",
       "title": "Service Graph Runtime (SGR) \u2014 full unit manifest + adapter discipline",
+      "started_at": "2026-05-25",
       "sub_specs": [
         "S15.1",
         "S15.2",
@@ -702,6 +709,11 @@
       ],
       "layer": "L3",
       "target_crate": "aios-sgr",
+      "tasks": [
+        "T-084"
+      ],
+      "current_test_count": 1607,
+      "crate_version": "aios-sgr/0.0.1",
       "rationale": "Beyond capability runtime: AIOS-SGR desired-state graph, unit manifest, adapter declaration."
     },
     "M11": {

@@ -1,0 +1,36 @@
+//! SGR error taxonomy.
+
+use thiserror::Error;
+
+use crate::{UnitId, UnitState};
+
+/// Errors surfaced by the SGR typed core.
+#[derive(Debug, Clone, PartialEq, Eq, Error)]
+pub enum SgrError {
+    /// Unit id was not found in the runtime graph.
+    #[error("unit not found: {0}")]
+    UnitNotFound(UnitId),
+    /// Dependency solver found a cycle.
+    #[error("dependency cycle detected: {0:?}")]
+    DependencyCycleDetected(Vec<UnitId>),
+    /// Unit state transition is forbidden by S15.1.
+    #[error("invalid unit state transition: {from} -> {to}")]
+    InvalidStateTransition {
+        /// Current unit state.
+        from: UnitState,
+        /// Requested next unit state.
+        to: UnitState,
+    },
+    /// Manifest signature verification failed.
+    #[error("unit manifest signature is invalid")]
+    ManifestSignatureInvalid,
+    /// Manifest signing authority is unknown.
+    #[error("unknown unit manifest authority: {0}")]
+    ManifestUnknownAuthority(String),
+    /// Dependency target unit is not registered.
+    #[error("dependency target not registered: {0}")]
+    DependencyTargetNotRegistered(UnitId),
+    /// Internal SGR invariant failed.
+    #[error("SGR internal error: {0}")]
+    Internal(String),
+}

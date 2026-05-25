@@ -571,3 +571,4 @@ Format: ISO-8601 timestamp | task_id | step | command(s) | result | status | nex
 2026-05-25 T-085 codex exec aios-sgr ServiceGraph + InMemory graph ready gates=green tests=1625
 2026-05-25 T-086 codex exec aios-sgr UnitFsmDriver ready gates=green tests=1645
 2026-05-25 T-087 codex exec aios-sgr GraphEvaluator + Tarjan SCC ready gates=green tests=1664
+2026-05-25 T-088 codex exec aios-sgr SgrAdapterRegistry + capability matching ready gates=green tests=1680

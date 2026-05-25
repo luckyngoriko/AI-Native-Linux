@@ -33,6 +33,17 @@ pub enum SgrError {
     /// Dependency target unit is not registered.
     #[error("dependency target not registered: {0}")]
     DependencyTargetNotRegistered(UnitId),
+    /// Unit adapter requirements could not be satisfied.
+    #[error("adapter capability mismatch for {manifest}: missing {missing:?}")]
+    AdapterCapabilityMismatch {
+        /// Unit manifest whose adapter requirements were evaluated.
+        manifest: UnitId,
+        /// Required capability strings that no active adapter provided.
+        missing: Vec<String>,
+    },
+    /// Adapter is suspended and cannot be selected for dispatch.
+    #[error("adapter suspended: {0}")]
+    AdapterSuspended(String),
     /// Internal SGR invariant failed.
     #[error("SGR internal error: {0}")]
     Internal(String),

@@ -498,6 +498,12 @@
       "title": "aios-sgr - GraphEvaluator + Tarjan SCC + topological sort (S15.2)",
       "completed_at": "2026-05-25",
       "evidence": "1664 tests workspace (+19 over T-086 baseline 1645). Added crates/aios-sgr/src/evaluator.rs with GraphEvaluator over Arc<dyn ServiceGraph>, Kahn topological_sort with alphabetical UnitId tie-break and DependencyCycleDetected errors, iterative Tarjan SCC detect_cycles including self-loops, identify_parallel_batches for concurrent startup levels, evaluate_readiness, is_converged, and convergence_state. Added crates/aios-sgr/tests/evaluator.rs with 19 tests covering empty/linear/diamond topo ordering, cycle detection, multiple SCCs, self-loop SCC, parallel batches, readiness, convergence, graph states, and 100-unit <100ms performance smoke. lib.rs exports evaluator and GraphEvaluator. Gates PASS: cargo check --workspace; cargo test --workspace; cargo clippy --workspace --all-targets -- -D warnings; cargo fmt --all -- --check. Scope guard held: no adapter model, gRPC, evidence, cross-crate integration, renderer, or M10 closer."
+    },
+    {
+      "id": "T-088",
+      "title": "aios-sgr - SgrAdapterRegistry + capability matching + fail-closed semantics (S15.3)",
+      "completed_at": "2026-05-25",
+      "evidence": "1680 tests workspace (+16 over T-087 baseline 1664). Added crates/aios-sgr/src/adapter_registry.rs with SgrAdapterRegistry, RegisteredAdapter, 4-state AdapterRegistrationState, Ed25519 verification over AdapterCapability signed body, duplicate capability id idempotency for identical payloads, lookup/list/find_for_unit/suspend/retire. Matching selects the first Active adapter by registered_at that provides every required capability and skips Suspended/Retired; non-empty requirements with no full match return None fail-closed for T-091 integration. Added SgrError::AdapterCapabilityMismatch and AdapterSuspended, lib.rs exports, and crates/aios-sgr/tests/adapter_registry.rs with 16 tests. Compatibility note: UnitManifest has no typed requires field in T-084 and unit.rs is frozen for T-088, so find_adapter_for_unit reads adapter_target.requires until T-091/S15.1 wiring lands. Gates PASS: cargo check --workspace; cargo test --workspace; cargo clippy --workspace --all-targets -- -D warnings; cargo fmt --all -- --check. Scope guard held: no gRPC, evidence, cross-crate integration, renderer, or M10 closer."
     }
   ],
   "blocked": [],
@@ -731,9 +737,10 @@
         "T-084",
         "T-085",
         "T-086",
-        "T-087"
+        "T-087",
+        "T-088"
       ],
-      "current_test_count": 1664,
+      "current_test_count": 1680,
       "crate_version": "aios-sgr/0.0.1",
       "rationale": "Beyond capability runtime: AIOS-SGR desired-state graph, unit manifest, adapter declaration."
     },

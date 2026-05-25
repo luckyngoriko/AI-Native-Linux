@@ -3,6 +3,7 @@
 #![forbid(unsafe_code)]
 
 pub mod adapter;
+pub mod adapter_registry;
 pub mod dependency;
 pub mod error;
 pub mod evaluator;
@@ -15,8 +16,10 @@ pub mod unit;
 pub use adapter::{
     AdapterActionDeclaration, AdapterCapability, AdapterCapabilityClass, AdapterDeclaration,
     AdapterDispatchKind, AdapterFailureMode, AdapterIOMode, AdapterManifest,
-    AdapterRegistrationState, AdapterRollbackStrategy, AdapterStability,
+    AdapterRegistrationState as AdapterManifestRegistrationState, AdapterRollbackStrategy,
+    AdapterStability,
 };
+pub use adapter_registry::{AdapterRegistrationState, RegisteredAdapter, SgrAdapterRegistry};
 pub use dependency::{DependencyEdge, DependencyKind, UnitDependency};
 pub use error::SgrError;
 pub use evaluator::GraphEvaluator;

@@ -13,10 +13,10 @@ use strum::{EnumCount, IntoEnumIterator};
 
 use aios_sgr::{
     ABPromotionState, AdapterCapability, AdapterDeclaration, AdapterDispatchKind,
-    AdapterFailureMode, AdapterIOMode, AdapterManifest, AdapterRegistrationState,
-    AdapterRollbackStrategy, AdapterStability, DependencyEdge, DependencyKind,
-    DependencySolveResult, DesiredState, GpuBudget, GraphEvaluationResult, GraphState,
-    HealthCheckKind, HealthCheckSpec, ResourceBudget, RestartBudget, RestartPolicy,
+    AdapterFailureMode, AdapterIOMode, AdapterManifest, AdapterManifestRegistrationState,
+    AdapterRegistrationState, AdapterRollbackStrategy, AdapterStability, DependencyEdge,
+    DependencyKind, DependencySolveResult, DesiredState, GpuBudget, GraphEvaluationResult,
+    GraphState, HealthCheckKind, HealthCheckSpec, ResourceBudget, RestartBudget, RestartPolicy,
     RollbackPointer, RollbackTrigger, ServiceUnit, SgrError, TransitionKind, UnitDependency,
     UnitId, UnitKind, UnitManifest, UnitState, VerificationIntentRef,
 };
@@ -184,7 +184,8 @@ fn graph_evaluation_enums_match_s15_2() {
 
 #[test]
 fn adapter_model_enums_match_s15_3() {
-    assert_eq!(AdapterRegistrationState::COUNT, 6);
+    assert_eq!(AdapterManifestRegistrationState::COUNT, 6);
+    assert_eq!(AdapterRegistrationState::COUNT, 4);
     assert_eq!(aios_sgr::AdapterCapabilityClass::COUNT, 10);
     assert_eq!(AdapterIOMode::COUNT, 2);
     assert_eq!(AdapterDispatchKind::COUNT, 4);

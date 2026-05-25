@@ -6,6 +6,7 @@ members = [
     "crates/aios-fs",
     "crates/aios-vault",
     "crates/aios-renderer-cli",
+    "crates/aios-verification",
     "crates/aios-evidence",
     "crates/aios-policy",
 ]

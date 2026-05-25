@@ -544,3 +544,4 @@ Format: ISO-8601 timestamp | task_id | step | command(s) | result | status | nex
 2026-05-25 T-063 codex exec aios-renderer-cli M7 closer ready gates=green tests=1281
 2026-05-25 M7 CLOSED aios-renderer-cli v0.1.0 workspace_tests=1281 next=M8-aios-verification
 2026-05-25 §22 MVP RUNNABLE via aios CLI marker: boot/mount L1 stub=M9; EvidenceLog endpoint stub documented; policy/runtime/fs/vault CLI path runnable.
+2026-05-25 T-064 codex exec aios-verification S2.4 typed core skeleton ready gates=green tests=1292

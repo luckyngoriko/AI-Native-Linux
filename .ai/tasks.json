@@ -354,6 +354,12 @@
       "title": "aios-renderer-cli v0.1.0 - §22 MVP FULLY RUNNABLE + S7.6 acceptance fixtures (M7 CLOSED)",
       "completed_at": "2026-05-25",
       "evidence": "1281 tests workspace (+16 over T-062 baseline 1265). Added tests/mvp_full_golden_path.rs (section-22 CLI walk through InProcessBackend policy/runtime/fs/vault, with documented L1 mount and EvidenceLog endpoint stubs), tests/acceptance_fixtures.rs (8 S7.6/S7.2-derived CLI fixtures), and tests/m7_closure.rs (7 closure invariants). Bumped aios-renderer-cli Cargo.toml 0.0.1 -> 0.1.0. Required gates PASS: cargo check --workspace + cargo test --workspace + cargo clippy --workspace --all-targets -- -D warnings + cargo fmt --all -- --check + cargo build -p aios-renderer-cli --bin aios + cargo bench -p aios-policy --no-run. M7 CLOSED; M8 ready."
+    },
+    {
+      "id": "T-064",
+      "title": "aios-verification crate skeleton - S2.4 typed core",
+      "completed_at": "2026-05-25",
+      "evidence": "1292 tests workspace (+11 over T-063 baseline 1281). Added crates/aios-verification v0.0.1 with VerificationIntent + IntentId, VerificationResult + VerificationStatus + PrimitiveResult, VerificationPrimitive 36-entry closed S2.4 vocabulary, and VerificationError taxonomy. Tests: crates/aios-verification/tests/types_roundtrip.rs (11). Required gates PASS: cargo check --workspace + cargo test --workspace + cargo clippy --workspace --all-targets -- -D warnings + cargo fmt --all -- --check. Spec deviations from brief: S2.4 status set is VERIFICATION_PASSED/FAILED/TIMEOUT/PROBE_ERROR/SKIPPED; primitive vocabulary is the 36-entry Wave-15 S2.4 set; IntentId prefix follows S2.4 vrfi_ rather than brief vri_. Scope guard held: no VerificationEngine trait, primitive impls, parser, executor, gRPC, evidence emission, runtime integration, or renderer integration."
     }
   ],
   "blocked": [],
@@ -519,13 +525,19 @@
       "rationale": "Simplest renderer first; closes \u00a722 phase-9. \u00a722 MVP golden path FULLY RUNNABLE via the `aios` CLI with L1 boot/mount and EvidenceLog endpoint stubs documented for M9/M8 integration."
     },
     "M8": {
-      "status": "ready",
+      "status": "in_progress",
       "title": "Verification Engine",
+      "started_at": "2026-05-25",
       "sub_specs": [
         "S2.4"
       ],
       "layer": "L9",
       "target_crate": "aios-verification",
+      "tasks": [
+        "T-064"
+      ],
+      "current_test_count": 1292,
+      "crate_version": "aios-verification/0.0.1",
       "rationale": "Real VerificationEngine.RunVerification \u2014 currently stubbed in M4 step_verify."
     },
     "M9": {

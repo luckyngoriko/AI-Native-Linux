@@ -16,9 +16,9 @@ use clap::{Parser, Subcommand};
 use serde_json::{json, Value};
 
 use crate::{
-    AiosClient, AiosEndpoints, OutputFormat, RenderContext, RenderError, Renderable, TableAlign,
-    TableRenderer, TableSpec, TextRenderer, TreeNode, TreeRenderer, VerificationPrimitiveList,
-    Version,
+    AiosClient, AiosEndpoints, KernelCandidate, OutputFormat, RenderContext, RenderError,
+    Renderable, TableAlign, TableRenderer, TableSpec, TextRenderer, TreeNode, TreeRenderer,
+    VerificationPrimitiveList, Version,
 };
 
 /// Parsed command-line interface for the `aios` binary.
@@ -87,6 +87,18 @@ pub enum AiosCommand {
         /// Verification operation.
         #[command(subcommand)]
         subcommand: VerificationSubcommand,
+    },
+    /// Inspect and control recovery mode and first-boot provisioning.
+    Recovery {
+        /// Recovery operation.
+        #[command(subcommand)]
+        subcommand: RecoverySubcommand,
+    },
+    /// Inspect and control dedicated AIOS kernel candidates.
+    Kernel {
+        /// Kernel operation.
+        #[command(subcommand)]
+        subcommand: KernelSubcommand,
     },
 }
 
@@ -182,6 +194,44 @@ pub enum VerificationSubcommand {
     },
     /// List the supported verification primitive vocabulary.
     ListPrimitives,
+}
+
+/// Recovery subcommands.
+#[derive(Debug, Clone, Subcommand)]
+pub enum RecoverySubcommand {
+    /// Read the current recovery state.
+    Status,
+    /// Enter recovery mode.
+    Enter {
+        /// Operator or fallback reason.
+        #[arg(long)]
+        reason: String,
+    },
+    /// Exit recovery mode.
+    Exit {
+        /// Recovery exit token.
+        #[arg(long)]
+        token: String,
+    },
+    /// Run first-boot provisioning.
+    FirstBoot,
+}
+
+/// Kernel subcommands.
+#[derive(Debug, Clone, Subcommand)]
+pub enum KernelSubcommand {
+    /// List registered kernel candidates.
+    List,
+    /// Activate a kernel candidate.
+    Activate {
+        /// Candidate id to activate.
+        candidate_id: String,
+    },
+    /// Roll back a kernel candidate.
+    Rollback {
+        /// Candidate id to roll back.
+        candidate_id: String,
+    },
 }
 
 impl AiosCli {
@@ -298,6 +348,32 @@ impl AiosCli {
                     render_value(&VerificationPrimitiveList::new(primitives), format, &ctx)
                 }
             },
+            AiosCommand::Recovery { subcommand } => match subcommand {
+                RecoverySubcommand::Status => {
+                    render_value(&client.get_recovery_state().await?, format, &ctx)
+                }
+                RecoverySubcommand::Enter { reason } => {
+                    render_value(&client.enter_recovery(reason).await?, format, &ctx)
+                }
+                RecoverySubcommand::Exit { token } => {
+                    render_value(&client.exit_recovery(token).await?, format, &ctx)
+                }
+                RecoverySubcommand::FirstBoot => {
+                    render_value(&client.run_first_boot().await?, format, &ctx)
+                }
+            },
+            AiosCommand::Kernel { subcommand } => match subcommand {
+                KernelSubcommand::List => {
+                    let candidates = client.list_kernel_candidates().await?;
+                    render_value(&KernelCandidateListView(candidates), format, &ctx)
+                }
+                KernelSubcommand::Activate { candidate_id } => {
+                    render_value(&client.activate_kernel(candidate_id).await?, format, &ctx)
+                }
+                KernelSubcommand::Rollback { candidate_id } => {
+                    render_value(&client.rollback_kernel(candidate_id).await?, format, &ctx)
+                }
+            },
         }
     }
 }
@@ -404,6 +480,7 @@ fn parse_keyed_endpoints(parts: &[&str]) -> Result<AiosEndpoints, RenderError> {
             "fs" => endpoints.fs = endpoint,
             "vault" => endpoints.vault = endpoint,
             "verification" => endpoints.verification = endpoint,
+            "recovery" => endpoints.recovery = endpoint,
             "evidence" => {
                 endpoints.evidence = if value.trim().eq_ignore_ascii_case("none") {
                     None
@@ -423,9 +500,9 @@ fn parse_keyed_endpoints(parts: &[&str]) -> Result<AiosEndpoints, RenderError> {
 }
 
 fn parse_positional_endpoints(parts: &[&str]) -> Result<AiosEndpoints, RenderError> {
-    if !(5..=6).contains(&parts.len()) {
+    if !(6..=7).contains(&parts.len()) {
         return Err(RenderError::Internal(
-            "AIOS_ENDPOINTS positional form is policy,runtime,fs,vault,verification[,evidence]"
+            "AIOS_ENDPOINTS positional form is policy,runtime,fs,vault,verification,recovery[,evidence]"
                 .to_owned(),
         ));
     }
@@ -436,8 +513,9 @@ fn parse_positional_endpoints(parts: &[&str]) -> Result<AiosEndpoints, RenderErr
         fs: normalize_endpoint(parts[2])?,
         vault: normalize_endpoint(parts[3])?,
         verification: normalize_endpoint(parts[4])?,
+        recovery: normalize_endpoint(parts[5])?,
         evidence: parts
-            .get(5)
+            .get(6)
             .map(|value| {
                 if value.trim().eq_ignore_ascii_case("none") {
                     Ok(None)
@@ -661,4 +739,100 @@ impl Renderable for VaultCapabilitiesView {
             }
         }
     }
+}
+
+struct KernelCandidateListView(Vec<KernelCandidate>);
+
+impl Renderable for KernelCandidateListView {
+    fn render(&self, format: OutputFormat, ctx: &RenderContext) -> Result<String, RenderError> {
+        match format {
+            OutputFormat::Text => {
+                let renderer = TextRenderer::new(ctx.clone());
+                let mut lines = vec![renderer.render_kv("candidates", &self.0.len().to_string())];
+                lines.extend(self.0.iter().map(|candidate| {
+                    format!(
+                        "{} {} {} {}",
+                        candidate.candidate_id.as_str(),
+                        candidate.version,
+                        truncate_kernel_hash(&candidate.kernel_blake3),
+                        candidate.state.as_wire_str()
+                    )
+                }));
+                Ok(renderer.render_section("KernelCandidates", &lines))
+            }
+            OutputFormat::Json => {
+                let candidates = self
+                    .0
+                    .iter()
+                    .map(|candidate| {
+                        candidate
+                            .render(OutputFormat::Json, ctx)
+                            .and_then(|rendered| {
+                                serde_json::from_str::<Value>(&rendered).map_err(|err| {
+                                    RenderError::SerializationFailed(err.to_string())
+                                })
+                            })
+                    })
+                    .collect::<Result<Vec<_>, _>>()?;
+                serde_json::to_string(&json!({ "candidates": candidates }))
+                    .map_err(|err| RenderError::SerializationFailed(err.to_string()))
+            }
+            OutputFormat::Tree => {
+                let root = TreeNode {
+                    label: format!("kernel_candidates count={}", self.0.len()),
+                    children: self
+                        .0
+                        .iter()
+                        .map(|candidate| TreeNode {
+                            label: candidate.candidate_id.as_str().to_owned(),
+                            children: vec![
+                                TreeNode {
+                                    label: format!("version: {}", candidate.version),
+                                    children: Vec::new(),
+                                },
+                                TreeNode {
+                                    label: format!("state: {}", candidate.state.as_wire_str()),
+                                    children: Vec::new(),
+                                },
+                            ],
+                        })
+                        .collect(),
+                };
+                TreeRenderer::new(ctx.clone()).render(&root)
+            }
+            OutputFormat::Table => {
+                let spec = TableSpec {
+                    headers: vec![
+                        "candidate_id".to_owned(),
+                        "version".to_owned(),
+                        "kernel_blake3".to_owned(),
+                        "state".to_owned(),
+                    ],
+                    rows: self
+                        .0
+                        .iter()
+                        .map(|candidate| {
+                            vec![
+                                candidate.candidate_id.as_str().to_owned(),
+                                candidate.version.clone(),
+                                truncate_kernel_hash(&candidate.kernel_blake3),
+                                candidate.state.as_wire_str().to_owned(),
+                            ]
+                        })
+                        .collect(),
+                    align: vec![
+                        TableAlign::Left,
+                        TableAlign::Left,
+                        TableAlign::Left,
+                        TableAlign::Left,
+                    ],
+                };
+                TableRenderer::new(ctx.clone()).render(&spec)
+            }
+        }
+    }
+}
+
+fn truncate_kernel_hash(hash: &str) -> String {
+    hash.chars().take(12).collect()
 }

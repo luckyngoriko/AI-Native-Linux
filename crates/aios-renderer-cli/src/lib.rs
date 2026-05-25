@@ -19,6 +19,7 @@ pub mod json_renderer;
 pub mod output_format;
 pub mod policy_render;
 pub mod primitives;
+pub mod recovery_render;
 pub mod renderable;
 pub mod table_renderer;
 pub mod text_renderer;
@@ -28,6 +29,10 @@ pub mod verification_render;
 
 pub use aios_fs::{AiosPath, NamespaceClass, Object, Pointer, Version};
 pub use aios_policy::{ApprovalRequirement, Constraints, Decision, PolicyDecision};
+pub use aios_recovery::{
+    BootId, CandidateId, CandidateState, FirstBootContext, FirstBootPhase, FirstBootStatus,
+    KernelCandidate, KernelManifest, RecoveryMode, RecoveryState,
+};
 pub use aios_vault::{
     CapabilityClass, CapabilityState, KeyMaterialHandle, OverrideBinding, OverrideClass,
     VaultCapability,
@@ -37,8 +42,8 @@ pub use aios_verification::{
     VerificationStatus,
 };
 pub use cli::{
-    ActionSubcommand, AiosCli, AiosCommand, EvidenceSubcommand, FsSubcommand, PolicySubcommand,
-    VaultSubcommand, VerificationSubcommand,
+    ActionSubcommand, AiosCli, AiosCommand, EvidenceSubcommand, FsSubcommand, KernelSubcommand,
+    PolicySubcommand, RecoverySubcommand, VaultSubcommand, VerificationSubcommand,
 };
 pub use cli_types::{
     AnsiSupportLevel, CliCompilationResult, CliEvidenceRecordKind, CliInputMode, CliRenderMode,

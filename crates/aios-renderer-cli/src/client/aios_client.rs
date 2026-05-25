@@ -26,6 +26,10 @@ use aios_policy::service::conversions as policy_conversions;
 use aios_policy::service::proto as policy_proto;
 use aios_policy::service::{PolicyKernelClient, SCHEMA_VERSION as POLICY_SCHEMA_VERSION};
 use aios_policy::PolicyDecision;
+use aios_recovery::service::conversions as recovery_conversions;
+use aios_recovery::service::proto as recovery_proto;
+use aios_recovery::service::{RecoveryServiceClient, SCHEMA_VERSION as RECOVERY_SCHEMA_VERSION};
+use aios_recovery::{FirstBootContext, KernelCandidate, RecoveryState};
 use aios_vault::service::conversions as vault_conversions;
 use aios_vault::service::proto as vault_proto;
 use aios_vault::service::VaultBrokerClient;
@@ -45,6 +49,8 @@ use tonic::transport::Channel;
 use crate::client::endpoint::AiosEndpoints;
 use crate::RenderError;
 
+const RENDERER_OPERATOR_GRANT: &str = "ovr_renderer_cli_operator";
+
 /// Composed gRPC client for the backend services needed by the renderer CLI.
 #[derive(Debug)]
 pub struct AiosClient {
@@ -53,6 +59,8 @@ pub struct AiosClient {
     fs: AiosFsClient<Channel>,
     vault: VaultBrokerClient<Channel>,
     verification: VerificationEngineClient<Channel>,
+    /// Recovery Service client.
+    pub recovery: RecoveryServiceClient<Channel>,
     evidence: Option<EvidenceLogClient<Channel>>,
 }
 
@@ -79,6 +87,9 @@ impl AiosClient {
         let verification = VerificationEngineClient::connect(endpoints.verification.clone())
             .await
             .map_err(|err| client_connect_failed("verification", err.to_string()))?;
+        let recovery = RecoveryServiceClient::connect(endpoints.recovery.clone())
+            .await
+            .map_err(|err| client_connect_failed("recovery", err.to_string()))?;
         let evidence = match &endpoints.evidence {
             Some(endpoint) => Some(
                 EvidenceLogClient::connect(endpoint.clone())
@@ -94,6 +105,7 @@ impl AiosClient {
             fs,
             vault,
             verification,
+            recovery,
             evidence,
         })
     }
@@ -477,6 +489,185 @@ impl AiosClient {
                     })
             })
             .collect()
+    }
+
+    /// Enter recovery mode through the Recovery Service.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`RenderError::ClientCallFailed`] when the RPC fails or the
+    /// returned recovery state cannot be converted.
+    pub async fn enter_recovery(&mut self, reason: &str) -> Result<RecoveryState, RenderError> {
+        let response = self
+            .recovery
+            .enter_recovery(recovery_proto::EnterRecoveryRequestProto {
+                schema_version: RECOVERY_SCHEMA_VERSION.to_owned(),
+                reason: reason.to_owned(),
+                operator_grant: Some(RENDERER_OPERATOR_GRANT.to_owned()),
+                expected_phases: vec![i32::from(recovery_proto::BootPhaseProto::BootPhaseRecovery)],
+                bundle: None,
+                action_id_proto: Vec::new(),
+                action_id_format: recovery_conversions::ACTION_ID_FORMAT_UNSPECIFIED,
+            })
+            .await
+            .map_err(|err| client_call_failed("recovery", "EnterRecovery", err.to_string()))?
+            .into_inner();
+
+        recovery_conversions::recovery_state_from_proto(response)
+            .map_err(|err| client_call_failed("recovery", "EnterRecovery", err.to_string()))
+    }
+
+    /// Exit recovery mode through the Recovery Service.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`RenderError::ClientCallFailed`] when the RPC fails or the
+    /// returned recovery state cannot be converted.
+    pub async fn exit_recovery(&mut self, exit_token: &str) -> Result<RecoveryState, RenderError> {
+        let response = self
+            .recovery
+            .exit_recovery(recovery_proto::ExitRecoveryRequestProto {
+                schema_version: RECOVERY_SCHEMA_VERSION.to_owned(),
+                exit_token: exit_token.to_owned(),
+                action_id_proto: Vec::new(),
+                action_id_format: recovery_conversions::ACTION_ID_FORMAT_UNSPECIFIED,
+            })
+            .await
+            .map_err(|err| client_call_failed("recovery", "ExitRecovery", err.to_string()))?
+            .into_inner();
+
+        recovery_conversions::recovery_state_from_proto(response)
+            .map_err(|err| client_call_failed("recovery", "ExitRecovery", err.to_string()))
+    }
+
+    /// Read the current recovery state through the Recovery Service.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`RenderError::ClientCallFailed`] when the RPC fails or the
+    /// returned recovery state cannot be converted.
+    pub async fn get_recovery_state(&mut self) -> Result<RecoveryState, RenderError> {
+        let response = self
+            .recovery
+            .get_recovery_state(recovery_proto::GetRecoveryStateRequest {
+                schema_version: RECOVERY_SCHEMA_VERSION.to_owned(),
+            })
+            .await
+            .map_err(|err| client_call_failed("recovery", "GetRecoveryState", err.to_string()))?
+            .into_inner();
+
+        recovery_conversions::recovery_state_from_proto(response)
+            .map_err(|err| client_call_failed("recovery", "GetRecoveryState", err.to_string()))
+    }
+
+    /// Run first-boot provisioning through the Recovery Service.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`RenderError::ClientCallFailed`] when the RPC fails or the
+    /// returned first-boot context cannot be converted.
+    pub async fn run_first_boot(&mut self) -> Result<FirstBootContext, RenderError> {
+        let response = self
+            .recovery
+            .run_first_boot_provisioning(recovery_proto::RunFirstBootProvisioningRequest {
+                schema_version: RECOVERY_SCHEMA_VERSION.to_owned(),
+                action_id_proto: Vec::new(),
+                action_id_format: recovery_conversions::ACTION_ID_FORMAT_UNSPECIFIED,
+            })
+            .await
+            .map_err(|err| {
+                client_call_failed("recovery", "RunFirstBootProvisioning", err.to_string())
+            })?
+            .into_inner();
+
+        recovery_conversions::first_boot_context_from_proto(response).map_err(|err| {
+            client_call_failed("recovery", "RunFirstBootProvisioning", err.to_string())
+        })
+    }
+
+    /// List registered kernel candidates through the Recovery Service.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`RenderError::ClientCallFailed`] when the RPC fails or one
+    /// candidate cannot be converted.
+    pub async fn list_kernel_candidates(&mut self) -> Result<Vec<KernelCandidate>, RenderError> {
+        let response = self
+            .recovery
+            .list_kernel_candidates(recovery_proto::ListKernelCandidatesRequest {
+                schema_version: RECOVERY_SCHEMA_VERSION.to_owned(),
+            })
+            .await
+            .map_err(|err| client_call_failed("recovery", "ListKernelCandidates", err.to_string()))?
+            .into_inner();
+
+        response
+            .candidates
+            .into_iter()
+            .map(|candidate| {
+                recovery_conversions::kernel_candidate_from_proto(candidate).map_err(|err| {
+                    client_call_failed("recovery", "ListKernelCandidates", err.to_string())
+                })
+            })
+            .collect()
+    }
+
+    /// Activate a kernel candidate through the Recovery Service.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`RenderError::ClientCallFailed`] when the RPC fails or the
+    /// candidate cannot be converted.
+    pub async fn activate_kernel(
+        &mut self,
+        candidate_id: &str,
+    ) -> Result<KernelCandidate, RenderError> {
+        let response = self
+            .recovery
+            .activate_kernel_candidate(recovery_proto::ActivateKernelCandidateRequest {
+                schema_version: RECOVERY_SCHEMA_VERSION.to_owned(),
+                candidate_id: candidate_id.to_owned(),
+                action_id_proto: Vec::new(),
+                action_id_format: recovery_conversions::ACTION_ID_FORMAT_UNSPECIFIED,
+            })
+            .await
+            .map_err(|err| {
+                client_call_failed("recovery", "ActivateKernelCandidate", err.to_string())
+            })?
+            .into_inner();
+
+        recovery_conversions::kernel_candidate_from_proto(response).map_err(|err| {
+            client_call_failed("recovery", "ActivateKernelCandidate", err.to_string())
+        })
+    }
+
+    /// Roll back a kernel candidate through the Recovery Service.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`RenderError::ClientCallFailed`] when the RPC fails or the
+    /// candidate cannot be converted.
+    pub async fn rollback_kernel(
+        &mut self,
+        candidate_id: &str,
+    ) -> Result<KernelCandidate, RenderError> {
+        let response = self
+            .recovery
+            .rollback_kernel_candidate(recovery_proto::RollbackKernelCandidateRequest {
+                schema_version: RECOVERY_SCHEMA_VERSION.to_owned(),
+                candidate_id: candidate_id.to_owned(),
+                action_id_proto: Vec::new(),
+                action_id_format: recovery_conversions::ACTION_ID_FORMAT_UNSPECIFIED,
+            })
+            .await
+            .map_err(|err| {
+                client_call_failed("recovery", "RollbackKernelCandidate", err.to_string())
+            })?
+            .into_inner();
+
+        recovery_conversions::kernel_candidate_from_proto(response).map_err(|err| {
+            client_call_failed("recovery", "RollbackKernelCandidate", err.to_string())
+        })
     }
 }
 

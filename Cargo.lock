@@ -202,6 +202,7 @@ dependencies = [
  "aios-evidence",
  "aios-fs",
  "aios-policy",
+ "aios-recovery",
  "aios-vault",
  "aios-verification",
  "anyhow",

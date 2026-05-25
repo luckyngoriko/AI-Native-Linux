@@ -563,3 +563,4 @@ Format: ISO-8601 timestamp | task_id | step | command(s) | result | status | nex
 2026-05-25 T-079 codex exec aios-recovery gRPC RecoveryService ready gates=green tests=1518
 2026-05-25 T-080 codex exec aios-recovery evidence emission ready gates=green tests=1535
 2026-05-25 T-081 codex exec aios-recovery cross-crate integration ready gates=green tests=1549
+2026-05-25 T-082 codex exec aios-renderer-cli recovery/kernel renderer + CLI ready gates=green tests=1568

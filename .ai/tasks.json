@@ -462,6 +462,12 @@
       "title": "aios-recovery - cross-crate integration (recovery ↔ runtime + policy)",
       "completed_at": "2026-05-25",
       "evidence": "1549 tests workspace (+14 over T-080 baseline 1535). Added Cargo edges aios-recovery -> aios-capability-runtime and aios-policy. Added aios-capability-runtime RuntimeRecoveryHook trait, optional InMemoryCapabilityRuntime recovery_hook, with_recovery_hook ctor, and step_execute live recovery consultation. Added crates/aios-recovery/src/runtime_adapter.rs with RecoveryRuntimeAdapter wrapping Arc<dyn RecoveryBoundary> and implementing RuntimeRecoveryHook. Added crates/aios-recovery/src/policy_adapter.rs with RecoveryPolicyHydratorEnhancer wrapping SubjectHydrator and overriding HydratedSubject.recovery_mode from live RecoveryBoundary state. Tests: crates/aios-recovery/tests/cross_crate_integration.rs adds 14 tests covering RuntimeRecoveryHook trait-object use, runtime recovery-only allow/deny, backward-compatible no-hook runtime behavior, live policy hydration override, recovery-only fs mutation allow/deny through policy-hydrated state, and exit-recovery denial. Required gates PASS: cargo check --workspace + cargo test -p aios-recovery + cargo test -p aios-capability-runtime + cargo test -p aios-policy + cargo test -p aios-fs + cargo test --workspace + cargo clippy --workspace --all-targets -- -D warnings + cargo fmt --all -- --check. Spec note: AdapterManifest has no requires_recovery field; runtime gate uses the S10.1 W8/W9 recovery-only declared action catalog and AdapterRefused failure reason. Scope guard: renderer (T-082) and M9 closer (T-083) deferred."
+    },
+    {
+      "id": "T-082",
+      "title": "aios-renderer-cli - recovery/kernel renderer + CLI subcommands",
+      "completed_at": "2026-05-25",
+      "evidence": "1568 tests workspace (+19 over T-081 baseline 1549). Added Cargo edge aios-renderer-cli -> aios-recovery. Added recovery_render.rs with Renderable impls for RecoveryState, RecoveryMode, FirstBootContext, FirstBootPhase, FirstBootStatus, KernelCandidate, CandidateState, and KernelManifest across Text/Json/Tree/Table. AiosClient now connects RecoveryService and exposes recovery lifecycle, first-boot, kernel list/activate/rollback helpers. InProcessBackend now spawns recovery as the 6th mandatory service. CLI adds aios recovery {status, enter, exit, first-boot} and aios kernel {list, activate, rollback}. Tests: crates/aios-renderer-cli/tests/recovery_render.rs adds 19 tests; existing service_count assertions updated 5 -> 6. Required gates PASS: cargo check --workspace + cargo test -p aios-renderer-cli + cargo test --workspace + cargo clippy --workspace --all-targets -- -D warnings + cargo fmt --all -- --check + cargo build -p aios-renderer-cli --bin aios. Spec note: T-079 RecoveryService returns RecoveryState from EnterRecovery and does not expose the minted exit_token over gRPC; CLI enter renders the returned state only."
     }
   ],
   "blocked": [],
@@ -671,9 +677,10 @@
         "T-078",
         "T-079",
         "T-080",
-        "T-081"
+        "T-081",
+        "T-082"
       ],
-      "current_test_count": 1549,
+      "current_test_count": 1568,
       "crate_version_target": "aios-recovery/0.1.0",
       "rationale": "Resolves S9.1 'degraded subset' exception findings from Capella iter 6."
     },

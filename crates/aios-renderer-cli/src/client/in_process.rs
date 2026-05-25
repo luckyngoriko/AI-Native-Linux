@@ -16,6 +16,11 @@ use aios_fs::InMemoryAiosFs;
 use aios_policy::service as policy_service;
 use aios_policy::InMemoryPolicyKernel;
 use aios_policy::PolicyKernel;
+use aios_recovery::service as recovery_service;
+use aios_recovery::{
+    FirstBootDriver, InMemoryRecoveryBoundary, KernelPipelineDriver, RecoveryBoundary,
+    RecoveryGuard,
+};
 use aios_vault::service as vault_service;
 use aios_vault::{
     CapabilityAuditLog, CapabilityClass, CapabilityLifecycleDriver, IdentityCatalog,
@@ -42,6 +47,10 @@ pub struct InProcessBackend {
     fs: Arc<InMemoryAiosFs>,
     vault: Arc<InMemoryVaultBroker>,
     verification: Arc<InMemoryVerificationEngine>,
+    recovery_boundary: Arc<InMemoryRecoveryBoundary>,
+    first_boot: Arc<FirstBootDriver>,
+    kernel_pipeline: Arc<KernelPipelineDriver>,
+    recovery_guard: Arc<RecoveryGuard>,
     overrides: Arc<InMemoryOverrideBroker>,
     identity: Arc<IdentityCatalog>,
     audit: Arc<CapabilityAuditLog>,
@@ -99,7 +108,7 @@ impl ShutdownHandle {
 }
 
 impl InProcessBackend {
-    /// Build the default in-memory policy/runtime/fs/vault backend graph.
+    /// Build the default in-memory policy/runtime/fs/vault/recovery backend graph.
     #[must_use]
     pub fn new_default() -> Self {
         let policy_kernel: Arc<dyn PolicyKernel> = Arc::new(InMemoryPolicyKernel::new());
@@ -114,6 +123,13 @@ impl InProcessBackend {
         let audit = Arc::new(CapabilityAuditLog::new());
         let vault = Arc::new(InMemoryVaultBroker::new().with_audit_log(Arc::clone(&audit)));
         let verification = Arc::new(InMemoryVerificationEngine::new());
+        let recovery_boundary = Arc::new(InMemoryRecoveryBoundary::new());
+        let recovery_boundary_for_first_boot: Arc<dyn RecoveryBoundary> = recovery_boundary.clone();
+        let recovery_boundary_for_kernel: Arc<dyn RecoveryBoundary> = recovery_boundary.clone();
+        let recovery_boundary_for_guard: Arc<dyn RecoveryBoundary> = recovery_boundary.clone();
+        let first_boot = Arc::new(FirstBootDriver::new(recovery_boundary_for_first_boot));
+        let kernel_pipeline = Arc::new(KernelPipelineDriver::new(recovery_boundary_for_kernel));
+        let recovery_guard = Arc::new(RecoveryGuard::new(recovery_boundary_for_guard));
         let identity = Arc::new(IdentityCatalog::with_fixtures());
         let overrides = Arc::new(InMemoryOverrideBroker::new(Arc::clone(&identity)));
         let lifecycle = Arc::new(CapabilityLifecycleDriver::new(
@@ -127,6 +143,10 @@ impl InProcessBackend {
             fs,
             vault,
             verification,
+            recovery_boundary,
+            first_boot,
+            kernel_pipeline,
+            recovery_guard,
             overrides,
             identity,
             audit,
@@ -134,7 +154,7 @@ impl InProcessBackend {
         }
     }
 
-    /// Spawn the default five-service backend and connect an [`AiosClient`].
+    /// Spawn the default six-service backend and connect an [`AiosClient`].
     ///
     /// # Errors
     ///
@@ -144,7 +164,7 @@ impl InProcessBackend {
         Self::new_default().spawn().await
     }
 
-    /// Spawn five services with a caller-supplied Policy Kernel.
+    /// Spawn six services with a caller-supplied Policy Kernel.
     ///
     /// This is used by integration tests that need deterministic policy
     /// ALLOW/DENY responses while keeping runtime/fs/vault in-memory.
@@ -180,6 +200,11 @@ impl InProcessBackend {
             verification_service::build_router(self.verification_service()),
         )
         .await?;
+        let recovery = spawn_router(
+            "recovery",
+            recovery_service::build_router(self.recovery_service()),
+        )
+        .await?;
 
         let endpoints = AiosEndpoints {
             policy: policy.endpoint,
@@ -187,6 +212,7 @@ impl InProcessBackend {
             fs: fs.endpoint,
             vault: vault.endpoint,
             verification: verification.endpoint,
+            recovery: recovery.endpoint,
             evidence: None,
         };
         let shutdown = ShutdownHandle::new(
@@ -196,6 +222,7 @@ impl InProcessBackend {
                 fs.shutdown,
                 vault.shutdown,
                 verification.shutdown,
+                recovery.shutdown,
             ],
             vec![
                 policy.task,
@@ -203,6 +230,7 @@ impl InProcessBackend {
                 fs.task,
                 vault.task,
                 verification.task,
+                recovery.task,
             ],
         );
         let client = AiosClient::connect(&endpoints).await?;
@@ -240,6 +268,15 @@ impl InProcessBackend {
     fn verification_service(&self) -> verification_service::VerificationEngineService {
         verification_service::VerificationEngineService::new(Arc::clone(&self.verification))
             .with_engine_id("renderer-inproc-verification")
+    }
+
+    fn recovery_service(&self) -> recovery_service::RecoveryServiceImpl {
+        recovery_service::RecoveryServiceImpl::new(
+            Arc::clone(&self.recovery_boundary),
+            Arc::clone(&self.first_boot),
+            Arc::clone(&self.kernel_pipeline),
+            Arc::clone(&self.recovery_guard),
+        )
     }
 
     async fn seed_default_vault_capability(&self) -> Result<(), RenderError> {

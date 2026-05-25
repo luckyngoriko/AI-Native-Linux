@@ -10,6 +10,7 @@ authors.workspace = true
 
 [dependencies]
 aios-action = { path = "../aios-action" }
+aios-evidence = { path = "../aios-evidence" }
 aios-fs     = { path = "../aios-fs" }
 async-trait  = { workspace = true }
 serde        = { workspace = true }

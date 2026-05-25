@@ -450,6 +450,12 @@
       "title": "aios-recovery - gRPC RecoveryService (S9.x)",
       "completed_at": "2026-05-25",
       "evidence": "1518 tests workspace (+15 over T-078 baseline 1503). Added proto/aios.recovery.v1alpha1.proto with RecoveryService RPCs for recovery lifecycle, kernel candidates, first-boot, and recovery mutation guard. Added build.rs tonic-build wiring, service::{mod,conversions,server}, tonic/prost deps, lib.rs exports and DEFAULT_CODE_VERSION. RecoveryError -> tonic::Status mapping landed. Tests: crates/aios-recovery/tests/grpc_roundtrip.rs adds 15 tests including conversion round-trips and tonic channel smoke. Required gates PASS: cargo check --workspace + cargo test -p aios-recovery + cargo test --workspace + cargo clippy --workspace --all-targets -- -D warnings + cargo fmt --all -- --check. Scope guard held: no evidence emission, no T-081 cross-crate runtime integration, no renderer."
+    },
+    {
+      "id": "T-080",
+      "title": "aios-recovery - evidence emission (S9.x -> S3.1)",
+      "completed_at": "2026-05-25",
+      "evidence": "1535 tests workspace (+17 over T-079 baseline 1518). Added Cargo edge aios-recovery -> aios-evidence. Added crates/aios-recovery/src/evidence_emit.rs with RecoveryEvidenceLog, InMemoryRecoveryEvidenceLog, RecoveryEvidenceEmitter, Ed25519 signing, BLAKE3 ReceiptChain linkage, expected previous receipt validation, and S9.x emission helpers. Added crates/aios-recovery/src/evidence_payloads.rs with typed recovery entry/exit, first-boot, and kernel lifecycle payloads. InMemoryRecoveryBoundary, FirstBootDriver, and KernelPipelineDriver gained optional evidence emitters and emit on successful recovery enter/exit, first-boot started/phase/completed, kernel register/verify/activate/rollback. RecoveryError gained EvidenceEmitFailed(String). Tests: crates/aios-recovery/tests/evidence_emission.rs adds 17 tests covering payload serde round-trips, RECOVERY_BOOT_ENTERED/EXITED, FIRST_BOOT_* lifecycle, KERNEL_PIPELINE_STARTED/KERNEL_GATE_RESULT/KERNEL_PROMOTED_TO_A/KERNEL_ROLLBACK_PERFORMED mapping, BLAKE3 chain coherence, Ed25519 signatures, INV-018/INV-015 redaction, no-emitter compatibility, concurrent enter+exit, and full recovery-kernel lifecycle. Required gates PASS: cargo check --workspace + cargo test -p aios-recovery + cargo test --workspace + cargo clippy --workspace --all-targets -- -D warnings + cargo fmt --all -- --check. Scope guard: cross-crate runtime integration (T-081), renderer (T-082), M9 closer (T-083) deferred."
     }
   ],
   "blocked": [],
@@ -657,9 +663,10 @@
         "T-076",
         "T-077",
         "T-078",
-        "T-079"
+        "T-079",
+        "T-080"
       ],
-      "current_test_count": 1518,
+      "current_test_count": 1535,
       "crate_version_target": "aios-recovery/0.1.0",
       "rationale": "Resolves S9.1 'degraded subset' exception findings from Capella iter 6."
     },

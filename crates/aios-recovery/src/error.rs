@@ -64,6 +64,9 @@ pub enum RecoveryError {
     /// Kernel candidate signing authority is not trusted.
     #[error("unknown kernel candidate signing authority: {0}")]
     KernelUnknownAuthority(String),
+    /// Evidence receipt emission failed.
+    #[error("evidence emission failed: {0}")]
+    EvidenceEmitFailed(String),
     /// Internal recovery invariant failed.
     #[error("recovery internal error: {0}")]
     Internal(String),

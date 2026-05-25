@@ -73,7 +73,9 @@ pub fn recovery_error_to_status(err: &RecoveryError) -> Status {
         }
         RecoveryError::CandidateNotFound(_) => Status::not_found(err.to_string()),
         RecoveryError::FirstBootAlreadyCompleted => Status::already_exists(err.to_string()),
-        RecoveryError::Internal(_) => Status::internal(err.to_string()),
+        RecoveryError::EvidenceEmitFailed(_) | RecoveryError::Internal(_) => {
+            Status::internal(err.to_string())
+        }
     }
 }
 

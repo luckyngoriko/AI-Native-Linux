@@ -171,6 +171,7 @@ name = "aios-recovery"
 version = "0.0.1"
 dependencies = [
  "aios-action",
+ "aios-evidence",
  "aios-fs",
  "async-trait",
  "blake3",

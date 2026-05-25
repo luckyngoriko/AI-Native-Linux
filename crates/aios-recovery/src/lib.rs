@@ -10,6 +10,8 @@ pub mod boot;
 pub mod boundary;
 pub mod bundle;
 pub mod error;
+pub mod evidence_emit;
+pub mod evidence_payloads;
 pub mod first_boot;
 pub mod in_memory_boundary;
 pub mod kernel;
@@ -22,6 +24,15 @@ pub use boot::{BootId, BootPhase, FirstBootContext, FirstBootPhase, FirstBootSta
 pub use boundary::{EnterRecoveryRequest, RecoveryBoundary};
 pub use bundle::RecoveryBundle;
 pub use error::RecoveryError;
+pub use evidence_emit::{
+    InMemoryRecoveryEvidenceLog, RecoveryEvidenceEmitter, RecoveryEvidenceLog, RecoverySubjectRef,
+    AIOS_RECOVERY_SUBJECT,
+};
+pub use evidence_payloads::{
+    FirstBootCompletedPayload, FirstBootPhaseCompletedPayload, FirstBootStartedPayload,
+    KernelActivatedPayload, KernelCandidateRegisteredPayload, KernelGateResultPayload,
+    KernelRolledBackPayload, RecoveryEnteredPayload, RecoveryExitedPayload,
+};
 pub use first_boot::FirstBootDriver;
 pub use in_memory_boundary::InMemoryRecoveryBoundary;
 pub use kernel::{CandidateId, CandidateState, KernelCandidate, KernelManifest};

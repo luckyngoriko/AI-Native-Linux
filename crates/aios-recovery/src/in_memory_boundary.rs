@@ -1,6 +1,7 @@
 //! In-memory S9.1 recovery-boundary harness.
 
 use std::collections::HashMap;
+use std::sync::Arc;
 
 use async_trait::async_trait;
 use chrono::{DateTime, Utc};
@@ -10,7 +11,7 @@ use tokio::sync::RwLock;
 use ulid::Ulid;
 
 use crate::boundary::{EnterRecoveryRequest, RecoveryBoundary};
-use crate::{RecoveryBundle, RecoveryError, RecoveryMode, RecoveryState};
+use crate::{RecoveryBundle, RecoveryError, RecoveryEvidenceEmitter, RecoveryMode, RecoveryState};
 
 const BUNDLE_SIGNATURE_PREFIX: &str = "ed25519:";
 
@@ -19,6 +20,7 @@ pub struct InMemoryRecoveryBoundary {
     state: RwLock<RecoveryState>,
     trusted_authorities: HashMap<String, VerifyingKey>,
     active_exit_token: RwLock<Option<String>>,
+    evidence_emitter: Option<Arc<RecoveryEvidenceEmitter>>,
 }
 
 impl Default for InMemoryRecoveryBoundary {
@@ -27,6 +29,7 @@ impl Default for InMemoryRecoveryBoundary {
             state: RwLock::new(normal_state()),
             trusted_authorities: HashMap::new(),
             active_exit_token: RwLock::new(None),
+            evidence_emitter: None,
         }
     }
 }
@@ -43,6 +46,14 @@ impl InMemoryRecoveryBoundary {
     pub fn with_trusted_authority(name: impl Into<String>, key: VerifyingKey) -> Self {
         let mut boundary = Self::new();
         boundary.trusted_authorities.insert(name.into(), key);
+        boundary
+    }
+
+    /// Construct a boundary with evidence emission enabled.
+    #[must_use]
+    pub fn with_evidence_emitter(evidence_emitter: Arc<RecoveryEvidenceEmitter>) -> Self {
+        let mut boundary = Self::new();
+        boundary.evidence_emitter = Some(evidence_emitter);
         boundary
     }
 
@@ -98,6 +109,9 @@ impl RecoveryBoundary for InMemoryRecoveryBoundary {
         let mut active_exit_token = self.active_exit_token.write().await;
         *active_exit_token = Some(exit_token);
         drop(active_exit_token);
+        if let Some(emitter) = &self.evidence_emitter {
+            emitter.emit_recovery_entered(&next_state, None).await?;
+        }
         Ok(next_state)
     }
 
@@ -119,6 +133,11 @@ impl RecoveryBoundary for InMemoryRecoveryBoundary {
         drop(state);
         *active_exit_token = None;
         drop(active_exit_token);
+        if let Some(emitter) = &self.evidence_emitter {
+            emitter
+                .emit_recovery_exited_with_exit_token(&next_state, exit_token, None)
+                .await?;
+        }
         Ok(next_state)
     }
 

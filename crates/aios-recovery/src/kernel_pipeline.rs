@@ -9,6 +9,7 @@ use tokio::sync::RwLock;
 
 use crate::{
     CandidateId, CandidateState, KernelCandidate, KernelManifest, RecoveryBoundary, RecoveryError,
+    RecoveryEvidenceEmitter,
 };
 
 const ROLLBACK_STACK_CAPACITY: usize = 8;
@@ -20,6 +21,7 @@ pub struct KernelPipelineDriver {
     trusted_authorities: HashMap<String, VerifyingKey>,
     boundary: Arc<dyn RecoveryBoundary>,
     rollback_stack: RwLock<Vec<CandidateId>>,
+    evidence_emitter: Option<Arc<RecoveryEvidenceEmitter>>,
 }
 
 impl KernelPipelineDriver {
@@ -32,7 +34,19 @@ impl KernelPipelineDriver {
             trusted_authorities: HashMap::new(),
             boundary,
             rollback_stack: RwLock::new(Vec::new()),
+            evidence_emitter: None,
         }
+    }
+
+    /// Construct an empty driver with evidence emission enabled.
+    #[must_use]
+    pub fn with_evidence_emitter(
+        boundary: Arc<dyn RecoveryBoundary>,
+        evidence_emitter: Arc<RecoveryEvidenceEmitter>,
+    ) -> Self {
+        let mut driver = Self::new(boundary);
+        driver.evidence_emitter = Some(evidence_emitter);
+        driver
     }
 
     /// Add one trusted kernel manifest signing authority.
@@ -72,6 +86,11 @@ impl KernelPipelineDriver {
             .write()
             .await
             .insert(candidate.candidate_id.clone(), candidate.clone());
+        if let Some(emitter) = &self.evidence_emitter {
+            emitter
+                .emit_kernel_candidate_registered(&candidate, None)
+                .await?;
+        }
         Ok(candidate)
     }
 
@@ -100,6 +119,9 @@ impl KernelPipelineDriver {
             drop(candidates);
             candidate
         };
+        if let Some(emitter) = &self.evidence_emitter {
+            emitter.emit_kernel_gate_result(&candidate, None).await?;
+        }
         Ok(candidate)
     }
 
@@ -155,6 +177,9 @@ impl KernelPipelineDriver {
             drop(candidates);
             candidate
         };
+        if let Some(emitter) = &self.evidence_emitter {
+            emitter.emit_kernel_activated(&candidate, None).await?;
+        }
         Ok(candidate)
     }
 
@@ -170,7 +195,7 @@ impl KernelPipelineDriver {
         &self,
         candidate_id: &CandidateId,
     ) -> Result<KernelCandidate, RecoveryError> {
-        let candidate = {
+        let (candidate, previous_candidate_id) = {
             let mut candidates = self.candidates.write().await;
             let mut active_id = self.active_id.write().await;
 
@@ -205,12 +230,22 @@ impl KernelPipelineDriver {
                 .get_mut(candidate_id)
                 .ok_or_else(|| RecoveryError::CandidateNotFound(candidate_id.clone()))?;
             transition_candidate(candidate, CandidateState::Rollback)?;
-            *active_id = Some(previous_id);
+            *active_id = Some(previous_id.clone());
             let candidate = candidate.clone();
             drop(active_id);
             drop(candidates);
-            candidate
+            (candidate, previous_id)
         };
+        if let Some(emitter) = &self.evidence_emitter {
+            emitter
+                .emit_kernel_rolled_back_to_previous(
+                    &candidate,
+                    previous_candidate_id,
+                    "previous active restored",
+                    None,
+                )
+                .await?;
+        }
         Ok(candidate)
     }
 

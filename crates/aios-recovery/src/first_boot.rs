@@ -14,6 +14,7 @@ use tokio::sync::RwLock;
 
 use crate::{
     BootId, FirstBootContext, FirstBootPhase, FirstBootStatus, RecoveryBoundary, RecoveryError,
+    RecoveryEvidenceEmitter,
 };
 
 /// The S9.2 happy-path provisioning stages in strict forward order.
@@ -70,6 +71,7 @@ pub struct FirstBootDriver {
     state: RwLock<FirstBootContext>,
     recovery_boundary: Arc<dyn RecoveryBoundary>,
     stage_records: RwLock<Vec<FirstBootStageRecord>>,
+    evidence_emitter: Option<Arc<RecoveryEvidenceEmitter>>,
 }
 
 impl FirstBootDriver {
@@ -86,7 +88,19 @@ impl FirstBootDriver {
             }),
             recovery_boundary: boundary,
             stage_records: RwLock::new(Vec::new()),
+            evidence_emitter: None,
         }
+    }
+
+    /// Construct a first-boot driver with evidence emission enabled.
+    #[must_use]
+    pub fn with_evidence_emitter(
+        boundary: Arc<dyn RecoveryBoundary>,
+        evidence_emitter: Arc<RecoveryEvidenceEmitter>,
+    ) -> Self {
+        let mut driver = Self::new(boundary);
+        driver.evidence_emitter = Some(evidence_emitter);
+        driver
     }
 
     /// Return a snapshot of the current first-boot context.
@@ -134,17 +148,40 @@ impl FirstBootDriver {
             return Ok(terminal_context);
         }
         context.status = FirstBootStatus::InProgress;
+        if let Some(emitter) = &self.evidence_emitter {
+            emitter.emit_first_boot_started(&context, None).await?;
+        }
 
         while let Some(phase) = next_phase(&context) {
             if phase == FirstBootPhase::StageFirstBootComplete {
                 let completed_at = self.record_success(&mut context, phase).await;
+                if let Some(emitter) = &self.evidence_emitter {
+                    emitter
+                        .emit_first_boot_phase_completed(phase, &context, None)
+                        .await?;
+                }
                 context.status = FirstBootStatus::Completed;
                 context.completed_at = Some(completed_at);
                 let completed_context = context.clone();
+                let skipped_phases = self.skipped_phases().await;
                 drop(context);
+                if let Some(emitter) = &self.evidence_emitter {
+                    emitter
+                        .emit_first_boot_completed_with_skipped(
+                            &completed_context,
+                            skipped_phases,
+                            None,
+                        )
+                        .await?;
+                }
                 return Ok(completed_context);
             }
             self.record_success(&mut context, phase).await;
+            if let Some(emitter) = &self.evidence_emitter {
+                emitter
+                    .emit_first_boot_phase_completed(phase, &context, None)
+                    .await?;
+            }
         }
 
         drop(context);
@@ -177,9 +214,25 @@ impl FirstBootDriver {
         let completed_at = self
             .record_success(&mut context, FirstBootPhase::StageFirstBootComplete)
             .await;
+        if let Some(emitter) = &self.evidence_emitter {
+            emitter
+                .emit_first_boot_phase_completed(
+                    FirstBootPhase::StageFirstBootComplete,
+                    &context,
+                    None,
+                )
+                .await?;
+        }
         context.status = FirstBootStatus::Completed;
         context.completed_at = Some(completed_at);
+        let completed_context = context.clone();
+        let skipped_phases = self.skipped_phases().await;
         drop(context);
+        if let Some(emitter) = &self.evidence_emitter {
+            emitter
+                .emit_first_boot_completed_with_skipped(&completed_context, skipped_phases, None)
+                .await?;
+        }
         Ok(())
     }
 
@@ -218,6 +271,11 @@ impl FirstBootDriver {
             Some(reason),
         )
         .await;
+        if let Some(emitter) = &self.evidence_emitter {
+            emitter
+                .emit_first_boot_phase_completed(phase, &context, None)
+                .await?;
+        }
         drop(context);
         Ok(())
     }
@@ -301,6 +359,17 @@ impl FirstBootDriver {
             reason: reason.map(str::to_owned),
         });
         completed_at
+    }
+
+    async fn skipped_phases(&self) -> Vec<FirstBootPhase> {
+        self.stage_records
+            .read()
+            .await
+            .iter()
+            .filter_map(|record| {
+                (record.status == FirstBootStageStatus::Skipped).then_some(record.phase)
+            })
+            .collect()
     }
 }
 

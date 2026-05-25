@@ -402,6 +402,12 @@
       "title": "aios-verification - replace M4 step_verify stub (cross-crate runtime integration)",
       "completed_at": "2026-05-25",
       "evidence": "1399 tests workspace (+13 over T-070 baseline 1386). Added Cargo edge aios-verification -> aios-capability-runtime. aios-capability-runtime gained additive RuntimeVerificationEngine trait, optional verification_engine slot, with_verification_engine ctor, and step_verify_with_engine wiring while preserving the old no-engine/no-intent stub-pass path. aios-verification added runtime_adapter.rs with VerificationRuntimeAdapter implementing the runtime trait over Arc<dyn VerificationEngine>, parsing serialized VerificationIntent JSON or raw expression input, constructing VerificationContext from the runtime action_id, and mapping VerificationStatus::Passed to true with every other status false. Tests: crates/aios-verification/tests/runtime_integration.rs adds 13 cross-crate tests covering adapter construction, valid/invalid intent parsing, pass/fail submit_action, no-intent no-op compatibility, real file_exists marker present/absent, concurrent submissions, runtime action_id result binding, and §22 trustworthy pass/fail contrast with verification evidence. Required gates PASS: cargo check --workspace + cargo test -p aios-verification + cargo test -p aios-capability-runtime + cargo test --workspace + cargo clippy --workspace --all-targets -- -D warnings + cargo fmt --all -- --check. Spec note: current aios-action::ActionEnvelope has no top-level verification_intent field, so T-071 uses request.target.verification_intent as the envelope-carried intent source and preserves no-op verification when absent; ExecutionFailureReason has no VerificationFailed variant, so verification failure maps to AdapterRefused as the existing surrogate. Scope guard held: no renderer or M8 closer."
+    },
+    {
+      "id": "T-072",
+      "title": "aios-renderer-cli - Renderable for VerificationResult + aios verify subcommand (S7.6 <-> S2.4)",
+      "completed_at": "2026-05-25",
+      "evidence": "1410 tests workspace by `cargo test --workspace -- --list`; +14 new renderer tests in crates/aios-renderer-cli/tests/verification_render.rs. Added Cargo edge aios-renderer-cli -> aios-verification. New src/verification_render.rs implements Renderable for VerificationIntent, VerificationResult, VerificationStatus, PrimitiveResult, VerificationPrimitive, plus VerificationPrimitiveList for CLI list output across Text/Json/Tree/Table. Status colors are PASSED green, FAILED red, TIMEOUT yellow, PROBE_ERROR magenta, SKIPPED gray. VerificationResult table output is a summary row; per-primitive detail is expanded in Text/Tree and direct PrimitiveResult Table output. CLI adds `aios verify run <intent.json> [--action-id ...]` and `aios verify list-primitives`. AiosClient gained verify/list_primitives via T-069 RunVerification/GetEngineInfo; AiosEndpoints gained verification endpoint; InProcessBackend now starts policy/runtime/fs/vault/verification with service_count=5. Required gates PASS: cargo check --workspace + cargo test -p aios-renderer-cli + cargo test --workspace + cargo clippy --workspace --all-targets -- -D warnings + cargo fmt --all -- --check + cargo build -p aios-renderer-cli --bin aios. Scope guard held: no aios-action/evidence/policy/runtime/fs/vault/verification source changes; no M8 closer/version bump."
     }
   ],
   "blocked": [],
@@ -583,11 +589,12 @@
         "T-068",
         "T-069",
         "T-070",
-        "T-071"
+        "T-071",
+        "T-072"
       ],
-      "current_test_count": 1399,
+      "current_test_count": 1410,
       "crate_version": "aios-verification/0.0.1",
-      "rationale": "Real VerificationEngine.RunVerification \u2014 M8 now has local deterministic primitive execution, closed grammar parsing, combinator execution, the S2.4 section 10 gRPC service surface, S3.1 VERIFICATION_RESULT evidence emission, and runtime step_verify integration. Renderer integration continues in T-072."
+      "rationale": "Real VerificationEngine.RunVerification \u2014 M8 now has local deterministic primitive execution, closed grammar parsing, combinator execution, the S2.4 section 10 gRPC service surface, S3.1 VERIFICATION_RESULT evidence emission, runtime step_verify integration, and S7.6 renderer/CLI exposure through `aios verify`. M8 closer continues in T-073."
     },
     "M9": {
       "status": "planned",

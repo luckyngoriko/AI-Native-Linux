@@ -22,6 +22,8 @@ use aios_vault::{
     InMemoryOverrideBroker, InMemoryVaultBroker, IssueCapabilityRequest, KeyAlgorithm, SubjectRef,
     VaultBroker,
 };
+use aios_verification::service as verification_service;
+use aios_verification::InMemoryVerificationEngine;
 use chrono::{Duration as ChronoDuration, Utc};
 use tokio::net::TcpListener;
 use tokio::sync::oneshot;
@@ -39,6 +41,7 @@ pub struct InProcessBackend {
     runtime: Arc<InMemoryCapabilityRuntime>,
     fs: Arc<InMemoryAiosFs>,
     vault: Arc<InMemoryVaultBroker>,
+    verification: Arc<InMemoryVerificationEngine>,
     overrides: Arc<InMemoryOverrideBroker>,
     identity: Arc<IdentityCatalog>,
     audit: Arc<CapabilityAuditLog>,
@@ -110,6 +113,7 @@ impl InProcessBackend {
         let fs = Arc::new(InMemoryAiosFs::new());
         let audit = Arc::new(CapabilityAuditLog::new());
         let vault = Arc::new(InMemoryVaultBroker::new().with_audit_log(Arc::clone(&audit)));
+        let verification = Arc::new(InMemoryVerificationEngine::new());
         let identity = Arc::new(IdentityCatalog::with_fixtures());
         let overrides = Arc::new(InMemoryOverrideBroker::new(Arc::clone(&identity)));
         let lifecycle = Arc::new(CapabilityLifecycleDriver::new(
@@ -122,6 +126,7 @@ impl InProcessBackend {
             runtime,
             fs,
             vault,
+            verification,
             overrides,
             identity,
             audit,
@@ -129,7 +134,7 @@ impl InProcessBackend {
         }
     }
 
-    /// Spawn the default four-service backend and connect an [`AiosClient`].
+    /// Spawn the default five-service backend and connect an [`AiosClient`].
     ///
     /// # Errors
     ///
@@ -139,7 +144,7 @@ impl InProcessBackend {
         Self::new_default().spawn().await
     }
 
-    /// Spawn four services with a caller-supplied Policy Kernel.
+    /// Spawn five services with a caller-supplied Policy Kernel.
     ///
     /// This is used by integration tests that need deterministic policy
     /// ALLOW/DENY responses while keeping runtime/fs/vault in-memory.
@@ -170,12 +175,18 @@ impl InProcessBackend {
         let fs = spawn_router("fs", fs_service::build_router(self.fs_service())).await?;
         let vault =
             spawn_router("vault", vault_service::build_router(self.vault_service())).await?;
+        let verification = spawn_router(
+            "verification",
+            verification_service::build_router(self.verification_service()),
+        )
+        .await?;
 
         let endpoints = AiosEndpoints {
             policy: policy.endpoint,
             runtime: runtime.endpoint,
             fs: fs.endpoint,
             vault: vault.endpoint,
+            verification: verification.endpoint,
             evidence: None,
         };
         let shutdown = ShutdownHandle::new(
@@ -184,8 +195,15 @@ impl InProcessBackend {
                 runtime.shutdown,
                 fs.shutdown,
                 vault.shutdown,
+                verification.shutdown,
             ],
-            vec![policy.task, runtime.task, fs.task, vault.task],
+            vec![
+                policy.task,
+                runtime.task,
+                fs.task,
+                vault.task,
+                verification.task,
+            ],
         );
         let client = AiosClient::connect(&endpoints).await?;
 
@@ -217,6 +235,11 @@ impl InProcessBackend {
             Arc::clone(&self.lifecycle),
         )
         .with_vault_id("renderer-inproc-vault")
+    }
+
+    fn verification_service(&self) -> verification_service::VerificationEngineService {
+        verification_service::VerificationEngineService::new(Arc::clone(&self.verification))
+            .with_engine_id("renderer-inproc-verification")
     }
 
     async fn seed_default_vault_capability(&self) -> Result<(), RenderError> {

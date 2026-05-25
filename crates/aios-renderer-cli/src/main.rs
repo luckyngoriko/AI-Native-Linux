@@ -28,6 +28,7 @@ async fn main() -> ExitCode {
 async fn run(cli: AiosCli) -> Result<String> {
     let endpoints = cli.endpoints_config()?;
     let mut client = AiosClient::connect(&endpoints).await?;
+    // AiosCli::execute owns subcommand dispatch, including `aios verify`.
     Ok(cli.execute(&mut client).await?)
 }
 

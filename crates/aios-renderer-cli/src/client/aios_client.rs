@@ -33,6 +33,12 @@ use aios_vault::{
     CapabilityClass, CapabilityId, CapabilityState, KeyAlgorithm, KeyMaterialHandle, SubjectRef,
     VaultCapability,
 };
+use aios_verification::service::conversions as verification_conversions;
+use aios_verification::service::proto as verification_proto;
+use aios_verification::service::{
+    VerificationEngineClient, SCHEMA_VERSION as VERIFICATION_SCHEMA_VERSION,
+};
+use aios_verification::{VerificationIntent, VerificationPrimitive, VerificationResult};
 use serde_json::{json, Value};
 use tonic::transport::Channel;
 
@@ -46,6 +52,7 @@ pub struct AiosClient {
     runtime: CapabilityRuntimeClient<Channel>,
     fs: AiosFsClient<Channel>,
     vault: VaultBrokerClient<Channel>,
+    verification: VerificationEngineClient<Channel>,
     evidence: Option<EvidenceLogClient<Channel>>,
 }
 
@@ -69,6 +76,9 @@ impl AiosClient {
         let vault = VaultBrokerClient::connect(endpoints.vault.clone())
             .await
             .map_err(|err| client_connect_failed("vault", err.to_string()))?;
+        let verification = VerificationEngineClient::connect(endpoints.verification.clone())
+            .await
+            .map_err(|err| client_connect_failed("verification", err.to_string()))?;
         let evidence = match &endpoints.evidence {
             Some(endpoint) => Some(
                 EvidenceLogClient::connect(endpoint.clone())
@@ -83,6 +93,7 @@ impl AiosClient {
             runtime,
             fs,
             vault,
+            verification,
             evidence,
         })
     }
@@ -407,6 +418,65 @@ impl AiosClient {
         };
 
         evidence_receipt_from_proto(receipt)
+    }
+
+    /// Run a verification intent through the Verification Engine.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`RenderError::ClientCallFailed`] when the Verification RPC
+    /// fails or the returned result cannot be converted.
+    pub async fn verify(
+        &mut self,
+        intent: VerificationIntent,
+    ) -> Result<VerificationResult, RenderError> {
+        let response = self
+            .verification
+            .run_verification(verification_proto::RunVerificationRequest {
+                schema_version: VERIFICATION_SCHEMA_VERSION.to_owned(),
+                action_id_proto: verification_conversions::action_id_to_proto(&intent.action_id),
+                intent: Some(verification_conversions::verification_intent_to_proto(
+                    &intent,
+                )),
+                subject: "operator:renderer-cli".to_owned(),
+                simulate: true,
+            })
+            .await
+            .map_err(|err| client_call_failed("verification", "RunVerification", err.to_string()))?
+            .into_inner();
+
+        verification_conversions::verification_result_from_proto(response)
+            .map_err(|err| client_call_failed("verification", "RunVerification", err.to_string()))
+    }
+
+    /// List the Verification Engine primitive vocabulary.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`RenderError::ClientCallFailed`] when the info RPC fails or one
+    /// primitive token is not part of the closed Rust vocabulary.
+    pub async fn list_primitives(&mut self) -> Result<Vec<VerificationPrimitive>, RenderError> {
+        let response = self
+            .verification
+            .get_engine_info(())
+            .await
+            .map_err(|err| client_call_failed("verification", "GetEngineInfo", err.to_string()))?
+            .into_inner();
+
+        response
+            .supported_primitives
+            .into_iter()
+            .map(|primitive| {
+                serde_json::from_value::<VerificationPrimitive>(Value::String(primitive.clone()))
+                    .map_err(|err| {
+                        client_call_failed(
+                            "verification",
+                            "GetEngineInfo",
+                            format!("unknown primitive `{primitive}`: {err}"),
+                        )
+                    })
+            })
+            .collect()
     }
 }
 

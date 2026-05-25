@@ -24,6 +24,7 @@ pub mod table_renderer;
 pub mod text_renderer;
 pub mod tree_renderer;
 pub mod vault_render;
+pub mod verification_render;
 
 pub use aios_fs::{AiosPath, NamespaceClass, Object, Pointer, Version};
 pub use aios_policy::{ApprovalRequirement, Constraints, Decision, PolicyDecision};
@@ -31,9 +32,13 @@ pub use aios_vault::{
     CapabilityClass, CapabilityState, KeyMaterialHandle, OverrideBinding, OverrideClass,
     VaultCapability,
 };
+pub use aios_verification::{
+    PrimitiveResult, VerificationIntent, VerificationPrimitive, VerificationResult,
+    VerificationStatus,
+};
 pub use cli::{
     ActionSubcommand, AiosCli, AiosCommand, EvidenceSubcommand, FsSubcommand, PolicySubcommand,
-    VaultSubcommand,
+    VaultSubcommand, VerificationSubcommand,
 };
 pub use cli_types::{
     AnsiSupportLevel, CliCompilationResult, CliEvidenceRecordKind, CliInputMode, CliRenderMode,
@@ -47,3 +52,4 @@ pub use renderable::{RenderContext, Renderable};
 pub use table_renderer::{TableAlign, TableRenderer, TableSpec};
 pub use text_renderer::TextRenderer;
 pub use tree_renderer::{TreeNode, TreeRenderer};
+pub use verification_render::VerificationPrimitiveList;

@@ -176,6 +176,7 @@ dependencies = [
  "aios-fs",
  "aios-policy",
  "aios-vault",
+ "aios-verification",
  "anyhow",
  "chrono",
  "clap",

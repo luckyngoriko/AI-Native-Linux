@@ -75,6 +75,8 @@ fn every_aios_subcommand_has_cli_integration_coverage() -> TestResult {
         ("vault", "issue"),
         ("evidence", "chain"),
         ("evidence", "get"),
+        ("verify", "run"),
+        ("verify", "list-primitives"),
     ] {
         assert!(
             tests.contains(&format!("\"{parent}\"")) && tests.contains(&format!("\"{child}\"")),
@@ -95,6 +97,7 @@ fn renderable_impls_cover_m7_cross_crate_types() -> TestResult {
         "impl Renderable for PolicyDecision",
         "impl Renderable for VaultCapability",
         "impl Renderable for Object",
+        "impl Renderable for VerificationResult",
     ] {
         assert!(src.contains(impl_header), "missing {impl_header}");
     }

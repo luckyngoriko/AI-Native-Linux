@@ -8,15 +8,17 @@
 use std::fs;
 use std::path::{Path, PathBuf};
 
-use aios_action::ActionEnvelope;
+use aios_action::{ActionEnvelope, ActionId};
 use aios_fs::View;
 use aios_vault::{CapabilityClass, VaultCapability};
+use aios_verification::VerificationIntent;
 use clap::{Parser, Subcommand};
 use serde_json::{json, Value};
 
 use crate::{
     AiosClient, AiosEndpoints, OutputFormat, RenderContext, RenderError, Renderable, TableAlign,
-    TableRenderer, TableSpec, TextRenderer, TreeNode, TreeRenderer, Version,
+    TableRenderer, TableSpec, TextRenderer, TreeNode, TreeRenderer, VerificationPrimitiveList,
+    Version,
 };
 
 /// Parsed command-line interface for the `aios` binary.
@@ -79,6 +81,12 @@ pub enum AiosCommand {
         /// Evidence operation.
         #[command(subcommand)]
         subcommand: EvidenceSubcommand,
+    },
+    /// Run verification and inspect supported primitives.
+    Verify {
+        /// Verification operation.
+        #[command(subcommand)]
+        subcommand: VerificationSubcommand,
     },
 }
 
@@ -159,6 +167,21 @@ pub enum EvidenceSubcommand {
         /// Receipt id to read.
         receipt_id: String,
     },
+}
+
+/// Verification subcommands.
+#[derive(Debug, Clone, Subcommand)]
+pub enum VerificationSubcommand {
+    /// Run a verification intent JSON file.
+    Run {
+        /// Path to the verification intent JSON file.
+        intent_file: PathBuf,
+        /// Override the intent action id before submission.
+        #[arg(long)]
+        action_id: Option<String>,
+    },
+    /// List the supported verification primitive vocabulary.
+    ListPrimitives,
 }
 
 impl AiosCli {
@@ -259,6 +282,22 @@ impl AiosCli {
                     render_value(&client.evidence_receipt(receipt_id).await?, format, &ctx)
                 }
             },
+            AiosCommand::Verify { subcommand } => match subcommand {
+                VerificationSubcommand::Run {
+                    intent_file,
+                    action_id,
+                } => {
+                    let mut intent = read_verification_intent(intent_file)?;
+                    if let Some(action_id) = action_id {
+                        intent.action_id = parse_action_id(action_id)?;
+                    }
+                    render_value(&client.verify(intent).await?, format, &ctx)
+                }
+                VerificationSubcommand::ListPrimitives => {
+                    let primitives = client.list_primitives().await?;
+                    render_value(&VerificationPrimitiveList::new(primitives), format, &ctx)
+                }
+            },
         }
     }
 }
@@ -284,6 +323,26 @@ fn read_envelope(path: &Path) -> Result<ActionEnvelope, RenderError> {
             path.display()
         ))
     })
+}
+
+fn read_verification_intent(path: &Path) -> Result<VerificationIntent, RenderError> {
+    let bytes = fs::read(path).map_err(|err| {
+        RenderError::Internal(format!(
+            "read verification intent JSON `{}` failed: {err}",
+            path.display()
+        ))
+    })?;
+    serde_json::from_slice(&bytes).map_err(|err| {
+        RenderError::SerializationFailed(format!(
+            "parse verification intent JSON `{}` failed: {err}",
+            path.display()
+        ))
+    })
+}
+
+fn parse_action_id(input: &str) -> Result<ActionId, RenderError> {
+    ActionId::parse(input)
+        .map_err(|err| RenderError::Internal(format!("invalid action id `{input}`: {err}")))
 }
 
 fn parse_capability_class(input: &str) -> Result<CapabilityClass, RenderError> {
@@ -344,6 +403,7 @@ fn parse_keyed_endpoints(parts: &[&str]) -> Result<AiosEndpoints, RenderError> {
             "runtime" => endpoints.runtime = endpoint,
             "fs" => endpoints.fs = endpoint,
             "vault" => endpoints.vault = endpoint,
+            "verification" => endpoints.verification = endpoint,
             "evidence" => {
                 endpoints.evidence = if value.trim().eq_ignore_ascii_case("none") {
                     None
@@ -363,9 +423,10 @@ fn parse_keyed_endpoints(parts: &[&str]) -> Result<AiosEndpoints, RenderError> {
 }
 
 fn parse_positional_endpoints(parts: &[&str]) -> Result<AiosEndpoints, RenderError> {
-    if !(4..=5).contains(&parts.len()) {
+    if !(5..=6).contains(&parts.len()) {
         return Err(RenderError::Internal(
-            "AIOS_ENDPOINTS positional form is policy,runtime,fs,vault[,evidence]".to_owned(),
+            "AIOS_ENDPOINTS positional form is policy,runtime,fs,vault,verification[,evidence]"
+                .to_owned(),
         ));
     }
 
@@ -374,8 +435,9 @@ fn parse_positional_endpoints(parts: &[&str]) -> Result<AiosEndpoints, RenderErr
         runtime: normalize_endpoint(parts[1])?,
         fs: normalize_endpoint(parts[2])?,
         vault: normalize_endpoint(parts[3])?,
+        verification: normalize_endpoint(parts[4])?,
         evidence: parts
-            .get(4)
+            .get(5)
             .map(|value| {
                 if value.trim().eq_ignore_ascii_case("none") {
                     Ok(None)

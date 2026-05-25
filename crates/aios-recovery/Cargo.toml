@@ -10,8 +10,10 @@ authors.workspace = true
 
 [dependencies]
 aios-action = { path = "../aios-action" }
+aios-capability-runtime = { path = "../aios-capability-runtime" }
 aios-evidence = { path = "../aios-evidence" }
 aios-fs     = { path = "../aios-fs" }
+aios-policy = { path = "../aios-policy" }
 async-trait  = { workspace = true }
 serde        = { workspace = true }
 serde_json   = { workspace = true }

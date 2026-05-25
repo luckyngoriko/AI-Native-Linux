@@ -17,7 +17,9 @@ pub mod in_memory_boundary;
 pub mod kernel;
 pub mod kernel_pipeline;
 pub mod mode;
+pub mod policy_adapter;
 pub mod recovery_guard;
+pub mod runtime_adapter;
 pub mod service;
 
 pub use boot::{BootId, BootPhase, FirstBootContext, FirstBootPhase, FirstBootStatus};
@@ -38,7 +40,9 @@ pub use in_memory_boundary::InMemoryRecoveryBoundary;
 pub use kernel::{CandidateId, CandidateState, KernelCandidate, KernelManifest};
 pub use kernel_pipeline::KernelPipelineDriver;
 pub use mode::{RecoveryMode, RecoveryState};
+pub use policy_adapter::RecoveryPolicyHydratorEnhancer;
 pub use recovery_guard::RecoveryGuard;
+pub use runtime_adapter::RecoveryRuntimeAdapter;
 pub use service::{RecoveryServiceClient, RecoveryServiceGrpcServer, RecoveryServiceImpl};
 
 /// Default code version reported by future recovery service metadata surfaces.

@@ -456,6 +456,12 @@
       "title": "aios-recovery - evidence emission (S9.x -> S3.1)",
       "completed_at": "2026-05-25",
       "evidence": "1535 tests workspace (+17 over T-079 baseline 1518). Added Cargo edge aios-recovery -> aios-evidence. Added crates/aios-recovery/src/evidence_emit.rs with RecoveryEvidenceLog, InMemoryRecoveryEvidenceLog, RecoveryEvidenceEmitter, Ed25519 signing, BLAKE3 ReceiptChain linkage, expected previous receipt validation, and S9.x emission helpers. Added crates/aios-recovery/src/evidence_payloads.rs with typed recovery entry/exit, first-boot, and kernel lifecycle payloads. InMemoryRecoveryBoundary, FirstBootDriver, and KernelPipelineDriver gained optional evidence emitters and emit on successful recovery enter/exit, first-boot started/phase/completed, kernel register/verify/activate/rollback. RecoveryError gained EvidenceEmitFailed(String). Tests: crates/aios-recovery/tests/evidence_emission.rs adds 17 tests covering payload serde round-trips, RECOVERY_BOOT_ENTERED/EXITED, FIRST_BOOT_* lifecycle, KERNEL_PIPELINE_STARTED/KERNEL_GATE_RESULT/KERNEL_PROMOTED_TO_A/KERNEL_ROLLBACK_PERFORMED mapping, BLAKE3 chain coherence, Ed25519 signatures, INV-018/INV-015 redaction, no-emitter compatibility, concurrent enter+exit, and full recovery-kernel lifecycle. Required gates PASS: cargo check --workspace + cargo test -p aios-recovery + cargo test --workspace + cargo clippy --workspace --all-targets -- -D warnings + cargo fmt --all -- --check. Scope guard: cross-crate runtime integration (T-081), renderer (T-082), M9 closer (T-083) deferred."
+    },
+    {
+      "id": "T-081",
+      "title": "aios-recovery - cross-crate integration (recovery ↔ runtime + policy)",
+      "completed_at": "2026-05-25",
+      "evidence": "1549 tests workspace (+14 over T-080 baseline 1535). Added Cargo edges aios-recovery -> aios-capability-runtime and aios-policy. Added aios-capability-runtime RuntimeRecoveryHook trait, optional InMemoryCapabilityRuntime recovery_hook, with_recovery_hook ctor, and step_execute live recovery consultation. Added crates/aios-recovery/src/runtime_adapter.rs with RecoveryRuntimeAdapter wrapping Arc<dyn RecoveryBoundary> and implementing RuntimeRecoveryHook. Added crates/aios-recovery/src/policy_adapter.rs with RecoveryPolicyHydratorEnhancer wrapping SubjectHydrator and overriding HydratedSubject.recovery_mode from live RecoveryBoundary state. Tests: crates/aios-recovery/tests/cross_crate_integration.rs adds 14 tests covering RuntimeRecoveryHook trait-object use, runtime recovery-only allow/deny, backward-compatible no-hook runtime behavior, live policy hydration override, recovery-only fs mutation allow/deny through policy-hydrated state, and exit-recovery denial. Required gates PASS: cargo check --workspace + cargo test -p aios-recovery + cargo test -p aios-capability-runtime + cargo test -p aios-policy + cargo test -p aios-fs + cargo test --workspace + cargo clippy --workspace --all-targets -- -D warnings + cargo fmt --all -- --check. Spec note: AdapterManifest has no requires_recovery field; runtime gate uses the S10.1 W8/W9 recovery-only declared action catalog and AdapterRefused failure reason. Scope guard: renderer (T-082) and M9 closer (T-083) deferred."
     }
   ],
   "blocked": [],
@@ -664,9 +670,10 @@
         "T-077",
         "T-078",
         "T-079",
-        "T-080"
+        "T-080",
+        "T-081"
       ],
-      "current_test_count": 1535,
+      "current_test_count": 1549,
       "crate_version_target": "aios-recovery/0.1.0",
       "rationale": "Resolves S9.1 'degraded subset' exception findings from Capella iter 6."
     },

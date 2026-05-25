@@ -47,6 +47,7 @@ use aios_policy::{
     ApproverClass, Decision, EnrichmentSnapshot, PolicyContext, PolicyError, PolicyKernel,
 };
 
+use crate::adapter_manifest::AdapterManifest;
 use crate::adapter_registry::InMemoryAdapterRegistry;
 use crate::context::ActionContext;
 use crate::dispatch::{ActionDispatchKind, QueueClass};
@@ -57,7 +58,7 @@ use crate::evidence_emit::EvidenceEmitter;
 use crate::failure::{ExecutionFailureReason, RollbackOutcome};
 use crate::rollback::RollbackDriver;
 use crate::rollback_strategy::RollbackStrategy;
-use crate::runtime::{RuntimeContext, RuntimeVerificationEngine};
+use crate::runtime::{RuntimeContext, RuntimeRecoveryHook, RuntimeVerificationEngine};
 use crate::status::ActionLifecycleState;
 
 // ---------------------------------------------------------------------------
@@ -252,6 +253,25 @@ fn verification_intent_json(envelope: &ActionEnvelope) -> Option<&str> {
         .filter(|intent| !intent.trim().is_empty())
 }
 
+fn adapter_requires_recovery(manifest: &AdapterManifest, action_kind: &str) -> bool {
+    manifest
+        .declared_actions
+        .iter()
+        .any(|d| d.action_kind == action_kind && recovery_only_action_kind(&d.action_kind))
+}
+
+fn recovery_only_action_kind(action_kind: &str) -> bool {
+    // S10.1 W8/W9 RECOVERY_ONLY typed-action catalog. The current
+    // AdapterManifest skeleton has no `requires_recovery` field, so T-081
+    // binds the recovery gate to the existing closed action_kind surface.
+    matches!(
+        action_kind,
+        "hardware.accept_drift_substrate"
+            | "network.resolver.set_allowlist"
+            | "recovery.firstboot.reset"
+    )
+}
+
 // ---------------------------------------------------------------------------
 // ActionLifecyclePipeline — the eight-step driver.
 // ---------------------------------------------------------------------------
@@ -415,7 +435,8 @@ impl ActionLifecyclePipeline {
         };
         let state = match state {
             PipelineState::Continue(c) => {
-                self.step_execute_with_engines(envelope, c, now, registry)?
+                self.step_execute_with_engines(envelope, c, now, registry, None)
+                    .await?
             }
             PipelineState::ShortCircuit(c) => return Ok(c),
         };
@@ -507,6 +528,7 @@ impl ActionLifecyclePipeline {
         runtime_context: Option<&RuntimeContext>,
         tripwire: Option<&AtomicU64>,
         verification_engine: Option<&dyn RuntimeVerificationEngine>,
+        recovery_hook: Option<&dyn RuntimeRecoveryHook>,
     ) -> Result<ActionContext, RuntimeError> {
         let state = self.step_validate(envelope, ctx, now)?;
         let state = match state {
@@ -537,7 +559,8 @@ impl ActionLifecyclePipeline {
         };
         let state = match state {
             PipelineState::Continue(c) => {
-                self.step_execute_with_engines(envelope, c, now, registry)?
+                self.step_execute_with_engines(envelope, c, now, registry, recovery_hook)
+                    .await?
             }
             PipelineState::ShortCircuit(c) => return Ok(c),
         };
@@ -618,6 +641,7 @@ impl ActionLifecyclePipeline {
         tripwire: Option<&AtomicU64>,
         emitter: &EvidenceEmitter,
         verification_engine: Option<&dyn RuntimeVerificationEngine>,
+        recovery_hook: Option<&dyn RuntimeRecoveryHook>,
     ) -> Result<ActionContext, RuntimeError> {
         // ── Step 1: validate envelope. Emit ACTION_RECEIVED on success. ──
         let state = self.step_validate(envelope, ctx, now)?;
@@ -668,8 +692,15 @@ impl ActionLifecyclePipeline {
         // ── Step 5: execute. Emit ROUTING_DECISION + EXECUTION_STARTED. ──
         let state = match state {
             PipelineState::Continue(c) => {
-                self.step_execute_with_engines_and_emit(envelope, c, now, registry, emitter)
-                    .await?
+                self.step_execute_with_engines_and_emit(
+                    envelope,
+                    c,
+                    now,
+                    registry,
+                    emitter,
+                    recovery_hook,
+                )
+                .await?
             }
             PipelineState::ShortCircuit(c) => return Ok(c),
         };
@@ -746,6 +777,7 @@ impl ActionLifecyclePipeline {
         rollback_driver: Option<&RollbackDriver>,
         operator_alerts: Option<&AtomicU64>,
         verification_engine: Option<&dyn RuntimeVerificationEngine>,
+        recovery_hook: Option<&dyn RuntimeRecoveryHook>,
     ) -> Result<ActionContext, RuntimeError> {
         // ── Step 1: validate envelope. Emit ACTION_RECEIVED on success. ──
         let state = self.step_validate(envelope, ctx, now)?;
@@ -794,8 +826,15 @@ impl ActionLifecyclePipeline {
         // ── Step 5: execute. ──
         let state = match state {
             PipelineState::Continue(c) => {
-                self.step_execute_with_engines_and_emit(envelope, c, now, registry, emitter)
-                    .await?
+                self.step_execute_with_engines_and_emit(
+                    envelope,
+                    c,
+                    now,
+                    registry,
+                    emitter,
+                    recovery_hook,
+                )
+                .await?
             }
             PipelineState::ShortCircuit(c) => return Ok(c),
         };
@@ -1022,16 +1061,22 @@ impl ActionLifecyclePipeline {
         now: DateTime<Utc>,
         registry: Option<&InMemoryAdapterRegistry>,
         emitter: &EvidenceEmitter,
+        recovery_hook: Option<&dyn RuntimeRecoveryHook>,
     ) -> Result<PipelineState, RuntimeError> {
         // Reuse the existing engine-aware step which sets `ctx.dispatch_kind`
         // when a registry is attached and drives the §4.2 T13 / T14
         // transition.
-        let routed_adapter_id = registry.and_then(|reg| {
-            use crate::runtime::AdapterRegistry;
-            reg.lookup(&envelope.request.action)
+        let routed_adapter_id = if let Some(registry) = registry {
+            registry
+                .lookup_for_target(&envelope.request.action)
+                .await
                 .map(|_| envelope.request.action.clone())
-        });
-        let state = self.step_execute_with_engines(envelope, ctx, now, registry)?;
+        } else {
+            None
+        };
+        let state = self
+            .step_execute_with_engines(envelope, ctx, now, registry, recovery_hook)
+            .await?;
         match state {
             PipelineState::Continue(mut c) => {
                 // Adapter resolved: emit ROUTING_DECISION then
@@ -1310,20 +1355,29 @@ impl ActionLifecyclePipeline {
     ///
     /// Returns [`RuntimeError::InvalidTransition`] only if the context is
     /// not in [`ActionLifecycleState::Queued`].
-    pub fn step_execute_with_engines(
+    pub async fn step_execute_with_engines(
         &self,
         envelope: &ActionEnvelope,
         mut ctx: ActionContext,
         now: DateTime<Utc>,
         registry: Option<&InMemoryAdapterRegistry>,
+        recovery_hook: Option<&dyn RuntimeRecoveryHook>,
     ) -> Result<PipelineState, RuntimeError> {
         if let Some(registry) = registry {
-            use crate::runtime::AdapterRegistry;
-            let Some(handle) = registry.lookup(&envelope.request.action) else {
+            let Some(adapter) = registry.lookup_for_target(&envelope.request.action).await else {
                 apply_transition(&mut ctx, ActionLifecycleState::Failed, now)?;
                 ctx.error = Some(ExecutionFailureReason::DependencyUnready);
                 return Ok(PipelineState::ShortCircuit(ctx));
             };
+            if adapter_requires_recovery(&adapter.manifest, &envelope.request.action) {
+                if let Some(hook) = recovery_hook {
+                    if !hook.current_recovery_mode().await {
+                        apply_transition(&mut ctx, ActionLifecycleState::Failed, now)?;
+                        ctx.error = Some(ExecutionFailureReason::AdapterRefused);
+                        return Ok(PipelineState::ShortCircuit(ctx));
+                    }
+                }
+            }
             // Down-cast to RealAdapterHandle to pull the manifest for the
             // §3.2 dispatch-kind decision. The cast is safe because the
             // InMemoryAdapterRegistry only ever returns RealAdapterHandle
@@ -1332,7 +1386,7 @@ impl ActionLifecyclePipeline {
             // We perform the decision via a minimal sketch using the
             // handle's dispatch_kind() (manifest's preferred kind) plus
             // §3.2 modifiers.
-            let manifest_kind = handle.dispatch_kind();
+            let manifest_kind = adapter.manifest.dispatch_kind;
             let is_ai = envelope.identity.is_ai;
             let is_simulate = matches!(envelope.request.dry_run, aios_action::DryRunMode::Simulate);
             // Synthesise a minimal AdapterManifest-shaped view by reading

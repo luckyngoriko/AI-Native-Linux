@@ -118,6 +118,15 @@ pub trait RuntimeVerificationEngine: Send + Sync {
     async fn verify(&self, intent_json: &str, action_id: &str) -> Result<bool, String>;
 }
 
+/// Adapter-facing recovery hook used by the runtime without depending on
+/// `aios-recovery`.
+#[async_trait]
+pub trait RuntimeRecoveryHook: Send + Sync {
+    /// Return `true` when the host is currently inside the live recovery
+    /// boundary.
+    async fn current_recovery_mode(&self) -> bool;
+}
+
 // ---------------------------------------------------------------------------
 // RuntimeContext.
 // ---------------------------------------------------------------------------
@@ -488,6 +497,9 @@ pub struct InMemoryCapabilityRuntime {
     /// carries a verification intent, step 6 runs the real engine; when absent
     /// the T-027 verification stub stays intact for backward compatibility.
     verification_engine: Option<Arc<dyn RuntimeVerificationEngine>>,
+    /// Optional live recovery boundary hook. When attached, step 5 refuses
+    /// S10.1 `RECOVERY_ONLY` action kinds outside recovery mode.
+    recovery_hook: Option<Arc<dyn RuntimeRecoveryHook>>,
     /// T-030 — defense-in-depth tripwire counter for the §17 AI
     /// self-approval prevention boundary.
     ///
@@ -556,6 +568,7 @@ impl std::fmt::Debug for InMemoryCapabilityRuntime {
             .field("policy_kernel", &self.policy_kernel.is_some())
             .field("evidence_emitter", &self.evidence_emitter.is_some())
             .field("verification_engine", &self.verification_engine.is_some())
+            .field("recovery_hook", &self.recovery_hook.is_some())
             .field(
                 "policy_double_check_warnings",
                 &self.policy_double_check_warnings.load(Ordering::Acquire),
@@ -587,6 +600,7 @@ impl InMemoryCapabilityRuntime {
             policy_kernel: None,
             evidence_emitter: None,
             verification_engine: None,
+            recovery_hook: None,
             policy_double_check_warnings: Arc::new(AtomicU64::new(0)),
             rollback_driver: None,
             operator_alerts: Arc::new(AtomicU64::new(0)),
@@ -723,6 +737,14 @@ impl InMemoryCapabilityRuntime {
         self
     }
 
+    /// Attach a live recovery-mode hook to the runtime. Returns `self` for
+    /// chaining.
+    #[must_use]
+    pub fn with_recovery_hook(mut self, hook: Arc<dyn RuntimeRecoveryHook>) -> Self {
+        self.recovery_hook = Some(hook);
+        self
+    }
+
     /// Borrow the attached evidence emitter, if any.
     #[must_use]
     pub const fn evidence_emitter(&self) -> Option<&Arc<EvidenceEmitter>> {
@@ -822,6 +844,7 @@ impl CapabilityRuntime for InMemoryCapabilityRuntime {
         let queue_ref = self.dispatch_queue.as_deref();
         let kernel_ref = self.policy_kernel.as_deref();
         let verification_ref = self.verification_engine.as_deref();
+        let recovery_ref = self.recovery_hook.as_deref();
         let final_ctx = if let Some(emitter) = self.evidence_emitter.as_deref() {
             // T-031 / T-032 path — every §4.2 transition emits an
             // evidence receipt. When a rollback driver is also attached
@@ -843,6 +866,7 @@ impl CapabilityRuntime for InMemoryCapabilityRuntime {
                         rollback_ref,
                         Some(&self.operator_alerts),
                         verification_ref,
+                        recovery_ref,
                     )
                     .await?
             } else {
@@ -858,6 +882,7 @@ impl CapabilityRuntime for InMemoryCapabilityRuntime {
                         Some(&self.policy_double_check_warnings),
                         emitter,
                         verification_ref,
+                        recovery_ref,
                     )
                     .await?
             }
@@ -876,6 +901,7 @@ impl CapabilityRuntime for InMemoryCapabilityRuntime {
                     Some(context),
                     Some(&self.policy_double_check_warnings),
                     verification_ref,
+                    recovery_ref,
                 )
                 .await?
         };
@@ -990,6 +1016,7 @@ impl InMemoryCapabilityRuntime {
         let registry_ref = self.adapter_registry.as_deref();
         let queue_ref = self.dispatch_queue.as_deref();
         let verification_ref = self.verification_engine.as_deref();
+        let recovery_ref = self.recovery_hook.as_deref();
         let final_ctx = {
             let ctx = ctx_after_consume;
             // Step 4 — queue enrolment. With an emitter wired, route
@@ -1014,11 +1041,13 @@ impl InMemoryCapabilityRuntime {
                             now,
                             registry_ref,
                             emitter,
+                            recovery_ref,
                         )
                         .await?
                 } else {
                     self.pipeline
-                        .step_execute_with_engines(envelope, ctx, now, registry_ref)?
+                        .step_execute_with_engines(envelope, ctx, now, registry_ref, recovery_ref)
+                        .await?
                 };
                 let ctx2 = state.into_context();
                 if matches!(ctx2.status, crate::ActionLifecycleState::Executing) {

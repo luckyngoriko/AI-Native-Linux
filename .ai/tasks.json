@@ -366,6 +366,12 @@
       "title": "aios-verification - VerificationEngine trait + InMemory impl",
       "completed_at": "2026-05-25",
       "evidence": "1303 tests workspace (+11 over T-064 baseline 1292). Added VerificationEngine async trait, VerificationContext, InMemoryVerificationEngine with RwLock<HashMap<IntentId, VerificationResult>> completed-run cache, JSON Vec<VerificationPrimitive> expression seam, deterministic all-pass stub PrimitiveResult execution, result timing fields, get_result cache lookup, and 36-entry list_primitives. Tests: crates/aios-verification/tests/engine.rs (11). Required gates PASS: cargo check --workspace + cargo test --workspace + cargo clippy --workspace --all-targets -- -D warnings + cargo fmt --all -- --check. Scope guard held: no primitive impls, no real grammar parser, no executor aggregation, no gRPC, no evidence emission, no runtime integration, no renderer integration."
+    },
+    {
+      "id": "T-066",
+      "title": "aios-verification - real primitive impls (S2.4 vocabulary, 3-tier execution)",
+      "completed_at": "2026-05-25",
+      "evidence": "1323 tests workspace (+20 over T-065 baseline 1303). Added primitives module with tier classification for the frozen 36-entry S2.4 vocabulary, LocalProbe trait, StdLocalProbe, MockLocalProbe, Tier-1 deterministic helpers, Tier-2 local fs/process/socket/command/env probes, and Tier-3 ProbeError deferrals for network/control-plane/cross-crate probes. InMemoryVerificationEngine now dispatches real primitive execution and supports with_local_probe. Tests: primitives_tier1.rs (9), primitives_tier2.rs (8), primitives_tier3.rs (3), engine.rs updated for real/probe-error behavior. Required gates PASS: cargo check --workspace + cargo test --workspace + cargo clippy --workspace --all-targets -- -D warnings + cargo fmt --all -- --check. Scope guard held: no primitive enum change, no full grammar parser, no executor aggregation, no gRPC, no evidence emission, no runtime integration, no renderer integration."
     }
   ],
   "blocked": [],
@@ -541,11 +547,12 @@
       "target_crate": "aios-verification",
       "tasks": [
         "T-064",
-        "T-065"
+        "T-065",
+        "T-066"
       ],
-      "current_test_count": 1303,
+      "current_test_count": 1323,
       "crate_version": "aios-verification/0.0.1",
-      "rationale": "Real VerificationEngine.RunVerification \u2014 currently stubbed in M4 step_verify."
+      "rationale": "Real VerificationEngine.RunVerification \u2014 M8 now has local deterministic primitive execution; grammar/executor/gRPC/evidence/runtime integration continue in T-067+."
     },
     "M9": {
       "status": "planned",

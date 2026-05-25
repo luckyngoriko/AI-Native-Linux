@@ -42,6 +42,7 @@ unimplemented = "deny"
 # Rust + Tokio + tonic gRPC + serde + tracing
 serde       = { version = "1.0", features = ["derive"] }
 serde_json  = "1.0"
+regex       = "1.12"
 thiserror   = "2.0"
 anyhow      = "1"
 clap        = { version = "4", features = ["derive", "env"] }

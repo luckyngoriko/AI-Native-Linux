@@ -5,10 +5,12 @@ use std::sync::Arc;
 
 use aios_action::ActionId;
 use aios_verification::{
-    InMemoryVerificationEngine, IntentId, VerificationContext, VerificationEngine,
-    VerificationError, VerificationIntent, VerificationPrimitive, VerificationStatus,
+    InMemoryVerificationEngine, IntentId, LocalProbe, MockLocalProbe, VerificationContext,
+    VerificationEngine, VerificationError, VerificationIntent, VerificationPrimitive,
+    VerificationStatus,
 };
 use chrono::Utc;
+use serde_json::{json, Map, Value};
 use strum::{EnumCount, IntoEnumIterator};
 
 type TestResult<T = ()> = Result<T, Box<dyn Error + Send + Sync>>;
@@ -17,10 +19,33 @@ fn expression(primitives: &[VerificationPrimitive]) -> TestResult<String> {
     Ok(serde_json::to_string(primitives)?)
 }
 
+fn invocation_expression(primitive: VerificationPrimitive, payload: Value) -> TestResult<String> {
+    let mut object = match payload {
+        Value::Object(object) => object,
+        _ => Map::new(),
+    };
+    object.insert(
+        "primitive".to_owned(),
+        Value::String(primitive.as_wire_str().to_owned()),
+    );
+    Ok(serde_json::to_string(&vec![Value::Object(object)])?)
+}
+
 fn intent_with(primitives: &[VerificationPrimitive]) -> TestResult<VerificationIntent> {
     Ok(VerificationIntent::new(
         ActionId::new(),
         expression(primitives)?,
+        5,
+    ))
+}
+
+fn intent_with_invocation(
+    primitive: VerificationPrimitive,
+    payload: Value,
+) -> TestResult<VerificationIntent> {
+    Ok(VerificationIntent::new(
+        ActionId::new(),
+        invocation_expression(primitive, payload)?,
         5,
     ))
 }
@@ -42,8 +67,13 @@ fn in_memory_verification_engine_new_succeeds() {
 
 #[tokio::test]
 async fn run_verification_with_simple_intent_passes() -> TestResult {
-    let engine = InMemoryVerificationEngine::new();
-    let intent = intent_with(&[VerificationPrimitive::FileExists])?;
+    let probe: Arc<dyn LocalProbe> =
+        Arc::new(MockLocalProbe::default().with_file_exists("/tmp/aios-ok", true));
+    let engine = InMemoryVerificationEngine::new().with_local_probe(probe);
+    let intent = intent_with_invocation(
+        VerificationPrimitive::FileExists,
+        json!({"object_or_path": "/tmp/aios-ok"}),
+    )?;
     let context = context_for(intent.action_id.clone());
 
     let result = engine.run_verification(&intent, &context).await?;
@@ -74,13 +104,15 @@ async fn run_verification_with_empty_primitive_list_passes() -> TestResult {
 
 #[tokio::test]
 async fn run_verification_with_multiple_primitives_lists_all_results() -> TestResult {
-    let engine = InMemoryVerificationEngine::new();
-    let primitives = [
-        VerificationPrimitive::FileExists,
-        VerificationPrimitive::HttpOk,
-        VerificationPrimitive::EvidenceExists,
+    let engine = InMemoryVerificationEngine::new().with_local_probe(Arc::new(
+        MockLocalProbe::default().with_file_exists("/tmp/aios-ok", true),
+    ));
+    let primitives = vec![
+        json!({"primitive": "FILE_EXISTS", "object_or_path": "/tmp/aios-ok"}),
+        json!({"primitive": "HTTP_OK", "url": "http://127.0.0.1/"}),
+        json!({"primitive": "EVIDENCE_EXISTS", "receipt_id": "rcpt_01"}),
     ];
-    let intent = intent_with(&primitives)?;
+    let intent = VerificationIntent::new(ActionId::new(), serde_json::to_string(&primitives)?, 5);
     let context = context_for(intent.action_id.clone());
 
     let result = engine.run_verification(&intent, &context).await?;
@@ -90,10 +122,18 @@ async fn run_verification_with_multiple_primitives_lists_all_results() -> TestRe
         .map(|primitive| primitive.primitive_kind)
         .collect();
 
-    assert_eq!(observed, primitives);
-    assert!(result.per_primitive.iter().all(|primitive| {
-        primitive.passed && primitive.actual == primitive.expected && primitive.elapsed_ms == 0
-    }));
+    assert_eq!(
+        observed,
+        [
+            VerificationPrimitive::FileExists,
+            VerificationPrimitive::HttpOk,
+            VerificationPrimitive::EvidenceExists,
+        ]
+    );
+    assert_eq!(result.status, VerificationStatus::ProbeError);
+    assert!(result.per_primitive[0].passed);
+    assert!(result.per_primitive[1].error.is_some());
+    assert!(result.per_primitive[2].error.is_some());
     Ok(())
 }
 
@@ -129,8 +169,13 @@ async fn unknown_primitive_variant_returns_unknown_primitive() {
 
 #[tokio::test]
 async fn run_verification_populates_timing_fields() -> TestResult {
-    let engine = InMemoryVerificationEngine::new();
-    let intent = intent_with(&[VerificationPrimitive::ServiceActive])?;
+    let engine = InMemoryVerificationEngine::new().with_local_probe(Arc::new(
+        MockLocalProbe::default().with_process_running("nginx", true),
+    ));
+    let intent = intent_with_invocation(
+        VerificationPrimitive::ServiceActive,
+        json!({"service": "nginx"}),
+    )?;
     let context = context_for(intent.action_id.clone());
 
     let result = engine.run_verification(&intent, &context).await?;
@@ -147,7 +192,7 @@ async fn run_verification_populates_timing_fields() -> TestResult {
 #[tokio::test]
 async fn get_result_after_run_returns_cached_result() -> TestResult {
     let engine = InMemoryVerificationEngine::new();
-    let intent = intent_with(&[VerificationPrimitive::PackageInstalled])?;
+    let intent = intent_with(&[])?;
     let context = context_for(intent.action_id.clone());
 
     let result = engine.run_verification(&intent, &context).await?;
@@ -176,8 +221,14 @@ async fn list_primitives_returns_s24_vocabulary() {
 
 #[tokio::test]
 async fn arc_dyn_verification_engine_runs_end_to_end() -> TestResult {
-    let engine: Arc<dyn VerificationEngine> = Arc::new(InMemoryVerificationEngine::new());
-    let intent = intent_with(&[VerificationPrimitive::PortClosed])?;
+    let engine: Arc<dyn VerificationEngine> =
+        Arc::new(InMemoryVerificationEngine::new().with_local_probe(Arc::new(
+            MockLocalProbe::default().with_port_listening(9555, false),
+        )));
+    let intent = intent_with_invocation(
+        VerificationPrimitive::PortClosed,
+        json!({"host": "127.0.0.1", "port": 9555, "protocol": "tcp"}),
+    )?;
     let context = context_for(intent.action_id.clone());
 
     let result = engine.run_verification(&intent, &context).await?;

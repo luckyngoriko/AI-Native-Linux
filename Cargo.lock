@@ -229,6 +229,7 @@ dependencies = [
  "async-trait",
  "blake3",
  "chrono",
+ "regex",
  "serde",
  "serde_json",
  "strum",

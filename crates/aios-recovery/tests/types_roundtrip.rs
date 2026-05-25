@@ -157,6 +157,10 @@ fn recovery_error_display_strings_are_present() {
         RecoveryError::BundleSignatureInvalid,
         RecoveryError::BundleUnknownAuthority("unknown-root".to_owned()),
         RecoveryError::FirstBootAlreadyCompleted,
+        RecoveryError::InvalidPhaseTransition {
+            from: FirstBootPhase::StageInstallerMediaVerified,
+            to: FirstBootPhase::StageKernelInstalled,
+        },
         RecoveryError::CandidateNotFound(CandidateId::new()),
         RecoveryError::InvalidCandidateTransition {
             from: CandidateState::Gating,

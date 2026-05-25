@@ -10,6 +10,7 @@ pub mod boot;
 pub mod boundary;
 pub mod bundle;
 pub mod error;
+pub mod first_boot;
 pub mod in_memory_boundary;
 pub mod kernel;
 pub mod mode;
@@ -18,6 +19,7 @@ pub use boot::{BootId, BootPhase, FirstBootContext, FirstBootPhase, FirstBootSta
 pub use boundary::{EnterRecoveryRequest, RecoveryBoundary};
 pub use bundle::RecoveryBundle;
 pub use error::RecoveryError;
+pub use first_boot::FirstBootDriver;
 pub use in_memory_boundary::InMemoryRecoveryBoundary;
 pub use kernel::{CandidateId, CandidateState, KernelCandidate, KernelManifest};
 pub use mode::{RecoveryMode, RecoveryState};

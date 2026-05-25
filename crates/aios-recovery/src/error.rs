@@ -2,7 +2,7 @@
 
 use thiserror::Error;
 
-use crate::{CandidateId, CandidateState};
+use crate::{CandidateId, CandidateState, FirstBootPhase};
 
 /// Errors surfaced by recovery-boundary and kernel-candidate validation.
 #[derive(Debug, Clone, PartialEq, Eq, Error)]
@@ -25,6 +25,14 @@ pub enum RecoveryError {
     /// First-boot has already reached its terminal completion marker.
     #[error("first-boot has already completed")]
     FirstBootAlreadyCompleted,
+    /// First-boot stage transition is forbidden by S9.2.
+    #[error("invalid first-boot phase transition: {from:?} -> {to:?}")]
+    InvalidPhaseTransition {
+        /// Current or expected first-boot phase.
+        from: FirstBootPhase,
+        /// Requested next first-boot phase.
+        to: FirstBootPhase,
+    },
     /// Kernel candidate id was not found.
     #[error("kernel candidate not found: {0}")]
     CandidateNotFound(CandidateId),

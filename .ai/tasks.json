@@ -312,6 +312,12 @@
       "title": "aios-renderer-cli skeleton - S7.6 §3 typed core + Renderable trait",
       "completed_at": "2026-05-25",
       "evidence": "1172 tests workspace (+12 over T-055 baseline 1160). Added crates/aios-renderer-cli v0.0.1, S7.6 §3 closed CLI enum vocabulary, crate-local OutputFormat {TEXT, JSON, TREE, TABLE}, RenderContext terminal/pipe defaults, Renderable trait, RenderError taxonomy, and primitive Renderable impls for strings, ints, bool, Option, Vec, and BTreeMap. Tests: crates/aios-renderer-cli/tests/types_roundtrip.rs (12). Gates PASS: cargo check --workspace + cargo test --workspace + cargo clippy --workspace --all-targets -- -D warnings + cargo fmt --all -- --check. Scope guard: no format-specific renderers, no cross-crate Renderable impls, no gRPC client, no CLI binary/clap."
+    },
+    {
+      "id": "T-057",
+      "title": "aios-renderer-cli - TextRenderer + JsonRenderer + TableRenderer + TreeRenderer (S7.6 §4)",
+      "completed_at": "2026-05-25",
+      "evidence": "1200 tests workspace (+28 over T-056 baseline 1172). Added TextRenderer helpers, JsonRenderer with pretty/compact serialization and recursive secret-key redaction, TableRenderer with fixed-width UTF-8/ASCII table drawing and WidthOverflow guard, and TreeRenderer with UTF-8/ASCII hierarchy drawing. Tests: crates/aios-renderer-cli/tests/{text_renderer,json_renderer,table_renderer,tree_renderer}.rs (28). Gates PASS: cargo check --workspace + cargo test --workspace + cargo clippy --workspace --all-targets -- -D warnings + cargo fmt --all -- --check. Scope guard: no cross-crate Renderable impls, no gRPC client, no CLI binary/clap."
     }
   ],
   "blocked": [],
@@ -462,9 +468,10 @@
       "layer": "L7",
       "target_crate": "aios-renderer-cli",
       "tasks": [
-        "T-056"
+        "T-056",
+        "T-057"
       ],
-      "current_test_count": 1172,
+      "current_test_count": 1200,
       "crate_version": "aios-renderer-cli/0.0.1",
       "rationale": "Simplest renderer first; closes \u00a722 phase-9. \u00a722 MVP golden path FULLY RUNNABLE after this."
     },

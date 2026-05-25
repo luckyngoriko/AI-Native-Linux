@@ -360,6 +360,12 @@
       "title": "aios-verification crate skeleton - S2.4 typed core",
       "completed_at": "2026-05-25",
       "evidence": "1292 tests workspace (+11 over T-063 baseline 1281). Added crates/aios-verification v0.0.1 with VerificationIntent + IntentId, VerificationResult + VerificationStatus + PrimitiveResult, VerificationPrimitive 36-entry closed S2.4 vocabulary, and VerificationError taxonomy. Tests: crates/aios-verification/tests/types_roundtrip.rs (11). Required gates PASS: cargo check --workspace + cargo test --workspace + cargo clippy --workspace --all-targets -- -D warnings + cargo fmt --all -- --check. Spec deviations from brief: S2.4 status set is VERIFICATION_PASSED/FAILED/TIMEOUT/PROBE_ERROR/SKIPPED; primitive vocabulary is the 36-entry Wave-15 S2.4 set; IntentId prefix follows S2.4 vrfi_ rather than brief vri_. Scope guard held: no VerificationEngine trait, primitive impls, parser, executor, gRPC, evidence emission, runtime integration, or renderer integration."
+    },
+    {
+      "id": "T-065",
+      "title": "aios-verification - VerificationEngine trait + InMemory impl",
+      "completed_at": "2026-05-25",
+      "evidence": "1303 tests workspace (+11 over T-064 baseline 1292). Added VerificationEngine async trait, VerificationContext, InMemoryVerificationEngine with RwLock<HashMap<IntentId, VerificationResult>> completed-run cache, JSON Vec<VerificationPrimitive> expression seam, deterministic all-pass stub PrimitiveResult execution, result timing fields, get_result cache lookup, and 36-entry list_primitives. Tests: crates/aios-verification/tests/engine.rs (11). Required gates PASS: cargo check --workspace + cargo test --workspace + cargo clippy --workspace --all-targets -- -D warnings + cargo fmt --all -- --check. Scope guard held: no primitive impls, no real grammar parser, no executor aggregation, no gRPC, no evidence emission, no runtime integration, no renderer integration."
     }
   ],
   "blocked": [],
@@ -534,9 +540,10 @@
       "layer": "L9",
       "target_crate": "aios-verification",
       "tasks": [
-        "T-064"
+        "T-064",
+        "T-065"
       ],
-      "current_test_count": 1292,
+      "current_test_count": 1303,
       "crate_version": "aios-verification/0.0.1",
       "rationale": "Real VerificationEngine.RunVerification \u2014 currently stubbed in M4 step_verify."
     },

@@ -8,12 +8,16 @@
 
 #![forbid(unsafe_code)]
 
+pub mod engine;
 pub mod error;
+pub mod in_memory_engine;
 pub mod intent;
 pub mod primitive;
 pub mod result;
 
+pub use engine::{VerificationContext, VerificationEngine};
 pub use error::VerificationError;
+pub use in_memory_engine::InMemoryVerificationEngine;
 pub use intent::{IntentId, VerificationIntent};
 pub use primitive::VerificationPrimitive;
 pub use result::{PrimitiveResult, VerificationResult, VerificationStatus};

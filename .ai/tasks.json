@@ -348,6 +348,12 @@
       "title": "aios-renderer-cli - `aios` CLI binary with clap subcommands (§22 phase-9)",
       "completed_at": "2026-05-25",
       "evidence": "1265 tests workspace (+10 over T-061 baseline 1255). Added workspace deps clap + anyhow, [[bin]] aios, clap derive command tree, RenderContext flag wiring, endpoint override parsing, binary dispatch/error formatting, and CLI execution over AiosClient. Extended renderer client with minimal methods for action status, fs list/list-versions, vault issue, and evidence chain/get. Tests: crates/aios-renderer-cli/tests/cli_integration.rs (10). Gates PASS: cargo check --workspace + cargo test --workspace + cargo clippy --workspace --all-targets -- -D warnings + cargo fmt --all -- --check + cargo build -p aios-renderer-cli --bin aios."
+    },
+    {
+      "id": "T-063",
+      "title": "aios-renderer-cli v0.1.0 - §22 MVP FULLY RUNNABLE + S7.6 acceptance fixtures (M7 CLOSED)",
+      "completed_at": "2026-05-25",
+      "evidence": "1281 tests workspace (+16 over T-062 baseline 1265). Added tests/mvp_full_golden_path.rs (section-22 CLI walk through InProcessBackend policy/runtime/fs/vault, with documented L1 mount and EvidenceLog endpoint stubs), tests/acceptance_fixtures.rs (8 S7.6/S7.2-derived CLI fixtures), and tests/m7_closure.rs (7 closure invariants). Bumped aios-renderer-cli Cargo.toml 0.0.1 -> 0.1.0. Required gates PASS: cargo check --workspace + cargo test --workspace + cargo clippy --workspace --all-targets -- -D warnings + cargo fmt --all -- --check + cargo build -p aios-renderer-cli --bin aios + cargo bench -p aios-policy --no-run. M7 CLOSED; M8 ready."
     }
   ],
   "blocked": [],
@@ -490,8 +496,9 @@
       "rationale": "Secrets-as-capabilities (INV-018). Unblocks signed bundle/manifest infra + external model calls."
     },
     "M7": {
-      "status": "in_progress",
+      "status": "CLOSED",
       "title": "CLI Renderer (\u00a722 MVP closure)",
+      "closed_at": "2026-05-25",
       "sub_specs": [
         "S7.6"
       ],
@@ -504,14 +511,15 @@
         "T-059",
         "T-060",
         "T-061",
-        "T-062"
+        "T-062",
+        "T-063"
       ],
-      "current_test_count": 1265,
-      "crate_version": "aios-renderer-cli/0.0.1",
-      "rationale": "Simplest renderer first; closes \u00a722 phase-9. \u00a722 MVP golden path FULLY RUNNABLE after this."
+      "current_test_count": 1281,
+      "crate_version": "aios-renderer-cli/0.1.0",
+      "rationale": "Simplest renderer first; closes \u00a722 phase-9. \u00a722 MVP golden path FULLY RUNNABLE via the `aios` CLI with L1 boot/mount and EvidenceLog endpoint stubs documented for M9/M8 integration."
     },
     "M8": {
-      "status": "planned",
+      "status": "ready",
       "title": "Verification Engine",
       "sub_specs": [
         "S2.4"

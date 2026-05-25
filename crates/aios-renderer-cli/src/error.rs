@@ -21,6 +21,24 @@ pub enum RenderError {
     /// Serialization failed while rendering structured output.
     #[error("serialization failed: {0}")]
     SerializationFailed(String),
+    /// The renderer client could not connect to a backend service endpoint.
+    #[error("client connect failed for {service}: {reason}")]
+    ClientConnectFailed {
+        /// Backend service label.
+        service: String,
+        /// Transport failure detail.
+        reason: String,
+    },
+    /// A backend service RPC returned an error status or malformed response.
+    #[error("client call failed for {service}.{rpc}: {status}")]
+    ClientCallFailed {
+        /// Backend service label.
+        service: String,
+        /// RPC name.
+        rpc: String,
+        /// gRPC status or conversion failure detail.
+        status: String,
+    },
     /// Rendered content cannot fit in the available terminal width.
     #[error("terminal width overflow: needed {needed} columns, available {available}")]
     WidthOverflow {

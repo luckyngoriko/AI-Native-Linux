@@ -336,6 +336,12 @@
       "title": "aios-renderer-cli - PolicyDecision + VaultCapability + FsObject Renderable",
       "completed_at": "2026-05-25",
       "evidence": "1245 tests workspace (+19 over T-059 baseline 1226). Added path deps aios-policy, aios-vault, aios-fs. New policy_render, vault_render, and fs_render modules implement Renderable across Text/Json/Tree/Table for PolicyDecision/Decision/Constraints/ApprovalRequirement, VaultCapability/CapabilityClass/CapabilityState/OverrideBinding/OverrideClass/KeyMaterialHandle, and Object/Version/Pointer/AiosPath/NamespaceClass. INV-018 enforced in vault rendering: key material handles always render as <vault-handle>, even with ctx.redact_secrets=false; VaultCapability never emits raw handle/key-shaped hex. Colors: Allow green, Deny red, RequireApproval yellow; Active green, Purged red, Quarantined yellow. Tests: crates/aios-renderer-cli/tests/{policy_render,vault_render,fs_render}.rs (19). Gates PASS: cargo check --workspace + cargo test --workspace + cargo clippy --workspace --all-targets -- -D warnings + cargo fmt --all -- --check. Scope guard: no backend crate changes, no gRPC clients, no CLI binary."
+    },
+    {
+      "id": "T-061",
+      "title": "aios-renderer-cli - gRPC client wiring + in-process backend fixture",
+      "completed_at": "2026-05-25",
+      "evidence": "1255 tests workspace (+10 over T-060 baseline 1245). Added tonic/prost/tokio runtime deps, AiosEndpoints, AiosClient, RenderError client variants, and an in-process 4-service backend fixture for policy/runtime/fs/vault. Evidence gRPC exists and is supported as an optional client endpoint; the in-process fixture intentionally spawns the requested 4 backend servers only. Tests: crates/aios-renderer-cli/tests/client_integration.rs (10). Gates PASS: cargo check --workspace + cargo test --workspace + cargo clippy --workspace --all-targets -- -D warnings + cargo fmt --all -- --check. Scope guard: no backend crate changes, no CLI binary."
     }
   ],
   "blocked": [],
@@ -490,9 +496,10 @@
         "T-057",
         "T-058",
         "T-059",
-        "T-060"
+        "T-060",
+        "T-061"
       ],
-      "current_test_count": 1245,
+      "current_test_count": 1255,
       "crate_version": "aios-renderer-cli/0.0.1",
       "rationale": "Simplest renderer first; closes \u00a722 phase-9. \u00a722 MVP golden path FULLY RUNNABLE after this."
     },

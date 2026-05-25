@@ -171,13 +171,16 @@ name = "aios-recovery"
 version = "0.0.1"
 dependencies = [
  "aios-action",
+ "async-trait",
  "blake3",
  "chrono",
+ "ed25519-dalek",
  "serde",
  "serde_json",
  "strum",
  "strum_macros",
  "thiserror",
+ "tokio",
  "ulid",
 ]
 

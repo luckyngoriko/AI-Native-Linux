@@ -13,6 +13,9 @@ pub enum RecoveryError {
     /// Recovery entry was requested while recovery is already active.
     #[error("recovery mode is already active")]
     AlreadyInRecovery,
+    /// Recovery entry or exit lacked the required operator/fallback authority.
+    #[error("recovery authorization invalid: {0}")]
+    RecoveryAuthorizationInvalid(String),
     /// Recovery bundle signature verification failed.
     #[error("recovery bundle signature is invalid")]
     BundleSignatureInvalid,

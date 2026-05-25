@@ -420,6 +420,12 @@
       "title": "aios-recovery - S9.1 + S9.2 + S9.3 typed core skeleton (M9 OPENER)",
       "completed_at": "2026-05-25",
       "evidence": "1448 tests workspace (+12 over T-073 baseline 1436). Added crates/aios-recovery v0.0.1 with S9.1 RecoveryMode + RecoveryState, S9.2 BootPhase + FirstBootContext + FirstBootPhase + FirstBootStatus, S9.3 KernelCandidate + KernelManifest + CandidateState, S9.1 degraded-subset RecoveryBundle, and RecoveryError taxonomy. Required gates PASS: cargo check --workspace + cargo test --workspace + cargo clippy --workspace --all-targets -- -D warnings + cargo fmt --all -- --check. Spec deviations from brief are TRUST SPEC choices: RecoveryMode follows S9.1 four values NORMAL/RECOVERY/DEGRADED/FIRST_BOOT, CandidateState follows S9.3 KernelImageState nine-value FSM, and FirstBootPhase follows S9.2 fifteen-stage FSM."
+    },
+    {
+      "id": "T-075",
+      "title": "aios-recovery - RecoveryBoundary trait + InMemory boundary + bundle signature verify (S9.1)",
+      "completed_at": "2026-05-25",
+      "evidence": "1462 tests workspace (+14 over T-074 baseline 1448). Added RecoveryBoundary async trait, EnterRecoveryRequest, InMemoryRecoveryBoundary with RwLock<RecoveryState>, trusted-authorities HashMap<String, VerifyingKey>, opaque exit-token guard, S9.1 entry precondition enforcement (operator grant or documented fallback reason), and Ed25519 recovery-bundle signature verification. Tests: crates/aios-recovery/tests/boundary.rs adds 14 tests covering normal start, enter/exit, invalid/missing/unknown bundle signature paths, re-entry, wrong-token, current_state/is_recovery_active, fallback entry, missing grant rejection, and Arc<dyn RecoveryBoundary>. Required gates PASS: cargo check --workspace + cargo test --workspace + cargo clippy --workspace --all-targets -- -D warnings + cargo fmt --all -- --check. Scope guard held: no first-boot driver, no kernel pipeline, no INV-012 enforcement, no gRPC, no evidence emission, no cross-crate integration."
     }
   ],
   "blocked": [],
@@ -622,9 +628,10 @@
       "layer": "L1",
       "target_crate": "aios-recovery",
       "tasks": [
-        "T-074"
+        "T-074",
+        "T-075"
       ],
-      "current_test_count": 1448,
+      "current_test_count": 1462,
       "crate_version_target": "aios-recovery/0.1.0",
       "rationale": "Resolves S9.1 'degraded subset' exception findings from Capella iter 6."
     },

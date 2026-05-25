@@ -10,12 +10,15 @@ authors.workspace = true
 
 [dependencies]
 aios-action = { path = "../aios-action" }
+async-trait  = { workspace = true }
 serde        = { workspace = true }
 serde_json   = { workspace = true }
 chrono       = { workspace = true }
+ed25519-dalek = { workspace = true }
 strum        = { workspace = true }
 strum_macros = { workspace = true }
 thiserror    = { workspace = true }
+tokio        = { workspace = true, features = ["macros", "rt"] }
 ulid         = { workspace = true }
 blake3       = { workspace = true }
 

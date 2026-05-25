@@ -444,6 +444,12 @@
       "title": "aios-recovery - RecoveryGuard cross-crate INV-012 runtime enforcement (S9.1)",
       "completed_at": "2026-05-25",
       "evidence": "1503 tests workspace (+12 over T-077 baseline 1491). Added Cargo edge aios-recovery -> aios-fs. Added crates/aios-recovery/src/recovery_guard.rs with RecoveryGuard over Arc<dyn RecoveryBoundary>, reading live boundary.is_recovery_active() and composing with aios_fs::NamespacePolicy::can_mutate. Added RecoveryError::RecoveryOnlyPathMutationDenied { path, reason } and RecoveryError::AiPathMutationDenied { path }. Tests: crates/aios-recovery/tests/recovery_guard.rs adds 12 tests covering normal/recovery mode recovery-only mutation, user-space allow, AI-locked deny, AI-allowed allow, human allow on AI-locked path, live enter/exit reflection, 5-task concurrent consistency, NamespacePolicy composition, aios-fs backward compatibility, and foreign namespace rejection. Required gates PASS: cargo check --workspace + cargo test -p aios-recovery + cargo test -p aios-fs + cargo test --workspace + cargo clippy --workspace --all-targets -- -D warnings + cargo fmt --all -- --check. Scope guard held: no aios-fs source changes, no gRPC, no evidence emission, no T-081 cross-crate service integration, no renderer."
+    },
+    {
+      "id": "T-079",
+      "title": "aios-recovery - gRPC RecoveryService (S9.x)",
+      "completed_at": "2026-05-25",
+      "evidence": "1518 tests workspace (+15 over T-078 baseline 1503). Added proto/aios.recovery.v1alpha1.proto with RecoveryService RPCs for recovery lifecycle, kernel candidates, first-boot, and recovery mutation guard. Added build.rs tonic-build wiring, service::{mod,conversions,server}, tonic/prost deps, lib.rs exports and DEFAULT_CODE_VERSION. RecoveryError -> tonic::Status mapping landed. Tests: crates/aios-recovery/tests/grpc_roundtrip.rs adds 15 tests including conversion round-trips and tonic channel smoke. Required gates PASS: cargo check --workspace + cargo test -p aios-recovery + cargo test --workspace + cargo clippy --workspace --all-targets -- -D warnings + cargo fmt --all -- --check. Scope guard held: no evidence emission, no T-081 cross-crate runtime integration, no renderer."
     }
   ],
   "blocked": [],
@@ -650,9 +656,10 @@
         "T-075",
         "T-076",
         "T-077",
-        "T-078"
+        "T-078",
+        "T-079"
       ],
-      "current_test_count": 1503,
+      "current_test_count": 1518,
       "crate_version_target": "aios-recovery/0.1.0",
       "rationale": "Resolves S9.1 'degraded subset' exception findings from Capella iter 6."
     },

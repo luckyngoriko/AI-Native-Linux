@@ -16,6 +16,7 @@ pub mod kernel;
 pub mod kernel_pipeline;
 pub mod mode;
 pub mod recovery_guard;
+pub mod service;
 
 pub use boot::{BootId, BootPhase, FirstBootContext, FirstBootPhase, FirstBootStatus};
 pub use boundary::{EnterRecoveryRequest, RecoveryBoundary};
@@ -27,3 +28,7 @@ pub use kernel::{CandidateId, CandidateState, KernelCandidate, KernelManifest};
 pub use kernel_pipeline::KernelPipelineDriver;
 pub use mode::{RecoveryMode, RecoveryState};
 pub use recovery_guard::RecoveryGuard;
+pub use service::{RecoveryServiceClient, RecoveryServiceGrpcServer, RecoveryServiceImpl};
+
+/// Default code version reported by future recovery service metadata surfaces.
+pub const DEFAULT_CODE_VERSION: &str = "aios-recovery/0.1.0-T079";

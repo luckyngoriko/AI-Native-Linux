@@ -1,0 +1,210 @@
+syntax = "proto3";
+
+package aios.recovery.v1alpha1;
+
+import "google/protobuf/timestamp.proto";
+
+enum RecoveryModeProto {
+  RECOVERY_MODE_UNSPECIFIED = 0;
+  RECOVERY_MODE_NORMAL = 1;
+  RECOVERY_MODE_RECOVERY = 2;
+  RECOVERY_MODE_DEGRADED = 3;
+  RECOVERY_MODE_FIRST_BOOT = 4;
+}
+
+enum BootPhaseProto {
+  BOOT_PHASE_UNSPECIFIED = 0;
+  BOOT_PHASE_COLD = 1;
+  BOOT_PHASE_BOOTSTRAP = 2;
+  BOOT_PHASE_FIRST_BOOT = 3;
+  BOOT_PHASE_NORMAL = 4;
+  BOOT_PHASE_RECOVERY = 5;
+}
+
+enum FirstBootPhaseProto {
+  FIRST_BOOT_PHASE_UNSPECIFIED = 0;
+  FIRST_BOOT_PHASE_INSTALLER_MEDIA_VERIFIED = 1;
+  FIRST_BOOT_PHASE_DISK_PARTITIONED = 2;
+  FIRST_BOOT_PHASE_KERNEL_INSTALLED = 3;
+  FIRST_BOOT_PHASE_AIOS_FS_INITIALIZED = 4;
+  FIRST_BOOT_PHASE_VAULT_ROOT_GENERATED = 5;
+  FIRST_BOOT_PHASE_INVARIANT_BUNDLE_LOADED = 6;
+  FIRST_BOOT_PHASE_POLICY_BUNDLE_LOADED = 7;
+  FIRST_BOOT_PHASE_IDENTITY_BUNDLE_LOADED = 8;
+  FIRST_BOOT_PHASE_RECOVERY_OPERATOR_REGISTRATION = 9;
+  FIRST_BOOT_PHASE_AI_PROVIDER_CONFIGURATION = 10;
+  FIRST_BOOT_PHASE_FIRST_GROUP_REGISTRATION = 11;
+  FIRST_BOOT_PHASE_FIRST_USER_REGISTRATION = 12;
+  FIRST_BOOT_PHASE_RUNTIME_SERVICES_STARTED = 13;
+  FIRST_BOOT_PHASE_FIRST_BOOT_COMPLETE = 14;
+  FIRST_BOOT_PHASE_FAILED_REQUIRES_RECOVERY = 15;
+}
+
+enum FirstBootStatusProto {
+  FIRST_BOOT_STATUS_UNSPECIFIED = 0;
+  FIRST_BOOT_STATUS_NOT_STARTED = 1;
+  FIRST_BOOT_STATUS_IN_PROGRESS = 2;
+  FIRST_BOOT_STATUS_COMPLETED = 3;
+  FIRST_BOOT_STATUS_FAILED = 4;
+  FIRST_BOOT_STATUS_SKIPPED = 5;
+}
+
+enum CandidateStateProto {
+  CANDIDATE_STATE_UNSPECIFIED = 0;
+  CANDIDATE_REGISTERED = 1;
+  CANDIDATE_BUILDING = 2;
+  CANDIDATE_GATING = 3;
+  CANDIDATE_VERIFIED = 4;
+  CANDIDATE_GATE_FAILED = 5;
+  CANDIDATE_ACTIVE = 6;
+  CANDIDATE_B_DEMOTED_TO_A = 7;
+  CANDIDATE_ROLLBACK = 8;
+  CANDIDATE_RETIRED = 9;
+}
+
+message RecoveryStateProto {
+  RecoveryModeProto mode = 1;
+  google.protobuf.Timestamp entered_at = 2;
+  google.protobuf.Timestamp exit_planned_at = 3;
+  optional string reason = 4;
+  optional string operator_grant = 5;
+}
+
+message RecoveryBundleProto {
+  string bundle_id = 1;
+  google.protobuf.Timestamp loaded_at = 2;
+  repeated string hard_deny_signatures = 3;
+  repeated string override_signatures = 4;
+  string signing_authority = 5;
+}
+
+message FirstBootContextProto {
+  string boot_id = 1;
+  google.protobuf.Timestamp started_at = 2;
+  google.protobuf.Timestamp completed_at = 3;
+  FirstBootStatusProto status = 4;
+  repeated FirstBootPhaseProto performed_phases = 5;
+}
+
+message KernelManifestProto {
+  string version = 1;
+  string min_aios_version = 2;
+  bool requires_recovery_install = 3;
+  optional string verification_intent = 4;
+  repeated string tags = 5;
+}
+
+message KernelCandidateProto {
+  string candidate_id = 1;
+  string version = 2;
+  string kernel_blake3 = 3;
+  bytes signature_ed25519 = 4;
+  string signing_authority = 5;
+  google.protobuf.Timestamp registered_at = 6;
+  CandidateStateProto state = 7;
+  KernelManifestProto manifest = 8;
+}
+
+message EnterRecoveryRequestProto {
+  string schema_version = 1;
+  string reason = 2;
+  optional string operator_grant = 3;
+  repeated BootPhaseProto expected_phases = 4;
+  RecoveryBundleProto bundle = 5;
+  bytes action_id_proto = 6;
+  uint32 action_id_format = 7;
+}
+
+message ExitRecoveryRequestProto {
+  string schema_version = 1;
+  string exit_token = 2;
+  bytes action_id_proto = 3;
+  uint32 action_id_format = 4;
+}
+
+message GetRecoveryStateRequest {
+  string schema_version = 1;
+}
+
+message RegisterKernelCandidateRequest {
+  string schema_version = 1;
+  KernelManifestProto manifest = 2;
+  bytes signature_ed25519 = 3;
+  bytes action_id_proto = 4;
+  uint32 action_id_format = 5;
+}
+
+message VerifyKernelCandidateRequest {
+  string schema_version = 1;
+  string candidate_id = 2;
+  bytes action_id_proto = 3;
+  uint32 action_id_format = 4;
+}
+
+message ActivateKernelCandidateRequest {
+  string schema_version = 1;
+  string candidate_id = 2;
+  bytes action_id_proto = 3;
+  uint32 action_id_format = 4;
+}
+
+message RollbackKernelCandidateRequest {
+  string schema_version = 1;
+  string candidate_id = 2;
+  bytes action_id_proto = 3;
+  uint32 action_id_format = 4;
+}
+
+message ListKernelCandidatesRequest {
+  string schema_version = 1;
+}
+
+message ListKernelCandidatesResponse {
+  repeated KernelCandidateProto candidates = 1;
+}
+
+message GetActiveKernelRequest {
+  string schema_version = 1;
+}
+
+message GetActiveKernelResponse {
+  KernelCandidateProto active = 1;
+}
+
+message RunFirstBootProvisioningRequest {
+  string schema_version = 1;
+  bytes action_id_proto = 2;
+  uint32 action_id_format = 3;
+}
+
+message GetFirstBootStatusRequest {
+  string schema_version = 1;
+}
+
+message CheckRecoveryMutationRequest {
+  string schema_version = 1;
+  string path = 2;
+  string subject = 3;
+  bool is_ai = 4;
+  bytes action_id_proto = 5;
+  uint32 action_id_format = 6;
+}
+
+message CheckRecoveryMutationResponse {
+  bool allowed = 1;
+}
+
+service RecoveryService {
+  rpc EnterRecovery(EnterRecoveryRequestProto) returns (RecoveryStateProto);
+  rpc ExitRecovery(ExitRecoveryRequestProto) returns (RecoveryStateProto);
+  rpc GetRecoveryState(GetRecoveryStateRequest) returns (RecoveryStateProto);
+  rpc RegisterKernelCandidate(RegisterKernelCandidateRequest) returns (KernelCandidateProto);
+  rpc VerifyKernelCandidate(VerifyKernelCandidateRequest) returns (KernelCandidateProto);
+  rpc ActivateKernelCandidate(ActivateKernelCandidateRequest) returns (KernelCandidateProto);
+  rpc RollbackKernelCandidate(RollbackKernelCandidateRequest) returns (KernelCandidateProto);
+  rpc ListKernelCandidates(ListKernelCandidatesRequest) returns (ListKernelCandidatesResponse);
+  rpc GetActiveKernel(GetActiveKernelRequest) returns (GetActiveKernelResponse);
+  rpc RunFirstBootProvisioning(RunFirstBootProvisioningRequest) returns (FirstBootContextProto);
+  rpc GetFirstBootStatus(GetFirstBootStatusRequest) returns (FirstBootContextProto);
+  rpc CheckRecoveryMutation(CheckRecoveryMutationRequest) returns (CheckRecoveryMutationResponse);
+}

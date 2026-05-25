@@ -176,12 +176,17 @@ dependencies = [
  "blake3",
  "chrono",
  "ed25519-dalek",
+ "prost",
+ "prost-types",
+ "protoc-bin-vendored",
  "serde",
  "serde_json",
  "strum",
  "strum_macros",
  "thiserror",
  "tokio",
+ "tonic",
+ "tonic-build",
  "ulid",
 ]
 

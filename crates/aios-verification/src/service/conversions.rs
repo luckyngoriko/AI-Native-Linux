@@ -114,7 +114,9 @@ pub fn verification_error_to_status(err: &VerificationError) -> Status {
         VerificationError::PrimitiveExecutionFailed { .. } => {
             Status::failed_precondition(err.to_string())
         }
-        VerificationError::Internal(_) => Status::internal(err.to_string()),
+        VerificationError::Internal(_) | VerificationError::EvidenceEmitFailed(_) => {
+            Status::internal(err.to_string())
+        }
     }
 }
 

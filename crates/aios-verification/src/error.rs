@@ -32,6 +32,9 @@ pub enum VerificationError {
     /// Verification expression parsing failed.
     #[error("verification intent parse failed: {0}")]
     IntentParseFailed(String),
+    /// Evidence receipt emission failed.
+    #[error("evidence emission failed: {0}")]
+    EvidenceEmitFailed(String),
     /// Internal verification-engine invariant failed.
     #[error("verification internal error: {0}")]
     Internal(String),

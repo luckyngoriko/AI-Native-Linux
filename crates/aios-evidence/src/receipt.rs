@@ -1012,8 +1012,16 @@ mod tests {
             .expect("seal_signed");
 
         let sig = r.signature().expect("sig").to_string();
-        // Upper-case the first 4 chars; still 128 chars.
-        let uppercased = format!("{}{}", &sig[..4].to_ascii_uppercase(), &sig[4..]);
+        // Upper-case the first alphabetic hex char; still 128 chars.
+        let mut uppercased = sig.clone();
+        let (index, character) = sig
+            .char_indices()
+            .find(|(_, c)| c.is_ascii_hexdigit() && c.is_ascii_alphabetic())
+            .expect("signature contains alphabetic hex");
+        uppercased.replace_range(
+            index..index + character.len_utf8(),
+            &character.to_ascii_uppercase().to_string(),
+        );
         let mut v = serde_json::to_value(&r).expect("ser");
         v["signature"] = json!(uppercased);
         let bad: EvidenceReceipt = serde_json::from_value(v).expect("de");

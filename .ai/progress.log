@@ -549,3 +549,4 @@ Format: ISO-8601 timestamp | task_id | step | command(s) | result | status | nex
 2026-05-25 T-066 codex exec real primitive impls ready gates=green tests=1323
 2026-05-25 T-068 codex exec VerificationExecutor combinators + aggregation ready gates=green tests=1358
 2026-05-25 T-069 codex exec aios-verification gRPC VerificationEngine service ready gates=green tests=1373
+2026-05-25 T-070 codex exec aios-verification evidence emission ready gates=green tests=1386

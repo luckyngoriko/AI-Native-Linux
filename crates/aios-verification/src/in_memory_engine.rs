@@ -15,6 +15,7 @@ use strum::IntoEnumIterator;
 use tokio::sync::RwLock;
 
 use crate::engine::{VerificationContext, VerificationEngine};
+use crate::evidence_emit::VerificationEvidenceEmitter;
 use crate::executor::{per_primitive_timeout_ms, primitive_count, VerificationExecutor};
 use crate::grammar_parser;
 use crate::primitives::{LocalProbe, StdLocalProbe};
@@ -28,6 +29,7 @@ use crate::{
 pub struct InMemoryVerificationEngine {
     completed: Arc<RwLock<HashMap<IntentId, VerificationResult>>>,
     local_probe: Arc<dyn LocalProbe>,
+    evidence_emitter: Option<Arc<VerificationEvidenceEmitter>>,
 }
 
 impl fmt::Debug for InMemoryVerificationEngine {
@@ -35,6 +37,7 @@ impl fmt::Debug for InMemoryVerificationEngine {
         f.debug_struct("InMemoryVerificationEngine")
             .field("completed", &self.completed)
             .field("local_probe", &"<dyn LocalProbe>")
+            .field("evidence_emitter", &self.evidence_emitter)
             .finish()
     }
 }
@@ -44,6 +47,7 @@ impl Default for InMemoryVerificationEngine {
         Self {
             completed: Arc::new(RwLock::new(HashMap::new())),
             local_probe: Arc::new(StdLocalProbe),
+            evidence_emitter: None,
         }
     }
 }
@@ -59,6 +63,16 @@ impl InMemoryVerificationEngine {
     #[must_use]
     pub fn with_local_probe(mut self, probe: Arc<dyn LocalProbe>) -> Self {
         self.local_probe = probe;
+        self
+    }
+
+    /// Enable S3.1 evidence emission for verification runs.
+    #[must_use]
+    pub fn with_evidence_emitter(
+        mut self,
+        evidence_emitter: Arc<VerificationEvidenceEmitter>,
+    ) -> Self {
+        self.evidence_emitter = Some(evidence_emitter);
         self
     }
 
@@ -78,14 +92,25 @@ impl VerificationEngine for InMemoryVerificationEngine {
         let grammar = compile_intent(intent)?;
         let default_timeout_ms =
             per_primitive_timeout_ms(intent.timeout_seconds, primitive_count(&grammar));
+        if let Some(emitter) = &self.evidence_emitter {
+            emitter
+                .emit_verification_started(intent, context, None)
+                .await?;
+        }
         let executor = VerificationExecutor::new(
             Arc::new(self.clone()),
             Arc::clone(&self.local_probe),
             default_timeout_ms,
         );
-        let result = executor
+        let mut result = executor
             .execute_for_intent(&grammar, context, intent.intent_id.clone())
             .await;
+        if let Some(emitter) = &self.evidence_emitter {
+            let receipt_id = emitter
+                .emit_verification_result(intent, &result, None)
+                .await?;
+            result.evidence_receipt_id = Some(receipt_id);
+        }
 
         self.completed
             .write()

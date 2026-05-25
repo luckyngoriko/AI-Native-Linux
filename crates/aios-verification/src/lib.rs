@@ -9,6 +9,8 @@
 
 pub mod engine;
 pub mod error;
+pub mod evidence_emit;
+pub mod evidence_payloads;
 pub mod executor;
 pub mod grammar;
 pub mod grammar_parser;
@@ -21,6 +23,13 @@ pub mod service;
 
 pub use engine::{VerificationContext, VerificationEngine};
 pub use error::VerificationError;
+pub use evidence_emit::{
+    InMemoryVerificationEvidenceLog, SubjectRef, VerificationEvidenceEmitter,
+    VerificationEvidenceLog, AIOS_VERIFICATION_SUBJECT,
+};
+pub use evidence_payloads::{
+    PrimitiveExecutedPayload, VerificationResultPayload, VerificationStartedPayload,
+};
 pub use executor::VerificationExecutor;
 pub use grammar::{
     PrimitiveInvocation, VerificationDuration, VerificationDurationUnit, VerificationGrammar,

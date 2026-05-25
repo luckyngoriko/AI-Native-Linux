@@ -390,6 +390,12 @@
       "title": "aios-verification - gRPC VerificationEngine service (S2.4 section 10)",
       "completed_at": "2026-05-25",
       "evidence": "1373 tests workspace (+15 over T-068 baseline 1358). Added aios.verification.v1alpha1 proto, build.rs tonic-build wiring, src/service/{mod,conversions,server}.rs, lib.rs service re-exports, VerificationError-to-tonic::Status mapping, and 13 grpc_roundtrip integration tests plus 2 service unit tests. Implemented spec section 10 RPC list: RunVerification, ExplainResult, GetEngineInfo. Required gates PASS: cargo check --workspace + cargo test -p aios-verification + cargo test --workspace + cargo clippy --workspace --all-targets -- -D warnings + cargo fmt --all -- --check. Scope guard held: no evidence emission, runtime integration, renderer, or M8 closer."
+    },
+    {
+      "id": "T-070",
+      "title": "aios-verification - evidence emission (S2.4 <-> S3.1)",
+      "completed_at": "2026-05-25",
+      "evidence": "1386 tests workspace (+13 over T-069 baseline 1373). Added Cargo edge aios-verification -> aios-evidence plus ed25519-dalek signing dep. Added evidence_emit.rs with VerificationEvidenceLog, InMemoryVerificationEvidenceLog, VerificationEvidenceEmitter, Ed25519 signing, BLAKE3 ReceiptChain linkage, and helpers for verification_started, verification_result, and primitive_executed. Added evidence_payloads.rs with JSON-round-trippable VerificationStartedPayload, VerificationResultPayload, and PrimitiveExecutedPayload; INV-015 enforced by excluding raw expression/actual/expected values and redacting primitive error details to classes. InMemoryVerificationEngine gained optional with_evidence_emitter wiring, emits start/result receipts, and stores result.evidence_receipt_id. VerificationError gained EvidenceEmitFailed(String) and gRPC conversion maps it to INTERNAL for exhaustive matching. Tests: crates/aios-verification/tests/evidence_emission.rs adds 13 tests covering payload round-trips, pass/fail/timeout result payloads, two receipts per run, BLAKE3 chain coherence, Ed25519 signatures, no-emitter backward compatibility, INV-015 secret marker non-leak, primitive redaction, and 5-task concurrent runs. Required gates PASS: cargo check --workspace + cargo test -p aios-verification + cargo test --workspace + cargo clippy --workspace --all-targets -- -D warnings + cargo fmt --all -- --check. Spec note: current aios-evidence RecordType has VERIFICATION_RESULT (ID 10) but no VERIFICATION_STARTED or primitive-executed variant; started and primitive helper payloads are folded into VERIFICATION_RESULT per T-070 fallback. Scope guard held: no runtime integration, renderer, or M8 closer."
     }
   ],
   "blocked": [],
@@ -569,11 +575,12 @@
         "T-066",
         "T-067",
         "T-068",
-        "T-069"
+        "T-069",
+        "T-070"
       ],
-      "current_test_count": 1373,
+      "current_test_count": 1386,
       "crate_version": "aios-verification/0.0.1",
-      "rationale": "Real VerificationEngine.RunVerification \u2014 M8 now has local deterministic primitive execution, closed grammar parsing, combinator execution, and the S2.4 section 10 gRPC service surface. Evidence/runtime integration continue in T-070+."
+      "rationale": "Real VerificationEngine.RunVerification \u2014 M8 now has local deterministic primitive execution, closed grammar parsing, combinator execution, the S2.4 section 10 gRPC service surface, and S3.1 VERIFICATION_RESULT evidence emission. Runtime integration continues in T-071+."
     },
     "M9": {
       "status": "planned",

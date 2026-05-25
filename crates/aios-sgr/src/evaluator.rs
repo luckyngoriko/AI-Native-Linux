@@ -5,19 +5,35 @@ use std::sync::Arc;
 
 use crate::{
     DependencyEdge, DependencyKind, DesiredState, GraphState, ServiceGraph, ServiceUnit, SgrError,
-    UnitId, UnitState,
+    SgrEvidenceEmitter, UnitId, UnitState,
 };
 
 /// Deterministic graph evaluator for dependency solving and convergence checks.
 pub struct GraphEvaluator {
     graph: Arc<dyn ServiceGraph>,
+    evidence_emitter: Option<Arc<SgrEvidenceEmitter>>,
 }
 
 impl GraphEvaluator {
     /// Construct a graph evaluator over a service graph implementation.
     #[must_use]
     pub fn new(graph: Arc<dyn ServiceGraph>) -> Self {
-        Self { graph }
+        Self {
+            graph,
+            evidence_emitter: None,
+        }
+    }
+
+    /// Construct a graph evaluator with evidence emission enabled.
+    #[must_use]
+    pub fn with_evidence_emitter(
+        graph: Arc<dyn ServiceGraph>,
+        evidence_emitter: Arc<SgrEvidenceEmitter>,
+    ) -> Self {
+        Self {
+            graph,
+            evidence_emitter: Some(evidence_emitter),
+        }
     }
 
     /// Return units in dependency order using Kahn's algorithm.
@@ -166,11 +182,9 @@ impl GraphEvaluator {
     /// Propagates the underlying [`ServiceGraph`] error.
     pub async fn convergence_state(&self) -> Result<GraphState, SgrError> {
         let units = self.graph.list_units().await?;
-        if units.is_empty() {
-            return Ok(GraphState::Empty);
-        }
-
-        if units.iter().any(|unit| unit.state == UnitState::Failed) {
+        let state = if units.is_empty() {
+            GraphState::Empty
+        } else if units.iter().any(|unit| unit.state == UnitState::Failed) {
             let failed_count = units
                 .iter()
                 .filter(|unit| unit.state == UnitState::Failed)
@@ -178,34 +192,41 @@ impl GraphEvaluator {
             let critical_failed = units
                 .iter()
                 .any(|unit| unit.state == UnitState::Failed && is_critical_unit(unit));
-            return Ok(if critical_failed || failed_count == units.len() {
+            if critical_failed || failed_count == units.len() {
                 GraphState::Failed
             } else {
                 GraphState::Degraded
-            });
-        }
-
-        if units.iter().any(|unit| {
+            }
+        } else if units.iter().any(|unit| {
             matches!(
                 unit.state,
                 UnitState::Degraded | UnitState::Unhealthy | UnitState::Retired
             )
         }) {
-            return Ok(GraphState::Degraded);
-        }
-
-        if units.iter().any(|unit| is_transitional(unit.state)) {
-            return Ok(GraphState::Converging);
-        }
-
-        if units
+            GraphState::Degraded
+        } else if units.iter().any(|unit| is_transitional(unit.state)) {
+            GraphState::Converging
+        } else if units
             .iter()
             .all(|unit| desired_state_matches(unit.manifest.desired_state, unit.state))
         {
-            Ok(GraphState::Converged)
+            GraphState::Converged
         } else {
-            Ok(GraphState::Converging)
+            GraphState::Converging
+        };
+
+        if state == GraphState::Converged {
+            if let Some(emitter) = &self.evidence_emitter {
+                let unit_count = u64::try_from(units.len()).map_err(|err| {
+                    SgrError::Internal(format!("unit count conversion failed: {err}"))
+                })?;
+                emitter
+                    .emit_graph_converged(state, unit_count, None)
+                    .await?;
+            }
         }
+
+        Ok(state)
     }
 
     async fn load_dependency_index(&self) -> Result<DependencyIndex, SgrError> {

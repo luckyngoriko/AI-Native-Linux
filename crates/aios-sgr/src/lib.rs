@@ -7,6 +7,8 @@ pub mod adapter_registry;
 pub mod dependency;
 pub mod error;
 pub mod evaluator;
+pub mod evidence_emit;
+pub mod evidence_payloads;
 pub mod graph;
 pub mod in_memory_graph;
 pub mod service;
@@ -24,6 +26,13 @@ pub use adapter_registry::{AdapterRegistrationState, RegisteredAdapter, SgrAdapt
 pub use dependency::{DependencyEdge, DependencyKind, UnitDependency};
 pub use error::SgrError;
 pub use evaluator::GraphEvaluator;
+pub use evidence_emit::{
+    InMemorySgrEvidenceLog, SgrEvidenceEmitter, SgrEvidenceLog, SgrSubjectRef, AIOS_SGR_SUBJECT,
+};
+pub use evidence_payloads::{
+    AdapterRegisteredPayload, DependencyDeclaredPayload, GraphConvergedPayload, UnitFailedPayload,
+    UnitRegisteredPayload, UnitStartedPayload, UnitStoppedPayload,
+};
 pub use graph::ServiceGraph;
 pub use in_memory_graph::InMemoryServiceGraph;
 pub use service::{

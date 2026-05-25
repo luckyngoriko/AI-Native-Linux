@@ -1,6 +1,7 @@
 //! In-memory S15.1 service-graph implementation.
 
 use std::collections::HashMap;
+use std::sync::Arc;
 
 use async_trait::async_trait;
 use chrono::{DateTime, Utc};
@@ -9,6 +10,7 @@ use serde::Serialize;
 use tokio::sync::RwLock;
 
 use crate::graph::ServiceGraph;
+use crate::SgrEvidenceEmitter;
 use crate::{
     DependencyEdge, DependencyKind, DesiredState, GraphState, HealthCheckSpec, ResourceBudget,
     RestartBudget, RestartPolicy, RollbackPointer, ServiceUnit, SgrError, UnitDependency, UnitId,
@@ -21,6 +23,7 @@ pub struct InMemoryServiceGraph {
     units: RwLock<HashMap<UnitId, ServiceUnit>>,
     dependencies: RwLock<HashMap<UnitId, Vec<DependencyEdge>>>,
     trusted_authorities: HashMap<String, VerifyingKey>,
+    evidence_emitter: Option<Arc<SgrEvidenceEmitter>>,
 }
 
 impl InMemoryServiceGraph {
@@ -36,6 +39,13 @@ impl InMemoryServiceGraph {
         let mut graph = Self::new();
         graph.trusted_authorities.insert(name.into(), key);
         graph
+    }
+
+    /// Attach an evidence emitter while preserving the existing in-memory graph.
+    #[must_use]
+    pub fn with_evidence_emitter(mut self, evidence_emitter: Arc<SgrEvidenceEmitter>) -> Self {
+        self.evidence_emitter = Some(evidence_emitter);
+        self
     }
 
     fn verify_manifest(&self, manifest: &UnitManifest) -> Result<(), SgrError> {
@@ -107,6 +117,10 @@ impl ServiceGraph for InMemoryServiceGraph {
                 .extend(declared_edges);
         }
 
+        if let Some(emitter) = &self.evidence_emitter {
+            emitter.emit_unit_registered(&unit, None).await?;
+        }
+
         Ok(unit)
     }
 
@@ -149,6 +163,9 @@ impl ServiceGraph for InMemoryServiceGraph {
             .or_default()
             .push(edge.clone());
         drop(dependencies);
+        if let Some(emitter) = &self.evidence_emitter {
+            emitter.emit_dependency_declared(&edge, None).await?;
+        }
         Ok(edge)
     }
 

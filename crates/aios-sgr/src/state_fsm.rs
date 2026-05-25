@@ -2,7 +2,7 @@
 
 use std::sync::Arc;
 
-use crate::{ServiceGraph, ServiceUnit, SgrError, UnitId, UnitState};
+use crate::{ServiceGraph, ServiceUnit, SgrError, SgrEvidenceEmitter, UnitId, UnitState};
 
 /// Exhaustive S15.1 §3.2.1 per-unit state transition table.
 pub const TRANSITIONS: &[(UnitState, UnitState)] = &[
@@ -42,13 +42,29 @@ pub fn is_legal_transition(from: UnitState, to: UnitState) -> bool {
 /// High-level unit FSM driver layered over [`ServiceGraph::set_unit_state`].
 pub struct UnitFsmDriver {
     graph: Arc<dyn ServiceGraph>,
+    evidence_emitter: Option<Arc<SgrEvidenceEmitter>>,
 }
 
 impl UnitFsmDriver {
     /// Construct a driver over a service graph implementation.
     #[must_use]
     pub fn new(graph: Arc<dyn ServiceGraph>) -> Self {
-        Self { graph }
+        Self {
+            graph,
+            evidence_emitter: None,
+        }
+    }
+
+    /// Construct a driver with evidence emission enabled.
+    #[must_use]
+    pub fn with_evidence_emitter(
+        graph: Arc<dyn ServiceGraph>,
+        evidence_emitter: Arc<SgrEvidenceEmitter>,
+    ) -> Self {
+        Self {
+            graph,
+            evidence_emitter: Some(evidence_emitter),
+        }
     }
 
     /// Drive a unit through legal intermediate states until it reaches `RUNNING`.
@@ -59,8 +75,16 @@ impl UnitFsmDriver {
     /// [`SgrError::InvalidStateTransition`] when the current state has no
     /// legal start path.
     pub async fn start(&self, unit_id: &UnitId) -> Result<ServiceUnit, SgrError> {
-        self.drive_to_running(unit_id, FailedStartPolicy::Reject)
-            .await
+        let initial = self.graph.get_unit(unit_id).await?;
+        let unit = self
+            .drive_to_running(unit_id, FailedStartPolicy::Reject)
+            .await?;
+        if initial.state != UnitState::Running {
+            if let Some(emitter) = &self.evidence_emitter {
+                emitter.emit_unit_started(&unit, None).await?;
+            }
+        }
+        Ok(unit)
     }
 
     /// Drive a unit through legal intermediate states until it reaches `STOPPED`.
@@ -71,10 +95,18 @@ impl UnitFsmDriver {
     /// [`SgrError::InvalidStateTransition`] when the current state has no
     /// legal stop path.
     pub async fn stop(&self, unit_id: &UnitId) -> Result<ServiceUnit, SgrError> {
+        let initial = self.graph.get_unit(unit_id).await?;
         loop {
             let unit = self.graph.get_unit(unit_id).await?;
             let next = match unit.state {
-                UnitState::Stopped => return Ok(unit),
+                UnitState::Stopped => {
+                    if initial.state != UnitState::Stopped {
+                        if let Some(emitter) = &self.evidence_emitter {
+                            emitter.emit_unit_stopped(&unit, None).await?;
+                        }
+                    }
+                    return Ok(unit);
+                }
                 UnitState::Running | UnitState::Stopping => UnitState::Stopped,
                 UnitState::Healthy | UnitState::Degraded | UnitState::Unhealthy => {
                     UnitState::Stopping
@@ -137,12 +169,19 @@ impl UnitFsmDriver {
         unit_id: &UnitId,
         reason: String,
     ) -> Result<ServiceUnit, SgrError> {
-        drop(reason);
+        let initial = self.graph.get_unit(unit_id).await?;
 
         loop {
             let unit = self.graph.get_unit(unit_id).await?;
             let next = match unit.state {
-                UnitState::Failed => return Ok(unit),
+                UnitState::Failed => {
+                    if initial.state != UnitState::Failed {
+                        if let Some(emitter) = &self.evidence_emitter {
+                            emitter.emit_unit_failed(&unit, &reason, None).await?;
+                        }
+                    }
+                    return Ok(unit);
+                }
                 UnitState::Draft | UnitState::Queued => UnitState::Starting,
                 UnitState::Starting
                 | UnitState::Running

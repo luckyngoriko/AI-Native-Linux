@@ -510,6 +510,12 @@
       "title": "aios-sgr - gRPC SgrService (S15.x)",
       "completed_at": "2026-05-25",
       "evidence": "1705 tests workspace (+25 over T-088 baseline 1680). Added proto/aios.sgr.v1alpha1.proto with the SgrService RPC surface, build.rs tonic-build wiring, tonic/prost/prost-types runtime deps and tonic-build/protoc-bin-vendored build deps, src/service/{mod,conversions,server}.rs, lib.rs service exports, DEFAULT_CODE_VERSION, SgrError -> tonic::Status mapping, and crates/aios-sgr/tests/grpc_roundtrip.rs with 25 direct/in-process gRPC tests. Gates PASS: cargo check --workspace; cargo test -p aios-sgr; cargo test --workspace; cargo clippy --workspace --all-targets -- -D warnings; cargo fmt --all -- --check. Scope guard held: no evidence emission, cross-crate integration, renderer, or M10 closer."
+    },
+    {
+      "id": "T-090",
+      "title": "aios-sgr - evidence emission (S15.x <-> S3.1)",
+      "completed_at": "2026-05-25",
+      "evidence": "1719 tests workspace (+14 over T-089 baseline 1705). Added aios-evidence path dependency, SgrEvidenceEmitter/SgrEvidenceLog/InMemorySgrEvidenceLog, typed payloads, optional emitter wiring in InMemoryServiceGraph/UnitFsmDriver/GraphEvaluator/SgrAdapterRegistry, SgrError::EvidenceEmitFailed, and evidence_emission.rs with 14 tests. Gates PASS: cargo check --workspace; cargo test -p aios-sgr; cargo test --workspace; cargo clippy --workspace --all-targets -- -D warnings; cargo fmt --all -- --check. Spec note: no dedicated DEPENDENCY_DECLARED RecordType exists, so dependency declarations fold to GRAPH_EVALUATED; E2E emits 8 receipts because UNIT_STARTED is emitted for each started unit. Scope guard held: no cross-crate runtime integration, renderer, or M10 closer."
     }
   ],
   "blocked": [],
@@ -745,9 +751,10 @@
         "T-086",
         "T-087",
         "T-088",
-        "T-089"
+        "T-089",
+        "T-090"
       ],
-      "current_test_count": 1705,
+      "current_test_count": 1719,
       "crate_version": "aios-sgr/0.0.1",
       "rationale": "Beyond capability runtime: AIOS-SGR desired-state graph, unit manifest, adapter declaration."
     },

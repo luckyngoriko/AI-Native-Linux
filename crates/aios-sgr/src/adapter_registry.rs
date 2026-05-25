@@ -6,6 +6,7 @@
 )]
 
 use std::collections::HashMap;
+use std::sync::Arc;
 
 use chrono::{DateTime, Utc};
 use ed25519_dalek::{Signature, Verifier, VerifyingKey};
@@ -13,7 +14,7 @@ use serde::{Deserialize, Serialize};
 use strum_macros::{EnumCount, EnumIter};
 use tokio::sync::RwLock;
 
-use crate::{AdapterCapability, AdapterDeclaration, SgrError, UnitManifest};
+use crate::{AdapterCapability, AdapterDeclaration, SgrError, SgrEvidenceEmitter, UnitManifest};
 
 /// SGR-side adapter registration state used by [`SgrAdapterRegistry`].
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, EnumIter, EnumCount)]
@@ -47,6 +48,7 @@ pub struct RegisteredAdapter {
 pub struct SgrAdapterRegistry {
     adapters: RwLock<HashMap<String, RegisteredAdapter>>,
     trusted_authorities: HashMap<String, VerifyingKey>,
+    evidence_emitter: Option<Arc<SgrEvidenceEmitter>>,
 }
 
 impl SgrAdapterRegistry {
@@ -64,7 +66,15 @@ impl SgrAdapterRegistry {
         Self {
             adapters: RwLock::new(HashMap::new()),
             trusted_authorities,
+            evidence_emitter: None,
         }
+    }
+
+    /// Attach an evidence emitter while preserving the existing registry.
+    #[must_use]
+    pub fn with_evidence_emitter(mut self, evidence_emitter: Arc<SgrEvidenceEmitter>) -> Self {
+        self.evidence_emitter = Some(evidence_emitter);
+        self
     }
 
     /// Register a signed adapter capability and declaration.
@@ -109,6 +119,9 @@ impl SgrAdapterRegistry {
         };
         adapters.insert(capability_id, registered.clone());
         drop(adapters);
+        if let Some(emitter) = &self.evidence_emitter {
+            emitter.emit_adapter_registered(&registered, None).await?;
+        }
         Ok(registered)
     }
 

@@ -118,7 +118,9 @@ pub fn sgr_error_to_status(err: &SgrError) -> Status {
         | SgrError::ManifestUnknownAuthority(_)
         | SgrError::AdapterSuspended(_) => Status::permission_denied(err.to_string()),
         SgrError::DependencyTargetNotRegistered(_) => Status::invalid_argument(err.to_string()),
-        SgrError::Internal(_) => Status::internal(err.to_string()),
+        SgrError::EvidenceEmitFailed(_) | SgrError::Internal(_) => {
+            Status::internal(err.to_string())
+        }
     }
 }
 

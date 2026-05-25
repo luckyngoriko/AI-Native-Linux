@@ -44,6 +44,9 @@ pub enum SgrError {
     /// Adapter is suspended and cannot be selected for dispatch.
     #[error("adapter suspended: {0}")]
     AdapterSuspended(String),
+    /// SGR evidence receipt emission failed.
+    #[error("SGR evidence emission failed: {0}")]
+    EvidenceEmitFailed(String),
     /// Internal SGR invariant failed.
     #[error("SGR internal error: {0}")]
     Internal(String),

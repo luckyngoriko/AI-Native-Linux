@@ -21,11 +21,14 @@ Source of truth: `.ai/tasks.json` (machine-readable). This document is the human
 | M7             | aios-renderer-cli       | S7.6                 | L7                 | ✓ closed |     121 |
 | M8             | aios-verification       | S2.4                 | L9                 | ✓ closed |     141 |
 | M9             | aios-recovery           | S9.1, S9.2, S9.3    | L1                 | ✓ closed |     137 |
-| **Total done** | **9 crates**            | **16 / 53 sub-specs** | —                 | —        | **1592** |
+| M10            | aios-sgr                | S15.1, S15.2, S15.3 | L3                 | ✓ closed |     169 |
+| **Total done** | **10 crates**           | **19 / 53 sub-specs** | —                 | —        | **1775** |
 
 **§22 FULL-REAL MVP marker:** the golden path has no stubs. Boot is real via `InMemoryRecoveryBoundary` + `FirstBootDriver` + `KernelPipelineDriver`; mount/object/view are real through `InMemoryAiosFs`; action/policy/adapter/verification/evidence are real through runtime, policy, adapter registry, `VerificationEngine`, and signed evidence; render is real through `aios-renderer-cli`.
 
 **M9 closure marker:** `aios-recovery` is v0.1.0. S9.1 recovery boundary, S9.2 first-boot FSM, and S9.3 dedicated-kernel pipeline are closed with acceptance fixtures and closure invariants.
+
+**M10 closure marker:** `aios-sgr` is v0.1.0. S15.1 unit manifest, S15.2 graph evaluation, and S15.3 adapter model are closed with M3-M9 composed service-graph scenarios, acceptance fixtures, and closure invariants.
 
 ## §22 MVP Golden Path closure (M5 → M9)
 
@@ -45,7 +48,7 @@ These 5 milestones make the §22 MVP runnable, trustworthy, and fully real. Afte
 | --------- | ----------------- | -------------------------------- | ----- | ----------------------------------------------------------------------------------------------------------------------------------- |
 | M8        | aios-verification | S2.4                             | L9    | ✓ closed. Real VerificationEngine.RunVerification replaces the M4 `step_verify` stub when configured; failure blocks success.        |
 | M9        | aios-recovery     | S9.1, S9.2, S9.3                 | L1    | ✓ closed. Recovery boundary + first-boot + dedicated kernel pipeline; §22 FULL-REAL MVP marker.                                      |
-| M10       | aios-sgr          | S15.1, S15.2, S15.3              | L3    | Ready. AIOS-SGR desired-state service graph, unit manifest, adapter declaration.                                                     |
+| M10       | aios-sgr          | S15.1, S15.2, S15.3              | L3    | ✓ closed at 169 crate tests / 1775 workspace tests. Desired-state service graph, unit manifest, graph traversal/cycle detection, recovery-aware pause/resume, and adapter fail-closed semantics. |
 | M11       | aios-cognitive    | S1.1, S1.2, S13.1, S13.2, S14.1  | L5    | Cognitive core + model router + circuit breaker. INV-002 AI-proposes-never-executes enforcement at runtime.                         |
 | M12       | aios-sandbox      | S3.2                             | L6    | SandboxProfile + GpuPolicy — referenced as type-level by M3/M4; this builds the runtime.                                            |
 | M13       | aios-apps         | S12.1, S12.2, S12.3, S12.4, S6.5 | L6    | Cross-ecosystem runtimes (Linux/Windows/Android via sandboxed adapters). DEC-056 session container.                                 |
@@ -57,10 +60,10 @@ These 5 milestones make the §22 MVP runnable, trustworthy, and fully real. Afte
 
 ## Progress projection
 
-- **Current pace**: ~175 tests/milestone, ~9 commits/milestone
-- **At M9 (§22 FULL-REAL MVP)**: 1592 tests, 9 crates
-- **At M18 (full distro)**: ~3,400–4,000 tests, 18 crates
-- **53 sub-specs total → 16 done → 37 remaining** distributed across M10–M18
+- **Current pace**: ~178 tests/milestone, ~9 commits/milestone
+- **At M10 (SGR declarative service management)**: 1775 tests, 10 crates
+- **At M18 (full distro)**: ~3,300–3,900 tests, 18 crates
+- **53 sub-specs total → 19 done → 34 remaining** distributed across M11–M18
 - **Cross-cutting (XX) sub-specs** beyond the 18-milestone plan may land as targeted T-tasks inside existing milestones (e.g. ECDSA signing variants, additional renderer protocols).
 
 ## Closure criteria per milestone
@@ -87,4 +90,4 @@ Reused from M1–M6 closure pattern:
 # 5. Final T-task is the milestone closer: §22-style acceptance fixtures + version bump + closure-invariant tests
 ```
 
-Last update: 2026-05-25 (M9 closed at T-083, 1592 workspace tests; M10 ready).
+Last update: 2026-05-25 (M10 closed at T-093, 1775 workspace tests; M11 ready).

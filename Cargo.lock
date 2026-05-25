@@ -224,12 +224,16 @@ dependencies = [
 
 [[package]]
 name = "aios-sgr"
-version = "0.0.1"
+version = "0.1.0"
 dependencies = [
  "aios-action",
  "aios-capability-runtime",
  "aios-evidence",
+ "aios-fs",
+ "aios-policy",
  "aios-recovery",
+ "aios-vault",
+ "aios-verification",
  "async-trait",
  "blake3",
  "chrono",

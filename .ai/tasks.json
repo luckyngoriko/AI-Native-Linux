@@ -528,6 +528,12 @@
       "title": "aios-renderer-cli - sgr Renderable + aios sgr CLI subcommand",
       "completed_at": "2026-05-25",
       "evidence": "1748 tests workspace (+14 over T-091 baseline 1734). Added aios-renderer-cli -> aios-sgr path dependency, SGR Renderable impls for ServiceUnit, UnitState, UnitKind, DependencyKind, GraphState, RegisteredAdapter, AdapterRegistrationState, plus SgrUnitListView/SgrGraphView. AiosClient now owns an SgrServiceClient and exposes list_units/get_unit/traverse_graph/evaluate_graph. InProcessBackend now starts policy/runtime/fs/vault/verification/recovery/sgr (service_count 7). CLI adds aios sgr {list,get,graph,evaluate}; graph forces Tree rendering per task. Tests: crates/aios-renderer-cli/tests/sgr_render.rs adds 14 tests and existing service_count assertions now expect 7. Gates PASS: cargo check --workspace; cargo test -p aios-renderer-cli; cargo test --workspace; cargo clippy --workspace --all-targets -- -D warnings; cargo fmt --all -- --check; cargo build -p aios-renderer-cli --bin aios. Scope guard held: no closed SGR or backend crate source changes; M10 closer deferred."
+    },
+    {
+      "id": "T-093",
+      "title": "aios-sgr v0.1.0 - service graph runtime acceptance (M10 CLOSED)",
+      "completed_at": "2026-05-25",
+      "evidence": "1775 tests workspace (+27 over T-092 baseline 1748). Added crates/aios-sgr/tests/mvp_service_graph.rs with 5 M3-M9 composed scenarios: multi-unit boot/topological order via SgrCapabilityAdapter, 3-unit SCC cycle detection, failed-unit isolation, recovery pause/resume, and adapter fail-closed mismatch. Added tests/acceptance_fixtures.rs with 12 S15.1/S15.2/S15.3 fixtures. Added tests/m10_closure.rs with 10 closure invariants: version 0.1.0, DEFAULT_CODE_VERSION 0.1.0-T093, no Unimplemented/todo/unimplemented, every SgrService RPC implemented, UnitState/UnitKind/DependencyKind coverage, deferred surfaces documented, and closure files present. Bumped aios-sgr Cargo.toml 0.0.1 -> 0.1.0 and DEFAULT_CODE_VERSION -> 0.1.0-T093. Added local dev-dependencies for closure-only composition with aios-policy, aios-fs, aios-vault, and aios-verification. Deferred surfaces documented: adapter_target.requires shim, labels/UnitKind::RecoveryTask recovery-mode shim, and DEPENDENCY_DECLARED folded to GRAPH_EVALUATED. Required gates PASS: cargo check --workspace; cargo test -p aios-sgr; cargo test --workspace; cargo clippy --workspace --all-targets -- -D warnings; cargo fmt --all -- --check; cargo build -p aios-renderer-cli --bin aios; cargo bench -p aios-policy --no-run. M10 CLOSED; M11 ready."
     }
   ],
   "blocked": [],
@@ -747,9 +753,10 @@
       "rationale": "Resolves S9.1 'degraded subset' exception findings from Capella iter 6 and closes §22 FULL-REAL MVP: L1 boot through L7 render now uses real backends on the golden path."
     },
     "M10": {
-      "status": "in_progress",
+      "status": "CLOSED",
       "title": "Service Graph Runtime (SGR) \u2014 full unit manifest + adapter discipline",
       "started_at": "2026-05-25",
+      "completed_at": "2026-05-25",
       "sub_specs": [
         "S15.1",
         "S15.2",
@@ -766,14 +773,16 @@
         "T-089",
         "T-090",
         "T-091",
-        "T-092"
+        "T-092",
+        "T-093"
       ],
-      "current_test_count": 1748,
-      "crate_version": "aios-sgr/0.0.1",
-      "rationale": "Beyond capability runtime: AIOS-SGR desired-state graph, unit manifest, adapter declaration."
+      "current_test_count": 1775,
+      "final_test_count": 1775,
+      "crate_version": "aios-sgr/0.1.0",
+      "rationale": "M10 CLOSED: AIOS-SGR desired-state graph, unit manifest, graph evaluator, adapter declaration, runtime bridge, recovery pause/resume, renderer/CLI surface, and S15.x acceptance fixtures."
     },
     "M11": {
-      "status": "planned",
+      "status": "ready",
       "title": "Cognitive Core + Model Router + Circuit Breaker",
       "sub_specs": [
         "S1.1",

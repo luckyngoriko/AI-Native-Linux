@@ -54,5 +54,5 @@ pub use unit::{
     VerificationIntentRef,
 };
 
-/// Default Rust crate code version reported by the T-089 gRPC service adapter.
-pub const DEFAULT_CODE_VERSION: &str = "0.0.1-T089";
+/// Default Rust crate code version reported by the T-093 M10 closure adapter.
+pub const DEFAULT_CODE_VERSION: &str = "0.1.0-T093";

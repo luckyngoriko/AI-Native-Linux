@@ -3,7 +3,7 @@ name = "aios-sgr"
 description = "AIOS Service Graph Runtime typed core skeleton."
 edition.workspace = true
 rust-version.workspace = true
-version = "0.0.1"
+version = "0.1.0"
 license.workspace = true
 repository.workspace = true
 authors.workspace = true
@@ -31,6 +31,12 @@ prost-types  = { workspace = true }
 [build-dependencies]
 tonic-build = { workspace = true }
 protoc-bin-vendored = { workspace = true }
+
+[dev-dependencies]
+aios-fs = { path = "../aios-fs" }
+aios-policy = { path = "../aios-policy" }
+aios-vault = { path = "../aios-vault" }
+aios-verification = { path = "../aios-verification" }
 
 [lints]
 workspace = true

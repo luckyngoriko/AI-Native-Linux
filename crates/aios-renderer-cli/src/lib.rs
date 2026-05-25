@@ -21,6 +21,7 @@ pub mod policy_render;
 pub mod primitives;
 pub mod recovery_render;
 pub mod renderable;
+pub mod sgr_render;
 pub mod table_renderer;
 pub mod text_renderer;
 pub mod tree_renderer;
@@ -33,6 +34,10 @@ pub use aios_recovery::{
     BootId, CandidateId, CandidateState, FirstBootContext, FirstBootPhase, FirstBootStatus,
     KernelCandidate, KernelManifest, RecoveryMode, RecoveryState,
 };
+pub use aios_sgr::{
+    AdapterRegistrationState, DependencyKind, GraphState, RegisteredAdapter, ServiceUnit, UnitId,
+    UnitKind, UnitState,
+};
 pub use aios_vault::{
     CapabilityClass, CapabilityState, KeyMaterialHandle, OverrideBinding, OverrideClass,
     VaultCapability,
@@ -43,7 +48,7 @@ pub use aios_verification::{
 };
 pub use cli::{
     ActionSubcommand, AiosCli, AiosCommand, EvidenceSubcommand, FsSubcommand, KernelSubcommand,
-    PolicySubcommand, RecoverySubcommand, VaultSubcommand, VerificationSubcommand,
+    PolicySubcommand, RecoverySubcommand, SgrSubcommand, VaultSubcommand, VerificationSubcommand,
 };
 pub use cli_types::{
     AnsiSupportLevel, CliCompilationResult, CliEvidenceRecordKind, CliInputMode, CliRenderMode,
@@ -54,6 +59,7 @@ pub use evidence_render::EvidenceChainView;
 pub use json_renderer::JsonRenderer;
 pub use output_format::OutputFormat;
 pub use renderable::{RenderContext, Renderable};
+pub use sgr_render::{SgrGraphView, SgrUnitListView};
 pub use table_renderer::{TableAlign, TableRenderer, TableSpec};
 pub use text_renderer::TextRenderer;
 pub use tree_renderer::{TreeNode, TreeRenderer};

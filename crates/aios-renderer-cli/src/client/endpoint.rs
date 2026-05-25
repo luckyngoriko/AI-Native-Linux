@@ -15,6 +15,8 @@ pub struct AiosEndpoints {
     pub verification: String,
     /// Recovery Service gRPC endpoint.
     pub recovery: String,
+    /// Service Graph Runtime gRPC endpoint.
+    pub sgr: String,
     /// Optional Evidence Log gRPC endpoint.
     pub evidence: Option<String>,
 }
@@ -24,7 +26,7 @@ impl AiosEndpoints {
     ///
     /// Evidence has a gRPC service in this repository, so the default endpoint
     /// is populated. The in-process renderer fixture leaves it `None` because
-    /// it only starts the six services needed by the renderer test client.
+    /// it starts the seven services needed by the renderer test client.
     #[must_use]
     pub fn localhost_default() -> Self {
         Self {
@@ -34,6 +36,7 @@ impl AiosEndpoints {
             vault: "http://[::1]:50054".to_owned(),
             verification: "http://[::1]:50056".to_owned(),
             recovery: "http://[::1]:50057".to_owned(),
+            sgr: "http://[::1]:50058".to_owned(),
             evidence: Some("http://[::1]:50055".to_owned()),
         }
     }

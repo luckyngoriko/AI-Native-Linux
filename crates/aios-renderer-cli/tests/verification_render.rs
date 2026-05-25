@@ -294,12 +294,12 @@ async fn cli_verify_list_primitives_renders_36_entries() {
 }
 
 #[tokio::test]
-async fn in_process_backend_spawns_recovery_as_sixth_service() {
+async fn in_process_backend_spawns_recovery_and_sgr_services() {
     let (_client, shutdown) = InProcessBackend::spawn_and_connect()
         .await
         .expect("spawn backend");
 
-    assert_eq!(shutdown.service_count(), 6);
+    assert_eq!(shutdown.service_count(), 7);
 
     shutdown.shutdown().await.expect("shutdown");
 }

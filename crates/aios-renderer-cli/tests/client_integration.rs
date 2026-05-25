@@ -145,12 +145,12 @@ fn localhost_default_returns_distinct_ports_per_service() {
 }
 
 #[tokio::test]
-async fn spawn_and_connect_starts_six_backend_servers() {
+async fn spawn_and_connect_starts_seven_backend_servers() {
     let (client, shutdown) = InProcessBackend::spawn_and_connect()
         .await
         .expect("spawn and connect");
 
-    assert_eq!(shutdown.service_count(), 6);
+    assert_eq!(shutdown.service_count(), 7);
     assert!(!client.has_evidence_client());
 
     shutdown.shutdown().await.expect("shutdown");
@@ -249,7 +249,8 @@ async fn connection_failure_maps_to_client_connect_failed() {
         fs: endpoint.clone(),
         vault: endpoint.clone(),
         verification: endpoint.clone(),
-        recovery: endpoint,
+        recovery: endpoint.clone(),
+        sgr: endpoint,
         evidence: None,
     };
 
@@ -295,11 +296,11 @@ async fn rpc_not_found_maps_to_client_call_failed() {
 }
 
 #[tokio::test]
-async fn shutdown_handle_stops_all_six_servers() {
+async fn shutdown_handle_stops_all_seven_servers() {
     let (mut client, shutdown) = InProcessBackend::spawn_and_connect()
         .await
         .expect("spawn and connect");
-    assert_eq!(shutdown.service_count(), 6);
+    assert_eq!(shutdown.service_count(), 7);
 
     shutdown.shutdown().await.expect("shutdown");
 

@@ -17,8 +17,8 @@ use serde_json::{json, Value};
 
 use crate::{
     AiosClient, AiosEndpoints, KernelCandidate, OutputFormat, RenderContext, RenderError,
-    Renderable, TableAlign, TableRenderer, TableSpec, TextRenderer, TreeNode, TreeRenderer,
-    VerificationPrimitiveList, Version,
+    Renderable, SgrGraphView, SgrUnitListView, TableAlign, TableRenderer, TableSpec, TextRenderer,
+    TreeNode, TreeRenderer, VerificationPrimitiveList, Version,
 };
 
 /// Parsed command-line interface for the `aios` binary.
@@ -99,6 +99,12 @@ pub enum AiosCommand {
         /// Kernel operation.
         #[command(subcommand)]
         subcommand: KernelSubcommand,
+    },
+    /// Inspect the Service Graph Runtime.
+    Sgr {
+        /// SGR operation.
+        #[command(subcommand)]
+        subcommand: SgrSubcommand,
     },
 }
 
@@ -234,6 +240,22 @@ pub enum KernelSubcommand {
     },
 }
 
+/// Service Graph Runtime subcommands.
+#[derive(Debug, Clone, Subcommand)]
+pub enum SgrSubcommand {
+    /// List registered service units.
+    List,
+    /// Read one service unit by id.
+    Get {
+        /// Unit id to inspect.
+        unit_id: String,
+    },
+    /// Render the graph traversal and convergence state.
+    Graph,
+    /// Evaluate the graph convergence state.
+    Evaluate,
+}
+
 impl AiosCli {
     /// Parse the selected output format.
     ///
@@ -362,19 +384,60 @@ impl AiosCli {
                     render_value(&client.run_first_boot().await?, format, &ctx)
                 }
             },
-            AiosCommand::Kernel { subcommand } => match subcommand {
-                KernelSubcommand::List => {
-                    let candidates = client.list_kernel_candidates().await?;
-                    render_value(&KernelCandidateListView(candidates), format, &ctx)
-                }
-                KernelSubcommand::Activate { candidate_id } => {
-                    render_value(&client.activate_kernel(candidate_id).await?, format, &ctx)
-                }
-                KernelSubcommand::Rollback { candidate_id } => {
-                    render_value(&client.rollback_kernel(candidate_id).await?, format, &ctx)
-                }
-            },
+            AiosCommand::Kernel { subcommand } => {
+                execute_kernel_subcommand(subcommand, client, format, &ctx).await
+            }
+            AiosCommand::Sgr { subcommand } => {
+                execute_sgr_subcommand(subcommand, client, format, &ctx).await
+            }
         }
+    }
+}
+
+async fn execute_kernel_subcommand(
+    subcommand: &KernelSubcommand,
+    client: &mut AiosClient,
+    format: OutputFormat,
+    ctx: &RenderContext,
+) -> Result<String, RenderError> {
+    match subcommand {
+        KernelSubcommand::List => {
+            let candidates = client.list_kernel_candidates().await?;
+            render_value(&KernelCandidateListView(candidates), format, ctx)
+        }
+        KernelSubcommand::Activate { candidate_id } => {
+            render_value(&client.activate_kernel(candidate_id).await?, format, ctx)
+        }
+        KernelSubcommand::Rollback { candidate_id } => {
+            render_value(&client.rollback_kernel(candidate_id).await?, format, ctx)
+        }
+    }
+}
+
+async fn execute_sgr_subcommand(
+    subcommand: &SgrSubcommand,
+    client: &mut AiosClient,
+    format: OutputFormat,
+    ctx: &RenderContext,
+) -> Result<String, RenderError> {
+    match subcommand {
+        SgrSubcommand::List => {
+            let units = client.list_units().await?;
+            render_value(&SgrUnitListView::new(units), format, ctx)
+        }
+        SgrSubcommand::Get { unit_id } => {
+            render_value(&client.get_unit(unit_id).await?, format, ctx)
+        }
+        SgrSubcommand::Graph => {
+            let ordered_unit_ids = client.traverse_graph().await?;
+            let state = client.evaluate_graph().await?;
+            render_value(
+                &SgrGraphView::new(ordered_unit_ids, state),
+                OutputFormat::Tree,
+                ctx,
+            )
+        }
+        SgrSubcommand::Evaluate => render_value(&client.evaluate_graph().await?, format, ctx),
     }
 }
 
@@ -481,6 +544,7 @@ fn parse_keyed_endpoints(parts: &[&str]) -> Result<AiosEndpoints, RenderError> {
             "vault" => endpoints.vault = endpoint,
             "verification" => endpoints.verification = endpoint,
             "recovery" => endpoints.recovery = endpoint,
+            "sgr" => endpoints.sgr = endpoint,
             "evidence" => {
                 endpoints.evidence = if value.trim().eq_ignore_ascii_case("none") {
                     None
@@ -500,9 +564,9 @@ fn parse_keyed_endpoints(parts: &[&str]) -> Result<AiosEndpoints, RenderError> {
 }
 
 fn parse_positional_endpoints(parts: &[&str]) -> Result<AiosEndpoints, RenderError> {
-    if !(6..=7).contains(&parts.len()) {
+    if !(7..=8).contains(&parts.len()) {
         return Err(RenderError::Internal(
-            "AIOS_ENDPOINTS positional form is policy,runtime,fs,vault,verification,recovery[,evidence]"
+            "AIOS_ENDPOINTS positional form is policy,runtime,fs,vault,verification,recovery,sgr[,evidence]"
                 .to_owned(),
         ));
     }
@@ -514,8 +578,9 @@ fn parse_positional_endpoints(parts: &[&str]) -> Result<AiosEndpoints, RenderErr
         vault: normalize_endpoint(parts[3])?,
         verification: normalize_endpoint(parts[4])?,
         recovery: normalize_endpoint(parts[5])?,
+        sgr: normalize_endpoint(parts[6])?,
         evidence: parts
-            .get(6)
+            .get(7)
             .map(|value| {
                 if value.trim().eq_ignore_ascii_case("none") {
                     Ok(None)

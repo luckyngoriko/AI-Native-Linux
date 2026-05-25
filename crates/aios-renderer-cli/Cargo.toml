@@ -15,6 +15,7 @@ aios-evidence = { path = "../aios-evidence" }
 aios-fs = { path = "../aios-fs" }
 aios-policy = { path = "../aios-policy" }
 aios-recovery = { path = "../aios-recovery" }
+aios-sgr = { path = "../aios-sgr" }
 aios-verification = { path = "../aios-verification" }
 aios-vault = { path = "../aios-vault" }
 anyhow      = { workspace = true }

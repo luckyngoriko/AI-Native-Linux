@@ -21,6 +21,10 @@ use aios_recovery::{
     FirstBootDriver, InMemoryRecoveryBoundary, KernelPipelineDriver, RecoveryBoundary,
     RecoveryGuard,
 };
+use aios_sgr::service as sgr_service;
+use aios_sgr::{
+    GraphEvaluator, InMemoryServiceGraph, ServiceGraph, SgrAdapterRegistry, UnitFsmDriver,
+};
 use aios_vault::service as vault_service;
 use aios_vault::{
     CapabilityAuditLog, CapabilityClass, CapabilityLifecycleDriver, IdentityCatalog,
@@ -47,6 +51,10 @@ pub struct InProcessBackend {
     fs: Arc<InMemoryAiosFs>,
     vault: Arc<InMemoryVaultBroker>,
     verification: Arc<InMemoryVerificationEngine>,
+    sgr_graph: Arc<InMemoryServiceGraph>,
+    sgr_fsm: Arc<UnitFsmDriver>,
+    sgr_evaluator: Arc<GraphEvaluator>,
+    sgr_registry: Arc<SgrAdapterRegistry>,
     recovery_boundary: Arc<InMemoryRecoveryBoundary>,
     first_boot: Arc<FirstBootDriver>,
     kernel_pipeline: Arc<KernelPipelineDriver>,
@@ -123,6 +131,12 @@ impl InProcessBackend {
         let audit = Arc::new(CapabilityAuditLog::new());
         let vault = Arc::new(InMemoryVaultBroker::new().with_audit_log(Arc::clone(&audit)));
         let verification = Arc::new(InMemoryVerificationEngine::new());
+        let sgr_graph = Arc::new(InMemoryServiceGraph::new());
+        let sgr_graph_for_fsm: Arc<dyn ServiceGraph> = sgr_graph.clone();
+        let sgr_graph_for_evaluator: Arc<dyn ServiceGraph> = sgr_graph.clone();
+        let sgr_fsm = Arc::new(UnitFsmDriver::new(sgr_graph_for_fsm));
+        let sgr_evaluator = Arc::new(GraphEvaluator::new(sgr_graph_for_evaluator));
+        let sgr_registry = Arc::new(SgrAdapterRegistry::new());
         let recovery_boundary = Arc::new(InMemoryRecoveryBoundary::new());
         let recovery_boundary_for_first_boot: Arc<dyn RecoveryBoundary> = recovery_boundary.clone();
         let recovery_boundary_for_kernel: Arc<dyn RecoveryBoundary> = recovery_boundary.clone();
@@ -143,6 +157,10 @@ impl InProcessBackend {
             fs,
             vault,
             verification,
+            sgr_graph,
+            sgr_fsm,
+            sgr_evaluator,
+            sgr_registry,
             recovery_boundary,
             first_boot,
             kernel_pipeline,
@@ -154,7 +172,7 @@ impl InProcessBackend {
         }
     }
 
-    /// Spawn the default six-service backend and connect an [`AiosClient`].
+    /// Spawn the default seven-service backend and connect an [`AiosClient`].
     ///
     /// # Errors
     ///
@@ -164,7 +182,7 @@ impl InProcessBackend {
         Self::new_default().spawn().await
     }
 
-    /// Spawn six services with a caller-supplied Policy Kernel.
+    /// Spawn seven services with a caller-supplied Policy Kernel.
     ///
     /// This is used by integration tests that need deterministic policy
     /// ALLOW/DENY responses while keeping runtime/fs/vault in-memory.
@@ -205,6 +223,7 @@ impl InProcessBackend {
             recovery_service::build_router(self.recovery_service()),
         )
         .await?;
+        let sgr = spawn_router("sgr", sgr_service::build_router(self.sgr_service())).await?;
 
         let endpoints = AiosEndpoints {
             policy: policy.endpoint,
@@ -213,6 +232,7 @@ impl InProcessBackend {
             vault: vault.endpoint,
             verification: verification.endpoint,
             recovery: recovery.endpoint,
+            sgr: sgr.endpoint,
             evidence: None,
         };
         let shutdown = ShutdownHandle::new(
@@ -223,6 +243,7 @@ impl InProcessBackend {
                 vault.shutdown,
                 verification.shutdown,
                 recovery.shutdown,
+                sgr.shutdown,
             ],
             vec![
                 policy.task,
@@ -231,6 +252,7 @@ impl InProcessBackend {
                 vault.task,
                 verification.task,
                 recovery.task,
+                sgr.task,
             ],
         );
         let client = AiosClient::connect(&endpoints).await?;
@@ -276,6 +298,15 @@ impl InProcessBackend {
             Arc::clone(&self.first_boot),
             Arc::clone(&self.kernel_pipeline),
             Arc::clone(&self.recovery_guard),
+        )
+    }
+
+    fn sgr_service(&self) -> sgr_service::SgrServiceImpl {
+        sgr_service::SgrServiceImpl::new(
+            Arc::clone(&self.sgr_graph),
+            Arc::clone(&self.sgr_fsm),
+            Arc::clone(&self.sgr_evaluator),
+            Arc::clone(&self.sgr_registry),
         )
     }
 

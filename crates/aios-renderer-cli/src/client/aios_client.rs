@@ -30,6 +30,10 @@ use aios_recovery::service::conversions as recovery_conversions;
 use aios_recovery::service::proto as recovery_proto;
 use aios_recovery::service::{RecoveryServiceClient, SCHEMA_VERSION as RECOVERY_SCHEMA_VERSION};
 use aios_recovery::{FirstBootContext, KernelCandidate, RecoveryState};
+use aios_sgr::service::conversions as sgr_conversions;
+use aios_sgr::service::proto as sgr_proto;
+use aios_sgr::service::{SgrServiceClient, SCHEMA_VERSION as SGR_SCHEMA_VERSION};
+use aios_sgr::{GraphState, ServiceUnit, UnitId};
 use aios_vault::service::conversions as vault_conversions;
 use aios_vault::service::proto as vault_proto;
 use aios_vault::service::VaultBrokerClient;
@@ -61,6 +65,8 @@ pub struct AiosClient {
     verification: VerificationEngineClient<Channel>,
     /// Recovery Service client.
     pub recovery: RecoveryServiceClient<Channel>,
+    /// Service Graph Runtime client.
+    pub sgr: SgrServiceClient<Channel>,
     evidence: Option<EvidenceLogClient<Channel>>,
 }
 
@@ -90,6 +96,9 @@ impl AiosClient {
         let recovery = RecoveryServiceClient::connect(endpoints.recovery.clone())
             .await
             .map_err(|err| client_connect_failed("recovery", err.to_string()))?;
+        let sgr = SgrServiceClient::connect(endpoints.sgr.clone())
+            .await
+            .map_err(|err| client_connect_failed("sgr", err.to_string()))?;
         let evidence = match &endpoints.evidence {
             Some(endpoint) => Some(
                 EvidenceLogClient::connect(endpoint.clone())
@@ -106,6 +115,7 @@ impl AiosClient {
             vault,
             verification,
             recovery,
+            sgr,
             evidence,
         })
     }
@@ -489,6 +499,112 @@ impl AiosClient {
                     })
             })
             .collect()
+    }
+
+    /// List SGR service units.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`RenderError::ClientCallFailed`] when the SGR RPC fails or one
+    /// unit cannot be converted from its proto representation.
+    pub async fn list_units(&mut self) -> Result<Vec<ServiceUnit>, RenderError> {
+        let response = self
+            .sgr
+            .list_units(sgr_proto::ListUnitsRequest {
+                schema_version: SGR_SCHEMA_VERSION.to_owned(),
+            })
+            .await
+            .map_err(|err| client_call_failed("sgr", "ListUnits", err.to_string()))?
+            .into_inner();
+
+        response
+            .units
+            .into_iter()
+            .map(|unit| {
+                sgr_conversions::service_unit_from_proto(unit)
+                    .map_err(|err| client_call_failed("sgr", "ListUnits", err.to_string()))
+            })
+            .collect()
+    }
+
+    /// Get one SGR service unit by id.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`RenderError::ClientCallFailed`] when the SGR RPC fails or the
+    /// returned unit cannot be converted.
+    pub async fn get_unit(&mut self, unit_id: &str) -> Result<ServiceUnit, RenderError> {
+        let response = self
+            .sgr
+            .get_unit(sgr_proto::GetUnitRequest {
+                schema_version: SGR_SCHEMA_VERSION.to_owned(),
+                unit_id: unit_id.to_owned(),
+            })
+            .await
+            .map_err(|err| client_call_failed("sgr", "GetUnit", err.to_string()))?
+            .into_inner();
+
+        sgr_conversions::service_unit_from_proto(response)
+            .map_err(|err| client_call_failed("sgr", "GetUnit", err.to_string()))
+    }
+
+    /// Traverse the SGR graph in dependency order.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`RenderError::ClientCallFailed`] when the SGR RPC fails or a
+    /// returned unit id is malformed.
+    pub async fn traverse_graph(&mut self) -> Result<Vec<UnitId>, RenderError> {
+        let response = self
+            .sgr
+            .traverse_graph(sgr_proto::TraverseGraphRequest {
+                schema_version: SGR_SCHEMA_VERSION.to_owned(),
+            })
+            .await
+            .map_err(|err| client_call_failed("sgr", "TraverseGraph", err.to_string()))?
+            .into_inner();
+
+        response
+            .ordered_unit_ids
+            .into_iter()
+            .map(|unit_id| {
+                UnitId::parse(&unit_id).map_err(|err| {
+                    client_call_failed(
+                        "sgr",
+                        "TraverseGraph",
+                        format!("invalid unit_id `{unit_id}`: {err}"),
+                    )
+                })
+            })
+            .collect()
+    }
+
+    /// Evaluate the current SGR convergence state.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`RenderError::ClientCallFailed`] when the SGR RPC fails or the
+    /// returned graph state is not part of the closed vocabulary.
+    pub async fn evaluate_graph(&mut self) -> Result<GraphState, RenderError> {
+        let response = self
+            .sgr
+            .evaluate_graph(sgr_proto::EvaluateGraphRequest {
+                schema_version: SGR_SCHEMA_VERSION.to_owned(),
+            })
+            .await
+            .map_err(|err| client_call_failed("sgr", "EvaluateGraph", err.to_string()))?
+            .into_inner();
+        let state =
+            sgr_proto::GraphStateProto::try_from(response.convergence_state).map_err(|_| {
+                client_call_failed(
+                    "sgr",
+                    "EvaluateGraph",
+                    format!("unknown graph state {}", response.convergence_state),
+                )
+            })?;
+
+        sgr_conversions::graph_state_from_proto(state)
+            .map_err(|err| client_call_failed("sgr", "EvaluateGraph", err.to_string()))
     }
 
     /// Enter recovery mode through the Recovery Service.

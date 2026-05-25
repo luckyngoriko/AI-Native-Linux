@@ -36,7 +36,7 @@ const BOOT_STUB_NOTE: &str = "section-22 phase 1 boot is owned by L1/M9 and is n
 const MOUNT_STUB_NOTE: &str =
     "section-22 phase 2 /aios path mounting is stubbed at L1; CLI reads the seeded system object";
 const EVIDENCE_STUB_NOTE: &str =
-    "InProcessBackend starts policy/runtime/fs/vault only; evidence gRPC is represented by a renderable stub chain";
+    "InProcessBackend starts policy/runtime/fs/vault/verification/recovery/sgr; evidence gRPC is represented by a renderable stub chain";
 
 #[derive(Debug)]
 struct ScriptedPolicyKernel {
@@ -99,7 +99,7 @@ async fn section_22_mvp_walk_runs_through_aios_cli_text_and_json() -> TestResult
 
     let policy: Arc<dyn PolicyKernel> = Arc::new(ScriptedPolicyKernel::allow());
     let (mut client, shutdown) = InProcessBackend::spawn_and_connect_with_policy(policy).await?;
-    assert_eq!(shutdown.service_count(), 6);
+    assert_eq!(shutdown.service_count(), 7);
 
     let system_object = client
         .write_object(write_request(

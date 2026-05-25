@@ -10,13 +10,17 @@ use aios_capability_runtime::service::conversions as runtime_conversions;
 use aios_capability_runtime::service::proto as runtime_proto;
 use aios_capability_runtime::service::CapabilityRuntimeClient;
 use aios_capability_runtime::ActionContext;
+use aios_evidence::service::conversions as evidence_conversions;
+use aios_evidence::service::proto as evidence_proto;
 use aios_evidence::service::EvidenceLogClient;
+use aios_evidence::EvidenceReceipt;
 use aios_fs::service::conversions as fs_conversions;
 use aios_fs::service::proto as fs_proto;
 use aios_fs::service::AiosFsClient;
 use aios_fs::{
-    ConsistencyClass, Object, ObjectId, ObjectWriteRequest, ObjectWriteResult, SnapshotId,
-    TransactionId, VersionId,
+    ConsistencyClass, Object, ObjectId, ObjectWriteRequest, ObjectWriteResult, Predicate, Query,
+    QueryField, QueryNamespace, QueryOperator, QueryValue, SnapshotId, TransactionId, Version,
+    VersionId, View,
 };
 use aios_policy::service::conversions as policy_conversions;
 use aios_policy::service::proto as policy_proto;
@@ -25,7 +29,11 @@ use aios_policy::PolicyDecision;
 use aios_vault::service::conversions as vault_conversions;
 use aios_vault::service::proto as vault_proto;
 use aios_vault::service::VaultBrokerClient;
-use aios_vault::{CapabilityId, CapabilityState, KeyMaterialHandle, SubjectRef, VaultCapability};
+use aios_vault::{
+    CapabilityClass, CapabilityId, CapabilityState, KeyAlgorithm, KeyMaterialHandle, SubjectRef,
+    VaultCapability,
+};
+use serde_json::{json, Value};
 use tonic::transport::Channel;
 
 use crate::client::endpoint::AiosEndpoints;
@@ -116,6 +124,29 @@ impl AiosClient {
             .map_err(|err| client_call_failed("runtime", "ExecuteAction", err.to_string()))
     }
 
+    /// Read action status through the Capability Runtime `GetActionStatus` RPC.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`RenderError::ClientCallFailed`] when the RPC fails or the
+    /// response does not contain a valid [`ActionContext`].
+    pub async fn action_status(&mut self, action_id: &str) -> Result<ActionContext, RenderError> {
+        let response = self
+            .runtime
+            .get_action_status(runtime_proto::GetActionStatusRequest {
+                action_request_id: action_id.to_owned(),
+            })
+            .await
+            .map_err(|err| client_call_failed("runtime", "GetActionStatus", err.to_string()))?
+            .into_inner();
+        let context = response.context.as_ref().ok_or_else(|| {
+            client_call_failed("runtime", "GetActionStatus", "missing ActionContext")
+        })?;
+
+        runtime_conversions::action_context_from_proto(context)
+            .map_err(|err| client_call_failed("runtime", "GetActionStatus", err.to_string()))
+    }
+
     /// Evaluate an action envelope through the Policy Kernel.
     ///
     /// # Errors
@@ -189,6 +220,64 @@ impl AiosClient {
             .map_err(|err| client_call_failed("fs", "ReadObject", err.to_string()))
     }
 
+    /// Materialize an object listing, optionally filtered by namespace class.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`RenderError::ClientCallFailed`] when the `MaterializeView` RPC
+    /// fails or the response cannot be converted.
+    pub async fn list_objects(&mut self, namespace: Option<&str>) -> Result<View, RenderError> {
+        let query = namespace.map_or_else(
+            || Query::And(Vec::new()),
+            |namespace| {
+                Query::And(vec![Predicate {
+                    namespace: QueryNamespace::Namespace,
+                    field: QueryField::NamespaceClass,
+                    op: QueryOperator::Eq,
+                    rhs: QueryValue::String(namespace_token(namespace)),
+                }])
+            },
+        );
+        let response = self
+            .fs
+            .materialize_view(fs_proto::MaterializeViewRequestProto {
+                query: Some(fs_conversions::query_to_proto(&query)),
+                snapshot_id: String::new(),
+            })
+            .await
+            .map_err(|err| client_call_failed("fs", "MaterializeView", err.to_string()))?
+            .into_inner();
+
+        fs_conversions::view_from_proto(&response)
+            .map_err(|err| client_call_failed("fs", "MaterializeView", err.to_string()))
+    }
+
+    /// List versions for an AIOS-FS object.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`RenderError::ClientCallFailed`] when the RPC fails or one
+    /// version cannot be converted.
+    pub async fn list_versions(&mut self, object_id: &str) -> Result<Vec<Version>, RenderError> {
+        let response = self
+            .fs
+            .list_versions(fs_proto::ListVersionsRequestProto {
+                object_id: object_id.to_owned(),
+            })
+            .await
+            .map_err(|err| client_call_failed("fs", "ListVersions", err.to_string()))?
+            .into_inner();
+
+        response
+            .versions
+            .iter()
+            .map(|version| {
+                fs_conversions::version_from_proto(version)
+                    .map_err(|err| client_call_failed("fs", "ListVersions", err.to_string()))
+            })
+            .collect()
+    }
+
     /// List Vault capabilities issued to a subject.
     ///
     /// # Errors
@@ -213,6 +302,111 @@ impl AiosClient {
             .iter()
             .map(vault_capability_from_proto)
             .collect()
+    }
+
+    /// Issue a Vault capability to a subject.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`RenderError::ClientCallFailed`] when the Vault RPC fails or
+    /// the returned capability cannot be converted.
+    pub async fn issue_capability(
+        &mut self,
+        class: CapabilityClass,
+        subject: &str,
+    ) -> Result<VaultCapability, RenderError> {
+        let response = self
+            .vault
+            .issue_capability(vault_proto::IssueCapabilityRequest {
+                class: i32::from(vault_conversions::capability_class_to_proto(class)),
+                issued_to: subject.to_owned(),
+                expires_at: None,
+                key_algorithm: i32::from(key_algorithm_to_proto(default_key_algorithm(class))),
+                key_material_bytes: None,
+            })
+            .await
+            .map_err(|err| client_call_failed("vault", "IssueCapability", err.to_string()))?
+            .into_inner();
+        let capability = response.capability.as_ref().ok_or_else(|| {
+            client_call_failed("vault", "IssueCapability", "missing VaultCapability")
+        })?;
+
+        vault_capability_from_proto(capability)
+    }
+
+    /// Query evidence receipts bound to an action.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`RenderError::ClientCallFailed`] when the Evidence RPC fails or
+    /// a receipt cannot be converted.
+    pub async fn evidence_chain(
+        &mut self,
+        action_id: &str,
+        last_n: Option<u32>,
+    ) -> Result<crate::EvidenceChainView, RenderError> {
+        let Some(evidence) = self.evidence.as_mut() else {
+            return Ok(crate::EvidenceChainView::new(Vec::new()));
+        };
+        let mut stream = evidence
+            .query(evidence_proto::QueryRequest {
+                record_types_filter: Vec::new(),
+                subject_filter: String::new(),
+                correlation_id_filter: String::new(),
+                action_id_filter: action_id.to_owned(),
+                from_time: None,
+                to_time: None,
+                text_match: String::new(),
+                limit: last_n.unwrap_or(100),
+                subject: String::new(),
+                caller_primary_group: String::new(),
+                caller_is_ai: false,
+                caller_is_recovery_mode: false,
+            })
+            .await
+            .map_err(|err| client_call_failed("evidence", "Query", err.to_string()))?
+            .into_inner();
+
+        let mut receipts = Vec::new();
+        while let Some(receipt) = stream
+            .message()
+            .await
+            .map_err(|err| client_call_failed("evidence", "Query", err.to_string()))?
+        {
+            receipts.push(evidence_receipt_from_proto(receipt)?);
+        }
+
+        Ok(crate::EvidenceChainView::new(receipts))
+    }
+
+    /// Read one evidence receipt by id.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`RenderError::ClientCallFailed`] when the Evidence RPC fails,
+    /// no Evidence client is configured, or the receipt cannot be converted.
+    pub async fn evidence_receipt(
+        &mut self,
+        receipt_id: &str,
+    ) -> Result<EvidenceReceipt, RenderError> {
+        let receipt = {
+            let evidence = self.evidence.as_mut().ok_or_else(|| {
+                client_call_failed(
+                    "evidence",
+                    "ReadReceipt",
+                    "evidence endpoint is not configured",
+                )
+            })?;
+            evidence
+                .read_receipt(evidence_proto::ReadReceiptRequest {
+                    receipt_id: receipt_id.to_owned(),
+                })
+                .await
+                .map_err(|err| client_call_failed("evidence", "ReadReceipt", err.to_string()))?
+                .into_inner()
+        };
+
+        evidence_receipt_from_proto(receipt)
     }
 }
 
@@ -309,6 +503,78 @@ fn vault_capability_state_from_proto(state: i32) -> Result<CapabilityState, Rend
             "ListCapabilities",
             "capability state is unspecified",
         )),
+    }
+}
+
+const fn default_key_algorithm(class: CapabilityClass) -> KeyAlgorithm {
+    match class {
+        CapabilityClass::KeySign
+        | CapabilityClass::KeyVerify
+        | CapabilityClass::BootstrapKeySign => KeyAlgorithm::Ed25519,
+        CapabilityClass::MacGenerate | CapabilityClass::MacVerify => KeyAlgorithm::HmacSha256,
+        CapabilityClass::KeyEncrypt
+        | CapabilityClass::KeyDecrypt
+        | CapabilityClass::RandomGenerate
+        | CapabilityClass::SecretGet => KeyAlgorithm::Aes256Gcm,
+    }
+}
+
+const fn key_algorithm_to_proto(algorithm: KeyAlgorithm) -> vault_proto::KeyAlgorithm {
+    match algorithm {
+        KeyAlgorithm::Aes256Gcm => vault_proto::KeyAlgorithm::Aes256Gcm,
+        KeyAlgorithm::HmacSha256 => vault_proto::KeyAlgorithm::HmacSha256,
+        KeyAlgorithm::HkdfSha256 => vault_proto::KeyAlgorithm::HkdfSha256,
+        KeyAlgorithm::Ed25519 => vault_proto::KeyAlgorithm::Ed25519,
+        KeyAlgorithm::X25519 => vault_proto::KeyAlgorithm::X25519,
+    }
+}
+
+fn namespace_token(namespace: &str) -> String {
+    namespace
+        .chars()
+        .map(|ch| match ch {
+            '-' | ' ' => '_',
+            other => other.to_ascii_uppercase(),
+        })
+        .collect()
+}
+
+fn evidence_receipt_from_proto(
+    receipt: evidence_proto::EvidenceReceipt,
+) -> Result<EvidenceReceipt, RenderError> {
+    let record_type = evidence_conversions::record_type_from_proto_i32(receipt.record_type)
+        .map_err(|err| client_call_failed("evidence", "receipt conversion", err.to_string()))?;
+    let recorded_at_proto = receipt.recorded_at.unwrap_or_default();
+    let recorded_at = evidence_conversions::timestamp_to_datetime(&recorded_at_proto);
+    let action_id = optional_string(receipt.action_id);
+    let previous_receipt_hash = optional_string(receipt.previous_receipt_hash);
+    let redaction_profile = if receipt.redaction_profile.is_empty() {
+        "default".to_owned()
+    } else {
+        receipt.redaction_profile
+    };
+    let value = json!({
+        "receipt_id": receipt.receipt_id,
+        "recorded_at": recorded_at,
+        "record_type": record_type,
+        "retention_class": aios_evidence::record::retention_class_for(record_type),
+        "subject_canonical_id": receipt.subject,
+        "action_id": action_id,
+        "previous_receipt_hash": previous_receipt_hash,
+        "content_hash": receipt.payload_hash,
+        "payload": Value::Null,
+        "redaction_profile": redaction_profile,
+    });
+
+    serde_json::from_value(value)
+        .map_err(|err| client_call_failed("evidence", "receipt conversion", err.to_string()))
+}
+
+fn optional_string(value: String) -> Value {
+    if value.is_empty() {
+        Value::Null
+    } else {
+        Value::String(value)
     }
 }
 

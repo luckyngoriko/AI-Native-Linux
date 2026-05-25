@@ -9,6 +9,7 @@
 #![forbid(unsafe_code)]
 
 pub mod action_render;
+pub mod cli;
 pub mod cli_types;
 pub mod client;
 pub mod error;
@@ -29,6 +30,10 @@ pub use aios_policy::{ApprovalRequirement, Constraints, Decision, PolicyDecision
 pub use aios_vault::{
     CapabilityClass, CapabilityState, KeyMaterialHandle, OverrideBinding, OverrideClass,
     VaultCapability,
+};
+pub use cli::{
+    ActionSubcommand, AiosCli, AiosCommand, EvidenceSubcommand, FsSubcommand, PolicySubcommand,
+    VaultSubcommand,
 };
 pub use cli_types::{
     AnsiSupportLevel, CliCompilationResult, CliEvidenceRecordKind, CliInputMode, CliRenderMode,

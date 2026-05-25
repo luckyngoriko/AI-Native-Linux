@@ -15,6 +15,8 @@ aios-evidence = { path = "../aios-evidence" }
 aios-fs = { path = "../aios-fs" }
 aios-policy = { path = "../aios-policy" }
 aios-vault = { path = "../aios-vault" }
+anyhow      = { workspace = true }
+clap        = { workspace = true }
 serde        = { workspace = true }
 serde_json   = { workspace = true }
 chrono       = { workspace = true }
@@ -24,6 +26,10 @@ strum_macros = { workspace = true }
 thiserror    = { workspace = true }
 tokio        = { workspace = true }
 tonic        = { workspace = true }
+
+[[bin]]
+name = "aios"
+path = "src/main.rs"
 
 [lints]
 workspace = true

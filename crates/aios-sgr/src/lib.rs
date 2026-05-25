@@ -8,6 +8,7 @@ pub mod error;
 pub mod graph;
 pub mod in_memory_graph;
 pub mod state;
+pub mod state_fsm;
 pub mod unit;
 
 pub use adapter::{
@@ -23,6 +24,7 @@ pub use state::{
     ABPromotionState, ConflictKind, DependencySolveResult, GraphEvaluationResult, GraphState,
     ResourceDimension, ResourceSource, TransitionFailureReason, TransitionKind, UnitState,
 };
+pub use state_fsm::{is_legal_transition, UnitFsmDriver, TRANSITIONS};
 pub use unit::{
     DesiredState, GpuBudget, HealthCheckKind, HealthCheckSpec, ResourceBudget, RestartBudget,
     RestartPolicy, RollbackPointer, RollbackTrigger, ServiceUnit, UnitId, UnitKind, UnitManifest,

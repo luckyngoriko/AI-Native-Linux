@@ -569,3 +569,4 @@ Format: ISO-8601 timestamp | task_id | step | command(s) | result | status | nex
 2026-05-25 §22 FULL-REAL MVP marker: boot real, mount real, versioned object real, semantic view real, action real, policy real, adapter real, verify real, evidence real, render real.
 2026-05-25 T-084 codex exec aios-sgr typed core skeleton ready gates=green tests=1607
 2026-05-25 T-085 codex exec aios-sgr ServiceGraph + InMemory graph ready gates=green tests=1625
+2026-05-25 T-086 codex exec aios-sgr UnitFsmDriver ready gates=green tests=1645

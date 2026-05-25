@@ -486,6 +486,12 @@
       "title": "aios-sgr - ServiceGraph trait + InMemoryServiceGraph (S15.1)",
       "completed_at": "2026-05-25",
       "evidence": "1625 tests workspace (+18 over T-084 baseline 1607). Added crates/aios-sgr/src/graph.rs with async_trait ServiceGraph and 7 methods. Added crates/aios-sgr/src/in_memory_graph.rs with RwLock<HashMap<UnitId, ServiceUnit>>, RwLock<HashMap<UnitId, Vec<DependencyEdge>>>, trusted authorities, Ed25519 signature verification over BLAKE3 digest of UnitManifest without publisher_signature/canonical_hash, duplicate unit rejection, manifest dependency edge import, dependency declaration/listing, graph_state derivation, and low-level S15.1 state transition validation. Added SgrError::UnitAlreadyRegistered and lib.rs exports. Tests: crates/aios-sgr/tests/graph.rs adds 18 tests covering valid/bad/unknown signatures, duplicate registration, get/list, dependency target guard, state transitions, graph states, Arc<dyn ServiceGraph>, and concurrent register/read. Gates PASS: cargo check --workspace; cargo test --workspace; cargo clippy --workspace --all-targets -- -D warnings; cargo fmt --all -- --check. Scope guard held: no FSM driver, graph evaluator/cycle detection, adapter registry, gRPC, evidence, cross-crate integration, renderer, or M10 closer."
+    },
+    {
+      "id": "T-086",
+      "title": "aios-sgr - UnitFsmDriver + S15.1/S15.2 unit transition table",
+      "completed_at": "2026-05-25",
+      "evidence": "1645 tests workspace (+20 over T-085 baseline 1625). Added crates/aios-sgr/src/state_fsm.rs with UnitFsmDriver over Arc<dyn ServiceGraph>, TRANSITIONS const with the exhaustive S15.1 §3.2.1 UnitState FSM table consumed by S15.2, and is_legal_transition helper. start/stop/restart/mark_failed/transition drive only legal low-level set_unit_state edges, preserve idempotency for already-running/already-stopped paths, and tolerate concurrent start races by re-reading when another caller advanced the state. Failure recovery follows spec: FAILED -> STARTING -> RUNNING via restart/manual retry; direct FAILED -> RUNNING and FAILED -> STOPPED are rejected. Tests: crates/aios-sgr/tests/state_fsm.rs adds 20 tests covering table entries, helper truth table, start/stop/restart, mark_failed, illegal direct transitions, Failed recovery edge, and concurrent start/start+stop. Gates PASS: cargo check --workspace; cargo test --workspace; cargo clippy --workspace --all-targets -- -D warnings; cargo fmt --all -- --check. Scope guard held: no graph evaluator/cycle detection, adapter registry, gRPC, evidence, cross-crate integration, renderer, or M10 closer."
     }
   ],
   "blocked": [],
@@ -717,9 +723,10 @@
       "target_crate": "aios-sgr",
       "tasks": [
         "T-084",
-        "T-085"
+        "T-085",
+        "T-086"
       ],
-      "current_test_count": 1625,
+      "current_test_count": 1645,
       "crate_version": "aios-sgr/0.0.1",
       "rationale": "Beyond capability runtime: AIOS-SGR desired-state graph, unit manifest, adapter declaration."
     },

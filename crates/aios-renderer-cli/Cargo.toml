@@ -1,0 +1,20 @@
+[package]
+name = "aios-renderer-cli"
+description = "AIOS S7.6 CLI renderer core types and renderable skeleton."
+edition.workspace = true
+rust-version.workspace = true
+version = "0.0.1"
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+
+[dependencies]
+serde        = { workspace = true }
+serde_json   = { workspace = true }
+chrono       = { workspace = true }
+strum        = { workspace = true }
+strum_macros = { workspace = true }
+thiserror    = { workspace = true }
+
+[lints]
+workspace = true

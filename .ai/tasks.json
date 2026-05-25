@@ -306,6 +306,12 @@
       "title": "aios-vault v0.1.0 - §22 vault integration + S5 acceptance fixtures + M6 CLOSED",
       "completed_at": "2026-05-25",
       "evidence": "1160 tests workspace (+23 over T-054 baseline 1137). Added tests/mvp_vault_integration.rs (4 §22 vault-mediated scenarios: vault-brokered external call, AI raw-secret denial + encrypted-only path, STRONG_SOLO emergency override, anti-replay), tests/acceptance_fixtures.rs (10 S5.1/S5.2/S5.4 fixtures), and tests/m6_closure.rs (9 closure invariants). Bumped aios-vault Cargo.toml 0.0.1 -> 0.1.0 and DEFAULT_CODE_VERSION -> aios-vault/0.1.0-T055. Deferred-surface sweep documented SECRET_GET reveal mechanics, KDF_DERIVE via KEY_ENCRYPT, and vault-backed manifest verifier as M7+ work. Required gates PASS: cargo check --workspace + cargo test --workspace + cargo clippy --workspace --all-targets -- -D warnings + cargo fmt --all -- --check + cargo bench -p aios-policy --no-run. M6 CLOSED; M7 ready."
+    },
+    {
+      "id": "T-056",
+      "title": "aios-renderer-cli skeleton - S7.6 §3 typed core + Renderable trait",
+      "completed_at": "2026-05-25",
+      "evidence": "1172 tests workspace (+12 over T-055 baseline 1160). Added crates/aios-renderer-cli v0.0.1, S7.6 §3 closed CLI enum vocabulary, crate-local OutputFormat {TEXT, JSON, TREE, TABLE}, RenderContext terminal/pipe defaults, Renderable trait, RenderError taxonomy, and primitive Renderable impls for strings, ints, bool, Option, Vec, and BTreeMap. Tests: crates/aios-renderer-cli/tests/types_roundtrip.rs (12). Gates PASS: cargo check --workspace + cargo test --workspace + cargo clippy --workspace --all-targets -- -D warnings + cargo fmt --all -- --check. Scope guard: no format-specific renderers, no cross-crate Renderable impls, no gRPC client, no CLI binary/clap."
     }
   ],
   "blocked": [],
@@ -448,13 +454,18 @@
       "rationale": "Secrets-as-capabilities (INV-018). Unblocks signed bundle/manifest infra + external model calls."
     },
     "M7": {
-      "status": "ready",
+      "status": "in_progress",
       "title": "CLI Renderer (\u00a722 MVP closure)",
       "sub_specs": [
         "S7.6"
       ],
       "layer": "L7",
       "target_crate": "aios-renderer-cli",
+      "tasks": [
+        "T-056"
+      ],
+      "current_test_count": 1172,
+      "crate_version": "aios-renderer-cli/0.0.1",
       "rationale": "Simplest renderer first; closes \u00a722 phase-9. \u00a722 MVP golden path FULLY RUNNABLE after this."
     },
     "M8": {

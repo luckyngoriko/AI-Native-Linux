@@ -167,6 +167,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "aios-renderer-cli"
+version = "0.0.1"
+dependencies = [
+ "chrono",
+ "serde",
+ "serde_json",
+ "strum",
+ "strum_macros",
+ "thiserror",
+]
+
+[[package]]
 name = "aios-vault"
 version = "0.1.0"
 dependencies = [

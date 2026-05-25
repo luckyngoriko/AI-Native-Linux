@@ -13,6 +13,7 @@ pub mod error;
 pub mod first_boot;
 pub mod in_memory_boundary;
 pub mod kernel;
+pub mod kernel_pipeline;
 pub mod mode;
 
 pub use boot::{BootId, BootPhase, FirstBootContext, FirstBootPhase, FirstBootStatus};
@@ -22,4 +23,5 @@ pub use error::RecoveryError;
 pub use first_boot::FirstBootDriver;
 pub use in_memory_boundary::InMemoryRecoveryBoundary;
 pub use kernel::{CandidateId, CandidateState, KernelCandidate, KernelManifest};
+pub use kernel_pipeline::KernelPipelineDriver;
 pub use mode::{RecoveryMode, RecoveryState};

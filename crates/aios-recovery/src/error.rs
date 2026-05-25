@@ -47,6 +47,9 @@ pub enum RecoveryError {
     /// Kernel candidate signature verification failed.
     #[error("kernel candidate signature is invalid")]
     KernelSignatureInvalid,
+    /// Kernel candidate signing authority is not trusted.
+    #[error("unknown kernel candidate signing authority: {0}")]
+    KernelUnknownAuthority(String),
     /// Internal recovery invariant failed.
     #[error("recovery internal error: {0}")]
     Internal(String),

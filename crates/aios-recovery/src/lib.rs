@@ -46,4 +46,4 @@ pub use runtime_adapter::RecoveryRuntimeAdapter;
 pub use service::{RecoveryServiceClient, RecoveryServiceGrpcServer, RecoveryServiceImpl};
 
 /// Default code version reported by future recovery service metadata surfaces.
-pub const DEFAULT_CODE_VERSION: &str = "aios-recovery/0.1.0-T079";
+pub const DEFAULT_CODE_VERSION: &str = "0.1.0-T083";

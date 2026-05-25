@@ -468,6 +468,12 @@
       "title": "aios-renderer-cli - recovery/kernel renderer + CLI subcommands",
       "completed_at": "2026-05-25",
       "evidence": "1568 tests workspace (+19 over T-081 baseline 1549). Added Cargo edge aios-renderer-cli -> aios-recovery. Added recovery_render.rs with Renderable impls for RecoveryState, RecoveryMode, FirstBootContext, FirstBootPhase, FirstBootStatus, KernelCandidate, CandidateState, and KernelManifest across Text/Json/Tree/Table. AiosClient now connects RecoveryService and exposes recovery lifecycle, first-boot, kernel list/activate/rollback helpers. InProcessBackend now spawns recovery as the 6th mandatory service. CLI adds aios recovery {status, enter, exit, first-boot} and aios kernel {list, activate, rollback}. Tests: crates/aios-renderer-cli/tests/recovery_render.rs adds 19 tests; existing service_count assertions updated 5 -> 6. Required gates PASS: cargo check --workspace + cargo test -p aios-renderer-cli + cargo test --workspace + cargo clippy --workspace --all-targets -- -D warnings + cargo fmt --all -- --check + cargo build -p aios-renderer-cli --bin aios. Spec note: T-079 RecoveryService returns RecoveryState from EnterRecovery and does not expose the minted exit_token over gRPC; CLI enter renders the returned state only."
+    },
+    {
+      "id": "T-083",
+      "title": "aios-recovery v0.1.0 - §22 FULL-REAL MVP + S9.x acceptance fixtures (M9 CLOSED)",
+      "completed_at": "2026-05-25",
+      "evidence": "1592 tests workspace (+24 over T-082 baseline 1568). Added crates/aios-recovery/tests/mvp_full_real_path.rs with the full §22 path through real L1 boot/recovery, AIOS-FS mount/object/view, runtime submit_action, policy allow, adapter dispatch, VerificationEngine, evidence chain, and renderer output. Added tests/acceptance_fixtures.rs with 12 S9.1/S9.2/S9.3 worked-example/adversarial fixtures. Added tests/m9_closure.rs with 11 closure invariants: version, DEFAULT_CODE_VERSION, no Unimplemented/todo/unimplemented, every RecoveryService RPC implemented, every RecoveryMode/CandidateState/FirstBootPhase reachable, and deferred surfaces documented. Bumped aios-recovery Cargo.toml 0.0.1 -> 0.1.0 and DEFAULT_CODE_VERSION -> 0.1.0-T083. §22 FULL-REAL MVP confirmed: boot, mount, versioned object, semantic view, action, policy, adapter, verify, evidence, and render are all backed by real components on the golden path. M9 CLOSED; M10 ready."
     }
   ],
   "blocked": [],
@@ -659,9 +665,10 @@
       "rationale": "Real VerificationEngine.RunVerification is now wired through runtime completion. §22 MVP is TRUSTWORTHY: configured verification pass is required for SUCCEEDED, failure blocks completion, and the no-engine stub path remains explicit backward compatibility."
     },
     "M9": {
-      "status": "in_progress",
+      "status": "CLOSED",
       "title": "Recovery Boundary + First-Boot + Kernel Pipeline",
       "started_at": "2026-05-25",
+      "closed_at": "2026-05-25",
       "sub_specs": [
         "S9.1",
         "S9.2",
@@ -678,14 +685,15 @@
         "T-079",
         "T-080",
         "T-081",
-        "T-082"
+        "T-082",
+        "T-083"
       ],
-      "current_test_count": 1568,
-      "crate_version_target": "aios-recovery/0.1.0",
-      "rationale": "Resolves S9.1 'degraded subset' exception findings from Capella iter 6."
+      "current_test_count": 1592,
+      "crate_version": "aios-recovery/0.1.0",
+      "rationale": "Resolves S9.1 'degraded subset' exception findings from Capella iter 6 and closes §22 FULL-REAL MVP: L1 boot through L7 render now uses real backends on the golden path."
     },
     "M10": {
-      "status": "planned",
+      "status": "ready",
       "title": "Service Graph Runtime (SGR) \u2014 full unit manifest + adapter discipline",
       "sub_specs": [
         "S15.1",

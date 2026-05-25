@@ -3,7 +3,7 @@ name = "aios-recovery"
 description = "AIOS S9 recovery, first-boot, and dedicated kernel typed core skeleton."
 edition.workspace = true
 rust-version.workspace = true
-version = "0.0.1"
+version = "0.1.0"
 license.workspace = true
 repository.workspace = true
 authors.workspace = true
@@ -28,6 +28,11 @@ blake3       = { workspace = true }
 tonic        = { workspace = true }
 prost        = { workspace = true }
 prost-types  = { workspace = true }
+
+[dev-dependencies]
+aios-renderer-cli = { path = "../aios-renderer-cli" }
+aios-vault = { path = "../aios-vault" }
+aios-verification = { path = "../aios-verification" }
 
 [build-dependencies]
 tonic-build = { workspace = true }

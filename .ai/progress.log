@@ -564,3 +564,6 @@ Format: ISO-8601 timestamp | task_id | step | command(s) | result | status | nex
 2026-05-25 T-080 codex exec aios-recovery evidence emission ready gates=green tests=1535
 2026-05-25 T-081 codex exec aios-recovery cross-crate integration ready gates=green tests=1549
 2026-05-25 T-082 codex exec aios-renderer-cli recovery/kernel renderer + CLI ready gates=green tests=1568
+2026-05-25 T-083 codex exec aios-recovery M9 closer ready gates=green tests=1592
+2026-05-25 M9 CLOSED aios-recovery v0.1.0 workspace_tests=1592 next=M10-aios-sgr
+2026-05-25 §22 FULL-REAL MVP marker: boot real, mount real, versioned object real, semantic view real, action real, policy real, adapter real, verify real, evidence real, render real.

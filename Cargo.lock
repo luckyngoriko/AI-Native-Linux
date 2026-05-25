@@ -168,13 +168,16 @@ dependencies = [
 
 [[package]]
 name = "aios-recovery"
-version = "0.0.1"
+version = "0.1.0"
 dependencies = [
  "aios-action",
  "aios-capability-runtime",
  "aios-evidence",
  "aios-fs",
  "aios-policy",
+ "aios-renderer-cli",
+ "aios-vault",
+ "aios-verification",
  "async-trait",
  "blake3",
  "chrono",

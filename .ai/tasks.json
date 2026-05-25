@@ -324,6 +324,12 @@
       "title": "aios-renderer-cli - ActionContext Renderable (S7.6 <-> S10.1)",
       "completed_at": "2026-05-25",
       "evidence": "1212 tests workspace (+12 over T-057 baseline 1200). Added path deps aios-capability-runtime + aios-action. Added action_render module with Renderable impls for ActionContext, ActionLifecycleState, RollbackOutcome, ExecutionFailureReason, and ActionEnvelope across Text/Json/Tree/Table. Evidence chains render count + first 3 truncated receipt ids only. Gates PASS: cargo check --workspace + cargo test --workspace + cargo clippy --workspace --all-targets -- -D warnings + cargo fmt --all -- --check. Scope guard: no evidence/policy/vault/fs renderers, no gRPC clients, no CLI binary."
+    },
+    {
+      "id": "T-059",
+      "title": "aios-renderer-cli - Evidence chain Renderable (S7.6 <-> S3.1)",
+      "completed_at": "2026-05-25",
+      "evidence": "1226 tests workspace (+14 over T-058 baseline 1212). Added path dep aios-evidence. New evidence_render module implements Renderable for EvidenceReceipt, RecordType, and EvidenceChainView across Text/Json/Tree/Table. INV-015 redacts payload/signature bytes when ctx.redact_secrets=true; debug mode shows signature hex while key_material stays redacted. Tree chain renders 12-char prev_receipt_hash links, green for valid BLAKE3 chain links and red for mismatches. Tests: crates/aios-renderer-cli/tests/evidence_render.rs (14). Gates PASS: cargo check --workspace + cargo test --workspace + cargo clippy --workspace --all-targets -- -D warnings + cargo fmt --all -- --check. Scope guard: no policy/vault/fs renderers, no gRPC clients, no CLI binary."
     }
   ],
   "blocked": [],
@@ -476,9 +482,10 @@
       "tasks": [
         "T-056",
         "T-057",
-        "T-058"
+        "T-058",
+        "T-059"
       ],
-      "current_test_count": 1212,
+      "current_test_count": 1226,
       "crate_version": "aios-renderer-cli/0.0.1",
       "rationale": "Simplest renderer first; closes \u00a722 phase-9. \u00a722 MVP golden path FULLY RUNNABLE after this."
     },

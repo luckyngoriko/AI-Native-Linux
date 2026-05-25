@@ -172,6 +172,7 @@ version = "0.0.1"
 dependencies = [
  "aios-action",
  "aios-capability-runtime",
+ "aios-evidence",
  "chrono",
  "serde",
  "serde_json",

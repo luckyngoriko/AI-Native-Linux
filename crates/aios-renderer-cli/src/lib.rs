@@ -11,6 +11,7 @@
 pub mod action_render;
 pub mod cli_types;
 pub mod error;
+pub mod evidence_render;
 pub mod json_renderer;
 pub mod output_format;
 pub mod primitives;
@@ -23,6 +24,7 @@ pub use cli_types::{
     AnsiSupportLevel, CliCompilationResult, CliEvidenceRecordKind, CliInputMode, CliRenderMode,
 };
 pub use error::RenderError;
+pub use evidence_render::EvidenceChainView;
 pub use json_renderer::JsonRenderer;
 pub use output_format::OutputFormat;
 pub use renderable::{RenderContext, Renderable};

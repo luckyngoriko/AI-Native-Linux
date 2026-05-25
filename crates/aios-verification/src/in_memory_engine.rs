@@ -10,18 +10,17 @@ use std::fmt;
 use std::sync::Arc;
 
 use async_trait::async_trait;
-use chrono::{DateTime, Utc};
 use serde_json::Value;
 use strum::IntoEnumIterator;
 use tokio::sync::RwLock;
-use ulid::Ulid;
 
 use crate::engine::{VerificationContext, VerificationEngine};
+use crate::executor::{per_primitive_timeout_ms, primitive_count, VerificationExecutor};
 use crate::grammar_parser;
-use crate::primitives::{self, LocalProbe, PrimitiveTier, StdLocalProbe};
+use crate::primitives::{LocalProbe, StdLocalProbe};
 use crate::{
-    IntentId, PrimitiveInvocation, PrimitiveResult, VerificationError, VerificationGrammar,
-    VerificationIntent, VerificationPrimitive, VerificationResult, VerificationStatus,
+    IntentId, PrimitiveInvocation, VerificationError, VerificationGrammar, VerificationIntent,
+    VerificationPrimitive, VerificationResult,
 };
 
 /// HashMap-backed in-process verification engine used by tests and successor slices.
@@ -77,24 +76,16 @@ impl VerificationEngine for InMemoryVerificationEngine {
         context: &VerificationContext,
     ) -> Result<VerificationResult, VerificationError> {
         let grammar = compile_intent(intent)?;
-        let invocations = executable_invocations(grammar)?;
-        let started_at = context.started_at;
-        let mut per_primitive = Vec::with_capacity(invocations.len());
-        for invocation in invocations {
-            per_primitive.push(execute_primitive(invocation, self.local_probe.as_ref()).await);
-        }
-        let completed_at = Utc::now();
-        let result = VerificationResult {
-            result_id: format!("vrf_{}", Ulid::new()),
-            intent_id: intent.intent_id.clone(),
-            action_id: context.action_id.clone(),
-            status: aggregate_status(&per_primitive),
-            per_primitive,
-            started_at,
-            completed_at,
-            duration_ms: duration_ms(started_at, completed_at),
-            evidence_receipt_id: None,
-        };
+        let default_timeout_ms =
+            per_primitive_timeout_ms(intent.timeout_seconds, primitive_count(&grammar));
+        let executor = VerificationExecutor::new(
+            Arc::new(self.clone()),
+            Arc::clone(&self.local_probe),
+            default_timeout_ms,
+        );
+        let result = executor
+            .execute_for_intent(&grammar, context, intent.intent_id.clone())
+            .await;
 
         self.completed
             .write()
@@ -188,87 +179,4 @@ fn parse_primitive_wire_name(name: String) -> Result<VerificationPrimitive, Veri
             serde_json::from_value(Value::String(name.replace('.', "_").to_ascii_uppercase()))
         })
         .map_err(|_err| VerificationError::UnknownPrimitive(name))
-}
-
-fn executable_invocations(
-    grammar: VerificationGrammar,
-) -> Result<Vec<PrimitiveInvocation>, VerificationError> {
-    let mut invocations = Vec::new();
-    collect_executable_invocations(grammar, &mut invocations)?;
-    Ok(invocations)
-}
-
-fn collect_executable_invocations(
-    grammar: VerificationGrammar,
-    invocations: &mut Vec<PrimitiveInvocation>,
-) -> Result<(), VerificationError> {
-    match grammar {
-        VerificationGrammar::Primitive(invocation) => {
-            invocations.push(invocation);
-            Ok(())
-        }
-        VerificationGrammar::All(terms) => {
-            for term in terms {
-                collect_executable_invocations(term, invocations)?;
-            }
-            Ok(())
-        }
-        VerificationGrammar::Any(_) => unsupported_runtime_combinator("any"),
-        VerificationGrammar::Not(_) => unsupported_runtime_combinator("not"),
-        VerificationGrammar::Eventually { .. } => unsupported_runtime_combinator("eventually"),
-    }
-}
-
-fn unsupported_runtime_combinator(combinator: &str) -> Result<(), VerificationError> {
-    Err(VerificationError::IntentParseFailed(format!(
-        "`{combinator}` execution semantics are deferred to T-068"
-    )))
-}
-
-async fn execute_primitive(
-    invocation: PrimitiveInvocation,
-    local_probe: &dyn LocalProbe,
-) -> PrimitiveResult {
-    match primitives::primitive_tier(invocation.kind) {
-        PrimitiveTier::Tier1 => primitives::tier1::execute(invocation.kind, &invocation.args),
-        PrimitiveTier::Tier2 => {
-            primitives::tier2::execute(invocation.kind, &invocation.args, local_probe).await
-        }
-        PrimitiveTier::Tier3 => {
-            primitives::tier3::deferred_result(invocation.kind, &invocation.args)
-        }
-    }
-}
-
-fn aggregate_status(per_primitive: &[PrimitiveResult]) -> VerificationStatus {
-    if per_primitive.iter().any(primitive_timed_out) {
-        VerificationStatus::Timeout
-    } else if per_primitive.iter().any(primitive_probe_error) {
-        VerificationStatus::ProbeError
-    } else if per_primitive.iter().all(|primitive| primitive.passed) {
-        VerificationStatus::Passed
-    } else {
-        VerificationStatus::Failed
-    }
-}
-
-fn primitive_timed_out(primitive: &PrimitiveResult) -> bool {
-    primitive
-        .error
-        .as_deref()
-        .is_some_and(error_mentions_timeout)
-}
-
-const fn primitive_probe_error(primitive: &PrimitiveResult) -> bool {
-    primitive.error.is_some()
-}
-
-fn error_mentions_timeout(error: &str) -> bool {
-    error
-        .split(|character: char| !character.is_ascii_alphanumeric())
-        .any(|word| word.eq_ignore_ascii_case("timeout"))
-}
-
-fn duration_ms(started_at: DateTime<Utc>, completed_at: DateTime<Utc>) -> u64 {
-    u64::try_from((completed_at - started_at).num_milliseconds()).unwrap_or(0)
 }

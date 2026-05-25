@@ -2,14 +2,14 @@
 //!
 //! T-064 intentionally stops at the S2.4 type surface: verification intents,
 //! result records, closed status / primitive vocabularies, and the error
-//! taxonomy. T-066 adds the first real primitive execution tiers while the full
-//! expression parser, executor, gRPC surface, evidence emission, and runtime /
-//! renderer integrations remain later M8 tasks.
+//! taxonomy. T-068 adds real composition execution while the gRPC surface,
+//! evidence emission, and runtime / renderer integrations remain later M8 tasks.
 
 #![forbid(unsafe_code)]
 
 pub mod engine;
 pub mod error;
+pub mod executor;
 pub mod grammar;
 pub mod grammar_parser;
 pub mod in_memory_engine;
@@ -20,6 +20,7 @@ pub mod result;
 
 pub use engine::{VerificationContext, VerificationEngine};
 pub use error::VerificationError;
+pub use executor::VerificationExecutor;
 pub use grammar::{
     PrimitiveInvocation, VerificationDuration, VerificationDurationUnit, VerificationGrammar,
 };

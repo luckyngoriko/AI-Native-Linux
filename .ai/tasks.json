@@ -372,6 +372,18 @@
       "title": "aios-verification - real primitive impls (S2.4 vocabulary, 3-tier execution)",
       "completed_at": "2026-05-25",
       "evidence": "1323 tests workspace (+20 over T-065 baseline 1303). Added primitives module with tier classification for the frozen 36-entry S2.4 vocabulary, LocalProbe trait, StdLocalProbe, MockLocalProbe, Tier-1 deterministic helpers, Tier-2 local fs/process/socket/command/env probes, and Tier-3 ProbeError deferrals for network/control-plane/cross-crate probes. InMemoryVerificationEngine now dispatches real primitive execution and supports with_local_probe. Tests: primitives_tier1.rs (9), primitives_tier2.rs (8), primitives_tier3.rs (3), engine.rs updated for real/probe-error behavior. Required gates PASS: cargo check --workspace + cargo test --workspace + cargo clippy --workspace --all-targets -- -D warnings + cargo fmt --all -- --check. Scope guard held: no primitive enum change, no full grammar parser, no executor aggregation, no gRPC, no evidence emission, no runtime integration, no renderer integration."
+    },
+    {
+      "id": "T-067",
+      "title": "aios-verification - grammar parser (S2.4 closed DSL)",
+      "completed_at": "2026-05-25",
+      "evidence": "1344 tests workspace (+21 over T-066 baseline 1323). Added S2.4 parser for all/any/not/eventually grammar, duration literals, required arg validation, canonical primitive aliases, depth limit, and parser tests. Execution semantics deferred to T-068."
+    },
+    {
+      "id": "T-068",
+      "title": "aios-verification - combinator executor + result aggregation (S2.4)",
+      "completed_at": "2026-05-25",
+      "evidence": "1358 tests workspace (+14 over T-067 baseline 1344). Added VerificationExecutor with all/any/not/eventually execution, short-circuit placeholders, tokio timeout enforcement, explicit S2.4 max_duration/interval retry window, per-primitive elapsed_ms, retry_count annotation, and load-bearing ProbeError aggregation. InMemoryVerificationEngine now routes parsed grammar through the executor while preserving flat primitive-list compatibility. Gates PASS: cargo check --workspace + cargo test -p aios-verification + cargo test --workspace + cargo clippy --workspace --all-targets -- -D warnings + cargo fmt --all -- --check."
     }
   ],
   "blocked": [],
@@ -548,11 +560,13 @@
       "tasks": [
         "T-064",
         "T-065",
-        "T-066"
+        "T-066",
+        "T-067",
+        "T-068"
       ],
-      "current_test_count": 1323,
+      "current_test_count": 1358,
       "crate_version": "aios-verification/0.0.1",
-      "rationale": "Real VerificationEngine.RunVerification \u2014 M8 now has local deterministic primitive execution; grammar/executor/gRPC/evidence/runtime integration continue in T-067+."
+      "rationale": "Real VerificationEngine.RunVerification \u2014 M8 now has local deterministic primitive execution, closed grammar parsing, and combinator execution. gRPC/evidence/runtime integration continue in T-069+."
     },
     "M9": {
       "status": "planned",

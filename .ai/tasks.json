@@ -396,6 +396,12 @@
       "title": "aios-verification - evidence emission (S2.4 <-> S3.1)",
       "completed_at": "2026-05-25",
       "evidence": "1386 tests workspace (+13 over T-069 baseline 1373). Added Cargo edge aios-verification -> aios-evidence plus ed25519-dalek signing dep. Added evidence_emit.rs with VerificationEvidenceLog, InMemoryVerificationEvidenceLog, VerificationEvidenceEmitter, Ed25519 signing, BLAKE3 ReceiptChain linkage, and helpers for verification_started, verification_result, and primitive_executed. Added evidence_payloads.rs with JSON-round-trippable VerificationStartedPayload, VerificationResultPayload, and PrimitiveExecutedPayload; INV-015 enforced by excluding raw expression/actual/expected values and redacting primitive error details to classes. InMemoryVerificationEngine gained optional with_evidence_emitter wiring, emits start/result receipts, and stores result.evidence_receipt_id. VerificationError gained EvidenceEmitFailed(String) and gRPC conversion maps it to INTERNAL for exhaustive matching. Tests: crates/aios-verification/tests/evidence_emission.rs adds 13 tests covering payload round-trips, pass/fail/timeout result payloads, two receipts per run, BLAKE3 chain coherence, Ed25519 signatures, no-emitter backward compatibility, INV-015 secret marker non-leak, primitive redaction, and 5-task concurrent runs. Required gates PASS: cargo check --workspace + cargo test -p aios-verification + cargo test --workspace + cargo clippy --workspace --all-targets -- -D warnings + cargo fmt --all -- --check. Spec note: current aios-evidence RecordType has VERIFICATION_RESULT (ID 10) but no VERIFICATION_STARTED or primitive-executed variant; started and primitive helper payloads are folded into VERIFICATION_RESULT per T-070 fallback. Scope guard held: no runtime integration, renderer, or M8 closer."
+    },
+    {
+      "id": "T-071",
+      "title": "aios-verification - replace M4 step_verify stub (cross-crate runtime integration)",
+      "completed_at": "2026-05-25",
+      "evidence": "1399 tests workspace (+13 over T-070 baseline 1386). Added Cargo edge aios-verification -> aios-capability-runtime. aios-capability-runtime gained additive RuntimeVerificationEngine trait, optional verification_engine slot, with_verification_engine ctor, and step_verify_with_engine wiring while preserving the old no-engine/no-intent stub-pass path. aios-verification added runtime_adapter.rs with VerificationRuntimeAdapter implementing the runtime trait over Arc<dyn VerificationEngine>, parsing serialized VerificationIntent JSON or raw expression input, constructing VerificationContext from the runtime action_id, and mapping VerificationStatus::Passed to true with every other status false. Tests: crates/aios-verification/tests/runtime_integration.rs adds 13 cross-crate tests covering adapter construction, valid/invalid intent parsing, pass/fail submit_action, no-intent no-op compatibility, real file_exists marker present/absent, concurrent submissions, runtime action_id result binding, and §22 trustworthy pass/fail contrast with verification evidence. Required gates PASS: cargo check --workspace + cargo test -p aios-verification + cargo test -p aios-capability-runtime + cargo test --workspace + cargo clippy --workspace --all-targets -- -D warnings + cargo fmt --all -- --check. Spec note: current aios-action::ActionEnvelope has no top-level verification_intent field, so T-071 uses request.target.verification_intent as the envelope-carried intent source and preserves no-op verification when absent; ExecutionFailureReason has no VerificationFailed variant, so verification failure maps to AdapterRefused as the existing surrogate. Scope guard held: no renderer or M8 closer."
     }
   ],
   "blocked": [],
@@ -576,11 +582,12 @@
         "T-067",
         "T-068",
         "T-069",
-        "T-070"
+        "T-070",
+        "T-071"
       ],
-      "current_test_count": 1386,
+      "current_test_count": 1399,
       "crate_version": "aios-verification/0.0.1",
-      "rationale": "Real VerificationEngine.RunVerification \u2014 M8 now has local deterministic primitive execution, closed grammar parsing, combinator execution, the S2.4 section 10 gRPC service surface, and S3.1 VERIFICATION_RESULT evidence emission. Runtime integration continues in T-071+."
+      "rationale": "Real VerificationEngine.RunVerification \u2014 M8 now has local deterministic primitive execution, closed grammar parsing, combinator execution, the S2.4 section 10 gRPC service surface, S3.1 VERIFICATION_RESULT evidence emission, and runtime step_verify integration. Renderer integration continues in T-072."
     },
     "M9": {
       "status": "planned",

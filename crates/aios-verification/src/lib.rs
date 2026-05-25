@@ -19,6 +19,7 @@ pub mod intent;
 pub mod primitive;
 pub mod primitives;
 pub mod result;
+pub mod runtime_adapter;
 pub mod service;
 
 pub use engine::{VerificationContext, VerificationEngine};
@@ -39,6 +40,7 @@ pub use intent::{IntentId, VerificationIntent};
 pub use primitive::VerificationPrimitive;
 pub use primitives::{LocalProbe, MockLocalProbe, StdLocalProbe};
 pub use result::{PrimitiveResult, VerificationResult, VerificationStatus};
+pub use runtime_adapter::VerificationRuntimeAdapter;
 pub use service::{
     build_router, serve, VerificationEngineClient, VerificationEngineGrpc,
     VerificationEngineGrpcServer, VerificationEngineService, SCHEMA_VERSION,

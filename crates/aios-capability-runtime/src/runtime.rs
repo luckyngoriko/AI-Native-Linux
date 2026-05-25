@@ -105,6 +105,19 @@ impl AdapterHandle for NoOpAdapterHandle {
     }
 }
 
+/// Adapter-facing verification hook used by the runtime without depending on
+/// `aios-verification`.
+#[async_trait]
+pub trait RuntimeVerificationEngine: Send + Sync {
+    /// Verify the action postcondition described by `intent_json`.
+    ///
+    /// # Errors
+    ///
+    /// Returns a string detail when the adapter cannot parse or run the
+    /// verification intent. The runtime fails the action closed on any error.
+    async fn verify(&self, intent_json: &str, action_id: &str) -> Result<bool, String>;
+}
+
 // ---------------------------------------------------------------------------
 // RuntimeContext.
 // ---------------------------------------------------------------------------
@@ -471,6 +484,10 @@ pub struct InMemoryCapabilityRuntime {
     /// per-action evidence chain remains empty. This keeps the existing
     /// test surfaces bit-for-bit compatible.
     evidence_emitter: Option<Arc<EvidenceEmitter>>,
+    /// Optional verification engine handle. When attached and the envelope
+    /// carries a verification intent, step 6 runs the real engine; when absent
+    /// the T-027 verification stub stays intact for backward compatibility.
+    verification_engine: Option<Arc<dyn RuntimeVerificationEngine>>,
     /// T-030 — defense-in-depth tripwire counter for the §17 AI
     /// self-approval prevention boundary.
     ///
@@ -538,6 +555,7 @@ impl std::fmt::Debug for InMemoryCapabilityRuntime {
             .field("dispatch_queue", &self.dispatch_queue.is_some())
             .field("policy_kernel", &self.policy_kernel.is_some())
             .field("evidence_emitter", &self.evidence_emitter.is_some())
+            .field("verification_engine", &self.verification_engine.is_some())
             .field(
                 "policy_double_check_warnings",
                 &self.policy_double_check_warnings.load(Ordering::Acquire),
@@ -568,6 +586,7 @@ impl InMemoryCapabilityRuntime {
             dispatch_queue: None,
             policy_kernel: None,
             evidence_emitter: None,
+            verification_engine: None,
             policy_double_check_warnings: Arc::new(AtomicU64::new(0)),
             rollback_driver: None,
             operator_alerts: Arc::new(AtomicU64::new(0)),
@@ -696,6 +715,14 @@ impl InMemoryCapabilityRuntime {
         self
     }
 
+    /// Attach a verification engine to the runtime. Returns `self` for
+    /// chaining.
+    #[must_use]
+    pub fn with_verification_engine(mut self, engine: Arc<dyn RuntimeVerificationEngine>) -> Self {
+        self.verification_engine = Some(engine);
+        self
+    }
+
     /// Borrow the attached evidence emitter, if any.
     #[must_use]
     pub const fn evidence_emitter(&self) -> Option<&Arc<EvidenceEmitter>> {
@@ -794,6 +821,7 @@ impl CapabilityRuntime for InMemoryCapabilityRuntime {
         let registry_ref = self.adapter_registry.as_deref();
         let queue_ref = self.dispatch_queue.as_deref();
         let kernel_ref = self.policy_kernel.as_deref();
+        let verification_ref = self.verification_engine.as_deref();
         let final_ctx = if let Some(emitter) = self.evidence_emitter.as_deref() {
             // T-031 / T-032 path — every §4.2 transition emits an
             // evidence receipt. When a rollback driver is also attached
@@ -814,6 +842,7 @@ impl CapabilityRuntime for InMemoryCapabilityRuntime {
                         emitter,
                         rollback_ref,
                         Some(&self.operator_alerts),
+                        verification_ref,
                     )
                     .await?
             } else {
@@ -828,6 +857,7 @@ impl CapabilityRuntime for InMemoryCapabilityRuntime {
                         Some(context),
                         Some(&self.policy_double_check_warnings),
                         emitter,
+                        verification_ref,
                     )
                     .await?
             }
@@ -845,6 +875,7 @@ impl CapabilityRuntime for InMemoryCapabilityRuntime {
                     kernel_ref,
                     Some(context),
                     Some(&self.policy_double_check_warnings),
+                    verification_ref,
                 )
                 .await?
         };
@@ -958,6 +989,7 @@ impl InMemoryCapabilityRuntime {
         // explicit at the runtime boundary.
         let registry_ref = self.adapter_registry.as_deref();
         let queue_ref = self.dispatch_queue.as_deref();
+        let verification_ref = self.verification_engine.as_deref();
         let final_ctx = {
             let ctx = ctx_after_consume;
             // Step 4 — queue enrolment. With an emitter wired, route
@@ -993,10 +1025,18 @@ impl InMemoryCapabilityRuntime {
                     // Step 6 — verify (stub drives SUCCEEDED).
                     let state = if let Some(emitter) = emitter_ref {
                         self.pipeline
-                            .step_verify_and_emit(envelope, ctx2, now, emitter)
+                            .step_verify_with_engine_and_emit(
+                                envelope,
+                                ctx2,
+                                now,
+                                emitter,
+                                verification_ref,
+                            )
                             .await?
                     } else {
-                        self.pipeline.step_verify(envelope, ctx2, now)?
+                        self.pipeline
+                            .step_verify_with_engine(envelope, ctx2, now, verification_ref)
+                            .await?
                     };
                     state.into_context()
                 } else {

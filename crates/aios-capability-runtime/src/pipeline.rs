@@ -57,7 +57,7 @@ use crate::evidence_emit::EvidenceEmitter;
 use crate::failure::{ExecutionFailureReason, RollbackOutcome};
 use crate::rollback::RollbackDriver;
 use crate::rollback_strategy::RollbackStrategy;
-use crate::runtime::RuntimeContext;
+use crate::runtime::{RuntimeContext, RuntimeVerificationEngine};
 use crate::status::ActionLifecycleState;
 
 // ---------------------------------------------------------------------------
@@ -241,6 +241,15 @@ pub fn apply_transition(
     } else {
         Err(RuntimeError::InvalidTransition { from, to })
     }
+}
+
+fn verification_intent_json(envelope: &ActionEnvelope) -> Option<&str> {
+    envelope
+        .request
+        .target
+        .get("verification_intent")
+        .and_then(serde_json::Value::as_str)
+        .filter(|intent| !intent.trim().is_empty())
 }
 
 // ---------------------------------------------------------------------------
@@ -497,6 +506,7 @@ impl ActionLifecyclePipeline {
         kernel: Option<&dyn PolicyKernel>,
         runtime_context: Option<&RuntimeContext>,
         tripwire: Option<&AtomicU64>,
+        verification_engine: Option<&dyn RuntimeVerificationEngine>,
     ) -> Result<ActionContext, RuntimeError> {
         let state = self.step_validate(envelope, ctx, now)?;
         let state = match state {
@@ -532,7 +542,10 @@ impl ActionLifecyclePipeline {
             PipelineState::ShortCircuit(c) => return Ok(c),
         };
         let state = match state {
-            PipelineState::Continue(c) => self.step_verify(envelope, c, now)?,
+            PipelineState::Continue(c) => {
+                self.step_verify_with_engine(envelope, c, now, verification_engine)
+                    .await?
+            }
             PipelineState::ShortCircuit(c) => return Ok(c),
         };
         let state = match state {
@@ -604,6 +617,7 @@ impl ActionLifecyclePipeline {
         runtime_context: Option<&RuntimeContext>,
         tripwire: Option<&AtomicU64>,
         emitter: &EvidenceEmitter,
+        verification_engine: Option<&dyn RuntimeVerificationEngine>,
     ) -> Result<ActionContext, RuntimeError> {
         // ── Step 1: validate envelope. Emit ACTION_RECEIVED on success. ──
         let state = self.step_validate(envelope, ctx, now)?;
@@ -663,7 +677,14 @@ impl ActionLifecyclePipeline {
         // ── Step 6: verify. Emit EXECUTION_COMPLETED + VERIFICATION_RESULT. ──
         let state = match state {
             PipelineState::Continue(c) => {
-                self.step_verify_and_emit(envelope, c, now, emitter).await?
+                self.step_verify_with_engine_and_emit(
+                    envelope,
+                    c,
+                    now,
+                    emitter,
+                    verification_engine,
+                )
+                .await?
             }
             PipelineState::ShortCircuit(c) => return Ok(c),
         };
@@ -724,6 +745,7 @@ impl ActionLifecyclePipeline {
         emitter: &EvidenceEmitter,
         rollback_driver: Option<&RollbackDriver>,
         operator_alerts: Option<&AtomicU64>,
+        verification_engine: Option<&dyn RuntimeVerificationEngine>,
     ) -> Result<ActionContext, RuntimeError> {
         // ── Step 1: validate envelope. Emit ACTION_RECEIVED on success. ──
         let state = self.step_validate(envelope, ctx, now)?;
@@ -781,8 +803,15 @@ impl ActionLifecyclePipeline {
         // ── Step 6: verify (with verify-failure injection seam). ──
         let state = match state {
             PipelineState::Continue(c) => {
-                self.step_verify_inject_failure_and_emit(envelope, c, now, emitter, rollback_driver)
-                    .await?
+                self.step_verify_inject_failure_and_emit(
+                    envelope,
+                    c,
+                    now,
+                    emitter,
+                    rollback_driver,
+                    verification_engine,
+                )
+                .await?
             }
             PipelineState::ShortCircuit(c) => return Ok(c),
         };
@@ -1037,6 +1066,24 @@ impl ActionLifecyclePipeline {
         now: DateTime<Utc>,
         emitter: &EvidenceEmitter,
     ) -> Result<PipelineState, RuntimeError> {
+        self.step_verify_with_engine_and_emit(envelope, ctx, now, emitter, None)
+            .await
+    }
+
+    /// Same as [`Self::step_verify_and_emit`], but consults an optional
+    /// verification engine before emitting the verification result.
+    ///
+    /// # Errors
+    ///
+    /// Same as [`Self::step_verify_and_emit`].
+    pub async fn step_verify_with_engine_and_emit(
+        &self,
+        envelope: &ActionEnvelope,
+        ctx: ActionContext,
+        now: DateTime<Utc>,
+        emitter: &EvidenceEmitter,
+        verification_engine: Option<&dyn RuntimeVerificationEngine>,
+    ) -> Result<PipelineState, RuntimeError> {
         // First emit EXECUTION_COMPLETED for the EXECUTING → VERIFYING
         // transition. We do this before driving step_verify because that
         // step performs two consecutive transitions (T15 then T17) and
@@ -1046,17 +1093,20 @@ impl ActionLifecyclePipeline {
         emitter
             .emit_execution_completed(envelope, &mut pre, "ADAPTER_OK")
             .await?;
-        let state = self.step_verify(envelope, pre, now)?;
+        let state = self
+            .step_verify_with_engine(envelope, pre, now, verification_engine)
+            .await?;
         match state {
             PipelineState::Continue(mut c) | PipelineState::ShortCircuit(mut c) => {
                 let passed = c.status == ActionLifecycleState::Succeeded;
                 emitter
                     .emit_verification_result(envelope, &mut c, passed)
                     .await?;
-                // Re-wrap as ShortCircuit because step_verify always ends
-                // in a terminal in T-031 scope (today's stub drives
-                // SUCCEEDED unconditionally).
-                Ok(PipelineState::ShortCircuit(c))
+                if passed {
+                    Ok(PipelineState::ShortCircuit(c))
+                } else {
+                    Ok(PipelineState::Continue(c))
+                }
             }
         }
     }
@@ -1786,6 +1836,45 @@ impl ActionLifecyclePipeline {
         Ok(PipelineState::ShortCircuit(ctx))
     }
 
+    /// Step 6 with an optional verification engine attached.
+    ///
+    /// When `verification_engine` is `None`, or when the submitted envelope
+    /// does not carry a verification intent in its request target, this
+    /// preserves the original T-027 stub-pass behaviour.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`RuntimeError::InvalidTransition`] when the context is not in
+    /// the expected lifecycle state.
+    pub async fn step_verify_with_engine(
+        &self,
+        envelope: &ActionEnvelope,
+        mut ctx: ActionContext,
+        now: DateTime<Utc>,
+        verification_engine: Option<&dyn RuntimeVerificationEngine>,
+    ) -> Result<PipelineState, RuntimeError> {
+        let Some(engine) = verification_engine else {
+            return self.step_verify(envelope, ctx, now);
+        };
+        let Some(intent_json) = verification_intent_json(envelope) else {
+            return self.step_verify(envelope, ctx, now);
+        };
+
+        apply_transition(&mut ctx, ActionLifecycleState::Verifying, now)?;
+        let passed = engine
+            .verify(intent_json, ctx.action_id.as_str())
+            .await
+            .unwrap_or_default();
+        if passed {
+            apply_transition(&mut ctx, ActionLifecycleState::Succeeded, now)?;
+            Ok(PipelineState::ShortCircuit(ctx))
+        } else {
+            apply_transition(&mut ctx, ActionLifecycleState::Failed, now)?;
+            ctx.error = Some(ExecutionFailureReason::AdapterRefused);
+            Ok(PipelineState::Continue(ctx))
+        }
+    }
+
     // -----------------------------------------------------------------------
     // Step 7 — RollbackAction (STUB; T-032 owns the rollback FSM).
     // -----------------------------------------------------------------------
@@ -1993,10 +2082,13 @@ impl ActionLifecyclePipeline {
         now: DateTime<Utc>,
         emitter: &EvidenceEmitter,
         driver: Option<&RollbackDriver>,
+        verification_engine: Option<&dyn RuntimeVerificationEngine>,
     ) -> Result<PipelineState, RuntimeError> {
         let inject = driver.is_some_and(RollbackDriver::inject_verify_failure);
         if !inject {
-            return self.step_verify_and_emit(envelope, ctx, now, emitter).await;
+            return self
+                .step_verify_with_engine_and_emit(envelope, ctx, now, emitter, verification_engine)
+                .await;
         }
         // EXECUTION_COMPLETED first (T-031 ordering preserved).
         let mut pre = ctx;

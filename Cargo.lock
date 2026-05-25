@@ -170,6 +170,8 @@ dependencies = [
 name = "aios-renderer-cli"
 version = "0.0.1"
 dependencies = [
+ "aios-action",
+ "aios-capability-runtime",
  "chrono",
  "serde",
  "serde_json",

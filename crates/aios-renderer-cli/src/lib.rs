@@ -8,6 +8,7 @@
 
 #![forbid(unsafe_code)]
 
+pub mod action_render;
 pub mod cli_types;
 pub mod error;
 pub mod json_renderer;

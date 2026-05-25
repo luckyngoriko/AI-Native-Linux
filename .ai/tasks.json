@@ -504,6 +504,12 @@
       "title": "aios-sgr - SgrAdapterRegistry + capability matching + fail-closed semantics (S15.3)",
       "completed_at": "2026-05-25",
       "evidence": "1680 tests workspace (+16 over T-087 baseline 1664). Added crates/aios-sgr/src/adapter_registry.rs with SgrAdapterRegistry, RegisteredAdapter, 4-state AdapterRegistrationState, Ed25519 verification over AdapterCapability signed body, duplicate capability id idempotency for identical payloads, lookup/list/find_for_unit/suspend/retire. Matching selects the first Active adapter by registered_at that provides every required capability and skips Suspended/Retired; non-empty requirements with no full match return None fail-closed for T-091 integration. Added SgrError::AdapterCapabilityMismatch and AdapterSuspended, lib.rs exports, and crates/aios-sgr/tests/adapter_registry.rs with 16 tests. Compatibility note: UnitManifest has no typed requires field in T-084 and unit.rs is frozen for T-088, so find_adapter_for_unit reads adapter_target.requires until T-091/S15.1 wiring lands. Gates PASS: cargo check --workspace; cargo test --workspace; cargo clippy --workspace --all-targets -- -D warnings; cargo fmt --all -- --check. Scope guard held: no gRPC, evidence, cross-crate integration, renderer, or M10 closer."
+    },
+    {
+      "id": "T-089",
+      "title": "aios-sgr - gRPC SgrService (S15.x)",
+      "completed_at": "2026-05-25",
+      "evidence": "1705 tests workspace (+25 over T-088 baseline 1680). Added proto/aios.sgr.v1alpha1.proto with the SgrService RPC surface, build.rs tonic-build wiring, tonic/prost/prost-types runtime deps and tonic-build/protoc-bin-vendored build deps, src/service/{mod,conversions,server}.rs, lib.rs service exports, DEFAULT_CODE_VERSION, SgrError -> tonic::Status mapping, and crates/aios-sgr/tests/grpc_roundtrip.rs with 25 direct/in-process gRPC tests. Gates PASS: cargo check --workspace; cargo test -p aios-sgr; cargo test --workspace; cargo clippy --workspace --all-targets -- -D warnings; cargo fmt --all -- --check. Scope guard held: no evidence emission, cross-crate integration, renderer, or M10 closer."
     }
   ],
   "blocked": [],
@@ -738,9 +744,10 @@
         "T-085",
         "T-086",
         "T-087",
-        "T-088"
+        "T-088",
+        "T-089"
       ],
-      "current_test_count": 1680,
+      "current_test_count": 1705,
       "crate_version": "aios-sgr/0.0.1",
       "rationale": "Beyond capability runtime: AIOS-SGR desired-state graph, unit manifest, adapter declaration."
     },

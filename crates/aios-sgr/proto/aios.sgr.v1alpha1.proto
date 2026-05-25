@@ -1,0 +1,341 @@
+syntax = "proto3";
+
+package aios.sgr.v1alpha1;
+
+import "google/protobuf/timestamp.proto";
+import "google/protobuf/struct.proto";
+
+enum UnitKindProto {
+  UNIT_KIND_UNSPECIFIED = 0;
+  UNIT_KIND_SERVICE = 1;
+  UNIT_KIND_ONE_SHOT_JOB = 2;
+  UNIT_KIND_TIMER = 3;
+  UNIT_KIND_MOUNT = 4;
+  UNIT_KIND_DEVICE = 5;
+  UNIT_KIND_APP_SESSION = 6;
+  UNIT_KIND_AGENT_WORKER = 7;
+  UNIT_KIND_MODEL_SERVER = 8;
+  UNIT_KIND_RECOVERY_TASK = 9;
+  UNIT_KIND_OBSERVER = 10;
+}
+
+enum DesiredStateProto {
+  DESIRED_STATE_UNSPECIFIED = 0;
+  DESIRED_STATE_RUNNING = 1;
+  DESIRED_STATE_STOPPED = 2;
+  DESIRED_STATE_RESTARTED = 3;
+  DESIRED_STATE_RELOADED = 4;
+}
+
+enum UnitStateProto {
+  UNIT_STATE_UNSPECIFIED = 0;
+  UNIT_STATE_DRAFT = 1;
+  UNIT_STATE_QUEUED = 2;
+  UNIT_STATE_STARTING = 3;
+  UNIT_STATE_RUNNING = 4;
+  UNIT_STATE_HEALTHY = 5;
+  UNIT_STATE_DEGRADED = 6;
+  UNIT_STATE_UNHEALTHY = 7;
+  UNIT_STATE_STOPPING = 8;
+  UNIT_STATE_STOPPED = 9;
+  UNIT_STATE_FAILED = 10;
+  UNIT_STATE_RETIRED = 11;
+}
+
+enum DependencyKindProto {
+  DEPENDENCY_KIND_UNSPECIFIED = 0;
+  DEPENDENCY_REQUIRES_HEALTHY = 1;
+  DEPENDENCY_REQUIRES_RUNNING = 2;
+  DEPENDENCY_ORDERS_AFTER = 3;
+}
+
+enum GraphStateProto {
+  GRAPH_STATE_UNSPECIFIED = 0;
+  GRAPH_STATE_EMPTY = 1;
+  GRAPH_STATE_RESOLVING = 2;
+  GRAPH_STATE_CONVERGING = 3;
+  GRAPH_STATE_CONVERGED = 4;
+  GRAPH_STATE_DEGRADED = 5;
+  GRAPH_STATE_FAILED = 6;
+}
+
+enum RestartPolicyProto {
+  RESTART_POLICY_UNSPECIFIED = 0;
+  RESTART_POLICY_NEVER = 1;
+  RESTART_POLICY_ON_FAILURE = 2;
+  RESTART_POLICY_ALWAYS = 3;
+  RESTART_POLICY_UNLESS_STOPPED = 4;
+  RESTART_POLICY_SCHEDULED = 5;
+}
+
+enum HealthCheckKindProto {
+  HEALTH_CHECK_KIND_UNSPECIFIED = 0;
+  HEALTH_CHECK_TCP_PORT = 1;
+  HEALTH_CHECK_HTTP_OK = 2;
+  HEALTH_CHECK_COMMAND_EXIT_ZERO = 3;
+  HEALTH_CHECK_AIOSFS_POINTER_HEALTHY = 4;
+  HEALTH_CHECK_CUSTOM_PROBE = 5;
+}
+
+enum RollbackTriggerProto {
+  ROLLBACK_TRIGGER_UNSPECIFIED = 0;
+  ROLLBACK_ON_STARTUP_FAILURE = 1;
+  ROLLBACK_ON_HEALTH_FAILURE = 2;
+  ROLLBACK_ON_OPERATOR_REQUEST = 3;
+  ROLLBACK_NEVER = 4;
+}
+
+enum AdapterRegistrationStateProto {
+  ADAPTER_REGISTRATION_STATE_UNSPECIFIED = 0;
+  ADAPTER_REGISTRATION_PENDING = 1;
+  ADAPTER_REGISTRATION_ACTIVE = 2;
+  ADAPTER_REGISTRATION_SUSPENDED = 3;
+  ADAPTER_REGISTRATION_RETIRED = 4;
+}
+
+message UnitDependencyProto {
+  string unit_id = 1;
+  DependencyKindProto kind = 2;
+}
+
+message VerificationIntentRefProto {
+  string intent_type = 1;
+  google.protobuf.Value args = 2;
+}
+
+message RollbackPointerProto {
+  string aiosfs_pointer_id = 1;
+  string expected_current_version_id = 2;
+  RollbackTriggerProto trigger = 3;
+}
+
+message GpuBudgetProto {
+  bool requires_compute = 1;
+  uint64 vram_bytes_max = 2;
+}
+
+message ResourceBudgetProto {
+  uint64 memory_bytes_max = 1;
+  double cpu_quota_cores = 2;
+  uint64 disk_bytes_max = 3;
+  uint32 file_descriptors_max = 4;
+  uint32 process_count_max = 5;
+  uint32 queue_depth_max = 6;
+  GpuBudgetProto gpu = 7;
+}
+
+message RestartBudgetProto {
+  uint32 max_attempts = 1;
+  uint32 reset_window_seconds = 2;
+  uint32 backoff_initial_seconds = 3;
+  uint32 backoff_max_seconds = 4;
+}
+
+message HealthCheckSpecProto {
+  HealthCheckKindProto kind = 1;
+  uint32 probe_interval_seconds = 2;
+  uint32 probe_timeout_seconds = 3;
+  uint32 startup_grace_seconds = 4;
+  uint32 unhealthy_threshold = 5;
+  uint32 healthy_threshold = 6;
+  google.protobuf.Value args = 7;
+}
+
+message UnitManifestProto {
+  string schema_version = 1;
+  string unit_id = 2;
+  UnitKindProto unit_kind = 3;
+  string display_name = 4;
+  string description = 5;
+  google.protobuf.Timestamp issued_at = 6;
+  string publisher_id = 7;
+  string publisher_root_id = 8;
+  bytes publisher_signature = 9;
+  string canonical_hash = 10;
+  repeated UnitDependencyProto dependencies = 11;
+  string sandbox_profile_ref = 12;
+  repeated VerificationIntentRefProto verification_intent = 13;
+  RollbackPointerProto rollback_pointer = 14;
+  ResourceBudgetProto resource_budget = 15;
+  RestartPolicyProto restart_policy = 16;
+  RestartBudgetProto restart_budget = 17;
+  HealthCheckSpecProto health_check = 18;
+  uint32 startup_deadline_seconds = 19;
+  uint32 stop_deadline_seconds = 20;
+  google.protobuf.Value adapter_target = 21;
+  google.protobuf.Value labels = 22;
+  optional string correlation_id = 23;
+  DesiredStateProto desired_state = 24;
+  repeated string provides = 25;
+  optional string adapter_id = 26;
+}
+
+message ServiceUnitProto {
+  string unit_id = 1;
+  UnitManifestProto manifest = 2;
+  UnitStateProto state = 3;
+  google.protobuf.Timestamp last_transition_at = 4;
+  repeated string evidence_chain = 5;
+}
+
+message DependencyEdgeProto {
+  string from_unit_id = 1;
+  string to_unit_id = 2;
+  DependencyKindProto kind = 3;
+}
+
+message AdapterCapabilityProto {
+  string capability_id = 1;
+  repeated string provides = 2;
+  repeated string requires = 3;
+  string risk_template = 4;
+  bytes manifest_signature_ed25519 = 5;
+}
+
+message RegisteredAdapterProto {
+  AdapterCapabilityProto capability = 1;
+  bytes declaration_json = 2;
+  google.protobuf.Timestamp registered_at = 3;
+  AdapterRegistrationStateProto state = 4;
+}
+
+message RegisterUnitRequest {
+  string schema_version = 1;
+  UnitManifestProto manifest = 2;
+  bytes action_id_proto = 3;
+  uint32 action_id_format = 4;
+}
+
+message GetUnitRequest {
+  string schema_version = 1;
+  string unit_id = 2;
+}
+
+message ListUnitsRequest {
+  string schema_version = 1;
+}
+
+message ListUnitsResponse {
+  repeated ServiceUnitProto units = 1;
+}
+
+message DeclareDependencyRequest {
+  string schema_version = 1;
+  string from_unit_id = 2;
+  string to_unit_id = 3;
+  DependencyKindProto kind = 4;
+  bytes action_id_proto = 5;
+  uint32 action_id_format = 6;
+}
+
+message ListDependenciesRequest {
+  string schema_version = 1;
+  string unit_id = 2;
+}
+
+message ListDependenciesResponse {
+  repeated DependencyEdgeProto edges = 1;
+}
+
+message TraverseGraphRequest {
+  string schema_version = 1;
+}
+
+message TraverseGraphResponse {
+  repeated string ordered_unit_ids = 1;
+}
+
+message GetGraphStateRequest {
+  string schema_version = 1;
+}
+
+message GetGraphStateResponse {
+  GraphStateProto state = 1;
+}
+
+message EvaluateGraphRequest {
+  string schema_version = 1;
+}
+
+message EvaluateGraphResponse {
+  GraphStateProto convergence_state = 1;
+  bool converged = 2;
+}
+
+message StartUnitRequest {
+  string schema_version = 1;
+  string unit_id = 2;
+  bytes action_id_proto = 3;
+  uint32 action_id_format = 4;
+}
+
+message StopUnitRequest {
+  string schema_version = 1;
+  string unit_id = 2;
+  bytes action_id_proto = 3;
+  uint32 action_id_format = 4;
+}
+
+message RestartUnitRequest {
+  string schema_version = 1;
+  string unit_id = 2;
+  bytes action_id_proto = 3;
+  uint32 action_id_format = 4;
+}
+
+message MarkUnitFailedRequest {
+  string schema_version = 1;
+  string unit_id = 2;
+  string reason = 3;
+  bytes action_id_proto = 4;
+  uint32 action_id_format = 5;
+}
+
+message RegisterAdapterRequest {
+  string schema_version = 1;
+  AdapterCapabilityProto capability = 2;
+  bytes declaration_json = 3;
+  bytes action_id_proto = 4;
+  uint32 action_id_format = 5;
+}
+
+message LookupAdapterRequest {
+  string schema_version = 1;
+  string capability_id = 2;
+}
+
+message ListAdaptersRequest {
+  string schema_version = 1;
+}
+
+message ListAdaptersResponse {
+  repeated RegisteredAdapterProto adapters = 1;
+}
+
+message FindAdapterForUnitRequest {
+  string schema_version = 1;
+  UnitManifestProto manifest = 2;
+}
+
+message FindAdapterForUnitResponse {
+  RegisteredAdapterProto adapter = 1;
+}
+
+service SgrService {
+  rpc RegisterUnit(RegisterUnitRequest) returns (ServiceUnitProto);
+  rpc GetUnit(GetUnitRequest) returns (ServiceUnitProto);
+  rpc ListUnits(ListUnitsRequest) returns (ListUnitsResponse);
+  rpc DeclareDependency(DeclareDependencyRequest) returns (DependencyEdgeProto);
+  rpc ListDependencies(ListDependenciesRequest) returns (ListDependenciesResponse);
+  rpc TraverseGraph(TraverseGraphRequest) returns (TraverseGraphResponse);
+  rpc GetGraphState(GetGraphStateRequest) returns (GetGraphStateResponse);
+  rpc EvaluateGraph(EvaluateGraphRequest) returns (EvaluateGraphResponse);
+  rpc StartUnit(StartUnitRequest) returns (ServiceUnitProto);
+  rpc StopUnit(StopUnitRequest) returns (ServiceUnitProto);
+  rpc RestartUnit(RestartUnitRequest) returns (ServiceUnitProto);
+  rpc MarkUnitFailed(MarkUnitFailedRequest) returns (ServiceUnitProto);
+  rpc RegisterAdapter(RegisterAdapterRequest) returns (RegisteredAdapterProto);
+  rpc LookupAdapter(LookupAdapterRequest) returns (RegisteredAdapterProto);
+  rpc ListAdapters(ListAdaptersRequest) returns (ListAdaptersResponse);
+  rpc FindAdapterForUnit(FindAdapterForUnitRequest) returns (FindAdapterForUnitResponse);
+}

@@ -480,6 +480,12 @@
       "title": "aios-sgr crate skeleton - S15.1 + S15.2 + S15.3 typed core",
       "completed_at": "2026-05-25",
       "evidence": "1607 tests workspace (+15 over T-083 baseline 1592). New crates/aios-sgr v0.0.1 registered in workspace. Types-only skeleton for UnitManifest/ServiceUnit/UnitKind/DesiredState, UnitState/GraphState/S15.2 graph enums, UnitDependency/DependencyEdge/DependencyKind, AdapterManifest/AdapterCapability/AdapterDeclaration/S15.3 closed enums, and SgrError. Gates PASS: cargo check --workspace; cargo test --workspace; cargo clippy --workspace --all-targets -- -D warnings; cargo fmt --all -- --check. Scope guard held: no ServiceGraph trait, FSM driver, graph evaluator, adapter registry, gRPC, evidence emission, cross-crate integration, or renderer."
+    },
+    {
+      "id": "T-085",
+      "title": "aios-sgr - ServiceGraph trait + InMemoryServiceGraph (S15.1)",
+      "completed_at": "2026-05-25",
+      "evidence": "1625 tests workspace (+18 over T-084 baseline 1607). Added crates/aios-sgr/src/graph.rs with async_trait ServiceGraph and 7 methods. Added crates/aios-sgr/src/in_memory_graph.rs with RwLock<HashMap<UnitId, ServiceUnit>>, RwLock<HashMap<UnitId, Vec<DependencyEdge>>>, trusted authorities, Ed25519 signature verification over BLAKE3 digest of UnitManifest without publisher_signature/canonical_hash, duplicate unit rejection, manifest dependency edge import, dependency declaration/listing, graph_state derivation, and low-level S15.1 state transition validation. Added SgrError::UnitAlreadyRegistered and lib.rs exports. Tests: crates/aios-sgr/tests/graph.rs adds 18 tests covering valid/bad/unknown signatures, duplicate registration, get/list, dependency target guard, state transitions, graph states, Arc<dyn ServiceGraph>, and concurrent register/read. Gates PASS: cargo check --workspace; cargo test --workspace; cargo clippy --workspace --all-targets -- -D warnings; cargo fmt --all -- --check. Scope guard held: no FSM driver, graph evaluator/cycle detection, adapter registry, gRPC, evidence, cross-crate integration, renderer, or M10 closer."
     }
   ],
   "blocked": [],
@@ -710,9 +716,10 @@
       "layer": "L3",
       "target_crate": "aios-sgr",
       "tasks": [
-        "T-084"
+        "T-084",
+        "T-085"
       ],
-      "current_test_count": 1607,
+      "current_test_count": 1625,
       "crate_version": "aios-sgr/0.0.1",
       "rationale": "Beyond capability runtime: AIOS-SGR desired-state graph, unit manifest, adapter declaration."
     },

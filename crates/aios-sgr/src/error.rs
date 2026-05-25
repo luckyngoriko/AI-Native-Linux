@@ -10,6 +10,9 @@ pub enum SgrError {
     /// Unit id was not found in the runtime graph.
     #[error("unit not found: {0}")]
     UnitNotFound(UnitId),
+    /// Unit id is already registered in the runtime graph.
+    #[error("unit already registered: {0}")]
+    UnitAlreadyRegistered(UnitId),
     /// Dependency solver found a cycle.
     #[error("dependency cycle detected: {0:?}")]
     DependencyCycleDetected(Vec<UnitId>),

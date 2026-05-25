@@ -414,6 +414,12 @@
       "title": "aios-verification v0.1.0 - §22 TRUSTWORTHY MVP + S2.4 acceptance fixtures (M8 CLOSED)",
       "completed_at": "2026-05-25",
       "evidence": "1436 tests workspace (+26 over T-072 baseline 1410); aios-verification package tests = 141. Added tests/mvp_trustworthy_path.rs (§22 contrast pair: same envelope + marker present -> SUCCEEDED/PASSED; same envelope + marker absent -> FAILED/AdapterRefused/FAILED; same envelope without engine -> T-027 stub SUCCEEDED), tests/acceptance_fixtures.rs (8 S2.4 §13 golden fixtures plus timeout coverage), and tests/m8_closure.rs (10 invariants: version, DEFAULT_CODE_VERSION, no Unimplemented/todo/unimplemented, every RPC implemented, status and primitive coverage, RuntimeVerificationEngine impl, deferred-surface docs). Bumped aios-verification Cargo.toml 0.0.1 -> 0.1.0 and DEFAULT_CODE_VERSION -> 0.1.0-T073. Deferred surfaces documented: tier-3 network/control-plane probes -> M16, VERIFICATION_STARTED/primitive-executed folded into VERIFICATION_RESULT, verification failure maps to AdapterRefused. M8 CLOSED; M9 ready."
+    },
+    {
+      "id": "T-074",
+      "title": "aios-recovery - S9.1 + S9.2 + S9.3 typed core skeleton (M9 OPENER)",
+      "completed_at": "2026-05-25",
+      "evidence": "1448 tests workspace (+12 over T-073 baseline 1436). Added crates/aios-recovery v0.0.1 with S9.1 RecoveryMode + RecoveryState, S9.2 BootPhase + FirstBootContext + FirstBootPhase + FirstBootStatus, S9.3 KernelCandidate + KernelManifest + CandidateState, S9.1 degraded-subset RecoveryBundle, and RecoveryError taxonomy. Required gates PASS: cargo check --workspace + cargo test --workspace + cargo clippy --workspace --all-targets -- -D warnings + cargo fmt --all -- --check. Spec deviations from brief are TRUST SPEC choices: RecoveryMode follows S9.1 four values NORMAL/RECOVERY/DEGRADED/FIRST_BOOT, CandidateState follows S9.3 KernelImageState nine-value FSM, and FirstBootPhase follows S9.2 fifteen-stage FSM."
     }
   ],
   "blocked": [],
@@ -605,8 +611,9 @@
       "rationale": "Real VerificationEngine.RunVerification is now wired through runtime completion. §22 MVP is TRUSTWORTHY: configured verification pass is required for SUCCEEDED, failure blocks completion, and the no-engine stub path remains explicit backward compatibility."
     },
     "M9": {
-      "status": "ready",
+      "status": "in_progress",
       "title": "Recovery Boundary + First-Boot + Kernel Pipeline",
+      "started_at": "2026-05-25",
       "sub_specs": [
         "S9.1",
         "S9.2",
@@ -614,6 +621,11 @@
       ],
       "layer": "L1",
       "target_crate": "aios-recovery",
+      "tasks": [
+        "T-074"
+      ],
+      "current_test_count": 1448,
+      "crate_version_target": "aios-recovery/0.1.0",
       "rationale": "Resolves S9.1 'degraded subset' exception findings from Capella iter 6."
     },
     "M10": {

@@ -555,3 +555,4 @@ Format: ISO-8601 timestamp | task_id | step | command(s) | result | status | nex
 2026-05-25 T-073 codex exec aios-verification M8 closer ready gates=green tests=1436
 2026-05-25 M8 CLOSED aios-verification v0.1.0 workspace_tests=1436 next=M9-aios-recovery
 2026-05-25 §22 MVP TRUSTWORTHY marker: actions are verified end-to-end; configured verification failure blocks SUCCEEDED via AdapterRefused; T-027 no-engine stub path remains explicit compatibility.
+2026-05-25 T-074 codex exec aios-recovery S9.1/S9.2/S9.3 typed core skeleton ready gates=green tests=1448

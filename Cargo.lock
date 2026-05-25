@@ -167,6 +167,21 @@ dependencies = [
 ]
 
 [[package]]
+name = "aios-recovery"
+version = "0.0.1"
+dependencies = [
+ "aios-action",
+ "blake3",
+ "chrono",
+ "serde",
+ "serde_json",
+ "strum",
+ "strum_macros",
+ "thiserror",
+ "ulid",
+]
+
+[[package]]
 name = "aios-renderer-cli"
 version = "0.1.0"
 dependencies = [

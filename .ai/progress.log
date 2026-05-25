@@ -538,3 +538,4 @@ Format: ISO-8601 timestamp | task_id | step | command(s) | result | status | nex
 2026-05-25 T-057 codex exec aios-renderer-cli format renderers ready gates=green tests=1200
 2026-05-25 T-058 codex exec ActionContext Renderable ready gates=green tests=1212
 2026-05-25 T-059 codex exec Evidence chain Renderable ready gates=green tests=1226
+2026-05-25 T-060 codex exec PolicyDecision + VaultCapability + FsObject Renderable ready gates=green tests=1245

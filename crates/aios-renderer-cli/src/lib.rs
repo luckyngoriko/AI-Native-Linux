@@ -12,14 +12,23 @@ pub mod action_render;
 pub mod cli_types;
 pub mod error;
 pub mod evidence_render;
+pub mod fs_render;
 pub mod json_renderer;
 pub mod output_format;
+pub mod policy_render;
 pub mod primitives;
 pub mod renderable;
 pub mod table_renderer;
 pub mod text_renderer;
 pub mod tree_renderer;
+pub mod vault_render;
 
+pub use aios_fs::{AiosPath, NamespaceClass, Object, Pointer, Version};
+pub use aios_policy::{ApprovalRequirement, Constraints, Decision, PolicyDecision};
+pub use aios_vault::{
+    CapabilityClass, CapabilityState, KeyMaterialHandle, OverrideBinding, OverrideClass,
+    VaultCapability,
+};
 pub use cli_types::{
     AnsiSupportLevel, CliCompilationResult, CliEvidenceRecordKind, CliInputMode, CliRenderMode,
 };

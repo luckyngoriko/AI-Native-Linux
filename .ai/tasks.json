@@ -408,6 +408,12 @@
       "title": "aios-renderer-cli - Renderable for VerificationResult + aios verify subcommand (S7.6 <-> S2.4)",
       "completed_at": "2026-05-25",
       "evidence": "1410 tests workspace by `cargo test --workspace -- --list`; +14 new renderer tests in crates/aios-renderer-cli/tests/verification_render.rs. Added Cargo edge aios-renderer-cli -> aios-verification. New src/verification_render.rs implements Renderable for VerificationIntent, VerificationResult, VerificationStatus, PrimitiveResult, VerificationPrimitive, plus VerificationPrimitiveList for CLI list output across Text/Json/Tree/Table. Status colors are PASSED green, FAILED red, TIMEOUT yellow, PROBE_ERROR magenta, SKIPPED gray. VerificationResult table output is a summary row; per-primitive detail is expanded in Text/Tree and direct PrimitiveResult Table output. CLI adds `aios verify run <intent.json> [--action-id ...]` and `aios verify list-primitives`. AiosClient gained verify/list_primitives via T-069 RunVerification/GetEngineInfo; AiosEndpoints gained verification endpoint; InProcessBackend now starts policy/runtime/fs/vault/verification with service_count=5. Required gates PASS: cargo check --workspace + cargo test -p aios-renderer-cli + cargo test --workspace + cargo clippy --workspace --all-targets -- -D warnings + cargo fmt --all -- --check + cargo build -p aios-renderer-cli --bin aios. Scope guard held: no aios-action/evidence/policy/runtime/fs/vault/verification source changes; no M8 closer/version bump."
+    },
+    {
+      "id": "T-073",
+      "title": "aios-verification v0.1.0 - §22 TRUSTWORTHY MVP + S2.4 acceptance fixtures (M8 CLOSED)",
+      "completed_at": "2026-05-25",
+      "evidence": "1436 tests workspace (+26 over T-072 baseline 1410); aios-verification package tests = 141. Added tests/mvp_trustworthy_path.rs (§22 contrast pair: same envelope + marker present -> SUCCEEDED/PASSED; same envelope + marker absent -> FAILED/AdapterRefused/FAILED; same envelope without engine -> T-027 stub SUCCEEDED), tests/acceptance_fixtures.rs (8 S2.4 §13 golden fixtures plus timeout coverage), and tests/m8_closure.rs (10 invariants: version, DEFAULT_CODE_VERSION, no Unimplemented/todo/unimplemented, every RPC implemented, status and primitive coverage, RuntimeVerificationEngine impl, deferred-surface docs). Bumped aios-verification Cargo.toml 0.0.1 -> 0.1.0 and DEFAULT_CODE_VERSION -> 0.1.0-T073. Deferred surfaces documented: tier-3 network/control-plane probes -> M16, VERIFICATION_STARTED/primitive-executed folded into VERIFICATION_RESULT, verification failure maps to AdapterRefused. M8 CLOSED; M9 ready."
     }
   ],
   "blocked": [],
@@ -573,9 +579,10 @@
       "rationale": "Simplest renderer first; closes \u00a722 phase-9. \u00a722 MVP golden path FULLY RUNNABLE via the `aios` CLI with L1 boot/mount and EvidenceLog endpoint stubs documented for M9/M8 integration."
     },
     "M8": {
-      "status": "in_progress",
+      "status": "CLOSED",
       "title": "Verification Engine",
       "started_at": "2026-05-25",
+      "closed_at": "2026-05-25",
       "sub_specs": [
         "S2.4"
       ],
@@ -590,14 +597,15 @@
         "T-069",
         "T-070",
         "T-071",
-        "T-072"
+        "T-072",
+        "T-073"
       ],
-      "current_test_count": 1410,
-      "crate_version": "aios-verification/0.0.1",
-      "rationale": "Real VerificationEngine.RunVerification \u2014 M8 now has local deterministic primitive execution, closed grammar parsing, combinator execution, the S2.4 section 10 gRPC service surface, S3.1 VERIFICATION_RESULT evidence emission, runtime step_verify integration, and S7.6 renderer/CLI exposure through `aios verify`. M8 closer continues in T-073."
+      "current_test_count": 1436,
+      "crate_version": "aios-verification/0.1.0",
+      "rationale": "Real VerificationEngine.RunVerification is now wired through runtime completion. §22 MVP is TRUSTWORTHY: configured verification pass is required for SUCCEEDED, failure blocks completion, and the no-engine stub path remains explicit backward compatibility."
     },
     "M9": {
-      "status": "planned",
+      "status": "ready",
       "title": "Recovery Boundary + First-Boot + Kernel Pipeline",
       "sub_specs": [
         "S9.1",

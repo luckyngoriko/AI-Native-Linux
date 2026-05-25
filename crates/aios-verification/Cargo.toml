@@ -3,7 +3,7 @@ name = "aios-verification"
 description = "AIOS S2.4 verification typed core skeleton."
 edition.workspace = true
 rust-version.workspace = true
-version = "0.0.1"
+version = "0.1.0"
 license.workspace = true
 repository.workspace = true
 authors.workspace = true
@@ -27,6 +27,11 @@ tonic        = { workspace = true }
 prost        = { workspace = true }
 prost-types  = { workspace = true }
 ed25519-dalek = { workspace = true }
+
+[dev-dependencies]
+aios-fs = { path = "../aios-fs" }
+aios-policy = { path = "../aios-policy" }
+aios-vault = { path = "../aios-vault" }
 
 [build-dependencies]
 tonic-build = { workspace = true }

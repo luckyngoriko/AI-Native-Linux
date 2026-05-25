@@ -19,25 +19,29 @@ Source of truth: `.ai/tasks.json` (machine-readable). This document is the human
 | M5             | aios-fs                 | S1.3, S2.1, S2.2, S4.1 | L2              | ✓ closed |     176 |
 | M6             | aios-vault              | S5.1, S5.2, S5.4    | L4                 | ✓ closed |     163 |
 | M7             | aios-renderer-cli       | S7.6                 | L7                 | ✓ closed |     121 |
-| **Total done** | **7 crates**            | **12 / 53 sub-specs** | —                 | —        | **1281** |
+| M8             | aios-verification       | S2.4                 | L9                 | ✓ closed |     141 |
+| **Total done** | **8 crates**            | **13 / 53 sub-specs** | —                 | —        | **1436** |
 
 **§22 MVP RUNNABLE marker:** the first command-line AIOS prototype now runs through `aios` with policy/runtime/fs/vault backends, typed action submit/status, AIOS-FS object read/list/version views, policy decision rendering, vault capability rendering, and evidence-chain CLI rendering. L1 boot and real `/aios` path mount remain M9 work; the T-061 in-process backend intentionally has no EvidenceLog endpoint, so T-063 pins the expected record-type chain as a renderer stub while keeping the CLI evidence command runnable.
 
-## §22 MVP Golden Path closure (M5 → M7)
+**§22 TRUSTWORTHY MVP marker:** M8 closes the proof gap. Actions with a configured `verification_intent` are now verified by S2.4 before they can finish as `SUCCEEDED`; a failing verification blocks completion and records `VERIFICATION_RESULT`. The chain `ACTION_RECEIVED → POLICY_DECISION → ROUTING_DECISION → EXECUTION_COMPLETED → VERIFICATION_RESULT → SUCCEEDED` is now constitutional for the MVP path. L1 boot/mount remains the only un-real §22 layer and is the M9 target.
 
-These 3 milestones make the §22 MVP runnable at the CLI layer. After M7, AIOS can drive the runnable policy/runtime/fs/vault stack through `aios`, create/read/list/version AIOS-FS objects, render policy and vault state, and render the evidence-chain surface. L1 boot plus real `/aios` path mount remain M9 work; the T-061 in-process backend starts four services only, so the expected evidence record-type chain is pinned as a renderer stub until EvidenceLog is attached to the harness.
+## §22 MVP Golden Path closure (M5 → M8)
+
+These 4 milestones make the §22 MVP runnable and then trustworthy. After M8, AIOS can drive the runnable policy/runtime/fs/vault/verification stack through `aios`, create/read/list/version AIOS-FS objects, render policy and vault state, render the evidence-chain surface, and block action success when verification fails. L1 boot plus real `/aios` path mount remain M9 work.
 
 | Milestone | Crate             | Sub-specs              | Layer | Rationale                                                                                                                                                 |
 | --------- | ----------------- | ---------------------- | ----- | --------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | M5        | aios-fs           | S1.3, S2.1, S2.2, S4.1 | L2    | ✓ closed at 176 crate tests / 997 workspace tests. Object model + namespace + query/view + implementation space; proves §22 phase-2 at the AIOS-FS layer. |
 | M6        | aios-vault        | S5.1, S5.2, S5.4       | L4    | ✓ closed at 163 crate tests / 1160 workspace tests. Identity + vault broker + emergency override; §22 vault-mediated external-call path proven with INV-018. |
 | M7        | aios-renderer-cli | S7.6                   | L7    | ✓ closed at 121 crate tests / 1281 workspace tests. `aios` CLI renders the §22 path in Text + JSON; L1 boot/mount and EvidenceLog endpoint integration are explicit follow-up surfaces. |
+| M8        | aios-verification | S2.4                   | L9    | ✓ closed at 141 crate tests / 1436 workspace tests. Runtime `step_verify` now calls the real verification engine; §22 actions are verified, not just executed. |
 
 ## Beyond MVP — full distro (M8 → M18)
 
 | Milestone | Crate             | Sub-specs                        | Layer | Rationale                                                                                                                           |
 | --------- | ----------------- | -------------------------------- | ----- | ----------------------------------------------------------------------------------------------------------------------------------- |
-| M8        | aios-verification | S2.4                             | L9    | Real VerificationEngine.RunVerification — currently stubbed in M4 step_verify.                                                      |
+| M8        | aios-verification | S2.4                             | L9    | ✓ closed. Real VerificationEngine.RunVerification replaces the M4 `step_verify` stub when configured; failure blocks success.        |
 | M9        | aios-recovery     | S9.1, S9.2, S9.3                 | L1    | Recovery boundary + first-boot + dedicated kernel pipeline. Resolves S9.1 "degraded subset" exception findings from Capella iter 6. |
 | M10       | aios-sgr          | S15.1, S15.2, S15.3              | L3    | AIOS-SGR desired-state service graph, unit manifest, adapter declaration.                                                           |
 | M11       | aios-cognitive    | S1.1, S1.2, S13.1, S13.2, S14.1  | L5    | Cognitive core + model router + circuit breaker. INV-002 AI-proposes-never-executes enforcement at runtime.                         |
@@ -51,10 +55,10 @@ These 3 milestones make the §22 MVP runnable at the CLI layer. After M7, AIOS c
 
 ## Progress projection
 
-- **Current pace**: ~183 tests/milestone, ~9 commits/milestone
-- **At M7 (MVP runnable)**: 1281 tests, 7 crates
+- **Current pace**: ~180 tests/milestone, ~9 commits/milestone
+- **At M8 (MVP trustworthy)**: 1436 tests, 8 crates
 - **At M18 (full distro)**: ~3,300–3,900 tests, 18 crates
-- **53 sub-specs total → 12 done → 41 remaining** distributed across M8–M18
+- **53 sub-specs total → 13 done → 40 remaining** distributed across M9–M18
 - **Cross-cutting (XX) sub-specs** beyond the 18-milestone plan may land as targeted T-tasks inside existing milestones (e.g. ECDSA signing variants, additional renderer protocols).
 
 ## Closure criteria per milestone
@@ -81,4 +85,4 @@ Reused from M1–M6 closure pattern:
 # 5. Final T-task is the milestone closer: §22-style acceptance fixtures + version bump + closure-invariant tests
 ```
 
-Last update: 2026-05-25 (M7 closed at T-063, 1281 workspace tests; M8 ready).
+Last update: 2026-05-25 (M8 closed at T-073, 1436 workspace tests; M9 ready).

@@ -46,5 +46,5 @@ pub use service::{
     VerificationEngineGrpcServer, VerificationEngineService, SCHEMA_VERSION,
 };
 
-/// Default Rust crate code version reported by the T-069 gRPC service adapter.
-pub const DEFAULT_CODE_VERSION: &str = "aios-verification/0.1.0-T069";
+/// Default Rust crate code version reported by the T-073 gRPC service adapter.
+pub const DEFAULT_CODE_VERSION: &str = "0.1.0-T073";

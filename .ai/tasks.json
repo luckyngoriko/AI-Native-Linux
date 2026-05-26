@@ -618,6 +618,36 @@
       "title": "aios-sandbox — Resource limit enforcement (S3.2 ResourceLimits)",
       "completed_at": "2026-05-26",
       "evidence": "Commit 237e533. ResourceLimitEnforcer + ResourceRequest/ResourceUsage/ResourceRemaining/SyscallEnforcement. check_usage for CPU/memory/I/O/network/process/fd, compute_remaining (signed), enforce_cpu_quota clamp, validate_syscall with canonical per-IsolationKind allowlists (~80 ProcessContainer syscalls). 38 sandbox tests (22 inline unit + 16 integration). 4 quality gates all PASS (check, test, clippy -D warnings, fmt). New files: resource_enforcer.rs, tests/resource_enforcer.rs. Modified: error.rs (+SyscallNotAllowed), lib.rs (module decl + re-exports)."
+    },
+    {
+      "id": "T-110",
+      "title": "aios-sandbox — gRPC SandboxService surface (S3.2)",
+      "completed_at": "2026-05-26",
+      "evidence": "Commit 3d6c7f9. 9 RPC service: compose_profile, get_profile, list_profiles, validate_profile, validate_gpu_policy, compute_gpu_binding, check_resource_usage, compute_resource_remaining, validate_syscall. proto + build.rs + service/{mod,conversions,server}.rs. SandboxError→tonic::Status mapping."
+    },
+    {
+      "id": "T-111",
+      "title": "aios-sandbox — evidence emission (S3.2 ↔ S3.1)",
+      "completed_at": "2026-05-26",
+      "evidence": "Commit 7b58ba4. SandboxEvidenceEmitter + InMemorySandboxEvidenceLog + typed evidence payloads (GpuCapabilityBound, ResourceLimitExceeded, SandboxComposed, SandboxViolationDetected). Ed25519 + BLAKE3 chain linkage."
+    },
+    {
+      "id": "T-112",
+      "title": "aios-sandbox ↔ capability-runtime — cross-crate integration (S10.1 ↔ S3.2)",
+      "completed_at": "2026-05-26",
+      "evidence": "Commit 431e7fb. SandboxRuntimeAdapter implementing RuntimeSandboxComposer trait. SandboxCognitiveHint for cognitive↔sandbox profile suggestions. Cross-crate compose_for_action integration."
+    },
+    {
+      "id": "T-113",
+      "title": "aios-renderer-cli — Renderable for sandbox + `aios sandbox` CLI subcommand",
+      "completed_at": "2026-05-26",
+      "evidence": "Commit a8d2c5b. 8 sandbox types rendered (Text/Json/Tree/Table), 28 sandbox render tests, 4 AiosClient sandbox methods, InProcessBackend 9 services. 6 quality gates green."
+    },
+    {
+      "id": "T-114",
+      "title": "aios-sandbox v0.1.0 — §22 sandbox walk + S3.2 acceptance (M12 CLOSER)",
+      "completed_at": "2026-05-26",
+      "evidence": "Commit pending. tests/mvp_sandbox_walk.rs (7 scenarios: AI restrictive, human permissive, recovery forced, GPU violation, resource limit exceeded, syscall not allowed, runtime adapter), tests/acceptance_fixtures.rs (10 S3.2 fixtures), tests/m12_closure.rs (8 invariants). Bumped aios-sandbox 0.0.1→0.1.0, DEFAULT_CODE_VERSION=aios-sandbox/0.1.0-T114. Workspace 2345 tests, sandbox 230 tests."
     }
   ],
   "blocked": [],
@@ -858,13 +888,26 @@
       "rationale": "T-094 through T-101 completed (8/12 tasks). T-102 (evidence), T-103 (cross-crate), T-104 (renderer), T-105 (version bump) — all deferred per T-101 brief. M11 closure (version bump + acceptance fixtures) queued after T-105."
     },
     "M12": {
-      "status": "in_progress",
+      "status": "completed",
       "title": "Sandbox Composition",
+      "completed_at": "2026-05-26",
       "sub_specs": ["S3.2"],
       "layer": "L6",
       "target_crate": "aios-sandbox",
-      "tasks": ["T-106", "T-107", "T-108", "T-109"],
-      "current_test_count": 2241,
+      "tasks": [
+        "T-106",
+        "T-107",
+        "T-108",
+        "T-109",
+        "T-110",
+        "T-111",
+        "T-112",
+        "T-113",
+        "T-114"
+      ],
+      "final_test_count": 230,
+      "crate_version": "aios-sandbox/0.1.0",
+      "workspace_test_count": 2345,
       "rationale": "SandboxProfile + GpuPolicy + SandboxComposer + ResourceLimitEnforcer — 6-source merge + resource enforcement + syscall allowlist per S3.2."
     },
     "M13": {

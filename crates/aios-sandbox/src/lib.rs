@@ -66,4 +66,4 @@ pub use service::{
 };
 
 /// Crate version marker — bump on every semantic change.
-pub const DEFAULT_CODE_VERSION: &str = "aios-sandbox/0.0.1-T110";
+pub const DEFAULT_CODE_VERSION: &str = "aios-sandbox/0.1.0-T114";

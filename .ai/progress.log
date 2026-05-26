@@ -1,5 +1,11 @@
 # AIOS Implementation Progress Log
 
+2026-05-26T23:15:00Z | T-113 | commit | git commit a8d2c5b T-113: aios-renderer-cli — Renderable for sandbox + `aios sandbox` CLI subcommand. 14 files (+1498/-22): new sandbox_render.rs (~500 loc, 8 Renderable impls), new tests/sandbox_render.rs (28 tests), CLI SandboxSubcommand (compose/list/get), AiosClient sandbox methods (compose_sandbox/list_sandbox_profiles/get_sandbox_profile/compute_gpu_binding), InProcessBackend 9 services, 6 quality gates green | SUCCESS | T-114 (M12 closer) queued
+
+2026-05-26T23:45:00Z | T-114 | IMPLEMENT | Created tests/mvp_sandbox_walk.rs (7 §22 sandbox scenarios + 1 runtime adapter cross-crate), tests/acceptance_fixtures.rs (10 S3.2 acceptance fixtures), tests/m12_closure.rs (8 closure invariants). Updated Cargo.toml 0.0.1→0.1.0, DEFAULT_CODE_VERSION→aios-sandbox/0.1.0-T114. Updated MILESTONES.md (M12 ✓ closed, totals refreshed). Updated all .ai/ memory files. 6 quality gates green: cargo check, cargo test -p aios-sandbox (230), cargo test --workspace (2345), cargo clippy -D warnings, cargo fmt --check, cargo build -p aios-renderer-cli --bin aios | SUCCESS | Commit queued; M12 CLOSED
+
+2026-05-26T22:30:00Z | T-109 | commit | git commit 237e533 T-109: aios-sandbox — ResourceLimitEnforcer + ResourceRequest/ResourceUsage/ResourceRemaining + SyscallEnforcement with canonical per-IsolationKind allowlists (S3.2 §ResourceLimits + §SyscallEnforcement), 3 files, +842 new resource_enforcer.rs, +356 integration tests, 154 sandbox tests total, workspace 2241, 4 quality gates green | SUCCESS | T-110 (gRPC SandboxService) queued
+
 2026-05-26T20:00:00Z | T-107 | quality-gates | cargo check --workspace (clean), cargo test -p aios-sandbox (76), cargo clippy --workspace --all-targets -- -D warnings (0), cargo fmt --all -- --check (clean) | SUCCESS | commit
 
 2026-05-26T20:00:00Z | T-107 | commit | SandboxComposer async trait + InMemorySandboxComposer (S3.2 §19.1 6-source merge), 6 files, 76 tests, 2165 ≥ 2137 minimum | SUCCESS | T-108 deferred per brief
@@ -662,3 +668,5 @@ Clippy fixes applied (10 iterations):
 - types_roundtrip.rs: backticks on `serde_json`, removed redundant .clone() on profile_id
 - gpu.rs: #[allow(clippy::struct_excessive_bools)] with spec citation, #[must_use] + const fn on defaults
 - All inline test modules: #[allow(clippy::unwrap_used)] + #[allow(clippy::expect_used)]
+2026-05-26T11:04:31Z — T-108 completed: GpuPolicyEnforcer + GpuCapabilityBinding + IommuStatus for aios-sandbox (S3.2 §GpuPolicy + S8.2). Commit aa28d02. New files: gpu_enforcer.rs (22 unit tests), tests/gpu_enforcer.rs (18 integration tests). Modified: lib.rs (module decl + re-exports). 4 gates all PASS. All 40 new tests + 76 existing sandbox = 116 sandbox total. Workspace all green. Next: T-109 (resource limit enforcer).
+[2026-05-26T15:45:54] T-112 complete — Cross-crate integration sandbox ↔ capability-runtime + cognitive. Files: runtime_adapter.rs, cognitive_adapter.rs, pipeline.rs (3 recovery_mode call sites), runtime.rs (trait + summary), Cargo.toml + lib.rs updated. 17 cross-crate integration tests. All 4 gates green: cargo check, test (workspace), clippy -D warnings, fmt --check. Commit 431e7fb. 9 files changed, 613 insertions, 8 deletions. Next: T-113.

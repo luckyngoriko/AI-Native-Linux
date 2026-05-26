@@ -18,6 +18,8 @@ strum_macros = { workspace = true }
 thiserror   = { workspace = true }
 ulid        = { workspace = true }
 blake3      = { workspace = true }
+tokio       = { workspace = true, features = ["macros", "rt", "sync"] }
+async-trait = { workspace = true }
 
 [lints]
 workspace = true

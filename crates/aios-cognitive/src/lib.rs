@@ -6,8 +6,12 @@
 
 /// S14.1 circuit breaker types.
 pub mod circuit;
+/// `CognitiveCore` async trait + `TranslationContext` + `IntentCapability` (S1.1).
+pub mod core;
 /// `CognitiveError` taxonomy.
 pub mod error;
+/// `InMemoryCognitiveCore` — test/prototype implementation of `CognitiveCore`.
+pub mod in_memory_core;
 /// `CognitiveIntent` + `IntentId` + `SubjectRef`.
 pub mod intent;
 /// `LatencyTier` + `PrivacyClass`.
@@ -21,7 +25,9 @@ pub mod translator;
 
 // Re-exports — flattened public surface
 pub use circuit::{CircuitBreakerConfig, CircuitBreakerStats, CircuitState};
+pub use core::{CognitiveCore, IntentCapability, TranslationContext};
 pub use error::CognitiveError;
+pub use in_memory_core::InMemoryCognitiveCore;
 pub use intent::{CognitiveIntent, IntentId, SubjectRef};
 pub use latency::{LatencyTier, PrivacyClass};
 pub use model::{CognitiveModel, ModelId};

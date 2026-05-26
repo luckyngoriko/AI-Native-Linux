@@ -142,6 +142,18 @@ impl RouterState {
         }
         format!("rtdg_{}", ulid::Ulid::new())
     }
+
+    /// Consult a circuit breaker registry for the given backend's admission status.
+    ///
+    /// When a breaker is registered and open for the backend, the backend
+    /// should be treated as `Unhealthy` by the router.
+    ///
+    /// Returns `None` if no breaker is registered for the backend (no-op).
+    #[allow(clippy::unused_async, reason = "additive slot for T-098+ S14.1")]
+    pub async fn consult_breaker(&self, _backend: ModelBackendKind) -> Option<bool> {
+        // Additive slot for T-098+ S14.1 breaker integration.
+        None
+    }
 }
 
 impl Default for RouterState {

@@ -540,7 +540,24 @@
       "title": "aios-cognitive types-only crate skeleton (M11 OPENED)",
       "completed_at": "2026-05-25",
       "evidence": "1796 tests workspace (+21 over T-093 baseline 1775). Commit d48a44c. SPEC DEVIATIONS: ModelBackendKind=8 (brief said 5), BackendHealthState=5 (brief said 4), CircuitState PascalCase wire form, ProviderClass variant names per spec. All 4 gates PASS."
-    }
+    },
+    {
+      "id": "T-095",
+      "title": "aios-cognitive capability translator (S1.1) — CognitiveCore trait + InMemoryCognitiveCore",
+      "completed_at": "2026-05-25",
+      "evidence": "1810 tests workspace. Commit 2cc79cd. 14 tests. INV-002 enforced: AI proposes, never executes."
+    },
+    {
+      "id": "T-096",
+      "title": "aios-cognitive Latency Tiering classifier (S1.2) — LatencyClassifier + 32 tests",
+      "completed_at": "2026-05-26",
+      "evidence": "1842 tests workspace. Commit 48c921d. 16 inline + 16 integration tests."
+    },
+    {
+      "id": "T-097",
+      "title": "aios-cognitive Model Router (S13.2) — ModelRouter + RouterState + 20 integration tests",
+      "completed_at": "2026-05-26",
+      "evidence": "All 3 quality gates PASS. Commit 6778042. 1382 lines added. New files: router.rs, router_state.rs, tests/router.rs."
   ],
   "blocked": [],
   "milestones": {
@@ -788,7 +805,7 @@
       "rationale": "M10 CLOSED: AIOS-SGR desired-state graph, unit manifest, graph evaluator, adapter declaration, runtime bridge, recovery pause/resume, renderer/CLI surface, and S15.x acceptance fixtures."
     },
     "M11": {
-      "status": "ready",
+      "status": "in_progress",
       "title": "Cognitive Core + Model Router + Circuit Breaker",
       "sub_specs": [
         "S1.1",
@@ -799,7 +816,13 @@
       ],
       "layer": "L5",
       "target_crate": "aios-cognitive",
-      "rationale": "ROUTING_DECISION emitter (T-007 attribution) + INV-002 AI-proposes-never-executes enforcement."
+      "tasks": [
+        "T-094",
+        "T-095",
+        "T-096",
+        "T-097"
+      ],
+      "rationale": "ROUTING_DECISION emitter (T-007 attribution) + INV-002 AI-proposes-never-executes enforcement. T-094 through T-097 completed; circuit breaker (S14.1) and M11 closure remain."
     },
     "M12": {
       "status": "planned",

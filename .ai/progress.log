@@ -1,6 +1,10 @@
 # AIOS Implementation Progress Log
 
-Format: ISO-8601 timestamp | task_id | step | command(s) | result | status | next_step
+2026-05-26T15:00:00Z | T-097 | clippy-fix | Fixed 15 clippy warnings-as-errors across router.rs (4), router_state.rs (4), and tests/router.rs (7) | SUCCESS | commit
+
+2026-05-26T15:00:00Z | T-097 | quality-gates | cargo clippy --workspace --all-targets -- -D warnings (0 errors), cargo test --workspace (all pass, 0 failures), cargo fmt --all -- --check (clean) | SUCCESS | commit
+
+2026-05-26T15:00:00Z | T-097 | commit | git commit T-097: aios-cognitive — Model Router (S13.2), 6 files, +1382/-31 | SUCCESS | M11 continue
 
 ---
 2026-05-25T18:00:00Z | T-094 | final | cargo clippy --workspace --all-targets -- -D warnings; cargo fmt --all -- --check; cargo test --workspace | SUCCESS: 4 gates pass. 1796 tests (above 1785+). Commit d48a44c. M11 OPENED. | SUCCESS | T-095 (CognitiveCore trait + next spec-driven type)
@@ -581,3 +585,4 @@ Format: ISO-8601 timestamp | task_id | step | command(s) | result | status | nex
 2026-05-25 M10 CLOSED aios-sgr v0.1.0 workspace_tests=1775 next=M11-aios-cognitive
 2026-05-25 SGR declarative service management marker: desired-state graph, topological traversal, cycle detection, runtime start, recovery pause/resume, and adapter fail-closed semantics real.
 [2026-05-26T20:00:00Z] T-095 COMPLETE. Created core.rs (CognitiveCore trait + TranslationContext + IntentCapability), in_memory_core.rs (InMemoryCognitiveCore with RwLock<HashMap> cache + Arc<Vec<CognitiveModel>> catalog), updated lib.rs + Cargo.toml, tests/cognitive_core.rs (14 tests). 4 gates PASS: check clean, test 1810 (min 1810), clippy 0 warnings, fmt clean. SPEC DEVIATION: get_translation unknown intent_id → NoMatchingCapability (error.rs frozen, no IntentNotFound variant). Commit 2cc79cd. Next: T-096 latency tiering classifier.
+2026-05-26T04:39:44Z | T-096 | COMPLETED | latency_classifier.rs (NEW) + lib.rs (updated) + tests/latency_classifier.rs (NEW, 16 integration tests) | 16 inline + 16 integration = +32 tests | cargo check/test/clippy/fmt all PASS | workspace tests 1810→1842 | NEXT: commit T-096

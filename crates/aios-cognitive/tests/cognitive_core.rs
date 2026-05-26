@@ -120,8 +120,8 @@ async fn translation_provenance_has_correct_version() {
 
     let result = core.translate_intent(&intent, &ctx).await.expect("ok");
     assert_eq!(
-        result.translation_provenance.translator_version, "0.1.0-T097",
-        "translator_version must match T-097"
+        result.translation_provenance.translator_version, "0.1.0-T098",
+        "translator_version must match T-098"
     );
     assert_eq!(result.translation_provenance.model_used, "localcpu");
     assert_eq!(result.translation_provenance.tokens_in, 0);

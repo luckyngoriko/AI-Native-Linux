@@ -4,6 +4,10 @@
 
 #![forbid(unsafe_code)]
 
+/// S14.1 circuit breaker driver.
+pub mod breaker;
+/// S14.1 circuit breaker registry.
+pub mod breaker_registry;
 /// S14.1 circuit breaker types.
 pub mod circuit;
 /// `CognitiveCore` async trait + `TranslationContext` + `IntentCapability` (S1.1).
@@ -30,6 +34,8 @@ pub mod routing;
 pub mod translator;
 
 // Re-exports — flattened public surface
+pub use breaker::{AdmissionTicket, CallOutcome, CircuitBreaker};
+pub use breaker_registry::CircuitBreakerRegistry;
 pub use circuit::{CircuitBreakerConfig, CircuitBreakerStats, CircuitState};
 pub use core::{CognitiveCore, IntentCapability, TranslationContext};
 pub use error::CognitiveError;
@@ -47,4 +53,4 @@ pub use routing::{
 pub use translator::{TranslationProvenance, TranslationResult};
 
 /// Crate version marker — bump on every semantic change.
-pub const DEFAULT_CODE_VERSION: &str = "aios-cognitive/0.0.1-T094";
+pub const DEFAULT_CODE_VERSION: &str = "aios-cognitive/0.0.1-T098";

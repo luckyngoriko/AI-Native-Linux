@@ -12,6 +12,7 @@ use tokio::sync::RwLock;
 
 use aios_action::{ActionEnvelope, Identity, Request, Trace};
 
+use crate::breaker_registry::CircuitBreakerRegistry;
 use crate::circuit::{CircuitBreakerConfig, CircuitBreakerStats, CircuitState};
 use crate::core::{CognitiveCore, IntentCapability, TranslationContext};
 use crate::error::CognitiveError;
@@ -34,6 +35,8 @@ pub struct InMemoryCognitiveCore {
     router: Option<Arc<ModelRouter>>,
     /// Optional router state for health tracking and routing-id minting.
     router_state: Option<Arc<RouterState>>,
+    /// Optional circuit breaker registry for S14.1 breaker consultation.
+    breaker_registry: Option<Arc<CircuitBreakerRegistry>>,
 }
 
 impl InMemoryCognitiveCore {
@@ -45,6 +48,7 @@ impl InMemoryCognitiveCore {
             model_catalog: Arc::new(Vec::new()),
             router: None,
             router_state: None,
+            breaker_registry: None,
         }
     }
 
@@ -56,6 +60,7 @@ impl InMemoryCognitiveCore {
             model_catalog: Arc::new(models),
             router: None,
             router_state: None,
+            breaker_registry: None,
         }
     }
 
@@ -69,6 +74,17 @@ impl InMemoryCognitiveCore {
     pub fn with_router(mut self, router: Arc<ModelRouter>, state: Arc<RouterState>) -> Self {
         self.router = Some(router);
         self.router_state = Some(state);
+        self
+    }
+
+    /// Attach a circuit breaker registry for S14.1 breaker consultation.
+    ///
+    /// When configured, `translate_intent` consults the breaker registry before
+    /// routing decisions. If the circuit for the chosen backend is open, the
+    /// call is rejected with `CognitiveError::CircuitBreakerOpen`.
+    #[must_use]
+    pub fn with_breakers(mut self, registry: Arc<CircuitBreakerRegistry>) -> Self {
+        self.breaker_registry = Some(registry);
         self
     }
 }
@@ -133,6 +149,10 @@ impl CognitiveCore for InMemoryCognitiveCore {
                 };
 
                 let decision = router.route(&inputs)?;
+                // ── S14.1 circuit breaker consultation ──
+                if let Some(ref reg) = self.breaker_registry {
+                    reg.try_admit(decision.chosen_backend).await?;
+                }
                 let rid = decision.routing_id.clone();
                 (
                     decision.chosen_backend,
@@ -163,6 +183,10 @@ impl CognitiveCore for InMemoryCognitiveCore {
                         Some("privacy-restricted: local-only deterministic fallback".into()),
                     ),
                 };
+                // ── S14.1 circuit breaker consultation (stub path) ──
+                if let Some(ref reg) = self.breaker_registry {
+                    reg.try_admit(be).await?;
+                }
                 (be, pc, dg, rsn, None)
             };
 
@@ -186,7 +210,7 @@ impl CognitiveCore for InMemoryCognitiveCore {
             routing_decision_id: Some(routing_decision_id),
             verification_intent: None,
             translation_provenance: TranslationProvenance {
-                translator_version: "0.1.0-T097".into(),
+                translator_version: "0.1.0-T098".into(),
                 model_used: format!("{chosen_backend:?}").to_lowercase(),
                 tokens_in: 0,
                 tokens_out: 0,

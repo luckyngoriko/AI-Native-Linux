@@ -20,6 +20,10 @@ pub mod latency;
 pub mod latency_classifier;
 /// `CognitiveModel` + `ModelId`.
 pub mod model;
+/// Model router precedence table (S13.2 §7).
+pub mod router;
+/// Router operational state — health tracking (S13.2 §9).
+pub mod router_state;
 /// Model router types (S13.2).
 pub mod routing;
 /// `TranslationResult` + `TranslationProvenance`.
@@ -34,6 +38,8 @@ pub use intent::{CognitiveIntent, IntentId, SubjectRef};
 pub use latency::{LatencyTier, PrivacyClass};
 pub use latency_classifier::LatencyClassifier;
 pub use model::{CognitiveModel, ModelId};
+pub use router::{ModelRouter, RoutingRule};
+pub use router_state::RouterState;
 pub use routing::{
     AICrossOriginPosture, BackendHealthEntry, BackendHealthState, ModelBackendKind, ProviderClass,
     RoutingDecision, RoutingInputs,

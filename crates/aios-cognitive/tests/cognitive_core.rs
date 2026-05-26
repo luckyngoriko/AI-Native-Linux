@@ -120,10 +120,10 @@ async fn translation_provenance_has_correct_version() {
 
     let result = core.translate_intent(&intent, &ctx).await.expect("ok");
     assert_eq!(
-        result.translation_provenance.translator_version, "0.1.0-T095",
-        "translator_version must match T-095"
+        result.translation_provenance.translator_version, "0.1.0-T097",
+        "translator_version must match T-097"
     );
-    assert_eq!(result.translation_provenance.model_used, "stub");
+    assert_eq!(result.translation_provenance.model_used, "localcpu");
     assert_eq!(result.translation_provenance.tokens_in, 0);
     assert_eq!(result.translation_provenance.tokens_out, 0);
     assert!(result
@@ -367,7 +367,10 @@ async fn secret_bearing_intent_routes_to_fallback() {
     // Secret-bearing: routed to FallbackRuleBased, degraded.
     let rid = result.routing_decision_id.expect("must have routing id");
     assert!(rid.starts_with("rtdg_"));
-    assert_eq!(result.translation_provenance.model_used, "stub");
+    assert_eq!(
+        result.translation_provenance.model_used,
+        "fallbackrulebased"
+    );
     assert_eq!(result.translation_provenance.tokens_in, 0);
     assert_eq!(result.translation_provenance.tokens_out, 0);
 }

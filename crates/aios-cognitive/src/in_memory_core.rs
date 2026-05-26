@@ -12,12 +12,17 @@ use tokio::sync::RwLock;
 
 use aios_action::{ActionEnvelope, Identity, Request, Trace};
 
+use crate::circuit::{CircuitBreakerConfig, CircuitBreakerStats, CircuitState};
 use crate::core::{CognitiveCore, IntentCapability, TranslationContext};
 use crate::error::CognitiveError;
 use crate::intent::{CognitiveIntent, IntentId};
 use crate::latency::{LatencyTier, PrivacyClass};
 use crate::model::CognitiveModel;
-use crate::routing::{ModelBackendKind, ProviderClass, RoutingDecision};
+use crate::router::ModelRouter;
+use crate::router_state::RouterState;
+use crate::routing::{
+    BackendHealthEntry, ModelBackendKind, ProviderClass, RoutingDecision, RoutingInputs,
+};
 use crate::translator::{TranslationProvenance, TranslationResult};
 
 /// In-memory [`CognitiveCore`] backed by a translation cache and model catalog.
@@ -25,6 +30,10 @@ pub struct InMemoryCognitiveCore {
     translation_cache: RwLock<HashMap<IntentId, TranslationResult>>,
     #[allow(dead_code)]
     model_catalog: Arc<Vec<CognitiveModel>>,
+    /// Optional model router for T-097+ S13.2 routing decisions.
+    router: Option<Arc<ModelRouter>>,
+    /// Optional router state for health tracking and routing-id minting.
+    router_state: Option<Arc<RouterState>>,
 }
 
 impl InMemoryCognitiveCore {
@@ -34,6 +43,8 @@ impl InMemoryCognitiveCore {
         Self {
             translation_cache: RwLock::new(HashMap::new()),
             model_catalog: Arc::new(Vec::new()),
+            router: None,
+            router_state: None,
         }
     }
 
@@ -43,7 +54,22 @@ impl InMemoryCognitiveCore {
         Self {
             translation_cache: RwLock::new(HashMap::new()),
             model_catalog: Arc::new(models),
+            router: None,
+            router_state: None,
         }
+    }
+
+    /// Attach a model router and router state for S13.2 routing decisions.
+    ///
+    /// When configured, `translate_intent` builds `RoutingInputs` from the
+    /// translation context and calls `router.route()` instead of the T-095
+    /// deterministic stub. Without a router, the T-095 stub is preserved for
+    /// backward compatibility.
+    #[must_use]
+    pub fn with_router(mut self, router: Arc<ModelRouter>, state: Arc<RouterState>) -> Self {
+        self.router = Some(router);
+        self.router_state = Some(state);
+        self
     }
 }
 
@@ -54,11 +80,12 @@ impl Default for InMemoryCognitiveCore {
 }
 
 #[async_trait]
+#[allow(clippy::too_many_lines)]
 impl CognitiveCore for InMemoryCognitiveCore {
     async fn translate_intent(
         &self,
         intent: &CognitiveIntent,
-        _context: &TranslationContext,
+        context: &TranslationContext,
     ) -> Result<TranslationResult, CognitiveError> {
         // INV-002: Always produce a typed ActionEnvelope, never a raw shell command.
         let envelope = ActionEnvelope::new(
@@ -73,29 +100,74 @@ impl CognitiveCore for InMemoryCognitiveCore {
             Trace::new("00000000000000000000000000000000", "0000000000000000", None),
         );
 
-        // Deterministic stub routing: pick backend based on privacy class.
-        let (chosen_backend, provider_class, degraded, reason) = match intent.privacy_class {
-            PrivacyClass::Public | PrivacyClass::Internal => (
-                ModelBackendKind::LocalCpu,
-                ProviderClass::Anthropic,
-                false,
-                None,
-            ),
-            PrivacyClass::Sensitive => (
-                ModelBackendKind::LocalGpu,
-                ProviderClass::Openai,
-                false,
-                None,
-            ),
-            PrivacyClass::SecretBearing | PrivacyClass::Classified => (
-                ModelBackendKind::FallbackRuleBased,
-                ProviderClass::Ollama,
-                true,
-                Some("privacy-restricted: local-only deterministic fallback".into()),
-            ),
-        };
+        // ── T-097 router path ──
+        let (chosen_backend, provider_class, degraded, reason, routing_decision_id) =
+            if let (Some(router), Some(state)) = (&self.router, &self.router_state) {
+                let health_map = state.get_health().await;
+                let health_snapshot: Vec<BackendHealthEntry> = health_map
+                    .iter()
+                    .map(|(kind, hstate)| BackendHealthEntry {
+                        backend_kind: *kind,
+                        provider_class: ProviderClass::Ollama,
+                        state: *hstate,
+                        config: CircuitBreakerConfig::default(),
+                        stats: CircuitBreakerStats {
+                            state: CircuitState::Closed,
+                            success_count: 0,
+                            failure_count: 0,
+                            error_rate: 0.0,
+                            cooldown_seconds: 0,
+                            last_state_change_at: Utc::now(),
+                            next_probe_at: None,
+                        },
+                    })
+                    .collect();
 
-        let routing_decision_id = format!("rtdg_{}", ulid::Ulid::new());
+                let inputs = RoutingInputs {
+                    latency_class: context.latency_class,
+                    privacy_class: context.privacy_class,
+                    ai_cross_origin_posture: context.ai_cross_origin_posture,
+                    backend_health_snapshot: health_snapshot,
+                    recovery_mode: context.recovery_mode,
+                    budget_ok: context.budget_ok,
+                };
+
+                let decision = router.route(&inputs)?;
+                let rid = decision.routing_id.clone();
+                (
+                    decision.chosen_backend,
+                    decision.provider_class,
+                    decision.degraded,
+                    decision.reason,
+                    Some(rid),
+                )
+            } else {
+                // ── T-095 stub (backward compat; no router configured) ──
+                let (be, pc, dg, rsn) = match intent.privacy_class {
+                    PrivacyClass::Public | PrivacyClass::Internal => (
+                        ModelBackendKind::LocalCpu,
+                        ProviderClass::Anthropic,
+                        false,
+                        None,
+                    ),
+                    PrivacyClass::Sensitive => (
+                        ModelBackendKind::LocalGpu,
+                        ProviderClass::Openai,
+                        false,
+                        None,
+                    ),
+                    PrivacyClass::SecretBearing | PrivacyClass::Classified => (
+                        ModelBackendKind::FallbackRuleBased,
+                        ProviderClass::Ollama,
+                        true,
+                        Some("privacy-restricted: local-only deterministic fallback".into()),
+                    ),
+                };
+                (be, pc, dg, rsn, None)
+            };
+
+        let routing_decision_id =
+            routing_decision_id.unwrap_or_else(|| format!("rtdg_{}", ulid::Ulid::new()));
 
         let _ = RoutingDecision {
             routing_id: routing_decision_id.clone(),
@@ -114,8 +186,8 @@ impl CognitiveCore for InMemoryCognitiveCore {
             routing_decision_id: Some(routing_decision_id),
             verification_intent: None,
             translation_provenance: TranslationProvenance {
-                translator_version: "0.1.0-T095".into(),
-                model_used: "stub".into(),
+                translator_version: "0.1.0-T097".into(),
+                model_used: format!("{chosen_backend:?}").to_lowercase(),
                 tokens_in: 0,
                 tokens_out: 0,
                 model_signed_response: None,

@@ -16,6 +16,8 @@ pub mod in_memory_core;
 pub mod intent;
 /// `LatencyTier` + `PrivacyClass`.
 pub mod latency;
+/// Latency tiering classifier per S1.2 (stub heuristic; replaced M12+).
+pub mod latency_classifier;
 /// `CognitiveModel` + `ModelId`.
 pub mod model;
 /// Model router types (S13.2).
@@ -30,6 +32,7 @@ pub use error::CognitiveError;
 pub use in_memory_core::InMemoryCognitiveCore;
 pub use intent::{CognitiveIntent, IntentId, SubjectRef};
 pub use latency::{LatencyTier, PrivacyClass};
+pub use latency_classifier::LatencyClassifier;
 pub use model::{CognitiveModel, ModelId};
 pub use routing::{
     AICrossOriginPosture, BackendHealthEntry, BackendHealthState, ModelBackendKind, ProviderClass,

@@ -68,6 +68,9 @@ dependencies = [
  "blake3",
  "chrono",
  "ed25519-dalek",
+ "prost",
+ "prost-types",
+ "protoc-bin-vendored",
  "rand_core 0.6.4",
  "serde",
  "serde_json",
@@ -75,6 +78,9 @@ dependencies = [
  "strum_macros",
  "thiserror",
  "tokio",
+ "tokio-stream",
+ "tonic",
+ "tonic-build",
  "ulid",
 ]
 

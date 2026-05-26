@@ -25,6 +25,7 @@ pub mod orchestration;
 pub mod package;
 pub mod package_store;
 pub mod runtime;
+pub mod service;
 pub mod session;
 pub mod session_driver;
 pub mod update_driver;

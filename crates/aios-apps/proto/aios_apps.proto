@@ -1,0 +1,393 @@
+// AIOS S12.x — gRPC AppsService surface (T-122).
+//
+// This file is the canonical proto3 IDL for the L6-internal
+// `aios.apps.v1alpha1.AppsService` service exposing the five backing drivers:
+// PackageStore, CompatibilityKnowledgeDB, SessionDriver,
+// UpdateRollbackDriver, and CompatibilityOrchestrator.
+//
+// Stability:
+//   - Package name `aios.apps.v1alpha1` communicates the wire is still
+//     ratifying.
+//   - The twelve-RPC surface is closed. Adding an RPC is a versioned spec
+//     change.
+//
+// Rust integration:
+//   - `crates/aios-apps/build.rs` invokes `tonic-build` to generate Rust
+//     server + client stubs.
+//   - `src/service/conversions.rs` owns the bidirectional Rust ↔ proto
+//     translation.
+//   - `src/service/server.rs` hosts the `AppsServer` adapter mounting the
+//     five backing drivers behind the generated transport trait.
+
+syntax = "proto3";
+package aios.apps.v1alpha1;
+
+import "google/protobuf/timestamp.proto";
+import "google/protobuf/empty.proto";
+
+// ─────────────────────────────────────────────────────────────────
+// Vocabulary enums
+// ─────────────────────────────────────────────────────────────────
+
+// S12.1 §3.1 — 12-value closed ecosystem runtime taxonomy.
+enum EcosystemRuntimeProto {
+  RUNTIME_UNSPECIFIED           = 0;
+  RUNTIME_LINUX_NATIVE          = 1;
+  RUNTIME_FLATPAK               = 2;
+  RUNTIME_APPIMAGE              = 3;
+  RUNTIME_SNAP                  = 4;
+  RUNTIME_DISTROBOX             = 5;
+  RUNTIME_WINDOWS_PROTON        = 6;
+  RUNTIME_WINDOWS_VM            = 7;
+  RUNTIME_ANDROID_WAYDROID      = 8;
+  RUNTIME_ANDROID_VM_WITH_GMS   = 9;
+  RUNTIME_MACOS_DARLING         = 10;
+  RUNTIME_MACOS_VM              = 11;
+  RUNTIME_REMOTE_APPLE_BRIDGE   = 12;
+}
+
+// S12.4 §3.1 — 5-value closed compatibility rating scale.
+enum CompatibilityRatingProto {
+  RATING_UNSPECIFIED = 0;
+  BORKED             = 1;
+  BRONZE             = 2;
+  SILVER             = 3;
+  GOLD               = 4;
+  PLATINUM           = 5;
+}
+
+// S12.4 §3.2 — 8-value closed rating dimension axes.
+enum RatingDimensionProto {
+  DIMENSION_UNSPECIFIED      = 0;
+  LAUNCH_RELIABILITY         = 1;
+  GAMEPLAY_STABILITY         = 2;
+  VISUAL_QUALITY             = 3;
+  AUDIO_FUNCTIONALITY        = 4;
+  INPUT_HANDLING             = 5;
+  NETWORK_BEHAVIOR           = 6;
+  SAVE_STATE_CORRECTNESS     = 7;
+  DRM_BEHAVIOR               = 8;
+}
+
+// S12.4 §3.3 — 4-value closed evidence level ladder.
+enum EvidenceLevelProto {
+  EVIDENCE_UNSPECIFIED              = 0;
+  SELF_REPORTED                     = 1;
+  SINGLE_OPERATOR_OBSERVED          = 2;
+  MULTI_OPERATOR_CORROBORATED       = 3;
+  VERIFIED_PUBLISHER                = 4;
+}
+
+// S12.1 §3.2 — 4-value closed ecosystem honesty class.
+enum EcosystemHonestyClassProto {
+  HONESTY_UNSPECIFIED        = 0;
+  FULLY_SUPPORTED            = 1;
+  PARTIALLY_SUPPORTED        = 2;
+  REQUIRES_VM                = 3;
+  NOT_RUNNABLE_ON_NON_NATIVE = 4;
+}
+
+// S12.1 §3.5 — 4-value closed recipe trust class.
+enum RecipeTrustClassProto {
+  RECIPE_TRUST_UNSPECIFIED = 0;
+  RECIPE_AIOS_CURATED      = 1;
+  RECIPE_COMMUNITY         = 2;
+  RECIPE_IMPORTED          = 3;
+  RECIPE_QUARANTINED       = 4;
+}
+
+// S6.5 — 5-value closed session lifecycle state.
+enum SessionStateProto {
+  SESSION_STATE_UNSPECIFIED = 0;
+  ALLOCATING                = 1;
+  SESSION_ACTIVE            = 2;
+  SUSPENDED                 = 3;
+  TERMINATING               = 4;
+  TERMINATED                = 5;
+}
+
+// S6.5 — 6-value closed session exit reason.
+enum SessionExitReasonProto {
+  EXIT_REASON_UNSPECIFIED  = 0;
+  CLOSED_BY_OWNER          = 1;
+  TIMED_OUT                = 2;
+  SESSION_POLICY_REVOKED   = 3;
+  ADAPTER_FAILURE          = 4;
+  RECOVERY_RECLAIM         = 5;
+  CRASHED                  = 6;
+}
+
+// S12.2 §rollback — 11-value closed update lifecycle FSM.
+enum UpdateStateProto {
+  UPDATE_STATE_UNSPECIFIED = 0;
+  PLANNED                  = 1;
+  EXECUTING                = 2;
+  EXECUTED                 = 3;
+  VERIFYING                = 4;
+  VERIFIED                 = 5;
+  ACTIVATING               = 6;
+  ACTIVE                   = 7;
+  FAILED                   = 8;
+  ROLLING_BACK             = 9;
+  ROLLED_BACK              = 10;
+  ROLLBACK_FAILED          = 11;
+}
+
+// S12.2 §rollback — 4-value closed failure class.
+enum FailureClassProto {
+  FAILURE_CLASS_UNSPECIFIED = 0;
+  EXECUTE_ERROR             = 1;
+  VERIFY_MISMATCH           = 2;
+  ACTIVATE_ERROR            = 3;
+  POLICY_DENIED             = 4;
+}
+
+// S12.2 §rollback — 4-value closed rollback trigger reason.
+enum RollbackReasonProto {
+  ROLLBACK_REASON_UNSPECIFIED = 0;
+  VERIFY_FAILED               = 1;
+  POLICY_REVOKED              = 2;
+  USER_REQUESTED              = 3;
+  REGRESSION_DETECTED         = 4;
+}
+
+// S12.2 §rollback — 3-value closed rollback exit state.
+enum RollbackExitStateProto {
+  ROLLBACK_EXIT_UNSPECIFIED = 0;
+  REVERTED                  = 1;
+  PARTIAL_REVERT            = 2;
+  ROLLBACK_FAILED_EXIT      = 3;
+}
+
+// ─────────────────────────────────────────────────────────────────
+// Package Store messages
+// ─────────────────────────────────────────────────────────────────
+
+// Wire form of AppPackage carrying manifest, signature, and content hash.
+message PackageEnvelopeProto {
+  string package_id                         = 1;
+  string name                               = 2;
+  string version                            = 3;
+  bytes manifest_bytes                      = 4;
+  string content_hash_blake3                = 5;
+  bytes ed25519_signature                   = 6;
+  bytes signer_public_key                   = 7;
+  google.protobuf.Timestamp registered_at   = 8;
+}
+
+message RegisterPackageRequest {
+  PackageEnvelopeProto package = 1;
+}
+
+message RegisterPackageResponse {
+  string package_id = 1;
+}
+
+message GetPackageRequest {
+  string package_id = 1;
+}
+
+message GetPackageResponse {
+  PackageEnvelopeProto package = 1;
+}
+
+message ListPackagesResponse {
+  repeated PackageEnvelopeProto packages = 1;
+}
+
+// ─────────────────────────────────────────────────────────────────
+// Session Driver messages
+// ─────────────────────────────────────────────────────────────────
+
+message PrincipalProto {
+  string canonical_id = 1;
+}
+
+message CapabilityHandleProto {
+  string capability_id = 1;
+}
+
+message SessionDescriptorProto {
+  string session_id                       = 1;
+  string package_id                       = 2;
+  EcosystemRuntimeProto ecosystem         = 3;
+  SessionStateProto state                 = 4;
+  PrincipalProto requester                = 5;
+  google.protobuf.Timestamp created_at    = 6;
+  google.protobuf.Timestamp last_heartbeat = 7;
+  uint64 timeout_seconds                  = 8;
+}
+
+message SessionMetricsProto {
+  uint64 total_uptime_seconds = 1;
+  uint64 heartbeat_count      = 2;
+}
+
+message SessionTerminationReceiptProto {
+  string session_id                       = 1;
+  google.protobuf.Timestamp ended_at      = 2;
+  SessionExitReasonProto exit_reason      = 3;
+  SessionMetricsProto final_metrics       = 4;
+}
+
+message OpenSessionRequest {
+  string package_id                            = 1;
+  EcosystemRuntimeProto ecosystem              = 2;
+  PrincipalProto requester                     = 3;
+  repeated CapabilityHandleProto capability_grants = 4;
+  uint64 timeout_seconds                       = 5;
+}
+
+message OpenSessionResponse {
+  SessionDescriptorProto session = 1;
+}
+
+message CloseSessionRequest {
+  string session_id = 1;
+}
+
+message CloseSessionResponse {
+  SessionTerminationReceiptProto receipt = 1;
+}
+
+// SessionFilter wire representation. Only one field may be set; the
+// zero-value across all fields means "list all sessions."
+message SessionFilterProto {
+  bool filter_all               = 1;
+  string filter_by_package      = 2;
+  string filter_by_principal    = 3;
+  SessionStateProto filter_by_state = 4;
+}
+
+message ListSessionsRequest {
+  SessionFilterProto filter = 1;
+}
+
+message ListSessionsResponse {
+  repeated SessionDescriptorProto sessions = 1;
+}
+
+// ─────────────────────────────────────────────────────────────────
+// Update Driver messages
+// ─────────────────────────────────────────────────────────────────
+
+message PlanUpdateRequest {
+  string package_id     = 1;
+  string from_version   = 2;
+  string to_version     = 3;
+  string requester      = 4;
+  bool dry_run          = 5;
+}
+
+message UpdatePlanProto {
+  string plan_id                           = 1;
+  string package_id                        = 2;
+  string from_version                      = 3;
+  string to_version                        = 4;
+  UpdateStateProto state                   = 5;
+  FailureClassProto failure_class          = 6;
+  bool has_failure_class                   = 7;
+  google.protobuf.Timestamp created_at     = 8;
+  google.protobuf.Timestamp state_changed_at = 9;
+}
+
+message PlanUpdateResponse {
+  UpdatePlanProto plan = 1;
+}
+
+message ExecuteUpdateRequest {
+  string plan_id = 1;
+}
+
+message UpdateOutcomeProto {
+  string execution_metrics_json = 1;
+  uint32 artifacts_swapped      = 2;
+}
+
+message ExecuteUpdateResponse {
+  UpdateOutcomeProto outcome = 1;
+}
+
+message VerifyUpdateRequest {
+  string plan_id = 1;
+}
+
+message UpdateVerificationProto {
+  bool hash_match                   = 1;
+  repeated string capability_drift  = 2;
+  uint32 profile_compat             = 3;
+}
+
+message VerifyUpdateResponse {
+  UpdateVerificationProto verification = 1;
+}
+
+message ActivateUpdateRequest {
+  string plan_id = 1;
+}
+
+message RollbackUpdateRequest {
+  string plan_id                  = 1;
+  RollbackReasonProto reason      = 2;
+}
+
+message RollbackReceiptProto {
+  string plan_id                           = 1;
+  string reverted_to                       = 2;
+  google.protobuf.Timestamp completed_at   = 3;
+  RollbackExitStateProto exit_state        = 4;
+}
+
+message RollbackUpdateResponse {
+  RollbackReceiptProto receipt = 1;
+}
+
+// ─────────────────────────────────────────────────────────────────
+// Compatibility Knowledge DB messages
+// ─────────────────────────────────────────────────────────────────
+
+message AppProfileProto {
+  string app_id                              = 1;
+  EcosystemRuntimeProto ecosystem_runtime    = 2;
+  RecipeTrustClassProto current_recipe_trust_class = 3;
+  CompatibilityRatingProto headline_rating   = 4;
+  EvidenceLevelProto headline_evidence_level = 5;
+  RatingDimensionProto worst_dimension       = 6;
+  EcosystemHonestyClassProto ecosystem_honesty_class = 7;
+}
+
+message LookupCompatibilityProfileRequest {
+  string package_id                      = 1;
+  EcosystemRuntimeProto ecosystem        = 2;
+}
+
+message LookupCompatibilityProfileResponse {
+  AppProfileProto profile = 1;
+}
+
+// ─────────────────────────────────────────────────────────────────
+// Service definition (12 RPCs, closed)
+// ─────────────────────────────────────────────────────────────────
+
+service AppsService {
+  // Package Store (3 RPCs)
+  rpc RegisterPackage(RegisterPackageRequest) returns (RegisterPackageResponse);
+  rpc GetPackage(GetPackageRequest) returns (GetPackageResponse);
+  rpc ListPackages(google.protobuf.Empty) returns (ListPackagesResponse);
+
+  // Session Driver (3 RPCs)
+  rpc OpenSession(OpenSessionRequest) returns (OpenSessionResponse);
+  rpc CloseSession(CloseSessionRequest) returns (CloseSessionResponse);
+  rpc ListSessions(ListSessionsRequest) returns (ListSessionsResponse);
+
+  // Update Driver (5 RPCs)
+  rpc PlanUpdate(PlanUpdateRequest) returns (PlanUpdateResponse);
+  rpc ExecuteUpdate(ExecuteUpdateRequest) returns (ExecuteUpdateResponse);
+  rpc VerifyUpdate(VerifyUpdateRequest) returns (VerifyUpdateResponse);
+  rpc ActivateUpdate(ActivateUpdateRequest) returns (google.protobuf.Empty);
+  rpc RollbackUpdate(RollbackUpdateRequest) returns (RollbackUpdateResponse);
+
+  // Compatibility Knowledge DB (1 RPC)
+  rpc LookupCompatibilityProfile(LookupCompatibilityProfileRequest)
+      returns (LookupCompatibilityProfileResponse);
+}

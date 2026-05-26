@@ -24,6 +24,10 @@ pub mod latency;
 pub mod latency_classifier;
 /// `CognitiveModel` + `ModelId`.
 pub mod model;
+/// `ModelBinding` + `ModelBindingRegistry` — runtime invocation tracking (S13.1).
+pub mod model_binding;
+/// `CognitiveModelCatalog` — model registration and lifecycle (S13.1).
+pub mod model_catalog;
 /// Model router precedence table (S13.2 §7).
 pub mod router;
 /// Router operational state — health tracking (S13.2 §9).
@@ -44,6 +48,8 @@ pub use intent::{CognitiveIntent, IntentId, SubjectRef};
 pub use latency::{LatencyTier, PrivacyClass};
 pub use latency_classifier::LatencyClassifier;
 pub use model::{CognitiveModel, ModelId};
+pub use model_binding::{ModelBinding, ModelBindingRegistry};
+pub use model_catalog::CognitiveModelCatalog;
 pub use router::{ModelRouter, RoutingRule};
 pub use router_state::RouterState;
 pub use routing::{

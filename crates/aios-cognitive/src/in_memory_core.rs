@@ -19,6 +19,8 @@ use crate::error::CognitiveError;
 use crate::intent::{CognitiveIntent, IntentId};
 use crate::latency::{LatencyTier, PrivacyClass};
 use crate::model::CognitiveModel;
+use crate::model_binding::ModelBindingRegistry;
+use crate::model_catalog::CognitiveModelCatalog;
 use crate::router::ModelRouter;
 use crate::router_state::RouterState;
 use crate::routing::{
@@ -37,6 +39,10 @@ pub struct InMemoryCognitiveCore {
     router_state: Option<Arc<RouterState>>,
     /// Optional circuit breaker registry for S14.1 breaker consultation.
     breaker_registry: Option<Arc<CircuitBreakerRegistry>>,
+    /// Optional model catalog for T-099+ S13.1 model registration and lifecycle.
+    catalog: Option<Arc<CognitiveModelCatalog>>,
+    /// Optional model binding registry for T-099+ S13.1 runtime invocation tracking.
+    bindings: Option<Arc<ModelBindingRegistry>>,
 }
 
 impl InMemoryCognitiveCore {
@@ -49,6 +55,8 @@ impl InMemoryCognitiveCore {
             router: None,
             router_state: None,
             breaker_registry: None,
+            catalog: None,
+            bindings: None,
         }
     }
 
@@ -61,6 +69,8 @@ impl InMemoryCognitiveCore {
             router: None,
             router_state: None,
             breaker_registry: None,
+            catalog: None,
+            bindings: None,
         }
     }
 
@@ -85,6 +95,22 @@ impl InMemoryCognitiveCore {
     #[must_use]
     pub fn with_breakers(mut self, registry: Arc<CircuitBreakerRegistry>) -> Self {
         self.breaker_registry = Some(registry);
+        self
+    }
+
+    /// Attach a model catalog and binding registry for S13.1 model lifecycle.
+    ///
+    /// When configured, `translate_intent` populates
+    /// `TranslationProvenance.model_used` from the catalog default model
+    /// instead of the backend-kind stub string.
+    #[must_use]
+    pub fn with_model_catalog(
+        mut self,
+        catalog: Arc<CognitiveModelCatalog>,
+        bindings: Arc<ModelBindingRegistry>,
+    ) -> Self {
+        self.catalog = Some(catalog);
+        self.bindings = Some(bindings);
         self
     }
 }
@@ -204,6 +230,15 @@ impl CognitiveCore for InMemoryCognitiveCore {
             decided_at: Utc::now(),
         };
 
+        let model_used = if let Some(ref catalog) = self.catalog {
+            catalog.get_default().await.map_or_else(
+                || format!("{chosen_backend:?}").to_lowercase(),
+                |m| m.model_id.0,
+            )
+        } else {
+            format!("{chosen_backend:?}").to_lowercase()
+        };
+
         let result = TranslationResult {
             intent_id: intent.intent_id.clone(),
             produced_action: envelope,
@@ -211,7 +246,7 @@ impl CognitiveCore for InMemoryCognitiveCore {
             verification_intent: None,
             translation_provenance: TranslationProvenance {
                 translator_version: "0.1.0-T098".into(),
-                model_used: format!("{chosen_backend:?}").to_lowercase(),
+                model_used,
                 tokens_in: 0,
                 tokens_out: 0,
                 model_signed_response: None,

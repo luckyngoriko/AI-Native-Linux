@@ -210,7 +210,7 @@ impl CognitiveCore for InMemoryCognitiveCore {
             routing_decision_id: Some(routing_decision_id),
             verification_intent: None,
             translation_provenance: TranslationProvenance {
-                translator_version: "0.1.0-T099".into(),
+                translator_version: "0.1.0-T098".into(),
                 model_used: format!("{chosen_backend:?}").to_lowercase(),
                 tokens_in: 0,
                 tokens_out: 0,

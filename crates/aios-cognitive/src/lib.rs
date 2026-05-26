@@ -53,4 +53,4 @@ pub use routing::{
 pub use translator::{TranslationProvenance, TranslationResult};
 
 /// Crate version marker — bump on every semantic change.
-pub const DEFAULT_CODE_VERSION: &str = "aios-cognitive/0.1.0-T099";
+pub const DEFAULT_CODE_VERSION: &str = "aios-cognitive/0.0.1-T098";

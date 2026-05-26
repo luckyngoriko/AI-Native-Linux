@@ -1,5 +1,7 @@
 use thiserror::Error;
 
+use crate::routing::AICrossOriginPosture;
+
 /// Closed error taxonomy for the L5 Cognitive Core.
 ///
 /// Every error path in the cognitive pipeline maps to one of these variants.
@@ -41,4 +43,24 @@ pub enum CognitiveError {
     /// An internal error occurred (programmer error — should not reach the user).
     #[error("internal cognitive error: {0}")]
     Internal(String),
+
+    /// External backend blocked by AI cross-origin posture.
+    ///
+    /// S8.1 §5.7 bypass-attempt guard: when `posture` is `AI_NO_EXTERNAL`
+    /// and the provider class requires external vault-brokered access, the
+    /// dispatch is refused. Real `AI_DIRECT_INTERNET_DENIED` evidence
+    /// emission lands in T-102.
+    #[error("external backend blocked by posture {posture:?}")]
+    ExternalBackendBlocked {
+        /// The posture that blocked the dispatch.
+        posture: AICrossOriginPosture,
+    },
+
+    /// Vault capability id missing on a model that requires external access.
+    ///
+    /// INV-018: external providers (`Anthropic`, `Openai`,
+    /// `OtherVaultBrokered`) must carry a `vault_capability_id` so the
+    /// dispatch can route through the L4.2 vault broker.
+    #[error("vault credential missing for model {0}")]
+    VaultCredentialMissing(String),
 }

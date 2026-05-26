@@ -28,6 +28,8 @@ pub mod model;
 pub mod model_binding;
 /// `CognitiveModelCatalog` — model registration and lifecycle (S13.1).
 pub mod model_catalog;
+/// Provider dispatch — routes model invocations by ProviderClass (S13.2 §5).
+pub mod provider_dispatch;
 /// Model router precedence table (S13.2 §7).
 pub mod router;
 /// Router operational state — health tracking (S13.2 §9).
@@ -50,6 +52,9 @@ pub use latency_classifier::LatencyClassifier;
 pub use model::{CognitiveModel, ModelId};
 pub use model_binding::{ModelBinding, ModelBindingRegistry};
 pub use model_catalog::CognitiveModelCatalog;
+pub use provider_dispatch::{
+    DispatchOutcome, ProviderDispatcher, VaultClientAdapter, VaultRequest, VaultResponse,
+};
 pub use router::{ModelRouter, RoutingRule};
 pub use router_state::RouterState;
 pub use routing::{

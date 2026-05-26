@@ -21,6 +21,7 @@ use crate::latency::{LatencyTier, PrivacyClass};
 use crate::model::CognitiveModel;
 use crate::model_binding::ModelBindingRegistry;
 use crate::model_catalog::CognitiveModelCatalog;
+use crate::provider_dispatch::{DispatchOutcome, ProviderDispatcher};
 use crate::router::ModelRouter;
 use crate::router_state::RouterState;
 use crate::routing::{
@@ -43,6 +44,8 @@ pub struct InMemoryCognitiveCore {
     catalog: Option<Arc<CognitiveModelCatalog>>,
     /// Optional model binding registry for T-099+ S13.1 runtime invocation tracking.
     bindings: Option<Arc<ModelBindingRegistry>>,
+    /// Optional provider dispatcher for T-100+ S13.2 §5 provider-class dispatch.
+    provider_dispatcher: Option<Arc<ProviderDispatcher>>,
 }
 
 impl InMemoryCognitiveCore {
@@ -57,6 +60,7 @@ impl InMemoryCognitiveCore {
             breaker_registry: None,
             catalog: None,
             bindings: None,
+            provider_dispatcher: None,
         }
     }
 
@@ -71,6 +75,7 @@ impl InMemoryCognitiveCore {
             breaker_registry: None,
             catalog: None,
             bindings: None,
+            provider_dispatcher: None,
         }
     }
 
@@ -111,6 +116,18 @@ impl InMemoryCognitiveCore {
     ) -> Self {
         self.catalog = Some(catalog);
         self.bindings = Some(bindings);
+        self
+    }
+
+    /// Attach a provider dispatcher for T-100+ S13.2 §5 provider-class dispatch.
+    ///
+    /// When configured, `translate_intent` calls the dispatcher after routing
+    /// and populates `TranslationProvenance.tokens_in` / `tokens_out` from
+    /// the dispatch outcome. Without a dispatcher, tokens stay at 0 (T-099
+    /// backward-compatible behaviour).
+    #[must_use]
+    pub fn with_provider_dispatcher(mut self, dispatcher: Arc<ProviderDispatcher>) -> Self {
+        self.provider_dispatcher = Some(dispatcher);
         self
     }
 }
@@ -239,6 +256,51 @@ impl CognitiveCore for InMemoryCognitiveCore {
             format!("{chosen_backend:?}").to_lowercase()
         };
 
+        // ── T-100 provider dispatch ──
+        let (tokens_in, tokens_out) = if let Some(ref dispatcher) = self.provider_dispatcher {
+            let needs_vault = matches!(
+                provider_class,
+                ProviderClass::Anthropic
+                    | ProviderClass::Openai
+                    | ProviderClass::OtherVaultBrokered
+            );
+            let dispatch_model = CognitiveModel {
+                model_id: crate::model::ModelId::new(),
+                provider: provider_class,
+                capabilities: vec![],
+                max_tokens: 4096,
+                input_cost_per_1k: 0,
+                output_cost_per_1k: 0,
+                vault_capability_id: if needs_vault {
+                    Some("vcap_stub".into())
+                } else {
+                    None
+                },
+                created_at: Utc::now(),
+            };
+            match dispatcher
+                .dispatch_to_provider(&dispatch_model, intent, context.ai_cross_origin_posture)
+                .await
+            {
+                Ok(
+                    DispatchOutcome::LocalInvocation {
+                        tokens_in: ti,
+                        tokens_out: to,
+                        ..
+                    }
+                    | DispatchOutcome::VaultBrokeredInvocation {
+                        tokens_in: ti,
+                        tokens_out: to,
+                        ..
+                    },
+                ) => (ti, to),
+                Ok(DispatchOutcome::Denied { .. }) => (0, 0),
+                Err(e) => return Err(e),
+            }
+        } else {
+            (0, 0) // T-099 backward compat
+        };
+
         let result = TranslationResult {
             intent_id: intent.intent_id.clone(),
             produced_action: envelope,
@@ -247,8 +309,8 @@ impl CognitiveCore for InMemoryCognitiveCore {
             translation_provenance: TranslationProvenance {
                 translator_version: "0.1.0-T098".into(),
                 model_used,
-                tokens_in: 0,
-                tokens_out: 0,
+                tokens_in,
+                tokens_out,
                 model_signed_response: None,
             },
             translated_at: Utc::now(),

@@ -1,0 +1,327 @@
+syntax = "proto3";
+
+package aios.cognitive.v1alpha1;
+
+import "google/protobuf/empty.proto";
+import "google/protobuf/timestamp.proto";
+import "google/protobuf/struct.proto";
+
+// Enums — closed per S13.1 §4
+
+enum CognitiveTaskKind {
+  COGNITIVE_TASK_KIND_UNSPECIFIED   = 0;
+  INTENT_PERCEPTION                 = 1;
+  PLANNING                          = 2;
+  ACTION_PROPOSAL_DRAFTING          = 3;
+  MEMORY_RECALL                     = 4;
+  MEMORY_WRITE                      = 5;
+  INTER_AGENT_COORDINATION          = 6;
+  VERIFICATION_REASONING            = 7;
+  EXTERNAL_MODEL_CALL               = 8;
+  TRANSLATION                       = 9;
+  LATENCY_ROUTING                   = 10;
+}
+
+enum AgentKind {
+  AGENT_KIND_UNSPECIFIED  = 0;
+  ASSISTANT               = 1;
+  WORKER                  = 2;
+  DAEMON                  = 3;
+  COORDINATOR             = 4;
+  TRANSLATOR              = 5;
+  ROUTER                  = 6;
+}
+
+enum AgentLifecycleState {
+  AGENT_LIFECYCLE_STATE_UNSPECIFIED   = 0;
+  INITIALIZING                        = 1;
+  ACTIVE                              = 2;
+  IDLE                                = 3;
+  BLOCKED_AWAITING_APPROVAL           = 4;
+  BLOCKED_AWAITING_DEPENDENCY         = 5;
+  BLOCKED_AWAITING_VAULT              = 6;
+  DEGRADED                            = 7;
+  RETIRING                            = 8;
+  RETIRED                             = 9;
+}
+
+enum MemoryClass {
+  MEMORY_CLASS_UNSPECIFIED  = 0;
+  EPHEMERAL                 = 1;
+  EPISODIC                  = 2;
+  SEMANTIC                  = 3;
+  WORKING                   = 4;
+  SHARED                    = 5;
+}
+
+enum MemoryPrivacyClass {
+  MEMORY_PRIVACY_CLASS_UNSPECIFIED  = 0;
+  PUBLIC_TO_GROUP                   = 1;
+  PRIVATE_TO_USER                   = 2;
+  PRIVATE_TO_AGENT                  = 3;
+  SYSTEM_INTERNAL                   = 4;
+  TRANSIENT                         = 5;
+}
+
+enum PlanState {
+  PLAN_STATE_UNSPECIFIED  = 0;
+  DRAFT                   = 1;
+  PROPOSED                = 2;
+  PARTIALLY_APPROVED      = 3;
+  EXECUTING               = 4;
+  COMPLETED               = 5;
+  ABANDONED               = 6;
+  FAILED                  = 7;
+}
+
+enum InterAgentMessageKind {
+  INTER_AGENT_MESSAGE_KIND_UNSPECIFIED  = 0;
+  WORK_REQUEST                          = 1;
+  WORK_RESPONSE                         = 2;
+  COORDINATION_QUERY                    = 3;
+  COORDINATION_REPLY                    = 4;
+  HANDOFF                               = 5;
+  ESCALATION                            = 6;
+  BROADCAST                             = 7;
+  SHUTDOWN_REQUEST                      = 8;
+}
+
+enum CognitiveErrorCode {
+  COGNITIVE_ERROR_CODE_UNSPECIFIED        = 0;
+  MODEL_UNAVAILABLE                       = 1;
+  INTENT_AMBIGUOUS                        = 2;
+  PLAN_UNFEASIBLE                         = 3;
+  MEMORY_WRITE_REJECTED                   = 4;
+  MEMORY_READ_REJECTED                    = 5;
+  INTER_AGENT_MESSAGE_REJECTED            = 6;
+  PROPOSAL_DRAFT_FAILED                   = 7;
+  EXTERNAL_MODEL_CALL_REJECTED            = 8;
+  SELF_GRADE_ATTEMPT_BLOCKED              = 9;
+  SYSTEM_ADMIN_DRAFT_REFUSED              = 10;
+  RECOVERY_MODE_AGENT_STOPPED             = 11;
+  CAPABILITY_BINDING_INVALID              = 12;
+  PROMPT_INJECTION_DETECTED               = 13;
+  CROSS_GROUP_COORDINATION_REFUSED        = 14;
+  SANDBOX_FLOOR_REGRESSION_REFUSED        = 15;
+  PLAN_BUNDLED_APPROVAL_INELIGIBLE        = 16;
+}
+
+enum ApprovalGranularity {
+  APPROVAL_GRANULARITY_UNSPECIFIED  = 0;
+  PER_ACTION                        = 1;
+  BUNDLED                           = 2;
+}
+
+enum AdapterStability {
+  ADAPTER_STABILITY_UNSPECIFIED  = 0;
+  EXPERIMENTAL                   = 1;
+  STABLE                         = 2;
+  DEPRECATED                     = 3;
+}
+
+enum AICrossOriginPosture {
+  AI_CROSS_ORIGIN_POSTURE_UNSPECIFIED  = 0;
+  AI_VAULT_BROKERED_ONLY               = 1;
+  AI_NO_EXTERNAL                       = 2;
+  AI_LOOPBACK_ONLY                     = 3;
+}
+
+// Messages
+
+message VaultCapabilityRef {
+  string capability_id    = 1;
+  string capability_class = 2;
+}
+
+message CognitiveAdapterManifest {
+  string adapter_family                    = 1;
+  string adapter_version                   = 2;
+  AdapterStability stability               = 3;
+  repeated CognitiveTaskKind supported_tasks = 4;
+  repeated VaultCapabilityRef required_capabilities = 5;
+  AICrossOriginPosture network_posture     = 6;
+  string sandbox_profile_id                = 7;
+  bytes publisher_signature                = 8;
+  bytes aios_root_endorsement              = 9;
+}
+
+message AgentBinding {
+  string agent_canonical_id                = 1;
+  string home_group_id                     = 2;
+  string bound_user_id                     = 3;
+  string identity_bundle_version           = 4;
+  AgentKind agent_kind                     = 5;
+  google.protobuf.Timestamp registered_at  = 6;
+  string registered_by                     = 7;
+}
+
+message Agent {
+  string agent_canonical_id                = 1;
+  AgentBinding binding                     = 2;
+  AgentLifecycleState state                = 3;
+  google.protobuf.Timestamp registered_at  = 4;
+  google.protobuf.Timestamp last_active_at = 5;
+}
+
+message PlanStep {
+  string step_id           = 1;
+  string action_draft_ref  = 2;
+  string parent_step_id    = 3;
+}
+
+message Plan {
+  string plan_id                             = 1;
+  string author_agent_canonical_id           = 2;
+  string intent_id                           = 3;
+  PlanState state                            = 4;
+  repeated PlanStep steps                    = 5;
+  ApprovalGranularity approval_granularity   = 6;
+  string approval_bundle_hash                = 7;
+  google.protobuf.Timestamp drafted_at       = 8;
+  google.protobuf.Timestamp submitted_at     = 9;
+  google.protobuf.Timestamp finalized_at     = 10;
+}
+
+message MemoryEntry {
+  string entry_id                        = 1;
+  string agent_canonical_id              = 2;
+  MemoryClass memory_class               = 3;
+  MemoryPrivacyClass privacy             = 4;
+  string payload_digest                  = 5;
+  google.protobuf.Timestamp written_at   = 6;
+}
+
+// RPC request / response messages
+
+message RegisterAgentRequest {
+  string schema_version              = 1;
+  AgentBinding binding               = 2;
+  CognitiveAdapterManifest manifest  = 3;
+  string approver_canonical_id       = 4;
+  bytes approver_signature           = 5;
+}
+
+message RegisterAgentResponse {
+  string agent_canonical_id  = 1;
+  AgentLifecycleState state  = 2;
+  string error_code          = 3;
+}
+
+message GetAgentRequest {
+  string agent_canonical_id = 1;
+}
+
+message ListAgentsRequest {
+  string group_id             = 1;
+  string user_id              = 2;
+  AgentKind agent_kind_filter = 3;
+}
+
+message ListAgentsResponse {
+  repeated Agent agents = 1;
+}
+
+message RetireAgentRequest {
+  string agent_canonical_id      = 1;
+  string requester_canonical_id  = 2;
+  string reason                  = 3;
+}
+
+message RetireAgentResponse {
+  AgentLifecycleState terminal_state = 1;
+}
+
+message GetPlanRequest {
+  string plan_id = 1;
+}
+
+message ListPlansRequest {
+  string agent_canonical_id = 1;
+  PlanState state_filter    = 2;
+}
+
+message ListPlansResponse {
+  repeated Plan plans = 1;
+}
+
+message GetMemoryEntryRequest {
+  string entry_id = 1;
+}
+
+message PerceiveIntentRequest {
+  string schema_version               = 1;
+  string agent_canonical_id           = 2;
+  string utterance                    = 3;
+  google.protobuf.Struct context_facts = 4;
+}
+
+message PerceiveIntentResponse {
+  string intent_id                      = 1;
+  google.protobuf.Struct structured_intent = 2;
+  CognitiveErrorCode error_code         = 3;
+}
+
+message DraftPlanRequest {
+  string agent_canonical_id                 = 1;
+  string intent_id                          = 2;
+  ApprovalGranularity preferred_granularity = 3;
+}
+
+message DraftPlanResponse {
+  string plan_id              = 1;
+  PlanState plan_state        = 2;
+  CognitiveErrorCode error_code = 3;
+}
+
+message DraftActionProposalRequest {
+  string agent_canonical_id = 1;
+  string plan_id            = 2;
+  string plan_step_id       = 3;
+}
+
+message DraftActionProposalResponse {
+  bytes envelope               = 1;
+  CognitiveErrorCode error_code = 2;
+}
+
+message ReasonAboutVerificationRequest {
+  string agent_canonical_id                   = 1;
+  string action_id                            = 2;
+  google.protobuf.Struct verification_result  = 3;
+}
+
+message ReasonAboutVerificationResponse {
+  string interpretation_summary  = 1;
+  string memory_entry_id         = 2;
+  CognitiveErrorCode error_code  = 3;
+}
+
+message CognitiveCoreInfo {
+  string cognitive_core_id                  = 1;
+  repeated string supported_schema_versions = 2;
+  string default_schema_version             = 3;
+  uint32 active_agents                      = 4;
+  uint32 active_plans                       = 5;
+  bool recovery_mode_active                 = 6;
+  google.protobuf.Timestamp started_at      = 7;
+}
+
+// Service
+
+service CognitiveCore {
+  rpc RegisterAgent(RegisterAgentRequest) returns (RegisterAgentResponse);
+  rpc GetAgent(GetAgentRequest) returns (Agent);
+  rpc ListAgents(ListAgentsRequest) returns (ListAgentsResponse);
+  rpc RetireAgent(RetireAgentRequest) returns (RetireAgentResponse);
+
+  rpc GetPlan(GetPlanRequest) returns (Plan);
+  rpc ListPlans(ListPlansRequest) returns (ListPlansResponse);
+  rpc GetMemoryEntry(GetMemoryEntryRequest) returns (MemoryEntry);
+
+  rpc PerceiveIntent(PerceiveIntentRequest) returns (PerceiveIntentResponse);
+  rpc DraftPlan(DraftPlanRequest) returns (DraftPlanResponse);
+  rpc DraftActionProposal(DraftActionProposalRequest) returns (DraftActionProposalResponse);
+  rpc ReasonAboutVerification(ReasonAboutVerificationRequest) returns (ReasonAboutVerificationResponse);
+
+  rpc GetCognitiveCoreInfo(google.protobuf.Empty) returns (CognitiveCoreInfo);
+}

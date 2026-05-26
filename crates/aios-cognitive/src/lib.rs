@@ -36,6 +36,8 @@ pub mod router;
 pub mod router_state;
 /// Model router types (S13.2).
 pub mod routing;
+/// gRPC CognitiveCore service (T-101, S13.1 §19).
+pub mod service;
 /// `TranslationResult` + `TranslationProvenance`.
 pub mod translator;
 

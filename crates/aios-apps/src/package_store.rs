@@ -14,6 +14,7 @@ use serde::{Deserialize, Serialize};
 use tokio::sync::RwLock;
 
 use crate::error::AppsError;
+use crate::evidence::AppsEvidenceEmitter;
 use crate::package::PackageId;
 
 // ---------------------------------------------------------------------------
@@ -96,11 +97,20 @@ pub trait PackageStore: Send + Sync {
 /// Trusted authorities are a static map from Ed25519 public key bytes to a
 /// human-readable authority name. Only packages signed by a key present in
 /// this map pass `register_package`.
-#[derive(Clone, Debug)]
+#[derive(Clone)]
 pub struct InMemoryPackageStore {
     packages: Arc<RwLock<HashMap<PackageId, AppPackage>>>,
     name_index: Arc<RwLock<HashMap<String, Vec<PackageId>>>>,
     trusted_authorities: HashMap<Vec<u8>, String>,
+    emitter: Option<Arc<dyn AppsEvidenceEmitter>>,
+}
+
+impl std::fmt::Debug for InMemoryPackageStore {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("InMemoryPackageStore")
+            .field("trusted_authorities", &self.trusted_authorities)
+            .finish_non_exhaustive()
+    }
 }
 
 impl InMemoryPackageStore {
@@ -114,7 +124,18 @@ impl InMemoryPackageStore {
             packages: Arc::new(RwLock::new(HashMap::new())),
             name_index: Arc::new(RwLock::new(HashMap::new())),
             trusted_authorities,
+            emitter: None,
         }
+    }
+
+    /// Attach an evidence emitter to this store.
+    ///
+    /// After this call, every successful `register_package` will emit a
+    /// `PACKAGE_REGISTERED` evidence record.
+    #[must_use]
+    pub fn with_emitter(mut self, emitter: Arc<dyn AppsEvidenceEmitter>) -> Self {
+        self.emitter = Some(emitter);
+        self
     }
 
     /// Return the number of registered packages (test seam).
@@ -162,8 +183,18 @@ impl PackageStore for InMemoryPackageStore {
 
         let id = package.package_id.clone();
         let name = package.name.clone();
+        let version = package.version.clone();
 
         self.packages.write().await.insert(id.clone(), package);
+
+        // 4. Emit evidence after successful registration (before name_index
+        //    update so `name` is still available).
+        if let Some(ref emitter) = self.emitter {
+            emitter
+                .emit_package_registered(&id, &name, &version, &computed)
+                .await?;
+        }
+
         self.name_index
             .write()
             .await

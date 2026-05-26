@@ -15,6 +15,7 @@ use strum_macros::{EnumCount, EnumIter};
 use tokio::sync::RwLock;
 
 use crate::error::AppsError;
+use crate::evidence::{AppsEvidenceEmitter, UpdatePhaseRecord};
 use crate::package::PackageId;
 use crate::session_driver::Principal;
 
@@ -282,9 +283,18 @@ pub trait UpdateRollbackDriver: Send + Sync {
 ///
 /// Dry-run plans are not persisted; live plans are stored and transitioned
 /// through the FSM with full transition validation.
-#[derive(Clone, Debug, Default)]
+#[derive(Clone, Default)]
 pub struct InMemoryUpdateDriver {
     plans: Arc<RwLock<HashMap<UpdatePlanId, UpdatePlan>>>,
+    emitter: Option<Arc<dyn AppsEvidenceEmitter>>,
+}
+
+impl std::fmt::Debug for InMemoryUpdateDriver {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("InMemoryUpdateDriver")
+            .field("plans", &self.plans)
+            .finish_non_exhaustive()
+    }
 }
 
 impl InMemoryUpdateDriver {
@@ -293,7 +303,18 @@ impl InMemoryUpdateDriver {
     pub fn new() -> Self {
         Self {
             plans: Arc::new(RwLock::new(HashMap::new())),
+            emitter: None,
         }
+    }
+
+    /// Attach an evidence emitter to this driver.
+    ///
+    /// After this call, every successful phase transition will emit an
+    /// evidence record.
+    #[must_use]
+    pub fn with_emitter(mut self, emitter: Arc<dyn AppsEvidenceEmitter>) -> Self {
+        self.emitter = Some(emitter);
+        self
     }
 }
 
@@ -401,6 +422,12 @@ impl UpdateRollbackDriver for InMemoryUpdateDriver {
         apply_transition(&mut plan, UpdateState::Executed)?;
         self.store_plan(plan.clone()).await;
 
+        if let Some(ref emitter) = self.emitter {
+            emitter
+                .emit_update_event(&plan.id, &plan.package_id, UpdatePhaseRecord::Executed)
+                .await?;
+        }
+
         Ok(UpdateOutcome {
             execution_metrics: serde_json::json!({"elapsed_ms": 42}),
             artifacts_swapped: 128,
@@ -428,7 +455,19 @@ impl UpdateRollbackDriver for InMemoryUpdateDriver {
             apply_transition(&mut plan, UpdateState::Failed)?;
         }
 
-        self.store_plan(plan).await;
+        self.store_plan(plan.clone()).await;
+
+        if let Some(ref emitter) = self.emitter {
+            let phase = if verification.hash_match {
+                UpdatePhaseRecord::Verified
+            } else {
+                UpdatePhaseRecord::Failed(FailureClass::VerifyMismatch)
+            };
+            emitter
+                .emit_update_event(&plan.id, &plan.package_id, phase)
+                .await?;
+        }
+
         Ok(verification)
     }
 
@@ -441,7 +480,13 @@ impl UpdateRollbackDriver for InMemoryUpdateDriver {
 
         // Transition Activating → Active
         apply_transition(&mut plan, UpdateState::Active)?;
-        self.store_plan(plan).await;
+        self.store_plan(plan.clone()).await;
+
+        if let Some(ref emitter) = self.emitter {
+            emitter
+                .emit_update_event(&plan.id, &plan.package_id, UpdatePhaseRecord::Activated)
+                .await?;
+        }
 
         Ok(())
     }
@@ -449,7 +494,7 @@ impl UpdateRollbackDriver for InMemoryUpdateDriver {
     async fn rollback_update(
         &self,
         plan_id: UpdatePlanId,
-        _reason: RollbackReason,
+        reason: RollbackReason,
     ) -> Result<RollbackReceipt, AppsError> {
         let mut plan = self.load_plan(&plan_id).await?;
 
@@ -461,7 +506,17 @@ impl UpdateRollbackDriver for InMemoryUpdateDriver {
 
         // Transition RollingBack → RolledBack
         apply_transition(&mut plan, UpdateState::RolledBack)?;
-        self.store_plan(plan).await;
+        self.store_plan(plan.clone()).await;
+
+        if let Some(ref emitter) = self.emitter {
+            emitter
+                .emit_update_event(
+                    &plan.id,
+                    &plan.package_id,
+                    UpdatePhaseRecord::RolledBack(reason),
+                )
+                .await?;
+        }
 
         Ok(RollbackReceipt {
             plan_id,

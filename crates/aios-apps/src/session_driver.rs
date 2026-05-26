@@ -7,6 +7,7 @@
 //! `Allocating → Active → Suspended → Terminating → Terminated`.
 
 use std::collections::HashMap;
+use std::sync::Arc;
 use std::time::Duration;
 
 use async_trait::async_trait;
@@ -18,6 +19,7 @@ use tokio::sync::RwLock;
 use crate::compatibility_orchestrator::CompatibilityOrchestrator;
 use crate::ecosystem::EcosystemRuntime;
 use crate::error::AppsError;
+use crate::evidence::{AppsEvidenceEmitter, SessionPhaseRecord};
 use crate::package::PackageId;
 use crate::session::SessionId;
 
@@ -321,6 +323,7 @@ pub trait SessionDriver: Send + Sync {
 pub struct InMemorySessionDriver {
     sessions: RwLock<HashMap<SessionId, SessionEntry>>,
     orchestrator: CompatibilityOrchestrator,
+    emitter: Option<Arc<dyn AppsEvidenceEmitter>>,
 }
 
 impl InMemorySessionDriver {
@@ -330,6 +333,7 @@ impl InMemorySessionDriver {
         Self {
             sessions: RwLock::new(HashMap::new()),
             orchestrator,
+            emitter: None,
         }
     }
 
@@ -338,6 +342,15 @@ impl InMemorySessionDriver {
     #[must_use]
     pub fn new_with_defaults() -> Self {
         Self::new(CompatibilityOrchestrator::new_with_defaults())
+    }
+
+    /// Attach an evidence emitter to this driver.
+    ///
+    /// After this call, every session open/close will emit an evidence record.
+    #[must_use]
+    pub fn with_emitter(mut self, emitter: Arc<dyn AppsEvidenceEmitter>) -> Self {
+        self.emitter = Some(emitter);
+        self
     }
 }
 
@@ -365,11 +378,12 @@ impl SessionDriver for InMemorySessionDriver {
             "sess_{}",
             ulid::Ulid::new().to_string().to_lowercase()
         ));
+        let package_id = req.package_id.clone();
         let now = Utc::now();
 
         let entry = SessionEntry {
             session_id: session_id.clone(),
-            package_id: req.package_id,
+            package_id: package_id.clone(),
             ecosystem: req.ecosystem,
             state: SessionState::Active,
             requester: req.requester,
@@ -381,7 +395,17 @@ impl SessionDriver for InMemorySessionDriver {
         };
 
         let descriptor = entry.to_descriptor();
-        self.sessions.write().await.insert(session_id, entry);
+        self.sessions
+            .write()
+            .await
+            .insert(session_id.clone(), entry);
+
+        if let Some(ref emitter) = self.emitter {
+            emitter
+                .emit_session_event(&session_id, &package_id, SessionPhaseRecord::Opened)
+                .await?;
+        }
+
         Ok(descriptor)
     }
 
@@ -398,12 +422,20 @@ impl SessionDriver for InMemorySessionDriver {
         entry.state = SessionState::Terminated;
         let ended_at = Utc::now();
         let metrics = entry.compute_metrics(ended_at);
+        let package_id = entry.package_id.clone();
+        let exit_reason = SessionExitReason::ClosedByOwner;
         drop(guard);
+
+        if let Some(ref emitter) = self.emitter {
+            emitter
+                .emit_session_event(&id, &package_id, SessionPhaseRecord::Closed(exit_reason))
+                .await?;
+        }
 
         Ok(SessionTerminationReceipt {
             session_id: id,
             ended_at,
-            exit_reason: SessionExitReason::ClosedByOwner,
+            exit_reason,
             final_metrics: metrics,
         })
     }

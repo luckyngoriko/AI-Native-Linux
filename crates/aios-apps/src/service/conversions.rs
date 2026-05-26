@@ -835,6 +835,9 @@ pub fn apps_error_to_status(e: &AppsError) -> tonic::Status {
         AppsError::ValidationFailed(msg) => {
             tonic::Status::invalid_argument(format!("validation failed: {msg}"))
         }
+        AppsError::EvidenceEmitFailed(msg) => {
+            tonic::Status::internal(format!("evidence emit failed: {msg}"))
+        }
     }
 }
 
@@ -859,6 +862,7 @@ pub const fn apps_error_to_code(e: &AppsError) -> u32 {
         AppsError::InvalidStateTransition { .. } => 16,
         AppsError::UpdatePlanNotFound(_) => 17,
         AppsError::ValidationFailed(_) => 18,
+        AppsError::EvidenceEmitFailed(_) => 19,
     }
 }
 

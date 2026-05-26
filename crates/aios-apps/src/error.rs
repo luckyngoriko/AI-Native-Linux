@@ -131,4 +131,8 @@ pub enum AppsError {
     /// Validation failed for an incoming manifest or contribution.
     #[error("validation failed: {0}")]
     ValidationFailed(String),
+
+    /// Evidence emission failed — seal or chain append rejected.
+    #[error("evidence emit failed: {0}")]
+    EvidenceEmitFailed(String),
 }

@@ -10,6 +10,9 @@ pub mod composer;
 pub mod error;
 /// `GpuPolicy` + `GpuCapabilityClass` (S3.2 + S8.2 type-level).
 pub mod gpu;
+/// `GpuPolicyEnforcer` — validates GPU policies, checks capability bounds,
+/// and computes stub `GpuCapabilityBinding` per (group, subject) (S3.2 §`GpuPolicy` + S8.2).
+pub mod gpu_enforcer;
 /// `InMemorySandboxComposer` — in-memory profile catalog + 6-source merge.
 pub mod in_memory_composer;
 /// `IsolationKind` closed enum.
@@ -25,6 +28,7 @@ pub mod resources;
 pub use composer::{ComposeRequest, ComposeResult, SandboxComposer, SubjectRef};
 pub use error::SandboxError;
 pub use gpu::{GpuCapabilityClass, GpuPolicy};
+pub use gpu_enforcer::{GpuCapabilityBinding, GpuPolicyEnforcer, IommuStatus};
 pub use in_memory_composer::InMemorySandboxComposer;
 pub use isolation::IsolationKind;
 pub use network::NetworkPosture;

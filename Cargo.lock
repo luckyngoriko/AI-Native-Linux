@@ -256,6 +256,8 @@ name = "aios-sandbox"
 version = "0.0.1"
 dependencies = [
  "aios-action",
+ "aios-capability-runtime",
+ "aios-cognitive",
  "aios-evidence",
  "async-trait",
  "blake3",

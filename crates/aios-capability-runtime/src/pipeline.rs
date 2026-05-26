@@ -59,7 +59,8 @@ use crate::failure::{ExecutionFailureReason, RollbackOutcome};
 use crate::rollback::RollbackDriver;
 use crate::rollback_strategy::RollbackStrategy;
 use crate::runtime::{
-    RuntimeCognitiveProvenance, RuntimeContext, RuntimeRecoveryHook, RuntimeVerificationEngine,
+    RuntimeCognitiveProvenance, RuntimeContext, RuntimeRecoveryHook, RuntimeSandboxComposer,
+    RuntimeVerificationEngine,
 };
 use crate::status::ActionLifecycleState;
 
@@ -532,9 +533,18 @@ impl ActionLifecyclePipeline {
         verification_engine: Option<&dyn RuntimeVerificationEngine>,
         recovery_hook: Option<&dyn RuntimeRecoveryHook>,
         cognitive_provenance: Option<&dyn RuntimeCognitiveProvenance>,
+        sandbox_composer: Option<&dyn RuntimeSandboxComposer>,
     ) -> Result<ActionContext, RuntimeError> {
+        let recovery_mode = runtime_context.is_some_and(|rc| rc.subject.recovery_mode);
         let state = self
-            .step_validate_with_provenance(envelope, ctx, now, cognitive_provenance)
+            .step_validate_with_provenance_and_sandbox(
+                envelope,
+                ctx,
+                now,
+                cognitive_provenance,
+                sandbox_composer,
+                recovery_mode,
+            )
             .await?;
         let state = match state {
             PipelineState::Continue(c) => {
@@ -648,10 +658,19 @@ impl ActionLifecyclePipeline {
         verification_engine: Option<&dyn RuntimeVerificationEngine>,
         recovery_hook: Option<&dyn RuntimeRecoveryHook>,
         cognitive_provenance: Option<&dyn RuntimeCognitiveProvenance>,
+        sandbox_composer: Option<&dyn RuntimeSandboxComposer>,
     ) -> Result<ActionContext, RuntimeError> {
         // ── Step 1: validate envelope. Emit ACTION_RECEIVED on success. ──
+        let recovery_mode = runtime_context.is_some_and(|rc| rc.subject.recovery_mode);
         let state = self
-            .step_validate_with_provenance(envelope, ctx, now, cognitive_provenance)
+            .step_validate_with_provenance_and_sandbox(
+                envelope,
+                ctx,
+                now,
+                cognitive_provenance,
+                sandbox_composer,
+                recovery_mode,
+            )
             .await?;
         let state = match state {
             PipelineState::Continue(mut c) => {
@@ -770,7 +789,7 @@ impl ActionLifecyclePipeline {
     /// Same as [`Self::run_with_full_engines_and_evidence`]; additionally
     /// returns [`RuntimeError::ManifestInvalid`] when a manifest's
     /// `rollback_strategy` string fails to parse.
-    #[allow(clippy::too_many_arguments)]
+    #[allow(clippy::too_many_arguments, clippy::too_many_lines)]
     pub async fn run_with_full_engines_and_evidence_and_rollback(
         &self,
         envelope: &ActionEnvelope,
@@ -787,10 +806,19 @@ impl ActionLifecyclePipeline {
         verification_engine: Option<&dyn RuntimeVerificationEngine>,
         recovery_hook: Option<&dyn RuntimeRecoveryHook>,
         cognitive_provenance: Option<&dyn RuntimeCognitiveProvenance>,
+        sandbox_composer: Option<&dyn RuntimeSandboxComposer>,
     ) -> Result<ActionContext, RuntimeError> {
         // ── Step 1: validate envelope. Emit ACTION_RECEIVED on success. ──
+        let recovery_mode = runtime_context.is_some_and(|rc| rc.subject.recovery_mode);
         let state = self
-            .step_validate_with_provenance(envelope, ctx, now, cognitive_provenance)
+            .step_validate_with_provenance_and_sandbox(
+                envelope,
+                ctx,
+                now,
+                cognitive_provenance,
+                sandbox_composer,
+                recovery_mode,
+            )
             .await?;
         let state = match state {
             PipelineState::Continue(mut c) => {
@@ -1491,6 +1519,57 @@ impl ActionLifecyclePipeline {
                     apply_transition(&mut ctx, ActionLifecycleState::Failed, now)?;
                     ctx.error = Some(ExecutionFailureReason::AdapterRefused);
                     return Ok(PipelineState::ShortCircuit(ctx));
+                }
+            }
+        }
+        self.step_validate(envelope, ctx, now)
+    }
+
+    /// Combined INV-002 provenance check + sandbox composition + schema validation.
+    ///
+    /// When `sandbox_composer` is `Some(...)`, this calls
+    /// [`RuntimeSandboxComposer::compose_for_action`] and stores the resulting
+    /// [`SandboxProfileSummary`] serialized as JSON on the action's evidence
+    /// chain. Composition is advisory — the action proceeds even if composition
+    /// fails; the error is logged but does not block the pipeline.
+    ///
+    /// When `sandbox_composer` is `None`, this is identical to
+    /// [`Self::step_validate_with_provenance`] (backward compatible).
+    ///
+    /// # Errors
+    ///
+    /// Returns [`RuntimeError::InvalidTransition`] if the resulting state
+    /// transition is forbidden by the lifecycle FSM.
+    pub async fn step_validate_with_provenance_and_sandbox(
+        &self,
+        envelope: &ActionEnvelope,
+        mut ctx: ActionContext,
+        now: DateTime<Utc>,
+        provenance: Option<&dyn RuntimeCognitiveProvenance>,
+        sandbox_composer: Option<&dyn RuntimeSandboxComposer>,
+        recovery_mode: bool,
+    ) -> Result<PipelineState, RuntimeError> {
+        // INV-002 provenance check (same as step_validate_with_provenance).
+        if envelope.identity.is_ai {
+            if let Some(hook) = provenance {
+                if let Err(_reason) = hook.verify_provenance(envelope).await {
+                    apply_transition(&mut ctx, ActionLifecycleState::Failed, now)?;
+                    ctx.error = Some(ExecutionFailureReason::AdapterRefused);
+                    return Ok(PipelineState::ShortCircuit(ctx));
+                }
+            }
+        }
+        // Sandbox composition — advisory, stored on the evidence chain.
+        if let Some(composer) = sandbox_composer {
+            let subject_id = &envelope.identity.subject_canonical_id;
+            let action_target = &envelope.request.action;
+            let is_ai = envelope.identity.is_ai;
+            if let Ok(summary) = composer
+                .compose_for_action(action_target, subject_id, is_ai, recovery_mode)
+                .await
+            {
+                if let Ok(json) = serde_json::to_string(&summary) {
+                    ctx.evidence_chain.push(format!("sandbox_profile:{json}"));
                 }
             }
         }

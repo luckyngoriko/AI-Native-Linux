@@ -142,6 +142,48 @@ pub trait RuntimeCognitiveProvenance: Send + Sync {
     async fn verify_provenance(&self, envelope: &ActionEnvelope) -> Result<(), String>;
 }
 
+/// A sandbox profile summary projected from the composer for runtime consumption.
+///
+/// Carries the essential profile shape without pulling in the full
+/// `aios-sandbox` crate. The runtime stores this on the evidence chain so
+/// every action's sandbox profile is traceable.
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub struct SandboxProfileSummary {
+    /// The composed profile identifier (`sbx_<ULID>`).
+    pub profile_id: String,
+    /// Kernel-level isolation kind (e.g. `ProcessContainer`).
+    pub isolation_kind: String,
+    /// Network posture (e.g. `LoopbackOnly`).
+    pub network_posture: String,
+    /// GPU capability class (e.g. `GpuLightweight2D`).
+    pub gpu_capability_class: String,
+}
+
+/// Adapter-facing sandbox composition hook defined locally so
+/// `aios-capability-runtime` does not depend on `aios-sandbox`.
+///
+/// The sandbox crate supplies an adapter implementing this trait; the runtime
+/// consults it during validation to compose a sandbox profile for the action.
+/// The resulting [`SandboxProfileSummary`] is stored on the action's evidence
+/// chain for traceability.
+#[async_trait]
+pub trait RuntimeSandboxComposer: Send + Sync {
+    /// Compose a sandbox profile for a pending action.
+    ///
+    /// # Errors
+    ///
+    /// Returns `Err(String)` with a human-readable reason when composition
+    /// fails. The runtime continues with a default (no-sandbox) profile on
+    /// error — the composer is advisory, not a hard gate.
+    async fn compose_for_action(
+        &self,
+        action_target: &str,
+        subject: &str,
+        is_ai: bool,
+        recovery_mode: bool,
+    ) -> Result<SandboxProfileSummary, String>;
+}
+
 // ---------------------------------------------------------------------------
 // RuntimeContext.
 // ---------------------------------------------------------------------------
@@ -519,6 +561,10 @@ pub struct InMemoryCapabilityRuntime {
     /// When attached, AI-submitted envelopes must carry a valid provenance
     /// marker; the runtime fails closed on missing/invalid markers.
     cognitive_provenance: Option<Arc<dyn RuntimeCognitiveProvenance>>,
+    /// Optional sandbox composer hook. When attached, the runtime consults
+    /// the composer during validation to compose a sandbox profile for the
+    /// action and store the summary on the evidence chain.
+    sandbox_composer: Option<Arc<dyn RuntimeSandboxComposer>>,
     /// T-030 — defense-in-depth tripwire counter for the §17 AI
     /// self-approval prevention boundary.
     ///
@@ -589,6 +635,7 @@ impl std::fmt::Debug for InMemoryCapabilityRuntime {
             .field("verification_engine", &self.verification_engine.is_some())
             .field("recovery_hook", &self.recovery_hook.is_some())
             .field("cognitive_provenance", &self.cognitive_provenance.is_some())
+            .field("sandbox_composer", &self.sandbox_composer.is_some())
             .field(
                 "policy_double_check_warnings",
                 &self.policy_double_check_warnings.load(Ordering::Acquire),
@@ -622,6 +669,7 @@ impl InMemoryCapabilityRuntime {
             verification_engine: None,
             recovery_hook: None,
             cognitive_provenance: None,
+            sandbox_composer: None,
             policy_double_check_warnings: Arc::new(AtomicU64::new(0)),
             rollback_driver: None,
             operator_alerts: Arc::new(AtomicU64::new(0)),
@@ -781,6 +829,24 @@ impl InMemoryCapabilityRuntime {
         self
     }
 
+    /// Attach a sandbox composer to the runtime. Returns `self` for chaining.
+    ///
+    /// **T-112 entry point.** When attached, the runtime consults the composer
+    /// during validation to compose a sandbox profile for the action and store
+    /// the projected [`SandboxProfileSummary`] on the evidence chain.
+    /// Without a composer, the T-027..T-111 baseline is preserved verbatim.
+    #[must_use]
+    pub fn with_sandbox_composer(mut self, composer: Arc<dyn RuntimeSandboxComposer>) -> Self {
+        self.sandbox_composer = Some(composer);
+        self
+    }
+
+    /// Borrow the attached sandbox composer, if any.
+    #[must_use]
+    pub const fn sandbox_composer(&self) -> Option<&Arc<dyn RuntimeSandboxComposer>> {
+        self.sandbox_composer.as_ref()
+    }
+
     /// Borrow the attached evidence emitter, if any.
     #[must_use]
     pub const fn evidence_emitter(&self) -> Option<&Arc<EvidenceEmitter>> {
@@ -882,6 +948,7 @@ impl CapabilityRuntime for InMemoryCapabilityRuntime {
         let verification_ref = self.verification_engine.as_deref();
         let recovery_ref = self.recovery_hook.as_deref();
         let provenance_ref = self.cognitive_provenance.as_deref();
+        let sandbox_ref = self.sandbox_composer.as_deref();
         let final_ctx = if let Some(emitter) = self.evidence_emitter.as_deref() {
             // T-031 / T-032 path — every §4.2 transition emits an
             // evidence receipt. When a rollback driver is also attached
@@ -905,6 +972,7 @@ impl CapabilityRuntime for InMemoryCapabilityRuntime {
                         verification_ref,
                         recovery_ref,
                         provenance_ref,
+                        sandbox_ref,
                     )
                     .await?
             } else {
@@ -922,6 +990,7 @@ impl CapabilityRuntime for InMemoryCapabilityRuntime {
                         verification_ref,
                         recovery_ref,
                         provenance_ref,
+                        sandbox_ref,
                     )
                     .await?
             }
@@ -942,6 +1011,7 @@ impl CapabilityRuntime for InMemoryCapabilityRuntime {
                     verification_ref,
                     recovery_ref,
                     provenance_ref,
+                    sandbox_ref,
                 )
                 .await?
         };

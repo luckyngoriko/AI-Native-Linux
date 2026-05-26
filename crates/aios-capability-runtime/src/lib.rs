@@ -98,6 +98,6 @@ pub use rollback_strategy::{RollbackFailureMode, RollbackStrategy};
 pub use runtime::{
     AdapterHandle, AdapterRegistry, CapabilityRuntime, InMemoryCapabilityRuntime,
     NoOpAdapterHandle, NoOpAdapterRegistry, RuntimeCognitiveProvenance, RuntimeContext,
-    RuntimeRecoveryHook,
+    RuntimeRecoveryHook, RuntimeSandboxComposer, SandboxProfileSummary,
 };
 pub use status::ActionLifecycleState;

@@ -9,8 +9,10 @@ repository.workspace = true
 authors.workspace = true
 
 [dependencies]
-aios-action   = { path = "../aios-action" }
-aios-evidence = { path = "../aios-evidence" }
+aios-action              = { path = "../aios-action" }
+aios-capability-runtime  = { path = "../aios-capability-runtime" }
+aios-cognitive           = { path = "../aios-cognitive" }
+aios-evidence            = { path = "../aios-evidence" }
 serde          = { workspace = true }
 serde_json     = { workspace = true }
 chrono         = { workspace = true }

@@ -4,6 +4,8 @@
 
 #![forbid(unsafe_code)]
 
+/// T-112 — `SandboxCognitiveHint` for cognitive↔sandbox profile suggestions.
+pub mod cognitive_adapter;
 /// `SandboxComposer` async trait + `ComposeRequest` / `ComposeResult` (S3.2 §19.1).
 pub mod composer;
 /// `SandboxError` taxonomy.
@@ -29,10 +31,14 @@ pub mod profile;
 pub mod resource_enforcer;
 /// `ResourceLimits` + default factories + validation.
 pub mod resources;
+/// T-112 — `SandboxRuntimeAdapter` bridging [`InMemorySandboxComposer`] to the
+/// capability-runtime [`RuntimeSandboxComposer`] trait.
+pub mod runtime_adapter;
 /// gRPC `SandboxService` surface (T-110).
 pub mod service;
 
 // Re-exports — flattened public surface
+pub use cognitive_adapter::SandboxCognitiveHint;
 pub use composer::{ComposeRequest, ComposeResult, SandboxComposer, SubjectRef};
 pub use error::SandboxError;
 pub use evidence_emit::{
@@ -53,6 +59,7 @@ pub use resource_enforcer::{
     ResourceLimitEnforcer, ResourceRemaining, ResourceRequest, ResourceUsage, SyscallEnforcement,
 };
 pub use resources::ResourceLimits;
+pub use runtime_adapter::SandboxRuntimeAdapter;
 pub use service::{
     SandboxServiceClient, SandboxServiceGrpc, SandboxServiceGrpcServer, SandboxServiceImpl,
     SCHEMA_VERSION,

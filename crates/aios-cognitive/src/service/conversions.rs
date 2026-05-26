@@ -186,6 +186,9 @@ pub fn cognitive_error_to_status(err: &CognitiveError) -> Status {
             Code::PermissionDenied,
             format!("vault credential missing for model {model_id}"),
         ),
+        CognitiveError::EvidenceEmitFailed(msg) => {
+            Status::new(Code::Internal, format!("evidence emit failed: {msg}"))
+        }
     }
 }
 
@@ -206,7 +209,8 @@ pub const fn cognitive_error_to_proto_code(err: &CognitiveError) -> i32 {
         }
         CognitiveError::NoRouteAvailable(_)
         | CognitiveError::CircuitBreakerOpen(_)
-        | CognitiveError::Internal(_) => proto::CognitiveErrorCode::ModelUnavailable,
+        | CognitiveError::Internal(_)
+        | CognitiveError::EvidenceEmitFailed(_) => proto::CognitiveErrorCode::ModelUnavailable,
         CognitiveError::ExternalBackendBlocked { .. }
         | CognitiveError::VaultCredentialMissing(_) => {
             proto::CognitiveErrorCode::ExternalModelCallRejected

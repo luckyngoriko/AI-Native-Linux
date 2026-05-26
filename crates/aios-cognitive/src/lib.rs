@@ -14,6 +14,10 @@ pub mod circuit;
 pub mod core;
 /// `CognitiveError` taxonomy.
 pub mod error;
+/// S13.x evidence emission policy (S13.x ↔ S3.1).
+pub mod evidence_emit;
+/// Typed cognitive evidence payloads.
+pub mod evidence_payloads;
 /// `InMemoryCognitiveCore` — test/prototype implementation of `CognitiveCore`.
 pub mod in_memory_core;
 /// `CognitiveIntent` + `IntentId` + `SubjectRef`.
@@ -47,6 +51,14 @@ pub use breaker_registry::CircuitBreakerRegistry;
 pub use circuit::{CircuitBreakerConfig, CircuitBreakerStats, CircuitState};
 pub use core::{CognitiveCore, IntentCapability, TranslationContext};
 pub use error::CognitiveError;
+pub use evidence_emit::{
+    CognitiveEvidenceEmitter, CognitiveEvidenceLog, CognitiveSubjectRef,
+    InMemoryCognitiveEvidenceLog, AIOS_COGNITIVE_SUBJECT,
+};
+pub use evidence_payloads::{
+    AiDirectInternetDeniedPayload, CircuitBreakerTrippedPayload, ModelCallPayload,
+    RoutingDecisionPayload,
+};
 pub use in_memory_core::InMemoryCognitiveCore;
 pub use intent::{CognitiveIntent, IntentId, SubjectRef};
 pub use latency::{LatencyTier, PrivacyClass};

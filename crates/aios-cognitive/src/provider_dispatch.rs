@@ -19,6 +19,7 @@ use std::sync::Arc;
 use async_trait::async_trait;
 
 use crate::error::CognitiveError;
+use crate::evidence_emit::CognitiveEvidenceEmitter;
 use crate::intent::CognitiveIntent;
 use crate::model::CognitiveModel;
 use crate::routing::{AICrossOriginPosture, ModelBackendKind, ProviderClass};
@@ -147,6 +148,8 @@ pub enum DispatchOutcome {
 /// records as `AI_DIRECT_INTERNET_DENIED` evidence (real emission lands in T-102).
 pub struct ProviderDispatcher {
     vault_client: Option<Arc<dyn VaultClientAdapter>>,
+    /// Optional evidence emitter for `AI_DIRECT_INTERNET_DENIED`.
+    evidence_emitter: Option<Arc<CognitiveEvidenceEmitter>>,
 }
 
 impl ProviderDispatcher {
@@ -157,7 +160,10 @@ impl ProviderDispatcher {
     /// [`CognitiveError::Internal`] with "vault client not configured".
     #[must_use]
     pub fn new() -> Self {
-        Self { vault_client: None }
+        Self {
+            vault_client: None,
+            evidence_emitter: None,
+        }
     }
 
     /// Attach a vault client adapter for external provider dispatch.
@@ -168,6 +174,13 @@ impl ProviderDispatcher {
     #[must_use]
     pub fn with_vault_client(mut self, vault: Arc<dyn VaultClientAdapter>) -> Self {
         self.vault_client = Some(vault);
+        self
+    }
+
+    /// Attach an evidence emitter for `AI_DIRECT_INTERNET_DENIED` evidence.
+    #[must_use]
+    pub fn with_evidence_emitter(mut self, emitter: Arc<CognitiveEvidenceEmitter>) -> Self {
+        self.evidence_emitter = Some(emitter);
         self
     }
 
@@ -191,6 +204,16 @@ impl ProviderDispatcher {
 
         // ── AI_NO_EXTERNAL guard (S8.1 §5.7 bypass-attempt path) ──
         if requires_vault && posture == AICrossOriginPosture::AiNoExternal {
+            // Best-effort evidence emission
+            if let Some(ref emitter) = self.evidence_emitter {
+                let _ = emitter
+                    .emit_ai_direct_internet_denied(
+                        &model.model_id.0,
+                        posture,
+                        "external backend blocked by AI_NO_EXTERNAL posture",
+                    )
+                    .await;
+            }
             return Err(CognitiveError::ExternalBackendBlocked { posture });
         }
 

@@ -63,4 +63,9 @@ pub enum CognitiveError {
     /// dispatch can route through the L4.2 vault broker.
     #[error("vault credential missing for model {0}")]
     VaultCredentialMissing(String),
+
+    /// Evidence emission failed — the cognitive pipeline could not append
+    /// a signed receipt to the evidence log.
+    #[error("evidence emission failed: {0}")]
+    EvidenceEmitFailed(String),
 }

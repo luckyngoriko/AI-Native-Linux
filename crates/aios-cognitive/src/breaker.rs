@@ -8,11 +8,14 @@
 
 use std::collections::VecDeque;
 
+use std::sync::Arc;
+
 use chrono::{DateTime, Utc};
 use tokio::sync::RwLock;
 
 use crate::circuit::{CircuitBreakerConfig, CircuitBreakerStats, CircuitState};
 use crate::error::CognitiveError;
+use crate::evidence_emit::CognitiveEvidenceEmitter;
 use crate::routing::ModelBackendKind;
 
 const MIN_SAMPLES_TO_OPEN: u64 = 5;
@@ -63,6 +66,8 @@ pub struct CircuitBreaker {
     probe_success_count: RwLock<u32>,
     probe_failure_count: RwLock<u32>,
     state_changed_at: RwLock<DateTime<Utc>>,
+    /// Optional evidence emitter for `CIRCUIT_BREAKER_OPENED` / `CIRCUIT_BREAKER_CLOSED`.
+    evidence_emitter: Option<Arc<CognitiveEvidenceEmitter>>,
 }
 
 impl CircuitBreaker {
@@ -79,7 +84,15 @@ impl CircuitBreaker {
             probe_success_count: RwLock::new(0),
             probe_failure_count: RwLock::new(0),
             state_changed_at: RwLock::new(Utc::now()),
+            evidence_emitter: None,
         }
+    }
+
+    /// Attach an evidence emitter for `CIRCUIT_BREAKER_OPENED` / `CIRCUIT_BREAKER_CLOSED`.
+    #[must_use]
+    pub fn with_evidence_emitter(mut self, emitter: Arc<CognitiveEvidenceEmitter>) -> Self {
+        self.evidence_emitter = Some(emitter);
+        self
     }
 
     /// Record an invocation outcome and update circuit state.
@@ -113,6 +126,7 @@ impl CircuitBreaker {
         clippy::cast_possible_truncation,
         clippy::cast_sign_loss
     )]
+    #[allow(clippy::too_many_lines)]
     async fn recompute_state(&self, now: DateTime<Utc>) -> CircuitState {
         let current = *self.state.read().await;
 
@@ -128,6 +142,17 @@ impl CircuitBreaker {
                     failures as f64 / total as f64
                 };
                 if rate >= self.config.error_rate_threshold {
+                    // Best-effort evidence emission
+                    if let Some(ref emitter) = self.evidence_emitter {
+                        let _ = emitter
+                            .emit_circuit_breaker_tripped(
+                                self.backend,
+                                CircuitState::Closed,
+                                CircuitState::Open,
+                                rate,
+                            )
+                            .await;
+                    }
                     *self.state.write().await = CircuitState::Open;
                     *self.opened_at.write().await = Some(now);
                     *self.cooldown_multiplier.write().await = 1;
@@ -158,6 +183,17 @@ impl CircuitBreaker {
                 let failures = *self.probe_failure_count.read().await;
 
                 if successes >= HALF_OPEN_PROBE_CALLS && failures == 0 {
+                    // Best-effort evidence emission
+                    if let Some(ref emitter) = self.evidence_emitter {
+                        let _ = emitter
+                            .emit_circuit_breaker_tripped(
+                                self.backend,
+                                CircuitState::HalfOpen,
+                                CircuitState::Closed,
+                                0.0,
+                            )
+                            .await;
+                    }
                     *self.state.write().await = CircuitState::Closed;
                     *self.opened_at.write().await = None;
                     *self.cooldown_multiplier.write().await = 1;
@@ -168,6 +204,25 @@ impl CircuitBreaker {
                 }
 
                 if failures > 0 {
+                    // Best-effort evidence emission
+                    let window_rate = {
+                        let (_s, f, t) = self.window_counts().await;
+                        if t == 0 {
+                            0.0
+                        } else {
+                            f as f64 / t as f64
+                        }
+                    };
+                    if let Some(ref emitter) = self.evidence_emitter {
+                        let _ = emitter
+                            .emit_circuit_breaker_tripped(
+                                self.backend,
+                                CircuitState::HalfOpen,
+                                CircuitState::Open,
+                                window_rate,
+                            )
+                            .await;
+                    }
                     // Re-open with doubled cooldown.
                     let current = *self.cooldown_multiplier.read().await;
                     *self.cooldown_multiplier.write().await = (current * 2).min(

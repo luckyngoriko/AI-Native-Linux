@@ -16,6 +16,7 @@ use crate::breaker_registry::CircuitBreakerRegistry;
 use crate::circuit::{CircuitBreakerConfig, CircuitBreakerStats, CircuitState};
 use crate::core::{CognitiveCore, IntentCapability, TranslationContext};
 use crate::error::CognitiveError;
+use crate::evidence_emit::CognitiveEvidenceEmitter;
 use crate::intent::{CognitiveIntent, IntentId};
 use crate::latency::{LatencyTier, PrivacyClass};
 use crate::model::CognitiveModel;
@@ -46,6 +47,8 @@ pub struct InMemoryCognitiveCore {
     bindings: Option<Arc<ModelBindingRegistry>>,
     /// Optional provider dispatcher for T-100+ S13.2 §5 provider-class dispatch.
     provider_dispatcher: Option<Arc<ProviderDispatcher>>,
+    /// Optional evidence emitter for `MODEL_CALL`, `ROUTING_DECISION` evidence.
+    evidence_emitter: Option<Arc<CognitiveEvidenceEmitter>>,
 }
 
 impl InMemoryCognitiveCore {
@@ -61,6 +64,7 @@ impl InMemoryCognitiveCore {
             catalog: None,
             bindings: None,
             provider_dispatcher: None,
+            evidence_emitter: None,
         }
     }
 
@@ -76,6 +80,7 @@ impl InMemoryCognitiveCore {
             catalog: None,
             bindings: None,
             provider_dispatcher: None,
+            evidence_emitter: None,
         }
     }
 
@@ -128,6 +133,13 @@ impl InMemoryCognitiveCore {
     #[must_use]
     pub fn with_provider_dispatcher(mut self, dispatcher: Arc<ProviderDispatcher>) -> Self {
         self.provider_dispatcher = Some(dispatcher);
+        self
+    }
+
+    /// Attach an evidence emitter for `MODEL_CALL` / `ROUTING_DECISION` evidence.
+    #[must_use]
+    pub fn with_evidence_emitter(mut self, emitter: Arc<CognitiveEvidenceEmitter>) -> Self {
+        self.evidence_emitter = Some(emitter);
         self
     }
 }
@@ -191,11 +203,30 @@ impl CognitiveCore for InMemoryCognitiveCore {
                     budget_ok: context.budget_ok,
                 };
 
+                let inputs_hash = {
+                    let json = serde_json::to_string(&inputs).unwrap_or_default();
+                    let hash = blake3::hash(json.as_bytes());
+                    hash.to_hex().to_string()
+                };
+
                 let decision = router.route(&inputs)?;
                 // ── S14.1 circuit breaker consultation ──
                 if let Some(ref reg) = self.breaker_registry {
                     reg.try_admit(decision.chosen_backend).await?;
                 }
+
+                // Best-effort ROUTING_DECISION evidence
+                if let Some(ref emitter) = self.evidence_emitter {
+                    let _ = emitter
+                        .emit_routing_decision(
+                            &decision.routing_id,
+                            decision.chosen_backend,
+                            &inputs_hash,
+                            router.code_version(),
+                        )
+                        .await;
+                }
+
                 let rid = decision.routing_id.clone();
                 (
                     decision.chosen_backend,
@@ -286,14 +317,31 @@ impl CognitiveCore for InMemoryCognitiveCore {
                     DispatchOutcome::LocalInvocation {
                         tokens_in: ti,
                         tokens_out: to,
+                        latency_ms,
                         ..
                     }
                     | DispatchOutcome::VaultBrokeredInvocation {
                         tokens_in: ti,
                         tokens_out: to,
+                        latency_ms,
                         ..
                     },
-                ) => (ti, to),
+                ) => {
+                    // Best-effort MODEL_CALL evidence
+                    if let Some(ref emitter) = self.evidence_emitter {
+                        let _ = emitter
+                            .emit_model_call(
+                                &model_used,
+                                &routing_decision_id,
+                                ti,
+                                to,
+                                0,
+                                latency_ms,
+                            )
+                            .await;
+                    }
+                    (ti, to)
+                }
                 Ok(DispatchOutcome::Denied { .. }) => (0, 0),
                 Err(e) => return Err(e),
             }

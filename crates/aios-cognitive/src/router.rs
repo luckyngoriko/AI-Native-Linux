@@ -12,6 +12,7 @@ use std::sync::Arc;
 use chrono::Utc;
 
 use crate::error::CognitiveError;
+use crate::evidence_emit::CognitiveEvidenceEmitter;
 use crate::latency::{LatencyTier, PrivacyClass};
 use crate::routing::{
     AICrossOriginPosture, BackendHealthState, ModelBackendKind, ProviderClass, RoutingDecision,
@@ -61,6 +62,8 @@ pub struct ModelRouter {
     precedence_table: Arc<Vec<RoutingRule>>,
     /// Code version baked into every routing decision for reproducibility.
     code_version: String,
+    /// Optional evidence emitter for `ROUTING_DECISION` receipts (T-102).
+    evidence_emitter: Option<Arc<CognitiveEvidenceEmitter>>,
 }
 
 impl ModelRouter {
@@ -134,6 +137,7 @@ impl ModelRouter {
         Self {
             precedence_table: Arc::new(table),
             code_version: crate::DEFAULT_CODE_VERSION.to_string(),
+            evidence_emitter: None,
         }
     }
 
@@ -143,7 +147,15 @@ impl ModelRouter {
         Self {
             precedence_table: Arc::new(table),
             code_version: crate::DEFAULT_CODE_VERSION.to_string(),
+            evidence_emitter: None,
         }
+    }
+
+    /// Attach an evidence emitter for `ROUTING_DECISION` receipts (T-102).
+    #[must_use]
+    pub fn with_evidence_emitter(mut self, emitter: Arc<CognitiveEvidenceEmitter>) -> Self {
+        self.evidence_emitter = Some(emitter);
+        self
     }
 
     /// Return a shared reference to the precedence table.
@@ -184,6 +196,13 @@ impl ModelRouter {
 
         let in_t3_t4 = matches!(inputs.latency_class, T3LocalCognitive | T4PowerfulReasoning);
 
+        // Deterministic inputs hash for ROUTING_DECISION evidence (S13.2 §C4)
+        let inputs_hash = {
+            let json = serde_json::to_string(inputs).unwrap_or_default();
+            let hash = blake3::hash(json.as_bytes());
+            hash.to_hex().to_string()
+        };
+
         // Helper: is a given backend kind healthy in the snapshot?
         let is_healthy = |kind: ModelBackendKind| -> bool {
             inputs
@@ -221,7 +240,7 @@ impl ModelRouter {
         // ── Rule 1: recovery_mode forbids T3/T4 (C8) ──
         if inputs.recovery_mode && in_t3_t4 {
             return self.build_decision(
-                inputs,
+                &inputs_hash,
                 DegradedNull, // FORBIDDEN stand-in
                 ProviderClass::Anthropic,
                 "forbidden-backend",
@@ -234,7 +253,7 @@ impl ModelRouter {
         // ── Rule 2: T0 cache hit ──
         if inputs.latency_class == T0CachedUiState {
             return self.build_decision(
-                inputs,
+                &inputs_hash,
                 Cached,
                 ProviderClass::Anthropic,
                 "cached-backend",
@@ -247,7 +266,7 @@ impl ModelRouter {
         // ── Rule 3: T1 — router not invoked (return null for completeness) ──
         if inputs.latency_class == T1Deterministic {
             return self.build_decision(
-                inputs,
+                &inputs_hash,
                 DegradedNull,
                 ProviderClass::Anthropic,
                 "t1-null",
@@ -260,7 +279,7 @@ impl ModelRouter {
         // ── Rule 4: T2 → fallback rule-based ──
         if inputs.latency_class == T2CatalogRetrieval {
             return self.build_decision(
-                inputs,
+                &inputs_hash,
                 FallbackRuleBased,
                 ProviderClass::Ollama,
                 "rule-based-backend",
@@ -274,7 +293,7 @@ impl ModelRouter {
         if inputs.privacy_class == PrivacyClass::SecretBearing && in_t3_t4 {
             if let Some(backend) = best_local() {
                 return self.build_decision(
-                    inputs,
+                    &inputs_hash,
                     backend,
                     ProviderClass::Ollama,
                     "local-backend",
@@ -285,7 +304,7 @@ impl ModelRouter {
             }
             // No local backend healthy → fallthrough to degraded
             return self.build_decision(
-                inputs,
+                &inputs_hash,
                 DegradedNull,
                 ProviderClass::Ollama,
                 "no-local-backend",
@@ -299,7 +318,7 @@ impl ModelRouter {
         if inputs.ai_cross_origin_posture == AiNoExternal && in_t3_t4 {
             if let Some(backend) = best_local() {
                 return self.build_decision(
-                    inputs,
+                    &inputs_hash,
                     backend,
                     ProviderClass::Ollama,
                     "local-backend",
@@ -309,7 +328,7 @@ impl ModelRouter {
                 );
             }
             return self.build_decision(
-                inputs,
+                &inputs_hash,
                 DegradedNull,
                 ProviderClass::Ollama,
                 "no-local-backend",
@@ -323,7 +342,7 @@ impl ModelRouter {
         if inputs.ai_cross_origin_posture == AiLoopbackOnly && in_t3_t4 {
             if is_healthy(LocalGpu) {
                 return self.build_decision(
-                    inputs,
+                    &inputs_hash,
                     LocalGpu,
                     ProviderClass::Ollama,
                     "local-gpu-backend",
@@ -334,7 +353,7 @@ impl ModelRouter {
             }
             if is_healthy(LocalCpu) {
                 return self.build_decision(
-                    inputs,
+                    &inputs_hash,
                     LocalCpu,
                     ProviderClass::Ollama,
                     "local-cpu-backend",
@@ -345,7 +364,7 @@ impl ModelRouter {
             }
             // No loopback backends healthy
             return self.build_decision(
-                inputs,
+                &inputs_hash,
                 DegradedNull,
                 ProviderClass::Ollama,
                 "no-loopback-backend",
@@ -358,7 +377,7 @@ impl ModelRouter {
         // ── Rule 8: T3 + LOCAL_GPU healthy → LOCAL_GPU ──
         if inputs.latency_class == T3LocalCognitive && is_healthy(LocalGpu) {
             return self.build_decision(
-                inputs,
+                &inputs_hash,
                 LocalGpu,
                 ProviderClass::Ollama,
                 "local-gpu-backend",
@@ -372,7 +391,7 @@ impl ModelRouter {
         if inputs.latency_class == T3LocalCognitive && !is_healthy(LocalGpu) && is_healthy(LocalCpu)
         {
             return self.build_decision(
-                inputs,
+                &inputs_hash,
                 LocalCpu,
                 ProviderClass::Ollama,
                 "local-cpu-backend",
@@ -388,7 +407,7 @@ impl ModelRouter {
             && inputs.budget_ok
         {
             return self.build_decision(
-                inputs,
+                &inputs_hash,
                 ExternalVaultBrokered,
                 ProviderClass::Anthropic,
                 "external-vault-backend",
@@ -405,7 +424,7 @@ impl ModelRouter {
             && is_healthy(LocalGpu)
         {
             return self.build_decision(
-                inputs,
+                &inputs_hash,
                 LocalGpu,
                 ProviderClass::Ollama,
                 "local-gpu-backend",
@@ -418,7 +437,7 @@ impl ModelRouter {
         // ── Rule 12: T3/T4 all preferred unhealthy → FALLBACK_RULE_BASED ──
         if in_t3_t4 && all_preferred_unhealthy() {
             return self.build_decision(
-                inputs,
+                &inputs_hash,
                 FallbackRuleBased,
                 ProviderClass::Ollama,
                 "rule-based-backend",
@@ -430,7 +449,7 @@ impl ModelRouter {
 
         // ── Rule 13: catch-all → DEGRADED_NULL ──
         self.build_decision(
-            inputs,
+            &inputs_hash,
             DegradedNull,
             ProviderClass::Anthropic,
             "null-backend",
@@ -448,7 +467,7 @@ impl ModelRouter {
     )]
     fn build_decision(
         &self,
-        _inputs: &RoutingInputs,
+        inputs_hash: &str,
         chosen_backend: ModelBackendKind,
         provider_class: ProviderClass,
         backend_id: &str,
@@ -456,7 +475,7 @@ impl ModelRouter {
         degraded: bool,
         reason: Option<&str>,
     ) -> Result<RoutingDecision, CognitiveError> {
-        Ok(RoutingDecision {
+        let decision = RoutingDecision {
             routing_id: {
                 let id = ulid::Ulid::new();
                 format!("rtdg_{id}")
@@ -468,6 +487,22 @@ impl ModelRouter {
             degraded,
             reason: reason.map(str::to_string),
             decided_at: Utc::now(),
-        })
+        };
+
+        // Best-effort ROUTING_DECISION evidence emission (fire-and-forget)
+        if let Some(ref emitter) = self.evidence_emitter {
+            let emitter = Arc::clone(emitter);
+            let routing_id = decision.routing_id.clone();
+            let chosen_backend = decision.chosen_backend;
+            let inputs_hash = inputs_hash.to_string();
+            let code_version = self.code_version.clone();
+            tokio::spawn(async move {
+                let _ = emitter
+                    .emit_routing_decision(&routing_id, chosen_backend, &inputs_hash, &code_version)
+                    .await;
+            });
+        }
+
+        Ok(decision)
     }
 }

@@ -235,6 +235,7 @@ dependencies = [
  "aios-fs",
  "aios-policy",
  "aios-recovery",
+ "aios-sandbox",
  "aios-sgr",
  "aios-vault",
  "aios-verification",

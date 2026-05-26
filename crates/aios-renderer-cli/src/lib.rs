@@ -22,6 +22,7 @@ pub mod policy_render;
 pub mod primitives;
 pub mod recovery_render;
 pub mod renderable;
+pub mod sandbox_render;
 pub mod sgr_render;
 pub mod table_renderer;
 pub mod text_renderer;
@@ -34,6 +35,10 @@ pub use aios_policy::{ApprovalRequirement, Constraints, Decision, PolicyDecision
 pub use aios_recovery::{
     BootId, CandidateId, CandidateState, FirstBootContext, FirstBootPhase, FirstBootStatus,
     KernelCandidate, KernelManifest, RecoveryMode, RecoveryState,
+};
+pub use aios_sandbox::{
+    GpuCapabilityBinding, GpuCapabilityClass, GpuPolicy, IommuStatus, IsolationKind,
+    NetworkPosture, ProfileId, ResourceLimits, SandboxProfile,
 };
 pub use aios_sgr::{
     AdapterRegistrationState, DependencyKind, GraphState, RegisteredAdapter, ServiceUnit, UnitId,
@@ -49,8 +54,8 @@ pub use aios_verification::{
 };
 pub use cli::{
     ActionSubcommand, AiosCli, AiosCommand, CognitiveSubcommand, EvidenceSubcommand, FsSubcommand,
-    KernelSubcommand, PolicySubcommand, RecoverySubcommand, SgrSubcommand, VaultSubcommand,
-    VerificationSubcommand,
+    KernelSubcommand, PolicySubcommand, RecoverySubcommand, SandboxSubcommand, SgrSubcommand,
+    VaultSubcommand, VerificationSubcommand,
 };
 pub use cli_types::{
     AnsiSupportLevel, CliCompilationResult, CliEvidenceRecordKind, CliInputMode, CliRenderMode,
@@ -62,6 +67,7 @@ pub use evidence_render::EvidenceChainView;
 pub use json_renderer::JsonRenderer;
 pub use output_format::OutputFormat;
 pub use renderable::{RenderContext, Renderable};
+pub use sandbox_render::SandboxProfileListView;
 pub use sgr_render::{SgrGraphView, SgrUnitListView};
 pub use table_renderer::{TableAlign, TableRenderer, TableSpec};
 pub use text_renderer::TextRenderer;

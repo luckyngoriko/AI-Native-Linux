@@ -34,6 +34,10 @@ use aios_recovery::service::conversions as recovery_conversions;
 use aios_recovery::service::proto as recovery_proto;
 use aios_recovery::service::{RecoveryServiceClient, SCHEMA_VERSION as RECOVERY_SCHEMA_VERSION};
 use aios_recovery::{FirstBootContext, KernelCandidate, RecoveryState};
+use aios_sandbox::service::conversions as sandbox_conversions;
+use aios_sandbox::service::proto as sandbox_proto;
+use aios_sandbox::service::SandboxServiceClient;
+use aios_sandbox::{GpuCapabilityBinding, GpuPolicy, IommuStatus, SandboxProfile};
 use aios_sgr::service::conversions as sgr_conversions;
 use aios_sgr::service::proto as sgr_proto;
 use aios_sgr::service::{SgrServiceClient, SCHEMA_VERSION as SGR_SCHEMA_VERSION};
@@ -73,6 +77,8 @@ pub struct AiosClient {
     pub sgr: SgrServiceClient<Channel>,
     /// Cognitive Core client.
     pub cognitive: CognitiveCoreClient<Channel>,
+    /// Sandbox Composer client.
+    pub sandbox: SandboxServiceClient<Channel>,
     evidence: Option<EvidenceLogClient<Channel>>,
 }
 
@@ -116,6 +122,9 @@ impl AiosClient {
         let cognitive = CognitiveCoreClient::connect(endpoints.cognitive.clone())
             .await
             .map_err(|err| client_connect_failed("cognitive", err.to_string()))?;
+        let sandbox = SandboxServiceClient::connect(endpoints.sandbox.clone())
+            .await
+            .map_err(|err| client_connect_failed("sandbox", err.to_string()))?;
 
         Ok(Self {
             policy,
@@ -126,6 +135,7 @@ impl AiosClient {
             recovery,
             sgr,
             cognitive,
+            sandbox,
             evidence,
         })
     }
@@ -909,6 +919,127 @@ impl AiosClient {
             .into_inner();
 
         Ok(CircuitState::Closed)
+    }
+
+    /// Compose a sandbox profile through the Sandbox `ComposeProfile` RPC.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`RenderError::ClientCallFailed`] when the RPC fails or the
+    /// returned profile cannot be converted from its proto representation.
+    pub async fn compose_sandbox(
+        &mut self,
+        subject: &str,
+        action_kind: &str,
+        base_profile_id: Option<&str>,
+        recovery_mode: bool,
+        is_ai: bool,
+    ) -> Result<SandboxProfile, RenderError> {
+        let response = self
+            .sandbox
+            .compose_profile(sandbox_proto::ComposeProfileRequest {
+                subject: subject.to_owned(),
+                action_kind: action_kind.to_owned(),
+                base_profile_id: base_profile_id.map(ToString::to_string),
+                adapter_default: None,
+                app_manifest: None,
+                user_request: None,
+                policy_required: None,
+                group_floor: None,
+                runtime_safety_floor: None,
+                recovery_mode,
+                is_ai,
+            })
+            .await
+            .map_err(|err| client_call_failed("sandbox", "ComposeProfile", err.to_string()))?
+            .into_inner();
+        let profile = response
+            .profile
+            .as_ref()
+            .ok_or_else(|| client_call_failed("sandbox", "ComposeProfile", "missing profile"))?;
+        sandbox_conversions::sandbox_profile_from_proto(profile.clone())
+            .map_err(|err| client_call_failed("sandbox", "ComposeProfile", err.to_string()))
+    }
+
+    /// List all sandbox profiles through the Sandbox `ListProfiles` RPC.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`RenderError::ClientCallFailed`] when the RPC fails or a
+    /// profile cannot be converted.
+    pub async fn list_sandbox_profiles(&mut self) -> Result<Vec<SandboxProfile>, RenderError> {
+        let response = self
+            .sandbox
+            .list_profiles(sandbox_proto::ListProfilesRequest {})
+            .await
+            .map_err(|err| client_call_failed("sandbox", "ListProfiles", err.to_string()))?
+            .into_inner();
+        response
+            .profiles
+            .into_iter()
+            .map(|pp| {
+                sandbox_conversions::sandbox_profile_from_proto(pp)
+                    .map_err(|err| client_call_failed("sandbox", "ListProfiles", err.to_string()))
+            })
+            .collect()
+    }
+
+    /// Get a sandbox profile by id through the Sandbox `GetProfile` RPC.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`RenderError::ClientCallFailed`] when the RPC fails or the
+    /// returned profile cannot be converted.
+    pub async fn get_sandbox_profile(
+        &mut self,
+        profile_id: &str,
+    ) -> Result<SandboxProfile, RenderError> {
+        let response = self
+            .sandbox
+            .get_profile(sandbox_proto::GetProfileRequest {
+                profile_id: profile_id.to_owned(),
+            })
+            .await
+            .map_err(|err| client_call_failed("sandbox", "GetProfile", err.to_string()))?
+            .into_inner();
+        let profile = response
+            .profile
+            .as_ref()
+            .ok_or_else(|| client_call_failed("sandbox", "GetProfile", "missing profile"))?;
+        sandbox_conversions::sandbox_profile_from_proto(profile.clone())
+            .map_err(|err| client_call_failed("sandbox", "GetProfile", err.to_string()))
+    }
+
+    /// Compute a GPU capability binding through the Sandbox `ComputeGpuBinding` RPC.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`RenderError::ClientCallFailed`] when the RPC fails or the
+    /// returned binding cannot be converted.
+    pub async fn compute_gpu_binding(
+        &mut self,
+        policy: &GpuPolicy,
+        group_id: &str,
+        subject: &str,
+        iommu_status: IommuStatus,
+    ) -> Result<GpuCapabilityBinding, RenderError> {
+        let response = self
+            .sandbox
+            .compute_gpu_binding(sandbox_proto::ComputeGpuBindingRequest {
+                policy: Some(sandbox_conversions::gpu_policy_to_proto(policy)),
+                group_id: group_id.to_owned(),
+                subject: subject.to_owned(),
+                iommu_status: sandbox_conversions::iommu_status_to_proto(iommu_status),
+            })
+            .await
+            .map_err(|err| client_call_failed("sandbox", "ComputeGpuBinding", err.to_string()))?
+            .into_inner();
+        let binding = response
+            .binding
+            .as_ref()
+            .ok_or_else(|| client_call_failed("sandbox", "ComputeGpuBinding", "missing binding"))?;
+        sandbox_conversions::gpu_binding_from_proto(binding.clone())
+            .map_err(|err| client_call_failed("sandbox", "ComputeGpuBinding", err.to_string()))
     }
 }
 

@@ -17,9 +17,9 @@ use serde_json::{json, Value};
 
 use crate::{
     AiosClient, AiosEndpoints, CircuitStateList, CognitiveIntentCapabilityList, CognitiveModelList,
-    KernelCandidate, OutputFormat, RenderContext, RenderError, Renderable, SgrGraphView,
-    SgrUnitListView, TableAlign, TableRenderer, TableSpec, TextRenderer, TreeNode, TreeRenderer,
-    VerificationPrimitiveList, Version,
+    KernelCandidate, OutputFormat, RenderContext, RenderError, Renderable, SandboxProfileListView,
+    SgrGraphView, SgrUnitListView, TableAlign, TableRenderer, TableSpec, TextRenderer, TreeNode,
+    TreeRenderer, VerificationPrimitiveList, Version,
 };
 
 /// Parsed command-line interface for the `aios` binary.
@@ -112,6 +112,12 @@ pub enum AiosCommand {
         /// Cognitive operation.
         #[command(subcommand)]
         subcommand: CognitiveSubcommand,
+    },
+    /// Compose and inspect sandbox profiles.
+    Sandbox {
+        /// Sandbox operation.
+        #[command(subcommand)]
+        subcommand: SandboxSubcommand,
     },
 }
 
@@ -283,6 +289,36 @@ pub enum SgrSubcommand {
     Evaluate,
 }
 
+/// Sandbox subcommands.
+#[derive(Debug, Clone, Subcommand)]
+pub enum SandboxSubcommand {
+    /// Compose a sandbox profile from sources.
+    Compose {
+        /// Subject canonical id.
+        #[arg(long, default_value = "subject:cli:default")]
+        subject: String,
+        /// Action kind.
+        #[arg(long, default_value = "app.launch")]
+        action_kind: String,
+        /// Optional base profile id.
+        #[arg(long)]
+        base_profile_id: Option<String>,
+        /// Recovery mode flag.
+        #[arg(long, default_value = "false")]
+        recovery_mode: bool,
+        /// AI caller flag.
+        #[arg(long, default_value = "false")]
+        is_ai: bool,
+    },
+    /// List all sandbox profiles in the catalog.
+    List,
+    /// Get one sandbox profile by id.
+    Get {
+        /// Profile id to inspect.
+        profile_id: String,
+    },
+}
+
 impl AiosCli {
     /// Parse the selected output format.
     ///
@@ -420,6 +456,9 @@ impl AiosCli {
             AiosCommand::Cognitive { subcommand } => {
                 execute_cognitive_subcommand(subcommand, client, format, &ctx).await
             }
+            AiosCommand::Sandbox { subcommand } => {
+                execute_sandbox_subcommand(subcommand, client, format, &ctx).await
+            }
         }
     }
 }
@@ -519,6 +558,41 @@ async fn execute_cognitive_subcommand(
                 ),
             ];
             render_value(&CircuitStateList::new(entries), format, ctx)
+        }
+    }
+}
+
+async fn execute_sandbox_subcommand(
+    subcommand: &SandboxSubcommand,
+    client: &mut AiosClient,
+    format: OutputFormat,
+    ctx: &RenderContext,
+) -> Result<String, RenderError> {
+    match subcommand {
+        SandboxSubcommand::Compose {
+            subject,
+            action_kind,
+            base_profile_id,
+            recovery_mode,
+            is_ai,
+        } => {
+            let profile = client
+                .compose_sandbox(
+                    subject,
+                    action_kind,
+                    base_profile_id.as_deref(),
+                    *recovery_mode,
+                    *is_ai,
+                )
+                .await?;
+            render_value(&profile, format, ctx)
+        }
+        SandboxSubcommand::List => {
+            let profiles = client.list_sandbox_profiles().await?;
+            render_value(&SandboxProfileListView(profiles), format, ctx)
+        }
+        SandboxSubcommand::Get { profile_id } => {
+            render_value(&client.get_sandbox_profile(profile_id).await?, format, ctx)
         }
     }
 }
@@ -628,6 +702,7 @@ fn parse_keyed_endpoints(parts: &[&str]) -> Result<AiosEndpoints, RenderError> {
             "recovery" => endpoints.recovery = endpoint,
             "sgr" => endpoints.sgr = endpoint,
             "cognitive" => endpoints.cognitive = endpoint,
+            "sandbox" => endpoints.sandbox = endpoint,
             "evidence" => {
                 endpoints.evidence = if value.trim().eq_ignore_ascii_case("none") {
                     None
@@ -647,9 +722,9 @@ fn parse_keyed_endpoints(parts: &[&str]) -> Result<AiosEndpoints, RenderError> {
 }
 
 fn parse_positional_endpoints(parts: &[&str]) -> Result<AiosEndpoints, RenderError> {
-    if !(8..=9).contains(&parts.len()) {
+    if !(9..=10).contains(&parts.len()) {
         return Err(RenderError::Internal(
-            "AIOS_ENDPOINTS positional form is policy,runtime,fs,vault,verification,recovery,sgr,cognitive[,evidence]"
+            "AIOS_ENDPOINTS positional form is policy,runtime,fs,vault,verification,recovery,sgr,cognitive,sandbox[,evidence]"
                 .to_owned(),
         ));
     }
@@ -663,8 +738,9 @@ fn parse_positional_endpoints(parts: &[&str]) -> Result<AiosEndpoints, RenderErr
         recovery: normalize_endpoint(parts[5])?,
         sgr: normalize_endpoint(parts[6])?,
         cognitive: normalize_endpoint(parts[7])?,
+        sandbox: normalize_endpoint(parts[8])?,
         evidence: parts
-            .get(8)
+            .get(9)
             .map(|value| {
                 if value.trim().eq_ignore_ascii_case("none") {
                     Ok(None)

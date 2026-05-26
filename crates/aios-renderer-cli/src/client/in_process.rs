@@ -23,6 +23,8 @@ use aios_recovery::{
     FirstBootDriver, InMemoryRecoveryBoundary, KernelPipelineDriver, RecoveryBoundary,
     RecoveryGuard,
 };
+use aios_sandbox::service::{SandboxServiceGrpcServer, SandboxServiceImpl};
+use aios_sandbox::{GpuPolicyEnforcer, InMemorySandboxComposer, ResourceLimitEnforcer};
 use aios_sgr::service as sgr_service;
 use aios_sgr::{
     GraphEvaluator, InMemoryServiceGraph, ServiceGraph, SgrAdapterRegistry, UnitFsmDriver,
@@ -66,6 +68,9 @@ pub struct InProcessBackend {
     audit: Arc<CapabilityAuditLog>,
     lifecycle: Arc<CapabilityLifecycleDriver>,
     cognitive_core: Arc<InMemoryCognitiveCore>,
+    sandbox_composer: Arc<InMemorySandboxComposer>,
+    gpu_enforcer: Arc<GpuPolicyEnforcer>,
+    resource_enforcer: Arc<ResourceLimitEnforcer>,
 }
 
 /// Graceful shutdown handle for an in-process backend service set.
@@ -82,7 +87,7 @@ impl ShutdownHandle {
         Self { shutdowns, tasks }
     }
 
-    /// Return the number of backend gRPC servers managed by this handle (now 8).
+    /// Return the number of backend gRPC servers managed by this handle (now 9).
     #[must_use]
     pub const fn service_count(&self) -> usize {
         self.shutdowns.len()
@@ -154,6 +159,10 @@ impl InProcessBackend {
             Arc::clone(&audit),
         ));
 
+        let sandbox_composer = Arc::new(InMemorySandboxComposer::with_fixtures());
+        let gpu_enforcer = Arc::new(GpuPolicyEnforcer::new_with_defaults());
+        let resource_enforcer = Arc::new(ResourceLimitEnforcer::new_with_defaults());
+
         Self {
             policy_kernel,
             runtime,
@@ -173,10 +182,13 @@ impl InProcessBackend {
             audit,
             lifecycle,
             cognitive_core: Arc::new(InMemoryCognitiveCore::new()),
+            sandbox_composer,
+            gpu_enforcer,
+            resource_enforcer,
         }
     }
 
-    /// Spawn the default eight-service backend and connect an [`AiosClient`].
+    /// Spawn the default nine-service backend and connect an [`AiosClient`].
     ///
     /// # Errors
     ///
@@ -186,7 +198,7 @@ impl InProcessBackend {
         Self::new_default().spawn().await
     }
 
-    /// Spawn eight services with a caller-supplied Policy Kernel.
+    /// Spawn nine services with a caller-supplied Policy Kernel.
     ///
     /// This is used by integration tests that need deterministic policy
     /// ALLOW/DENY responses while keeping runtime/fs/vault in-memory.
@@ -233,6 +245,7 @@ impl InProcessBackend {
             cognitive_service::build_router(self.cognitive_service()),
         )
         .await?;
+        let sandbox = spawn_router("sandbox", sandbox_router(self.sandbox_service())).await?;
 
         let endpoints = AiosEndpoints {
             policy: policy.endpoint,
@@ -243,6 +256,7 @@ impl InProcessBackend {
             recovery: recovery.endpoint,
             sgr: sgr.endpoint,
             cognitive: cognitive.endpoint,
+            sandbox: sandbox.endpoint,
             evidence: None,
         };
         let shutdown = ShutdownHandle::new(
@@ -255,6 +269,7 @@ impl InProcessBackend {
                 recovery.shutdown,
                 sgr.shutdown,
                 cognitive.shutdown,
+                sandbox.shutdown,
             ],
             vec![
                 policy.task,
@@ -265,6 +280,7 @@ impl InProcessBackend {
                 recovery.task,
                 sgr.task,
                 cognitive.task,
+                sandbox.task,
             ],
         );
         let client = AiosClient::connect(&endpoints).await?;
@@ -326,6 +342,14 @@ impl InProcessBackend {
         cognitive_service::CognitiveCoreServiceImpl::new(Arc::clone(&self.cognitive_core))
     }
 
+    fn sandbox_service(&self) -> SandboxServiceImpl {
+        SandboxServiceImpl::new(
+            Arc::clone(&self.sandbox_composer),
+            Arc::clone(&self.gpu_enforcer),
+            Arc::clone(&self.resource_enforcer),
+        )
+    }
+
     async fn seed_default_vault_capability(&self) -> Result<(), RenderError> {
         self.vault
             .issue_capability(IssueCapabilityRequest {
@@ -377,4 +401,8 @@ async fn pick_port(service: &str) -> Result<SocketAddr, RenderError> {
     })?;
     drop(listener);
     Ok(addr)
+}
+
+fn sandbox_router(svc: SandboxServiceImpl) -> Router {
+    tonic::transport::Server::builder().add_service(SandboxServiceGrpcServer::new(svc))
 }

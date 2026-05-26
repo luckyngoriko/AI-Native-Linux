@@ -3,7 +3,7 @@ name = "aios-cognitive"
 description = "AIOS L5 Cognitive Core typed skeleton — intent, translator, latency, routing, circuit breaker, model bindings."
 edition.workspace = true
 rust-version.workspace = true
-version = "0.0.1"
+version = "0.1.0"
 license.workspace = true
 repository.workspace = true
 authors.workspace = true
@@ -29,6 +29,7 @@ ed25519-dalek  = { workspace = true }
 
 [dev-dependencies]
 aios-policy = { path = "../aios-policy" }
+aios-recovery = { path = "../aios-recovery" }
 rand_core = { workspace = true }
 
 [build-dependencies]

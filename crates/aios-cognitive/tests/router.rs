@@ -637,7 +637,7 @@ fn concurrent_route_calls() {
 #[test]
 fn router_preserves_code_version() {
     let router = ModelRouter::new_with_defaults();
-    assert_eq!(router.code_version(), "aios-cognitive/0.0.1-T098");
+    assert_eq!(router.code_version(), "aios-cognitive/0.1.0-T105");
 
     let inputs = default_inputs_t3();
     let decision = router.route(&inputs).expect("route must succeed");

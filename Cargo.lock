@@ -88,12 +88,13 @@ dependencies = [
 
 [[package]]
 name = "aios-cognitive"
-version = "0.0.1"
+version = "0.1.0"
 dependencies = [
  "aios-action",
  "aios-capability-runtime",
  "aios-evidence",
  "aios-policy",
+ "aios-recovery",
  "async-trait",
  "blake3",
  "chrono",

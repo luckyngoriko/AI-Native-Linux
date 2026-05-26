@@ -838,6 +838,13 @@ pub fn apps_error_to_status(e: &AppsError) -> tonic::Status {
         AppsError::EvidenceEmitFailed(msg) => {
             tonic::Status::internal(format!("evidence emit failed: {msg}"))
         }
+        AppsError::RuntimeReject(msg) => {
+            tonic::Status::internal(format!("runtime rejected: {msg}"))
+        }
+        AppsError::InvalidRuntimeClass(msg) => {
+            tonic::Status::invalid_argument(format!("invalid runtime class: {msg}"))
+        }
+        AppsError::NotFound(msg) => tonic::Status::not_found(format!("not found: {msg}")),
     }
 }
 
@@ -863,6 +870,9 @@ pub const fn apps_error_to_code(e: &AppsError) -> u32 {
         AppsError::UpdatePlanNotFound(_) => 17,
         AppsError::ValidationFailed(_) => 18,
         AppsError::EvidenceEmitFailed(_) => 19,
+        AppsError::RuntimeReject(_) => 20,
+        AppsError::InvalidRuntimeClass(_) => 21,
+        AppsError::NotFound(_) => 22,
     }
 }
 

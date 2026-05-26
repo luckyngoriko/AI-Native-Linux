@@ -135,4 +135,18 @@ pub enum AppsError {
     /// Evidence emission failed — seal or chain append rejected.
     #[error("evidence emit failed: {0}")]
     EvidenceEmitFailed(String),
+
+    /// Capability Runtime rejected the typed action for policy or
+    /// adapter-level reasons.
+    #[error("runtime rejected action: {0}")]
+    RuntimeReject(String),
+
+    /// The declared runtime class does not match the operation (e.g.
+    /// non-service profile used with `register_service`).
+    #[error("invalid runtime class: {0}")]
+    InvalidRuntimeClass(String),
+
+    /// A resource referenced by the bridge layer was not found.
+    #[error("not found: {0}")]
+    NotFound(String),
 }

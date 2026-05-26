@@ -24,7 +24,11 @@ async-trait    = { workspace = true }
 tonic          = { workspace = true }
 prost          = { workspace = true }
 prost-types    = { workspace = true }
-aios-evidence  = { path = "../aios-evidence" }
+aios-action              = { path = "../aios-action" }
+aios-capability-runtime   = { path = "../aios-capability-runtime" }
+aios-sgr                  = { path = "../aios-sgr" }
+aios-sandbox              = { path = "../aios-sandbox" }
+aios-evidence             = { path = "../aios-evidence" }
 
 [build-dependencies]
 tonic-build          = { workspace = true }

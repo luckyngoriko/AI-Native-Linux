@@ -21,6 +21,7 @@ pub mod compatibility_runtime;
 pub mod ecosystem;
 pub mod error;
 pub mod evidence;
+pub mod integration;
 pub mod knowledge_db;
 pub mod orchestration;
 pub mod package;
@@ -78,3 +79,6 @@ pub use update_driver::{
     UpdateVerification,
 };
 pub use version_chain::{PackageState, VersionChain, VersionChainEntry};
+
+// Integration bridge re-exports
+pub use integration::{RuntimeBridge, SandboxBridge, SgrBridge};

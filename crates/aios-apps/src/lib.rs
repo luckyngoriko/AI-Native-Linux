@@ -16,6 +16,8 @@
 //! Every enum is closed; adding a variant is a versioned spec change.
 
 pub mod app_profile;
+pub mod compatibility_orchestrator;
+pub mod compatibility_runtime;
 pub mod ecosystem;
 pub mod error;
 pub mod orchestration;
@@ -29,6 +31,11 @@ pub mod version_chain;
 pub use app_profile::{
     AppProfile, CompatibilityRating, EvidenceLevel, KnownIssueClass, ProfileRetiredReason,
     ProfileVisibility, RatingDimension,
+};
+pub use compatibility_orchestrator::CompatibilityOrchestrator;
+pub use compatibility_runtime::{
+    AiosNativeRuntimeAdapter, AndroidRuntimeAdapter, CompatibilityRuntimeAdapter, LaunchContext,
+    LinuxRuntimeAdapter, RuntimeCapability, SubjectRef, WebRuntimeAdapter, WindowsRuntimeAdapter,
 };
 pub use ecosystem::{
     EcosystemHonestyClass, EcosystemRuntime, ManifestDeltaOutcome, ManifestTranslationStrategy,

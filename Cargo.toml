@@ -8,6 +8,7 @@ members = [
     "crates/aios-renderer-cli",
     "crates/aios-sgr",
     "crates/aios-cognitive",
+    "crates/aios-sandbox",
     "crates/aios-verification",
     "crates/aios-recovery",
     "crates/aios-evidence",

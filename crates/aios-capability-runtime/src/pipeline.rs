@@ -58,7 +58,9 @@ use crate::evidence_emit::EvidenceEmitter;
 use crate::failure::{ExecutionFailureReason, RollbackOutcome};
 use crate::rollback::RollbackDriver;
 use crate::rollback_strategy::RollbackStrategy;
-use crate::runtime::{RuntimeContext, RuntimeRecoveryHook, RuntimeVerificationEngine};
+use crate::runtime::{
+    RuntimeCognitiveProvenance, RuntimeContext, RuntimeRecoveryHook, RuntimeVerificationEngine,
+};
 use crate::status::ActionLifecycleState;
 
 // ---------------------------------------------------------------------------
@@ -529,8 +531,11 @@ impl ActionLifecyclePipeline {
         tripwire: Option<&AtomicU64>,
         verification_engine: Option<&dyn RuntimeVerificationEngine>,
         recovery_hook: Option<&dyn RuntimeRecoveryHook>,
+        cognitive_provenance: Option<&dyn RuntimeCognitiveProvenance>,
     ) -> Result<ActionContext, RuntimeError> {
-        let state = self.step_validate(envelope, ctx, now)?;
+        let state = self
+            .step_validate_with_provenance(envelope, ctx, now, cognitive_provenance)
+            .await?;
         let state = match state {
             PipelineState::Continue(c) => {
                 self.step_policy_evaluate_with_kernel(
@@ -642,9 +647,12 @@ impl ActionLifecyclePipeline {
         emitter: &EvidenceEmitter,
         verification_engine: Option<&dyn RuntimeVerificationEngine>,
         recovery_hook: Option<&dyn RuntimeRecoveryHook>,
+        cognitive_provenance: Option<&dyn RuntimeCognitiveProvenance>,
     ) -> Result<ActionContext, RuntimeError> {
         // ── Step 1: validate envelope. Emit ACTION_RECEIVED on success. ──
-        let state = self.step_validate(envelope, ctx, now)?;
+        let state = self
+            .step_validate_with_provenance(envelope, ctx, now, cognitive_provenance)
+            .await?;
         let state = match state {
             PipelineState::Continue(mut c) => {
                 emitter.emit_action_received(envelope, &mut c).await?;
@@ -778,9 +786,12 @@ impl ActionLifecyclePipeline {
         operator_alerts: Option<&AtomicU64>,
         verification_engine: Option<&dyn RuntimeVerificationEngine>,
         recovery_hook: Option<&dyn RuntimeRecoveryHook>,
+        cognitive_provenance: Option<&dyn RuntimeCognitiveProvenance>,
     ) -> Result<ActionContext, RuntimeError> {
         // ── Step 1: validate envelope. Emit ACTION_RECEIVED on success. ──
-        let state = self.step_validate(envelope, ctx, now)?;
+        let state = self
+            .step_validate_with_provenance(envelope, ctx, now, cognitive_provenance)
+            .await?;
         let state = match state {
             PipelineState::Continue(mut c) => {
                 emitter.emit_action_received(envelope, &mut c).await?;
@@ -1448,6 +1459,42 @@ impl ActionLifecyclePipeline {
         }
         apply_transition(&mut ctx, ActionLifecycleState::PolicyPending, now)?;
         Ok(PipelineState::Continue(ctx))
+    }
+
+    /// INV-002 enforcement wrapper around [`Self::step_validate`].
+    ///
+    /// When `provenance` is `Some(...)` and the envelope's subject is AI, this
+    /// consults the provenance hook before the schema check. A missing or
+    /// invalid provenance marker transitions `CREATED → FAILED` (T3) with
+    /// [`ExecutionFailureReason::AdapterRefused`].
+    ///
+    /// When `provenance` is `None` (no hook configured) or the subject is not
+    /// AI, this is identical to [`Self::step_validate`] (backward compatible).
+    ///
+    /// # Errors
+    ///
+    /// Same as [`Self::step_validate`].
+    pub async fn step_validate_with_provenance(
+        &self,
+        envelope: &ActionEnvelope,
+        ctx: ActionContext,
+        now: DateTime<Utc>,
+        provenance: Option<&dyn RuntimeCognitiveProvenance>,
+    ) -> Result<PipelineState, RuntimeError> {
+        // INV-002 defense-in-depth: AI envelopes must carry a valid provenance
+        // marker. Fail closed before schema validation so the failure reason is
+        // unambiguous (AdapterRefused, not EnvelopeValidationFailed).
+        if envelope.identity.is_ai {
+            if let Some(hook) = provenance {
+                if let Err(_reason) = hook.verify_provenance(envelope).await {
+                    let mut ctx = ctx;
+                    apply_transition(&mut ctx, ActionLifecycleState::Failed, now)?;
+                    ctx.error = Some(ExecutionFailureReason::AdapterRefused);
+                    return Ok(PipelineState::ShortCircuit(ctx));
+                }
+            }
+        }
+        self.step_validate(envelope, ctx, now)
     }
 
     // -----------------------------------------------------------------------

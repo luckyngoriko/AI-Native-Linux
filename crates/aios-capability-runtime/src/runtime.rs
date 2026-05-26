@@ -127,6 +127,21 @@ pub trait RuntimeRecoveryHook: Send + Sync {
     async fn current_recovery_mode(&self) -> bool;
 }
 
+/// Adapter-facing cognitive provenance hook for INV-002 cross-crate enforcement.
+///
+/// Defined locally so `aios-capability-runtime` does not depend on
+/// `aios-cognitive`. The cognitive crate supplies an adapter implementing this
+/// trait; the runtime consults it during validation to double-check that AI
+/// envelopes carry a valid provenance marker.
+#[async_trait]
+pub trait RuntimeCognitiveProvenance: Send + Sync {
+    /// Verify that the envelope carries a valid cognitive provenance marker.
+    ///
+    /// Returns `Ok(())` when provenance is confirmed; `Err(String)` with a
+    /// human-readable reason on failure. The runtime fails closed on any error.
+    async fn verify_provenance(&self, envelope: &ActionEnvelope) -> Result<(), String>;
+}
+
 // ---------------------------------------------------------------------------
 // RuntimeContext.
 // ---------------------------------------------------------------------------
@@ -500,6 +515,10 @@ pub struct InMemoryCapabilityRuntime {
     /// Optional live recovery boundary hook. When attached, step 5 refuses
     /// S10.1 `RECOVERY_ONLY` action kinds outside recovery mode.
     recovery_hook: Option<Arc<dyn RuntimeRecoveryHook>>,
+    /// Optional cognitive provenance hook for INV-002 cross-crate enforcement.
+    /// When attached, AI-submitted envelopes must carry a valid provenance
+    /// marker; the runtime fails closed on missing/invalid markers.
+    cognitive_provenance: Option<Arc<dyn RuntimeCognitiveProvenance>>,
     /// T-030 — defense-in-depth tripwire counter for the §17 AI
     /// self-approval prevention boundary.
     ///
@@ -569,6 +588,7 @@ impl std::fmt::Debug for InMemoryCapabilityRuntime {
             .field("evidence_emitter", &self.evidence_emitter.is_some())
             .field("verification_engine", &self.verification_engine.is_some())
             .field("recovery_hook", &self.recovery_hook.is_some())
+            .field("cognitive_provenance", &self.cognitive_provenance.is_some())
             .field(
                 "policy_double_check_warnings",
                 &self.policy_double_check_warnings.load(Ordering::Acquire),
@@ -601,6 +621,7 @@ impl InMemoryCapabilityRuntime {
             evidence_emitter: None,
             verification_engine: None,
             recovery_hook: None,
+            cognitive_provenance: None,
             policy_double_check_warnings: Arc::new(AtomicU64::new(0)),
             rollback_driver: None,
             operator_alerts: Arc::new(AtomicU64::new(0)),
@@ -745,6 +766,21 @@ impl InMemoryCapabilityRuntime {
         self
     }
 
+    /// Attach a cognitive provenance hook for INV-002 cross-crate enforcement.
+    /// Returns `self` for chaining.
+    ///
+    /// When attached, AI-submitted envelopes must carry a valid provenance
+    /// marker verified by the hook during validation. Without a hook, the
+    /// T-027 baseline is preserved (no provenance check).
+    #[must_use]
+    pub fn with_cognitive_provenance(
+        mut self,
+        provenance: Arc<dyn RuntimeCognitiveProvenance>,
+    ) -> Self {
+        self.cognitive_provenance = Some(provenance);
+        self
+    }
+
     /// Borrow the attached evidence emitter, if any.
     #[must_use]
     pub const fn evidence_emitter(&self) -> Option<&Arc<EvidenceEmitter>> {
@@ -845,6 +881,7 @@ impl CapabilityRuntime for InMemoryCapabilityRuntime {
         let kernel_ref = self.policy_kernel.as_deref();
         let verification_ref = self.verification_engine.as_deref();
         let recovery_ref = self.recovery_hook.as_deref();
+        let provenance_ref = self.cognitive_provenance.as_deref();
         let final_ctx = if let Some(emitter) = self.evidence_emitter.as_deref() {
             // T-031 / T-032 path — every §4.2 transition emits an
             // evidence receipt. When a rollback driver is also attached
@@ -867,6 +904,7 @@ impl CapabilityRuntime for InMemoryCapabilityRuntime {
                         Some(&self.operator_alerts),
                         verification_ref,
                         recovery_ref,
+                        provenance_ref,
                     )
                     .await?
             } else {
@@ -883,6 +921,7 @@ impl CapabilityRuntime for InMemoryCapabilityRuntime {
                         emitter,
                         verification_ref,
                         recovery_ref,
+                        provenance_ref,
                     )
                     .await?
             }
@@ -902,6 +941,7 @@ impl CapabilityRuntime for InMemoryCapabilityRuntime {
                     Some(&self.policy_double_check_warnings),
                     verification_ref,
                     recovery_ref,
+                    provenance_ref,
                 )
                 .await?
         };

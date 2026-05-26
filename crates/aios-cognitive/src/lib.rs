@@ -32,6 +32,8 @@ pub mod model;
 pub mod model_binding;
 /// `CognitiveModelCatalog` — model registration and lifecycle (S13.1).
 pub mod model_catalog;
+/// INV-002 cross-crate provenance adapter — bridges `aios-cognitive` ↔ `aios-capability-runtime`.
+pub mod provenance_adapter;
 /// Provider dispatch — routes model invocations by ProviderClass (S13.2 §5).
 pub mod provider_dispatch;
 /// Model router precedence table (S13.2 §7).
@@ -66,6 +68,7 @@ pub use latency_classifier::LatencyClassifier;
 pub use model::{CognitiveModel, ModelId};
 pub use model_binding::{ModelBinding, ModelBindingRegistry};
 pub use model_catalog::CognitiveModelCatalog;
+pub use provenance_adapter::{CognitiveProvenanceAdapter, PROVENANCE_MARKER_KEY};
 pub use provider_dispatch::{
     DispatchOutcome, ProviderDispatcher, VaultClientAdapter, VaultRequest, VaultResponse,
 };

@@ -97,6 +97,7 @@ pub use rollback::RollbackDriver;
 pub use rollback_strategy::{RollbackFailureMode, RollbackStrategy};
 pub use runtime::{
     AdapterHandle, AdapterRegistry, CapabilityRuntime, InMemoryCapabilityRuntime,
-    NoOpAdapterHandle, NoOpAdapterRegistry, RuntimeContext, RuntimeRecoveryHook,
+    NoOpAdapterHandle, NoOpAdapterRegistry, RuntimeCognitiveProvenance, RuntimeContext,
+    RuntimeRecoveryHook,
 };
 pub use status::ActionLifecycleState;

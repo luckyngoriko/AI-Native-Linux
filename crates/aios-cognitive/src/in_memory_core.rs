@@ -159,7 +159,7 @@ impl CognitiveCore for InMemoryCognitiveCore {
         context: &TranslationContext,
     ) -> Result<TranslationResult, CognitiveError> {
         // INV-002: Always produce a typed ActionEnvelope, never a raw shell command.
-        let envelope = ActionEnvelope::new(
+        let mut envelope = ActionEnvelope::new(
             Identity::new(intent.subject.0.clone(), true),
             Request::new(
                 "cognitive.translate",
@@ -349,13 +349,23 @@ impl CognitiveCore for InMemoryCognitiveCore {
             (0, 0) // T-099 backward compat
         };
 
+        // INV-002: stamp the envelope with a provenance marker so the
+        // Capability Runtime can verify the envelope was cognitive-translated.
+        let translator_version = "0.1.0-T098";
+        if let Some(target) = envelope.request.target.as_object_mut() {
+            target.insert(
+                "cognitive_provenance".to_string(),
+                serde_json::Value::String(translator_version.to_string()),
+            );
+        }
+
         let result = TranslationResult {
             intent_id: intent.intent_id.clone(),
             produced_action: envelope,
             routing_decision_id: Some(routing_decision_id),
             verification_intent: None,
             translation_provenance: TranslationProvenance {
-                translator_version: "0.1.0-T098".into(),
+                translator_version: translator_version.into(),
                 model_used,
                 tokens_in,
                 tokens_out,

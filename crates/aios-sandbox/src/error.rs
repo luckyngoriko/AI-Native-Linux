@@ -61,6 +61,10 @@ pub enum SandboxError {
     /// An internal error occurred (programmer error — should not reach the user).
     #[error("internal sandbox error: {0}")]
     Internal(String),
+
+    /// Evidence emission failed.
+    #[error("evidence emit failed: {0}")]
+    EvidenceEmitFailed(String),
 }
 
 #[cfg(test)]
@@ -90,6 +94,7 @@ mod tests {
                 isolation_kind: IsolationKind::ProcessContainer,
             },
             SandboxError::Internal("test".into()),
+            SandboxError::EvidenceEmitFailed("test".into()),
         ];
 
         for err in variants {

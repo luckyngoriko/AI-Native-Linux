@@ -1,7 +1,11 @@
 use std::collections::HashSet;
+use std::fmt;
+use std::sync::Arc;
 use tokio::sync::RwLock;
 
 use crate::composer::{ComposeRequest, ComposeResult, SandboxComposer};
+use crate::evidence_emit::SandboxEvidenceEmitter;
+use crate::evidence_payloads::SandboxComposedPayload;
 use crate::{
     GpuCapabilityClass, GpuPolicy, IsolationKind, NetworkPosture, ProfileId, ResourceLimits,
     SandboxError, SandboxProfile,
@@ -28,6 +32,23 @@ const SOURCE_BASE_PROFILE: &str = "base_profile";
 /// [`with_fixtures`](Self::with_fixtures).
 pub struct InMemorySandboxComposer {
     profiles: RwLock<std::collections::HashMap<ProfileId, SandboxProfile>>,
+    /// Optional evidence emitter for profile composition events.
+    evidence_emitter: Option<Arc<SandboxEvidenceEmitter>>,
+}
+
+impl fmt::Debug for InMemorySandboxComposer {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("InMemorySandboxComposer")
+            .field("profiles", &"<RwLock<HashMap<ProfileId, SandboxProfile>>>")
+            .field(
+                "evidence_emitter",
+                &self
+                    .evidence_emitter
+                    .as_ref()
+                    .map(|_| "<SandboxEvidenceEmitter>"),
+            )
+            .finish()
+    }
 }
 
 impl InMemorySandboxComposer {
@@ -36,6 +57,7 @@ impl InMemorySandboxComposer {
     pub fn new() -> Self {
         Self {
             profiles: RwLock::new(std::collections::HashMap::new()),
+            evidence_emitter: None,
         }
     }
 
@@ -142,6 +164,7 @@ impl InMemorySandboxComposer {
 
         Self {
             profiles: RwLock::new(profiles),
+            evidence_emitter: None,
         }
     }
 
@@ -252,6 +275,13 @@ impl InMemorySandboxComposer {
                 Some(intersection)
             }
         }
+    }
+
+    /// Attach an evidence emitter for profile composition events.
+    #[must_use]
+    pub fn with_evidence_emitter(mut self, emitter: Arc<SandboxEvidenceEmitter>) -> Self {
+        self.evidence_emitter = Some(emitter);
+        self
     }
 
     /// Merge two `SandboxProfile` values per-field, taking the most restrictive
@@ -425,12 +455,25 @@ impl SandboxComposer for InMemorySandboxComposer {
         // The merged profile gets a fresh identity
         merged.profile_id = ProfileId::new();
 
-        Ok(ComposeResult {
+        let result = ComposeResult {
             profile: merged,
             merged_sources,
             recovery_mode_enforced,
             ai_mode_enforced,
-        })
+        };
+
+        if let Some(ref emitter) = self.evidence_emitter {
+            let payload = SandboxComposedPayload {
+                profile_id: result.profile.profile_id.clone(),
+                isolation_kind: result.profile.isolation_kind,
+                network_posture: result.profile.network_posture,
+                gpu_capability_class: result.profile.gpu_policy.gpu_capability_class,
+                composed_at: chrono::Utc::now(),
+            };
+            let _ = emitter.emit_sandbox_composed(&payload, None).await;
+        }
+
+        Ok(result)
     }
 
     async fn store_profile(&self, profile: SandboxProfile) -> Result<ProfileId, SandboxError> {

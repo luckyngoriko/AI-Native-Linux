@@ -1,8 +1,13 @@
+use std::fmt;
+use std::sync::Arc;
+
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
 use crate::composer::SubjectRef;
 use crate::error::SandboxError;
+use crate::evidence_emit::SandboxEvidenceEmitter;
+use crate::evidence_payloads::GpuCapabilityBoundPayload;
 use crate::gpu::{GpuCapabilityClass, GpuPolicy};
 
 /// IOMMU availability status (S8.2).
@@ -68,12 +73,30 @@ pub struct GpuCapabilityBinding {
 /// Validates GPU policies, checks capability class bounds, and computes stub
 /// capability bindings for (group, subject) tuples. Real Ed25519-signed bindings
 /// and `VkDevice` partitioning are deferred to M17 (`aios-hardware`).
-#[derive(Debug, Clone)]
+#[derive(Clone)]
 pub struct GpuPolicyEnforcer {
     /// Trusted GPU authority identifier.
     pub trusted_gpu_authority: String,
     /// Stub IOMMU status — real detection lands in M17.
     default_iommu_status: IommuStatus,
+    /// Optional evidence emitter for GPU capability binding events.
+    evidence_emitter: Option<Arc<SandboxEvidenceEmitter>>,
+}
+
+impl fmt::Debug for GpuPolicyEnforcer {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("GpuPolicyEnforcer")
+            .field("trusted_gpu_authority", &self.trusted_gpu_authority)
+            .field("default_iommu_status", &self.default_iommu_status)
+            .field(
+                "evidence_emitter",
+                &self
+                    .evidence_emitter
+                    .as_ref()
+                    .map(|_| "<SandboxEvidenceEmitter>"),
+            )
+            .finish()
+    }
 }
 
 impl GpuPolicyEnforcer {
@@ -83,6 +106,7 @@ impl GpuPolicyEnforcer {
         Self {
             trusted_gpu_authority: trusted_gpu_authority.into(),
             default_iommu_status: iommu_status,
+            evidence_emitter: None,
         }
     }
 
@@ -95,7 +119,15 @@ impl GpuPolicyEnforcer {
         Self {
             trusted_gpu_authority: "aios-gpu-root".into(),
             default_iommu_status: IommuStatus::Unknown,
+            evidence_emitter: None,
         }
+    }
+
+    /// Attach an evidence emitter for GPU capability binding events.
+    #[must_use]
+    pub fn with_evidence_emitter(mut self, emitter: Arc<SandboxEvidenceEmitter>) -> Self {
+        self.evidence_emitter = Some(emitter);
+        self
     }
 
     /// Returns the current stub IOMMU status.
@@ -181,7 +213,7 @@ impl GpuPolicyEnforcer {
         let degraded_isolation =
             profile.iommu_required && !self.default_iommu_status.is_available();
 
-        Ok(GpuCapabilityBinding {
+        let binding = GpuCapabilityBinding {
             binding_id: format!("gcb_{}", ulid::Ulid::new()),
             gpu_capability_class: profile.gpu_capability_class,
             group_id: group_id.to_string(),
@@ -192,7 +224,24 @@ impl GpuPolicyEnforcer {
             degraded_isolation,
             issued_at: Utc::now(),
             expires_at: profile.expires_at,
-        })
+        };
+
+        if let Some(ref emitter) = self.evidence_emitter {
+            let emitter = Arc::clone(emitter);
+            let payload = GpuCapabilityBoundPayload {
+                binding_id: binding.binding_id.clone(),
+                group_id: binding.group_id.clone(),
+                subject: binding.subject.clone(),
+                gpu_capability_class: binding.gpu_capability_class,
+                degraded_isolation: binding.degraded_isolation,
+                bound_at: binding.issued_at,
+            };
+            tokio::spawn(async move {
+                let _ = emitter.emit_gpu_capability_bound(&payload, None).await;
+            });
+        }
+
+        Ok(binding)
     }
 }
 

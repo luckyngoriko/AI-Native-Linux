@@ -10,6 +10,7 @@ authors.workspace = true
 
 [dependencies]
 aios-action   = { path = "../aios-action" }
+aios-evidence = { path = "../aios-evidence" }
 serde          = { workspace = true }
 serde_json     = { workspace = true }
 chrono         = { workspace = true }
@@ -18,6 +19,7 @@ strum_macros   = { workspace = true }
 thiserror      = { workspace = true }
 ulid           = { workspace = true }
 blake3         = { workspace = true }
+ed25519-dalek  = { workspace = true }
 tokio          = { workspace = true }
 async-trait    = { workspace = true }
 tonic          = { workspace = true }

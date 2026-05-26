@@ -8,6 +8,10 @@
 pub mod composer;
 /// `SandboxError` taxonomy.
 pub mod error;
+/// `SandboxEvidenceEmitter` + `SandboxEvidenceLog` trait + `InMemorySandboxEvidenceLog` (S3.2 ↔ S3.1).
+pub mod evidence_emit;
+/// Typed sandbox evidence payloads (S3.2 ↔ S3.1).
+pub mod evidence_payloads;
 /// `GpuPolicy` + `GpuCapabilityClass` (S3.2 + S8.2 type-level).
 pub mod gpu;
 /// `GpuPolicyEnforcer` — validates GPU policies, checks capability bounds,
@@ -31,6 +35,14 @@ pub mod service;
 // Re-exports — flattened public surface
 pub use composer::{ComposeRequest, ComposeResult, SandboxComposer, SubjectRef};
 pub use error::SandboxError;
+pub use evidence_emit::{
+    InMemorySandboxEvidenceLog, SandboxEvidenceEmitter, SandboxEvidenceLog, SandboxSubjectRef,
+    AIOS_SANDBOX_SUBJECT,
+};
+pub use evidence_payloads::{
+    GpuCapabilityBoundPayload, ResourceLimitExceededPayload, SandboxComposedPayload,
+    SandboxViolationDetectedPayload,
+};
 pub use gpu::{GpuCapabilityClass, GpuPolicy};
 pub use gpu_enforcer::{GpuCapabilityBinding, GpuPolicyEnforcer, IommuStatus};
 pub use in_memory_composer::InMemorySandboxComposer;

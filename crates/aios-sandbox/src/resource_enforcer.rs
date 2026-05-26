@@ -1,6 +1,11 @@
+use std::fmt;
+use std::sync::Arc;
+
 use serde::{Deserialize, Serialize};
 
 use crate::error::SandboxError;
+use crate::evidence_emit::SandboxEvidenceEmitter;
+use crate::evidence_payloads::ResourceLimitExceededPayload;
 use crate::isolation::IsolationKind;
 use crate::resources::ResourceLimits;
 
@@ -60,14 +65,40 @@ pub struct ResourceRemaining {
 /// Gates CPU, memory, I/O, network, process count, and file descriptor usage
 /// against a profile's `ResourceLimits`, producing `ResourceLimitsViolation`
 /// when any cap is exceeded. Also provides syscall allowlist validation.
-#[derive(Debug, Clone)]
-pub struct ResourceLimitEnforcer;
+#[derive(Clone)]
+pub struct ResourceLimitEnforcer {
+    /// Optional evidence emitter for resource limit exceeded events.
+    evidence_emitter: Option<Arc<SandboxEvidenceEmitter>>,
+}
+
+impl fmt::Debug for ResourceLimitEnforcer {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("ResourceLimitEnforcer")
+            .field(
+                "evidence_emitter",
+                &self
+                    .evidence_emitter
+                    .as_ref()
+                    .map(|_| "<SandboxEvidenceEmitter>"),
+            )
+            .finish()
+    }
+}
 
 impl ResourceLimitEnforcer {
     /// Create a new `ResourceLimitEnforcer` with sensible defaults.
     #[must_use]
     pub const fn new_with_defaults() -> Self {
-        Self
+        Self {
+            evidence_emitter: None,
+        }
+    }
+
+    /// Attach an evidence emitter for resource limit exceeded events.
+    #[must_use]
+    pub fn with_evidence_emitter(mut self, emitter: Arc<SandboxEvidenceEmitter>) -> Self {
+        self.evidence_emitter = Some(emitter);
+        self
     }
 
     /// Check whether a `ResourceRequest` fits within the given `ResourceLimits`.
@@ -84,6 +115,11 @@ impl ResourceLimitEnforcer {
         limits: &ResourceLimits,
     ) -> Result<(), SandboxError> {
         if request.cpu_pct > limits.cpu_quota_percent {
+            self.emit_resource_limit_exceeded(
+                "cpu_quota_percent",
+                u64::from(request.cpu_pct),
+                u64::from(limits.cpu_quota_percent),
+            );
             return Err(SandboxError::ResourceLimitsViolation {
                 limit: "cpu_quota_percent".into(),
                 requested: u64::from(request.cpu_pct),
@@ -91,6 +127,11 @@ impl ResourceLimitEnforcer {
             });
         }
         if request.memory_bytes > limits.memory_max_bytes {
+            self.emit_resource_limit_exceeded(
+                "memory_max_bytes",
+                request.memory_bytes,
+                limits.memory_max_bytes,
+            );
             return Err(SandboxError::ResourceLimitsViolation {
                 limit: "memory_max_bytes".into(),
                 requested: request.memory_bytes,
@@ -99,6 +140,11 @@ impl ResourceLimitEnforcer {
         }
         if let Some(cap) = limits.io_max_bytes_per_sec {
             if request.io_bytes_per_sec > cap {
+                self.emit_resource_limit_exceeded(
+                    "io_max_bytes_per_sec",
+                    request.io_bytes_per_sec,
+                    cap,
+                );
                 return Err(SandboxError::ResourceLimitsViolation {
                     limit: "io_max_bytes_per_sec".into(),
                     requested: request.io_bytes_per_sec,
@@ -108,6 +154,11 @@ impl ResourceLimitEnforcer {
         }
         if let Some(cap) = limits.network_max_bytes_per_sec {
             if request.network_bytes_per_sec > cap {
+                self.emit_resource_limit_exceeded(
+                    "network_max_bytes_per_sec",
+                    request.network_bytes_per_sec,
+                    cap,
+                );
                 return Err(SandboxError::ResourceLimitsViolation {
                     limit: "network_max_bytes_per_sec".into(),
                     requested: request.network_bytes_per_sec,
@@ -117,6 +168,11 @@ impl ResourceLimitEnforcer {
         }
         if let Some(cap) = limits.process_max_count {
             if request.process_count > cap {
+                self.emit_resource_limit_exceeded(
+                    "process_max_count",
+                    u64::from(request.process_count),
+                    u64::from(cap),
+                );
                 return Err(SandboxError::ResourceLimitsViolation {
                     limit: "process_max_count".into(),
                     requested: u64::from(request.process_count),
@@ -126,6 +182,11 @@ impl ResourceLimitEnforcer {
         }
         if let Some(cap) = limits.file_descriptor_max {
             if request.fd_count > cap {
+                self.emit_resource_limit_exceeded(
+                    "file_descriptor_max",
+                    u64::from(request.fd_count),
+                    u64::from(cap),
+                );
                 return Err(SandboxError::ResourceLimitsViolation {
                     limit: "file_descriptor_max".into(),
                     requested: u64::from(request.fd_count),
@@ -134,6 +195,22 @@ impl ResourceLimitEnforcer {
             }
         }
         Ok(())
+    }
+
+    fn emit_resource_limit_exceeded(&self, limit_kind: &str, requested: u64, max: u64) {
+        if let Some(ref emitter) = self.evidence_emitter {
+            let emitter = Arc::clone(emitter);
+            let payload = ResourceLimitExceededPayload {
+                profile_id: crate::ProfileId::new(),
+                limit_kind: limit_kind.to_string(),
+                requested,
+                max,
+                exceeded_at: chrono::Utc::now(),
+            };
+            tokio::spawn(async move {
+                let _ = emitter.emit_resource_limit_exceeded(&payload, None).await;
+            });
+        }
     }
 
     /// Compute how much of each resource cap remains (signed).

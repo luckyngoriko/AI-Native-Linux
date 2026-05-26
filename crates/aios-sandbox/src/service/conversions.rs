@@ -404,6 +404,8 @@ pub fn sandbox_error_to_status(err: SandboxError) -> Status {
         SandboxError::ManifestSignatureInvalid | SandboxError::ManifestUnknownAuthority(_) => {
             Status::permission_denied(err.to_string())
         }
-        SandboxError::Internal(_) => Status::internal(err.to_string()),
+        SandboxError::Internal(_) | SandboxError::EvidenceEmitFailed(_) => {
+            Status::internal(err.to_string())
+        }
     }
 }

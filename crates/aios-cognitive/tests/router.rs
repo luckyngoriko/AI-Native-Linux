@@ -552,7 +552,7 @@ async fn integration_with_router_uses_router_path() {
     assert!(rid.starts_with("rtdg_"), "routing id must start with rtdg_");
     assert_eq!(
         result.translation_provenance.translator_version,
-        "0.1.0-T098"
+        "0.1.0-T099"
     );
 }
 
@@ -575,7 +575,7 @@ async fn integration_without_router_preserves_stub() {
     assert!(result.routing_decision_id.is_some());
     assert_eq!(
         result.translation_provenance.translator_version,
-        "0.1.0-T098"
+        "0.1.0-T099"
     );
 }
 
@@ -637,7 +637,7 @@ fn concurrent_route_calls() {
 #[test]
 fn router_preserves_code_version() {
     let router = ModelRouter::new_with_defaults();
-    assert_eq!(router.code_version(), "aios-cognitive/0.0.1-T098");
+    assert_eq!(router.code_version(), "aios-cognitive/0.1.0-T099");
 
     let inputs = default_inputs_t3();
     let decision = router.route(&inputs).expect("route must succeed");

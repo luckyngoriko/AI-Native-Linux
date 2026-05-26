@@ -344,7 +344,7 @@ fn cognitive_intent_round_trips_through_serde_json() {
 #[test]
 fn translation_provenance_round_trips_through_serde_json() {
     let provenance = TranslationProvenance {
-        translator_version: "aios-cognitive/0.0.1-T094".to_string(),
+        translator_version: "aios-cognitive/0.1.0-T099".to_string(),
         model_used: "claude-sonnet-4-6".to_string(),
         tokens_in: 1234,
         tokens_out: 567,
@@ -395,7 +395,7 @@ fn translation_result_round_trips_through_serde_json() {
         routing_decision_id: Some("rtdg_01HXY8K2JPQ7N3M4R5S6T7V8W9".to_string()),
         verification_intent: Some("verify nginx is running".to_string()),
         translation_provenance: TranslationProvenance {
-            translator_version: "aios-cognitive/0.0.1-T094".to_string(),
+            translator_version: "aios-cognitive/0.1.0-T099".to_string(),
             model_used: "claude-sonnet-4-6".to_string(),
             tokens_in: 500,
             tokens_out: 200,

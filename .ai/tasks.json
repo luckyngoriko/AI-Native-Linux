@@ -558,6 +558,19 @@
       "title": "aios-cognitive Model Router (S13.2) — ModelRouter + RouterState + 20 integration tests",
       "completed_at": "2026-05-26",
       "evidence": "All 3 quality gates PASS. Commit 6778042. 1382 lines added. New files: router.rs, router_state.rs, tests/router.rs."
+    },
+    {
+      "id": "T-098",
+      "title": "aios-cognitive Circuit Breaker (S14.1) — CircuitBreaker + CircuitBreakerRegistry + breaker integration",
+      "completed_at": "2026-05-26",
+      "evidence": "All 4 quality gates PASS. Commit 6b0ad9d. New files: breaker.rs, breaker_registry.rs, tests/breaker.rs. 20 integration tests."
+    },
+    {
+      "id": "T-099",
+      "title": "M11 closure for aios-cognitive v0.1.0 — closure invariants + version bump + quality gates",
+      "completed_at": "2026-05-26",
+      "evidence": "All 4 quality gates PASS. Version bump 0.0.1→0.1.0. DEFAULT_CODE_VERSION→aios-cognitive/0.1.0-T099. New file: tests/m11_closure.rs (12 invariants). 7 enum variant coverage checks. M11 CLOSED."
+    }
   ],
   "blocked": [],
   "milestones": {
@@ -565,14 +578,7 @@
       "status": "completed",
       "title": "Action Envelope skeleton (S0.1 implementation)",
       "completed_at": "2026-05-23",
-      "tasks": [
-        "T-001",
-        "T-002",
-        "T-003",
-        "T-004",
-        "T-005",
-        "T-006"
-      ]
+      "tasks": ["T-001", "T-002", "T-003", "T-004", "T-005", "T-006"]
     },
     "M2": {
       "status": "completed",
@@ -646,12 +652,7 @@
       "title": "AIOS-FS Object Model + Namespace + Query/View",
       "started_at": "2026-05-24",
       "closed_at": "2026-05-24",
-      "sub_specs": [
-        "S1.3",
-        "S2.1",
-        "S2.2",
-        "S4.1"
-      ],
+      "sub_specs": ["S1.3", "S2.1", "S2.2", "S4.1"],
       "layer": "L2",
       "target_crate": "aios-fs",
       "tasks": [
@@ -675,11 +676,7 @@
       "title": "Vault Broker + Identity + Emergency Override",
       "started_at": "2026-05-24",
       "closed_at": "2026-05-25",
-      "sub_specs": [
-        "S5.1",
-        "S5.2",
-        "S5.4"
-      ],
+      "sub_specs": ["S5.1", "S5.2", "S5.4"],
       "layer": "L4",
       "target_crate": "aios-vault",
       "tasks": [
@@ -702,9 +699,7 @@
       "status": "CLOSED",
       "title": "CLI Renderer (§22 MVP closure)",
       "closed_at": "2026-05-25",
-      "sub_specs": [
-        "S7.6"
-      ],
+      "sub_specs": ["S7.6"],
       "layer": "L7",
       "target_crate": "aios-renderer-cli",
       "tasks": [
@@ -726,9 +721,7 @@
       "title": "Verification Engine",
       "started_at": "2026-05-25",
       "closed_at": "2026-05-25",
-      "sub_specs": [
-        "S2.4"
-      ],
+      "sub_specs": ["S2.4"],
       "layer": "L9",
       "target_crate": "aios-verification",
       "tasks": [
@@ -752,11 +745,7 @@
       "title": "Recovery Boundary + First-Boot + Kernel Pipeline",
       "started_at": "2026-05-25",
       "closed_at": "2026-05-25",
-      "sub_specs": [
-        "S9.1",
-        "S9.2",
-        "S9.3"
-      ],
+      "sub_specs": ["S9.1", "S9.2", "S9.3"],
       "layer": "L1",
       "target_crate": "aios-recovery",
       "tasks": [
@@ -780,11 +769,7 @@
       "title": "Service Graph Runtime (SGR) — full unit manifest + adapter discipline",
       "started_at": "2026-05-25",
       "completed_at": "2026-05-25",
-      "sub_specs": [
-        "S15.1",
-        "S15.2",
-        "S15.3"
-      ],
+      "sub_specs": ["S15.1", "S15.2", "S15.3"],
       "layer": "L3",
       "target_crate": "aios-sgr",
       "tasks": [
@@ -805,31 +790,21 @@
       "rationale": "M10 CLOSED: AIOS-SGR desired-state graph, unit manifest, graph evaluator, adapter declaration, runtime bridge, recovery pause/resume, renderer/CLI surface, and S15.x acceptance fixtures."
     },
     "M11": {
-      "status": "in_progress",
+      "status": "completed",
       "title": "Cognitive Core + Model Router + Circuit Breaker",
-      "sub_specs": [
-        "S1.1",
-        "S1.2",
-        "S13.1",
-        "S13.2",
-        "S14.1"
-      ],
+      "sub_specs": ["S1.1", "S1.2", "S13.1", "S13.2", "S14.1"],
       "layer": "L5",
       "target_crate": "aios-cognitive",
-      "tasks": [
-        "T-094",
-        "T-095",
-        "T-096",
-        "T-097"
-      ],
-      "rationale": "ROUTING_DECISION emitter (T-007 attribution) + INV-002 AI-proposes-never-executes enforcement. T-094 through T-097 completed; circuit breaker (S14.1) and M11 closure remain."
+      "tasks": ["T-094", "T-095", "T-096", "T-097", "T-098", "T-099"],
+      "completed_at": "2026-05-26",
+      "final_test_count": 150,
+      "crate_version": "aios-cognitive/0.1.0",
+      "rationale": "M11 CLOSED: CognitiveCore trait + InMemoryCognitiveCore, LatencyClassifier, CognitiveModel types, ModelRouter (13-rule precedence table, S13.2 §C4 determinism) + RouterState, CircuitBreaker + CircuitBreakerRegistry, all 12 closure invariants verified. INV-002 enforced (AI proposes, never executes). INV-014 enforced (circuit breaker health tracking). 6 files touched + 1 new closure test file."
     },
     "M12": {
       "status": "planned",
       "title": "Sandbox Composition",
-      "sub_specs": [
-        "S3.2"
-      ],
+      "sub_specs": ["S3.2"],
       "layer": "L6",
       "target_crate": "aios-sandbox",
       "rationale": "SandboxProfile + GpuPolicy — referenced as type-level by M3/M4; this builds the runtime."
@@ -837,13 +812,7 @@
     "M13": {
       "status": "planned",
       "title": "Apps + Packages + Compatibility + Session Container",
-      "sub_specs": [
-        "S12.1",
-        "S12.2",
-        "S12.3",
-        "S12.4",
-        "S6.5"
-      ],
+      "sub_specs": ["S12.1", "S12.2", "S12.3", "S12.4", "S6.5"],
       "layer": "L6",
       "target_crate": "aios-apps",
       "rationale": "Cross-ecosystem runtimes (Linux/Windows/Android via sandboxed adapters). DEC-056 session container."
@@ -851,11 +820,7 @@
     "M14": {
       "status": "planned",
       "title": "KDE Plasma Renderer + Surface + Shared UI Schema",
-      "sub_specs": [
-        "S7.1",
-        "S7.2",
-        "S7.4"
-      ],
+      "sub_specs": ["S7.1", "S7.2", "S7.4"],
       "layer": "L7",
       "target_crate": "aios-renderer-kde",
       "rationale": "S7.1↔S8.2 vocabulary relocation (W12+ scheduled in Capella iter 5 finding) may land here."
@@ -863,9 +828,7 @@
     "M15": {
       "status": "planned",
       "title": "Web Renderer",
-      "sub_specs": [
-        "S7.5"
-      ],
+      "sub_specs": ["S7.5"],
       "layer": "L7",
       "target_crate": "aios-renderer-web",
       "rationale": "Localhost-only by default per INV-021. LAN/remote exposure gated by explicit policy."
@@ -873,11 +836,7 @@
     "M16": {
       "status": "planned",
       "title": "Network Policy + DNS/VPN + Firmware Trust",
-      "sub_specs": [
-        "S8.1",
-        "S8.4",
-        "S8.5"
-      ],
+      "sub_specs": ["S8.1", "S8.4", "S8.5"],
       "layer": "L8",
       "target_crate": "aios-network",
       "rationale": "AICrossOriginPosture enforcement, AI_DIRECT_INTERNET_DENIED record (referenced by M3 T-022)."
@@ -885,10 +844,7 @@
     "M17": {
       "status": "planned",
       "title": "Hardware Graph + GPU Resource Model",
-      "sub_specs": [
-        "S8.3",
-        "S8.2"
-      ],
+      "sub_specs": ["S8.3", "S8.2"],
       "layer": "L8",
       "target_crate": "aios-hardware",
       "rationale": "GpuCapabilityClass + GpuCapabilityBinding (referenced by M3 T-018 hard-deny + M3 T-020 constraints)."
@@ -896,9 +852,7 @@
     "M18": {
       "status": "planned",
       "title": "Repository Model + Distribution + Marketplace",
-      "sub_specs": [
-        "S11.1"
-      ],
+      "sub_specs": ["S11.1"],
       "layer": "L10",
       "target_crate": "aios-distribution",
       "rationale": "Signed package distribution, publisher trust chain (referenced by M3 T-022 + M4 T-028 manifest discipline)."

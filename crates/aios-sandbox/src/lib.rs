@@ -25,6 +25,8 @@ pub mod profile;
 pub mod resource_enforcer;
 /// `ResourceLimits` + default factories + validation.
 pub mod resources;
+/// gRPC `SandboxService` surface (T-110).
+pub mod service;
 
 // Re-exports — flattened public surface
 pub use composer::{ComposeRequest, ComposeResult, SandboxComposer, SubjectRef};
@@ -39,6 +41,10 @@ pub use resource_enforcer::{
     ResourceLimitEnforcer, ResourceRemaining, ResourceRequest, ResourceUsage, SyscallEnforcement,
 };
 pub use resources::ResourceLimits;
+pub use service::{
+    SandboxServiceClient, SandboxServiceGrpc, SandboxServiceGrpcServer, SandboxServiceImpl,
+    SCHEMA_VERSION,
+};
 
 /// Crate version marker — bump on every semantic change.
-pub const DEFAULT_CODE_VERSION: &str = "aios-sandbox/0.0.1-T107";
+pub const DEFAULT_CODE_VERSION: &str = "aios-sandbox/0.0.1-T110";

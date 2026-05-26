@@ -606,6 +606,18 @@
       "title": "aios-sandbox crate skeleton v0.0.1 — S3.2 typed core (SandboxProfile + GpuPolicy)",
       "completed_at": "2026-05-26",
       "evidence": "Commit 7b706af. 6 modules (isolation, network, gpu, resources, profile, error), 8 types, 34 tests (22 unit + 12 integration), 4 quality gates all PASS (check, test, clippy -D warnings, fmt). Workspace member added after aios-cognitive. Next: T-107 (SandboxComposer trait)."
+    },
+    {
+      "id": "T-108",
+      "title": "aios-sandbox — GPU policy enforcement (S3.2 §GpuPolicy + S8.2)",
+      "completed_at": "2026-05-26",
+      "evidence": "Commit aa28d02. GpuPolicyEnforcer + GpuCapabilityBinding + IommuStatus. 2 validation rules (dmabuf without IOMMU, non-passive GPU class without VkDevice), 40 tests (22 unit + 18 integration), 4 quality gates all PASS (check, test, clippy -D warnings, fmt). New files: gpu_enforcer.rs, tests/gpu_enforcer.rs. Modified: lib.rs (module decl + re-exports)."
+    },
+    {
+      "id": "T-109",
+      "title": "aios-sandbox — Resource limit enforcement (S3.2 ResourceLimits)",
+      "completed_at": "2026-05-26",
+      "evidence": "Commit 237e533. ResourceLimitEnforcer + ResourceRequest/ResourceUsage/ResourceRemaining/SyscallEnforcement. check_usage for CPU/memory/I/O/network/process/fd, compute_remaining (signed), enforce_cpu_quota clamp, validate_syscall with canonical per-IsolationKind allowlists (~80 ProcessContainer syscalls). 38 sandbox tests (22 inline unit + 16 integration). 4 quality gates all PASS (check, test, clippy -D warnings, fmt). New files: resource_enforcer.rs, tests/resource_enforcer.rs. Modified: error.rs (+SyscallNotAllowed), lib.rs (module decl + re-exports)."
     }
   ],
   "blocked": [],
@@ -851,9 +863,9 @@
       "sub_specs": ["S3.2"],
       "layer": "L6",
       "target_crate": "aios-sandbox",
-      "tasks": ["T-106", "T-107"],
-      "current_test_count": 2165,
-      "rationale": "SandboxProfile + GpuPolicy + SandboxComposer + InMemorySandboxComposer — 6-source merge algorithm per S3.2 §19.1."
+      "tasks": ["T-106", "T-107", "T-108", "T-109"],
+      "current_test_count": 2241,
+      "rationale": "SandboxProfile + GpuPolicy + SandboxComposer + ResourceLimitEnforcer — 6-source merge + resource enforcement + syscall allowlist per S3.2."
     },
     "M13": {
       "status": "planned",

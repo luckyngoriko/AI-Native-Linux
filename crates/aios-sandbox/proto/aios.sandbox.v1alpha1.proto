@@ -1,0 +1,279 @@
+syntax = "proto3";
+
+package aios.sandbox.v1alpha1;
+
+import "google/protobuf/timestamp.proto";
+
+// ---------------------------------------------------------------------------
+// SandboxService — L6 Sandbox Composition gRPC surface (S3.2)
+// ---------------------------------------------------------------------------
+
+service SandboxService {
+  // Compose a sandbox profile from up to 6 sources with most-restrictive-wins merge.
+  rpc ComposeProfile(ComposeProfileRequest) returns (ComposeProfileResponse);
+
+  // Retrieve a stored sandbox profile by its ID.
+  rpc GetProfile(GetProfileRequest) returns (GetProfileResponse);
+
+  // List all stored sandbox profiles.
+  rpc ListProfiles(ListProfilesRequest) returns (ListProfilesResponse);
+
+  // Validate a sandbox profile against structural constraints.
+  rpc ValidateProfile(ValidateProfileRequest) returns (ValidateProfileResponse);
+
+  // Validate a GPU policy against hardware constraints (IOMMU, capability class).
+  rpc ValidateGpuPolicy(ValidateGpuPolicyRequest) returns (ValidateGpuPolicyResponse);
+
+  // Compute a GPU capability binding for a (group, subject) tuple.
+  rpc ComputeGpuBinding(ComputeGpuBindingRequest) returns (ComputeGpuBindingResponse);
+
+  // Check whether a resource request fits within a profile's limits.
+  rpc CheckResourceUsage(CheckResourceUsageRequest) returns (CheckResourceUsageResponse);
+
+  // Compute remaining resource budget from current usage and limits.
+  rpc ComputeResourceRemaining(ComputeResourceRemainingRequest) returns (ComputeResourceRemainingResponse);
+
+  // Validate a syscall against an allowlist.
+  rpc ValidateSyscall(ValidateSyscallRequest) returns (ValidateSyscallResponse);
+}
+
+// ---------------------------------------------------------------------------
+// Enums — mirror the Rust closed enums exactly
+// ---------------------------------------------------------------------------
+
+enum IsolationKindProto {
+  ISOLATION_KIND_UNSPECIFIED = 0;
+  NAMESPACE_LOCAL = 1;
+  PROCESS_CONTAINER = 2;
+  VM_GUEST = 3;
+  BROWSER_ORIGIN_ISOLATED = 4;
+  NO_ISOLATION = 5;
+}
+
+enum GpuCapabilityClassProto {
+  GPU_CAPABILITY_CLASS_UNSPECIFIED = 0;
+  GPU_PASSIVE_DISPLAY = 1;
+  GPU_BASIC_2D = 2;
+  GPU_RICH_2D = 3;
+  GPU_FULL_3D = 4;
+  GPU_COMPUTE_HEAVY = 5;
+}
+
+enum NetworkPostureProto {
+  NETWORK_POSTURE_UNSPECIFIED = 0;
+  DENY_ALL = 1;
+  LOOPBACK_ONLY = 2;
+  HOST_LIMITED = 3;
+  EXPLICIT_ALLOWLIST = 4;
+  FULL = 5;
+}
+
+enum IommuStatusProto {
+  IOMMU_STATUS_UNSPECIFIED = 0;
+  AVAILABLE = 1;
+  UNAVAILABLE = 2;
+  UNKNOWN = 3;
+}
+
+// ---------------------------------------------------------------------------
+// Core profile types
+// ---------------------------------------------------------------------------
+
+message SandboxProfileProto {
+  string profile_id = 1;                // sbx_<ULID>
+  string name = 2;
+  string description = 3;
+  IsolationKindProto isolation_kind = 4;
+  ResourceLimitsProto resource_limits = 5;
+  GpuPolicyProto gpu_policy = 6;
+  NetworkPostureProto network_posture = 7;
+  repeated string syscall_allowlist = 8; // empty = no restrictions
+  string signing_authority = 9;
+  bytes signature_ed25519 = 10;          // 64 bytes
+}
+
+message GpuPolicyProto {
+  GpuCapabilityClassProto gpu_capability_class = 1;
+  bool vk_device_required = 2;
+  bool dmabuf_passthrough_allowed = 3;
+  bool per_group_partitioning = 4;
+  bool iommu_required = 5;
+  google.protobuf.Timestamp expires_at = 6;
+}
+
+message ResourceLimitsProto {
+  uint32 cpu_quota_percent = 1;
+  uint64 memory_max_bytes = 2;
+  optional uint64 io_max_bytes_per_sec = 3;
+  optional uint64 network_max_bytes_per_sec = 4;
+  optional uint32 process_max_count = 5;
+  optional uint32 file_descriptor_max = 6;
+  google.protobuf.Timestamp expires_at = 7;
+}
+
+// ---------------------------------------------------------------------------
+// Resource request / usage / remaining
+// ---------------------------------------------------------------------------
+
+message ResourceRequestProto {
+  uint32 cpu_pct = 1;
+  uint64 memory_bytes = 2;
+  uint64 io_bytes_per_sec = 3;
+  uint64 network_bytes_per_sec = 4;
+  uint32 process_count = 5;
+  uint32 fd_count = 6;
+}
+
+message ResourceUsageProto {
+  uint32 cpu_pct = 1;
+  uint64 memory_bytes = 2;
+  uint64 io_bytes_per_sec = 3;
+  uint64 network_bytes_per_sec = 4;
+  uint32 process_count = 5;
+  uint32 fd_count = 6;
+}
+
+message ResourceRemainingProto {
+  int32 cpu_pct = 1;
+  int64 memory_bytes = 2;
+  int64 io_bytes_per_sec = 3;
+  int64 network_bytes_per_sec = 4;
+  int32 process_count = 5;
+  int32 fd_count = 6;
+}
+
+// ---------------------------------------------------------------------------
+// GPU capability binding
+// ---------------------------------------------------------------------------
+
+message GpuCapabilityBindingProto {
+  string binding_id = 1;                   // gcb_<ULID>
+  GpuCapabilityClassProto gpu_capability_class = 2;
+  string group_id = 3;
+  string subject = 4;                      // SubjectRef serialized as string
+  bool vk_device_required = 5;
+  bool dmabuf_passthrough_allowed = 6;
+  bool iommu_required = 7;
+  bool degraded_isolation = 8;
+  google.protobuf.Timestamp issued_at = 9;
+  google.protobuf.Timestamp expires_at = 10;
+}
+
+// ---------------------------------------------------------------------------
+// ComposeProfile
+// ---------------------------------------------------------------------------
+
+message ComposeProfileRequest {
+  string subject = 1;                                  // SubjectRef as string
+  string action_kind = 2;
+  optional string base_profile_id = 3;                 // ProfileId as string
+  optional SandboxProfileProto adapter_default = 4;    // source 1
+  optional SandboxProfileProto app_manifest = 5;        // source 2
+  optional SandboxProfileProto user_request = 6;        // source 3
+  optional SandboxProfileProto policy_required = 7;     // source 4
+  optional SandboxProfileProto group_floor = 8;         // source 5
+  optional SandboxProfileProto runtime_safety_floor = 9; // source 6
+  bool recovery_mode = 10;
+  bool is_ai = 11;
+}
+
+message ComposeProfileResponse {
+  SandboxProfileProto profile = 1;
+  repeated string merged_sources = 2;
+  bool recovery_mode_enforced = 3;
+  bool ai_mode_enforced = 4;
+}
+
+// ---------------------------------------------------------------------------
+// GetProfile
+// ---------------------------------------------------------------------------
+
+message GetProfileRequest {
+  string profile_id = 1;
+}
+
+message GetProfileResponse {
+  SandboxProfileProto profile = 1;
+}
+
+// ---------------------------------------------------------------------------
+// ListProfiles
+// ---------------------------------------------------------------------------
+
+message ListProfilesRequest {}
+
+message ListProfilesResponse {
+  repeated SandboxProfileProto profiles = 1;
+}
+
+// ---------------------------------------------------------------------------
+// ValidateProfile
+// ---------------------------------------------------------------------------
+
+message ValidateProfileRequest {
+  SandboxProfileProto profile = 1;
+}
+
+message ValidateProfileResponse {}
+
+// ---------------------------------------------------------------------------
+// ValidateGpuPolicy
+// ---------------------------------------------------------------------------
+
+message ValidateGpuPolicyRequest {
+  GpuPolicyProto policy = 1;
+  IommuStatusProto iommu_status = 2;
+}
+
+message ValidateGpuPolicyResponse {}
+
+// ---------------------------------------------------------------------------
+// ComputeGpuBinding
+// ---------------------------------------------------------------------------
+
+message ComputeGpuBindingRequest {
+  string group_id = 1;
+  string subject = 2;
+  GpuPolicyProto policy = 3;
+  IommuStatusProto iommu_status = 4;
+}
+
+message ComputeGpuBindingResponse {
+  GpuCapabilityBindingProto binding = 1;
+}
+
+// ---------------------------------------------------------------------------
+// CheckResourceUsage
+// ---------------------------------------------------------------------------
+
+message CheckResourceUsageRequest {
+  ResourceRequestProto request = 1;
+  ResourceLimitsProto limits = 2;
+}
+
+message CheckResourceUsageResponse {}
+
+// ---------------------------------------------------------------------------
+// ComputeResourceRemaining
+// ---------------------------------------------------------------------------
+
+message ComputeResourceRemainingRequest {
+  ResourceUsageProto usage = 1;
+  ResourceLimitsProto limits = 2;
+}
+
+message ComputeResourceRemainingResponse {
+  ResourceRemainingProto remaining = 1;
+}
+
+// ---------------------------------------------------------------------------
+// ValidateSyscall
+// ---------------------------------------------------------------------------
+
+message ValidateSyscallRequest {
+  string syscall = 1;
+  optional IsolationKindProto isolation_kind = 2;
+  repeated string allowlist = 3;   // if empty, no restriction
+}
+
+message ValidateSyscallResponse {}

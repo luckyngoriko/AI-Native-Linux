@@ -61,6 +61,21 @@ dependencies = [
 ]
 
 [[package]]
+name = "aios-apps"
+version = "0.0.1"
+dependencies = [
+ "blake3",
+ "chrono",
+ "ed25519-dalek",
+ "serde",
+ "serde_json",
+ "strum",
+ "strum_macros",
+ "thiserror",
+ "ulid",
+]
+
+[[package]]
 name = "aios-capability-runtime"
 version = "0.1.0"
 dependencies = [

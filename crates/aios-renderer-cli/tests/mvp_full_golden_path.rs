@@ -99,7 +99,7 @@ async fn section_22_mvp_walk_runs_through_aios_cli_text_and_json() -> TestResult
 
     let policy: Arc<dyn PolicyKernel> = Arc::new(ScriptedPolicyKernel::allow());
     let (mut client, shutdown) = InProcessBackend::spawn_and_connect_with_policy(policy).await?;
-    assert_eq!(shutdown.service_count(), 7);
+    assert_eq!(shutdown.service_count(), 8);
 
     let system_object = client
         .write_object(write_request(

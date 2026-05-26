@@ -10,6 +10,7 @@ authors.workspace = true
 
 [dependencies]
 aios-action = { path = "../aios-action" }
+aios-cognitive = { path = "../aios-cognitive" }
 aios-capability-runtime = { path = "../aios-capability-runtime" }
 aios-evidence = { path = "../aios-evidence" }
 aios-fs = { path = "../aios-fs" }

@@ -12,6 +12,7 @@ pub mod action_render;
 pub mod cli;
 pub mod cli_types;
 pub mod client;
+pub mod cognitive_render;
 pub mod error;
 pub mod evidence_render;
 pub mod fs_render;
@@ -47,13 +48,15 @@ pub use aios_verification::{
     VerificationStatus,
 };
 pub use cli::{
-    ActionSubcommand, AiosCli, AiosCommand, EvidenceSubcommand, FsSubcommand, KernelSubcommand,
-    PolicySubcommand, RecoverySubcommand, SgrSubcommand, VaultSubcommand, VerificationSubcommand,
+    ActionSubcommand, AiosCli, AiosCommand, CognitiveSubcommand, EvidenceSubcommand, FsSubcommand,
+    KernelSubcommand, PolicySubcommand, RecoverySubcommand, SgrSubcommand, VaultSubcommand,
+    VerificationSubcommand,
 };
 pub use cli_types::{
     AnsiSupportLevel, CliCompilationResult, CliEvidenceRecordKind, CliInputMode, CliRenderMode,
 };
 pub use client::{AiosClient, AiosEndpoints, InProcessBackend, ShutdownHandle};
+pub use cognitive_render::{CircuitStateList, CognitiveIntentCapabilityList, CognitiveModelList};
 pub use error::RenderError;
 pub use evidence_render::EvidenceChainView;
 pub use json_renderer::JsonRenderer;

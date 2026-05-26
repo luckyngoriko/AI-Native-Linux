@@ -11,6 +11,8 @@ use std::time::Duration as StdDuration;
 
 use aios_capability_runtime::service as runtime_service;
 use aios_capability_runtime::InMemoryCapabilityRuntime;
+use aios_cognitive::service as cognitive_service;
+use aios_cognitive::InMemoryCognitiveCore;
 use aios_fs::service as fs_service;
 use aios_fs::InMemoryAiosFs;
 use aios_policy::service as policy_service;
@@ -63,6 +65,7 @@ pub struct InProcessBackend {
     identity: Arc<IdentityCatalog>,
     audit: Arc<CapabilityAuditLog>,
     lifecycle: Arc<CapabilityLifecycleDriver>,
+    cognitive_core: Arc<InMemoryCognitiveCore>,
 }
 
 /// Graceful shutdown handle for an in-process backend service set.
@@ -79,7 +82,7 @@ impl ShutdownHandle {
         Self { shutdowns, tasks }
     }
 
-    /// Return the number of backend gRPC servers managed by this handle.
+    /// Return the number of backend gRPC servers managed by this handle (now 8).
     #[must_use]
     pub const fn service_count(&self) -> usize {
         self.shutdowns.len()
@@ -169,10 +172,11 @@ impl InProcessBackend {
             identity,
             audit,
             lifecycle,
+            cognitive_core: Arc::new(InMemoryCognitiveCore::new()),
         }
     }
 
-    /// Spawn the default seven-service backend and connect an [`AiosClient`].
+    /// Spawn the default eight-service backend and connect an [`AiosClient`].
     ///
     /// # Errors
     ///
@@ -182,7 +186,7 @@ impl InProcessBackend {
         Self::new_default().spawn().await
     }
 
-    /// Spawn seven services with a caller-supplied Policy Kernel.
+    /// Spawn eight services with a caller-supplied Policy Kernel.
     ///
     /// This is used by integration tests that need deterministic policy
     /// ALLOW/DENY responses while keeping runtime/fs/vault in-memory.
@@ -224,6 +228,11 @@ impl InProcessBackend {
         )
         .await?;
         let sgr = spawn_router("sgr", sgr_service::build_router(self.sgr_service())).await?;
+        let cognitive = spawn_router(
+            "cognitive",
+            cognitive_service::build_router(self.cognitive_service()),
+        )
+        .await?;
 
         let endpoints = AiosEndpoints {
             policy: policy.endpoint,
@@ -233,6 +242,7 @@ impl InProcessBackend {
             verification: verification.endpoint,
             recovery: recovery.endpoint,
             sgr: sgr.endpoint,
+            cognitive: cognitive.endpoint,
             evidence: None,
         };
         let shutdown = ShutdownHandle::new(
@@ -244,6 +254,7 @@ impl InProcessBackend {
                 verification.shutdown,
                 recovery.shutdown,
                 sgr.shutdown,
+                cognitive.shutdown,
             ],
             vec![
                 policy.task,
@@ -253,6 +264,7 @@ impl InProcessBackend {
                 verification.task,
                 recovery.task,
                 sgr.task,
+                cognitive.task,
             ],
         );
         let client = AiosClient::connect(&endpoints).await?;
@@ -308,6 +320,10 @@ impl InProcessBackend {
             Arc::clone(&self.sgr_evaluator),
             Arc::clone(&self.sgr_registry),
         )
+    }
+
+    fn cognitive_service(&self) -> cognitive_service::CognitiveCoreServiceImpl {
+        cognitive_service::CognitiveCoreServiceImpl::new(Arc::clone(&self.cognitive_core))
     }
 
     async fn seed_default_vault_capability(&self) -> Result<(), RenderError> {

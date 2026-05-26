@@ -16,9 +16,10 @@ use clap::{Parser, Subcommand};
 use serde_json::{json, Value};
 
 use crate::{
-    AiosClient, AiosEndpoints, KernelCandidate, OutputFormat, RenderContext, RenderError,
-    Renderable, SgrGraphView, SgrUnitListView, TableAlign, TableRenderer, TableSpec, TextRenderer,
-    TreeNode, TreeRenderer, VerificationPrimitiveList, Version,
+    AiosClient, AiosEndpoints, CircuitStateList, CognitiveIntentCapabilityList, CognitiveModelList,
+    KernelCandidate, OutputFormat, RenderContext, RenderError, Renderable, SgrGraphView,
+    SgrUnitListView, TableAlign, TableRenderer, TableSpec, TextRenderer, TreeNode, TreeRenderer,
+    VerificationPrimitiveList, Version,
 };
 
 /// Parsed command-line interface for the `aios` binary.
@@ -105,6 +106,12 @@ pub enum AiosCommand {
         /// SGR operation.
         #[command(subcommand)]
         subcommand: SgrSubcommand,
+    },
+    /// Inspect and interact with the Cognitive Core.
+    Cognitive {
+        /// Cognitive operation.
+        #[command(subcommand)]
+        subcommand: CognitiveSubcommand,
     },
 }
 
@@ -238,6 +245,26 @@ pub enum KernelSubcommand {
         /// Candidate id to roll back.
         candidate_id: String,
     },
+}
+
+/// Cognitive Core subcommands.
+#[derive(Debug, Clone, Subcommand)]
+pub enum CognitiveSubcommand {
+    /// Translate a natural-language utterance into a typed action.
+    Translate {
+        /// Natural-language utterance (the user's expressed intent).
+        #[arg(long)]
+        utterance: String,
+        /// Agent canonical id.
+        #[arg(long, default_value = "agent:cli:default")]
+        agent_id: String,
+    },
+    /// List supported intent capabilities.
+    Intents,
+    /// List registered cognitive models.
+    Models,
+    /// Show circuit breaker states.
+    Circuits,
 }
 
 /// Service Graph Runtime subcommands.
@@ -390,6 +417,9 @@ impl AiosCli {
             AiosCommand::Sgr { subcommand } => {
                 execute_sgr_subcommand(subcommand, client, format, &ctx).await
             }
+            AiosCommand::Cognitive { subcommand } => {
+                execute_cognitive_subcommand(subcommand, client, format, &ctx).await
+            }
         }
     }
 }
@@ -438,6 +468,58 @@ async fn execute_sgr_subcommand(
             )
         }
         SgrSubcommand::Evaluate => render_value(&client.evaluate_graph().await?, format, ctx),
+    }
+}
+
+async fn execute_cognitive_subcommand(
+    subcommand: &CognitiveSubcommand,
+    client: &mut AiosClient,
+    format: OutputFormat,
+    ctx: &RenderContext,
+) -> Result<String, RenderError> {
+    match subcommand {
+        CognitiveSubcommand::Translate {
+            utterance,
+            agent_id,
+        } => {
+            let intent_id = client.translate_intent(utterance, agent_id).await?;
+            Ok(format!("intent_id: {intent_id}"))
+        }
+        CognitiveSubcommand::Intents => {
+            let capabilities = client.list_supported_intents().await?;
+            render_value(
+                &CognitiveIntentCapabilityList::new(capabilities),
+                format,
+                ctx,
+            )
+        }
+        CognitiveSubcommand::Models => {
+            let models = client.list_models().await?;
+            render_value(&CognitiveModelList::new(models), format, ctx)
+        }
+        CognitiveSubcommand::Circuits => {
+            let entries = vec![
+                (
+                    aios_cognitive::ModelBackendKind::LocalCpu,
+                    client
+                        .get_circuit_state(aios_cognitive::ModelBackendKind::LocalCpu)
+                        .await?,
+                ),
+                (
+                    aios_cognitive::ModelBackendKind::LocalGpu,
+                    client
+                        .get_circuit_state(aios_cognitive::ModelBackendKind::LocalGpu)
+                        .await?,
+                ),
+                (
+                    aios_cognitive::ModelBackendKind::ExternalVaultBrokered,
+                    client
+                        .get_circuit_state(aios_cognitive::ModelBackendKind::ExternalVaultBrokered)
+                        .await?,
+                ),
+            ];
+            render_value(&CircuitStateList::new(entries), format, ctx)
+        }
     }
 }
 
@@ -545,6 +627,7 @@ fn parse_keyed_endpoints(parts: &[&str]) -> Result<AiosEndpoints, RenderError> {
             "verification" => endpoints.verification = endpoint,
             "recovery" => endpoints.recovery = endpoint,
             "sgr" => endpoints.sgr = endpoint,
+            "cognitive" => endpoints.cognitive = endpoint,
             "evidence" => {
                 endpoints.evidence = if value.trim().eq_ignore_ascii_case("none") {
                     None
@@ -564,9 +647,9 @@ fn parse_keyed_endpoints(parts: &[&str]) -> Result<AiosEndpoints, RenderError> {
 }
 
 fn parse_positional_endpoints(parts: &[&str]) -> Result<AiosEndpoints, RenderError> {
-    if !(7..=8).contains(&parts.len()) {
+    if !(8..=9).contains(&parts.len()) {
         return Err(RenderError::Internal(
-            "AIOS_ENDPOINTS positional form is policy,runtime,fs,vault,verification,recovery,sgr[,evidence]"
+            "AIOS_ENDPOINTS positional form is policy,runtime,fs,vault,verification,recovery,sgr,cognitive[,evidence]"
                 .to_owned(),
         ));
     }
@@ -579,8 +662,9 @@ fn parse_positional_endpoints(parts: &[&str]) -> Result<AiosEndpoints, RenderErr
         verification: normalize_endpoint(parts[4])?,
         recovery: normalize_endpoint(parts[5])?,
         sgr: normalize_endpoint(parts[6])?,
+        cognitive: normalize_endpoint(parts[7])?,
         evidence: parts
-            .get(7)
+            .get(8)
             .map(|value| {
                 if value.trim().eq_ignore_ascii_case("none") {
                     Ok(None)

@@ -10,6 +10,10 @@ use aios_capability_runtime::service::conversions as runtime_conversions;
 use aios_capability_runtime::service::proto as runtime_proto;
 use aios_capability_runtime::service::CapabilityRuntimeClient;
 use aios_capability_runtime::ActionContext;
+use aios_cognitive::core::IntentCapability;
+use aios_cognitive::service::proto as cognitive_proto;
+use aios_cognitive::service::CognitiveCoreClient;
+use aios_cognitive::{CircuitState, CognitiveModel};
 use aios_evidence::service::conversions as evidence_conversions;
 use aios_evidence::service::proto as evidence_proto;
 use aios_evidence::service::EvidenceLogClient;
@@ -67,6 +71,8 @@ pub struct AiosClient {
     pub recovery: RecoveryServiceClient<Channel>,
     /// Service Graph Runtime client.
     pub sgr: SgrServiceClient<Channel>,
+    /// Cognitive Core client.
+    pub cognitive: CognitiveCoreClient<Channel>,
     evidence: Option<EvidenceLogClient<Channel>>,
 }
 
@@ -107,6 +113,9 @@ impl AiosClient {
             ),
             None => None,
         };
+        let cognitive = CognitiveCoreClient::connect(endpoints.cognitive.clone())
+            .await
+            .map_err(|err| client_connect_failed("cognitive", err.to_string()))?;
 
         Ok(Self {
             policy,
@@ -116,6 +125,7 @@ impl AiosClient {
             verification,
             recovery,
             sgr,
+            cognitive,
             evidence,
         })
     }
@@ -784,6 +794,121 @@ impl AiosClient {
         recovery_conversions::kernel_candidate_from_proto(response).map_err(|err| {
             client_call_failed("recovery", "RollbackKernelCandidate", err.to_string())
         })
+    }
+
+    /// Translate a natural-language utterance through the Cognitive Core
+    /// `PerceiveIntent` RPC.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`RenderError::ClientCallFailed`] when the RPC fails.
+    pub async fn translate_intent(
+        &mut self,
+        utterance: &str,
+        agent_canonical_id: &str,
+    ) -> Result<String, RenderError> {
+        let response = self
+            .cognitive
+            .perceive_intent(cognitive_proto::PerceiveIntentRequest {
+                schema_version: aios_cognitive::service::SCHEMA_VERSION.to_owned(),
+                agent_canonical_id: agent_canonical_id.to_owned(),
+                utterance: utterance.to_owned(),
+                context_facts: None,
+            })
+            .await
+            .map_err(|err| client_call_failed("cognitive", "PerceiveIntent", err.to_string()))?
+            .into_inner();
+
+        if response.error_code != 0 {
+            return Err(client_call_failed(
+                "cognitive",
+                "PerceiveIntent",
+                format!("error_code: {}", response.error_code),
+            ));
+        }
+
+        Ok(response.intent_id)
+    }
+
+    /// List supported intent capabilities from the Cognitive Core.
+    ///
+    /// Returns a stub list since the gRPC surface does not expose a dedicated
+    /// `ListSupportedIntents` RPC yet (deferred to post-T-101 agent lifecycle).
+    ///
+    /// # Errors
+    ///
+    /// Returns [`RenderError::ClientCallFailed`] when the info RPC fails.
+    pub async fn list_supported_intents(&mut self) -> Result<Vec<IntentCapability>, RenderError> {
+        let _response = self
+            .cognitive
+            .get_cognitive_core_info(())
+            .await
+            .map_err(|err| {
+                client_call_failed("cognitive", "GetCognitiveCoreInfo", err.to_string())
+            })?
+            .into_inner();
+
+        Ok(vec![
+            IntentCapability {
+                intent_kind: "service.restart".into(),
+                description: "Restart a system service".into(),
+                requires_latency_tier: aios_cognitive::LatencyTier::T1Deterministic,
+                produces_action_type: "service.restart".into(),
+                max_tokens_estimate: 512,
+            },
+            IntentCapability {
+                intent_kind: "cognitive.translate".into(),
+                description: "Translate a natural-language intent into a typed action".into(),
+                requires_latency_tier: aios_cognitive::LatencyTier::T3LocalCognitive,
+                produces_action_type: "cognitive.translate".into(),
+                max_tokens_estimate: 2048,
+            },
+        ])
+    }
+
+    /// List models registered in the Cognitive Core model catalog.
+    ///
+    /// Returns an empty list since the gRPC surface does not expose a dedicated
+    /// `ListModels` RPC yet (deferred to post-T-101 catalog lifecycle).
+    ///
+    /// # Errors
+    ///
+    /// Returns [`RenderError::ClientCallFailed`] when the info RPC fails.
+    pub async fn list_models(&mut self) -> Result<Vec<CognitiveModel>, RenderError> {
+        let _response = self
+            .cognitive
+            .get_cognitive_core_info(())
+            .await
+            .map_err(|err| {
+                client_call_failed("cognitive", "GetCognitiveCoreInfo", err.to_string())
+            })?
+            .into_inner();
+
+        Ok(Vec::new())
+    }
+
+    /// Get circuit breaker state for a model backend kind.
+    ///
+    /// Returns `Closed` since the gRPC surface does not expose a dedicated
+    /// `GetCircuitState` RPC yet (deferred to post-T-103 breaker lifecycle).
+    ///
+    /// # Errors
+    ///
+    /// Returns [`RenderError::ClientCallFailed`] when the info RPC fails.
+    pub async fn get_circuit_state(
+        &mut self,
+        _kind: aios_cognitive::ModelBackendKind,
+    ) -> Result<CircuitState, RenderError> {
+        let _response = self
+            .cognitive
+            .get_cognitive_core_info(())
+            .await
+            .map_err(|err| {
+                client_call_failed("cognitive", "GetCognitiveCoreInfo", err.to_string())
+            })?
+            .into_inner();
+
+        Ok(CircuitState::Closed)
     }
 }
 

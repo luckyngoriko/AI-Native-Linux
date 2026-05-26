@@ -229,6 +229,7 @@ version = "0.1.0"
 dependencies = [
  "aios-action",
  "aios-capability-runtime",
+ "aios-cognitive",
  "aios-evidence",
  "aios-fs",
  "aios-policy",

@@ -299,7 +299,7 @@ async fn in_process_backend_spawns_recovery_and_sgr_services() {
         .await
         .expect("spawn backend");
 
-    assert_eq!(shutdown.service_count(), 7);
+    assert_eq!(shutdown.service_count(), 8);
 
     shutdown.shutdown().await.expect("shutdown");
 }

@@ -115,6 +115,19 @@ pub enum AppsError {
         reason: String,
     },
 
+    /// Update FSM invalid state transition.
+    #[error("invalid state transition: {from} → {to}")]
+    InvalidStateTransition {
+        /// Current state.
+        from: String,
+        /// Requested target state.
+        to: String,
+    },
+
+    /// Update plan not found for the given id.
+    #[error("update plan not found: {0}")]
+    UpdatePlanNotFound(String),
+
     /// Validation failed for an incoming manifest or contribution.
     #[error("validation failed: {0}")]
     ValidationFailed(String),

@@ -27,6 +27,7 @@ pub mod package_store;
 pub mod runtime;
 pub mod session;
 pub mod session_driver;
+pub mod update_driver;
 pub mod version_chain;
 
 // Re-export all public types at crate root for convenience.
@@ -64,5 +65,10 @@ pub use session_driver::{
     CapabilityHandle, InMemorySessionDriver, OpenSessionRequest, Principal, SessionDescriptor,
     SessionDriver, SessionExitReason, SessionFilter, SessionMetrics, SessionState,
     SessionTerminationReceipt,
+};
+pub use update_driver::{
+    FailureClass, InMemoryUpdateDriver, RollbackExitState, RollbackReason, RollbackReceipt,
+    UpdateOutcome, UpdatePlan, UpdatePlanId, UpdatePlanRequest, UpdateRollbackDriver, UpdateState,
+    UpdateVerification,
 };
 pub use version_chain::{PackageState, VersionChain, VersionChainEntry};

@@ -49,6 +49,15 @@ pub enum SandboxError {
         reason: String,
     },
 
+    /// A syscall was not in the allowlist for this isolation kind.
+    #[error("syscall `{syscall}` not allowed under isolation kind {isolation_kind:?}")]
+    SyscallNotAllowed {
+        /// The syscall that was denied.
+        syscall: String,
+        /// The isolation kind under which this syscall is forbidden.
+        isolation_kind: IsolationKind,
+    },
+
     /// An internal error occurred (programmer error — should not reach the user).
     #[error("internal sandbox error: {0}")]
     Internal(String),
@@ -75,6 +84,10 @@ mod tests {
             SandboxError::IsolationKindNotSupported {
                 kind: IsolationKind::VmGuest,
                 reason: "no KVM".into(),
+            },
+            SandboxError::SyscallNotAllowed {
+                syscall: "mount".into(),
+                isolation_kind: IsolationKind::ProcessContainer,
             },
             SandboxError::Internal("test".into()),
         ];

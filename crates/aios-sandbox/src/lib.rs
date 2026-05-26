@@ -21,6 +21,8 @@ pub mod isolation;
 pub mod network;
 /// `SandboxProfile` + `ProfileId`.
 pub mod profile;
+/// `ResourceLimitEnforcer` + `ResourceRequest` / `ResourceUsage` / `ResourceRemaining` (S3.2).
+pub mod resource_enforcer;
 /// `ResourceLimits` + default factories + validation.
 pub mod resources;
 
@@ -33,6 +35,9 @@ pub use in_memory_composer::InMemorySandboxComposer;
 pub use isolation::IsolationKind;
 pub use network::NetworkPosture;
 pub use profile::{ProfileId, SandboxProfile};
+pub use resource_enforcer::{
+    ResourceLimitEnforcer, ResourceRemaining, ResourceRequest, ResourceUsage, SyscallEnforcement,
+};
 pub use resources::ResourceLimits;
 
 /// Crate version marker — bump on every semantic change.

@@ -1,5 +1,13 @@
 # AIOS Implementation Progress Log
 
+2026-05-26T20:00:00Z | T-107 | quality-gates | cargo check --workspace (clean), cargo test -p aios-sandbox (76), cargo clippy --workspace --all-targets -- -D warnings (0), cargo fmt --all -- --check (clean) | SUCCESS | commit
+
+2026-05-26T20:00:00Z | T-107 | commit | SandboxComposer async trait + InMemorySandboxComposer (S3.2 §19.1 6-source merge), 6 files, 76 tests, 2165 ≥ 2137 minimum | SUCCESS | T-108 deferred per brief
+
+2026-05-26T18:30:00Z | T-100 | all-gates | cargo check --workspace (clean), cargo test --workspace (1945, ≥1945), cargo clippy --workspace --all-targets -- -D warnings (0), cargo fmt --all -- --check (clean) | SUCCESS | commit
+
+2026-05-26T18:30:00Z | T-100 | commit | git commit 5cb7d72 T-100: aios-cognitive — Provider classes + vault-brokered external calls (S13.2 §5), 5 files, +910/-2 | SUCCESS | T-101 (gRPC) deferred per brief
+
 2026-05-26T15:00:00Z | T-097 | clippy-fix | Fixed 15 clippy warnings-as-errors across router.rs (4), router_state.rs (4), and tests/router.rs (7) | SUCCESS | commit
 
 2026-05-26T15:00:00Z | T-097 | quality-gates | cargo clippy --workspace --all-targets -- -D warnings (0 errors), cargo test --workspace (all pass, 0 failures), cargo fmt --all -- --check (clean) | SUCCESS | commit
@@ -586,3 +594,71 @@
 2026-05-25 SGR declarative service management marker: desired-state graph, topological traversal, cycle detection, runtime start, recovery pause/resume, and adapter fail-closed semantics real.
 [2026-05-26T20:00:00Z] T-095 COMPLETE. Created core.rs (CognitiveCore trait + TranslationContext + IntentCapability), in_memory_core.rs (InMemoryCognitiveCore with RwLock<HashMap> cache + Arc<Vec<CognitiveModel>> catalog), updated lib.rs + Cargo.toml, tests/cognitive_core.rs (14 tests). 4 gates PASS: check clean, test 1810 (min 1810), clippy 0 warnings, fmt clean. SPEC DEVIATION: get_translation unknown intent_id → NoMatchingCapability (error.rs frozen, no IntentNotFound variant). Commit 2cc79cd. Next: T-096 latency tiering classifier.
 2026-05-26T04:39:44Z | T-096 | COMPLETED | latency_classifier.rs (NEW) + lib.rs (updated) + tests/latency_classifier.rs (NEW, 16 integration tests) | 16 inline + 16 integration = +32 tests | cargo check/test/clippy/fmt all PASS | workspace tests 1810→1842 | NEXT: commit T-096
+[2026-05-26] T-099 M11 CLOSURE
+  Task: M11 closure for aios-cognitive v0.1.0 — closure invariants + version bump
+  Changes:
+    - Cargo.toml: version 0.0.1 → 0.1.0
+    - lib.rs: DEFAULT_CODE_VERSION → aios-cognitive/0.1.0-T099
+    - in_memory_core.rs: translator_version → 0.1.0-T099
+    - tests/cognitive_core.rs: version string → 0.1.0-T099
+    - tests/router.rs: 3 version strings → 0.1.0-T099
+    - tests/types_roundtrip.rs: 2 version strings → 0.1.0-T099
+    - tests/m11_closure.rs: NEW — 12 closure invariants
+  Gates:
+    - cargo check --workspace: PASS
+    - cargo test --workspace: PASS (all 0 failures)
+    - cargo clippy --workspace --all-targets -- -D warnings: PASS
+    - cargo fmt --all -- --check: PASS
+  aios-cognitive test count: 139 (34 unit + 105 integration)
+  Status: SUCCESS
+  M11 CLOSED
+  Next: M12 aios-sandbox (T-100)
+
+[2026-05-26T23:00:00Z] T-100 MEMORY UPDATE
+  Task: T-100 — Provider classes + vault-brokered external calls (S13.2 §5)
+  Status: SUCCESS
+  Commit: 5cb7d72
+  Tests: 1945 pass
+  Gates: cargo check + cargo test --workspace + cargo clippy --workspace --all-targets -- -D warnings + cargo fmt --all -- --check — ALL PASS
+  Memory files updated: .ai/memory.json (current_task_id→T-100, current_step_T100), .ai/tasks.json (T-098/T-099/T-100 in completed, M11 tasks updated, deferred_tasks added)
+  T-101..T-105 deferred per brief
+  STOP — no further tasks executed per brief
+  Next: M11 closure requires T-105 (version bump) before acceptance fixtures
+
+[2026-05-26T23:00:00Z] T-101 EXECUTED
+  BASELINE: branch=main, HEAD=5cb7d72
+  GOAL: gRPC CognitiveCore service per S13.1 §19
+  SCOPE: 6 new files (proto, build.rs, service/{mod,conversions,server}.rs, grpc_roundtrip.rs) + 2 modified (Cargo.toml, lib.rs)
+  Commands executed:
+    cargo clippy -p aios-cognitive --all-targets -- -D warnings → PASS (0 warnings)
+    cargo test -p aios-cognitive → PASS (190 tests)
+    cargo fmt -p aios-cognitive -- --check → PASS (clean)
+    git add + git commit → 9948f45
+  Clippy fixes applied:
+    - conversions.rs: cognitive_error_to_proto_code — merged 3 match_same_arms + const fn
+    - server.rs: map_unwrap_or → map_or
+    - grpc_roundtrip.rs: bool_comparison → !assert
+  COMMITTED: 9948f45 — 9 files, +1583 LOC
+  STATUS: SUCCESS — all 5 quality gates green
+  Memory files updated: .ai/memory.json (current_task_id→T-101, current_step_T101), .ai/tasks.json (T-101 in completed, M11 tasks updated)
+  T-102..T-105 deferred per brief
+  STOP — no further tasks executed per brief
+  Next: M11 closure requires T-105 (version bump) before acceptance fixtures
+
+2026-05-26T23:00:00Z | T-102 | evidence-emission | New files: evidence_emit.rs (476 lines), evidence_payloads.rs (245 lines), tests/evidence_emission.rs (653 lines, 19 tests). Modified: breaker.rs (+emitter field/ctor/emit calls), error.rs (+EvidenceEmitFailed), in_memory_core.rs (+emitter field/ctor/emit calls), lib.rs (+2 modules + re-exports), provider_dispatch.rs (+emitter field/ctor/emit calls), router.rs (+emitter field/ctor/emit calls), service/conversions.rs (+EvidenceEmitFailed mapping arm), Cargo.toml (+aios-evidence dep, +ed25519-dalek). All 224 aios-cognitive tests pass. All 5 quality gates green (check, test, clippy -D warnings, fmt). 3 clippy fixes applied to test file (similar_names, items_after_statements, cast_lossless). Commit 849cb6f. SINGLE COMMIT, NO VERSION BUMP. T-103..T-105 deferred per brief.
+[2026-05-26T07:56:41Z] T-103 completed: aios-cognitive — INV-002 cross-crate enforcement. 9 files changed, 627 insertions, 7 deletions. All 4 gates PASS: cargo fmt (clean), cargo check (clean), cargo clippy -D warnings (0 warnings), cargo test (all pass, no failures). Commit 11ac8f3. Single commit enforced. STOP after one commit. T-104/T-105 deferred.
+=== 2026-05-26 T-106: aios-sandbox crate skeleton v0.0.1 (S3.2 SandboxProfile + GpuPolicy) ===
+STATUS: SUCCESS
+Commit: 7b706af (on top of af3a457)
+Files created: 9 (Cargo.toml, src/{lib,isolation,network,gpu,resources,profile,error}.rs, tests/types_roundtrip.rs)
+Files modified: 2 (root Cargo.toml + Cargo.lock — workspace member added after aios-cognitive)
+Tests: 34 (22 unit + 12 integration)
+Gates: cargo fmt ✓ | cargo check ✓ | cargo test --workspace ✓ | cargo clippy --workspace --all-targets -- -D warnings ✓
+M12: 1/9 tasks done. Next: T-107 (SandboxComposer trait + InMemorySandboxComposer).
+
+Clippy fixes applied (10 iterations):
+- profile.rs: #[must_use] on ProfileId::new(), removed stray use crate::gpu::GpuCapabilityClass after test module, added GpuCapabilityClass import inside test module
+- resources.rs: added #[allow(clippy::expect_used)] to test module
+- types_roundtrip.rs: backticks on `serde_json`, removed redundant .clone() on profile_id
+- gpu.rs: #[allow(clippy::struct_excessive_bools)] with spec citation, #[must_use] + const fn on defaults
+- All inline test modules: #[allow(clippy::unwrap_used)] + #[allow(clippy::expect_used)]

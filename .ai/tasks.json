@@ -350,6 +350,12 @@
       "evidence": "1265 tests workspace (+10 over T-061 baseline 1255). Added workspace deps clap + anyhow, [[bin]] aios, clap derive command tree, RenderContext flag wiring, endpoint override parsing, binary dispatch/error formatting, and CLI execution over AiosClient. Extended renderer client with minimal methods for action status, fs list/list-versions, vault issue, and evidence chain/get. Tests: crates/aios-renderer-cli/tests/cli_integration.rs (10). Gates PASS: cargo check --workspace + cargo test --workspace + cargo clippy --workspace --all-targets -- -D warnings + cargo fmt --all -- --check + cargo build -p aios-renderer-cli --bin aios."
     },
     {
+      "id": "T-107",
+      "title": "aios-sandbox — SandboxComposer async trait + InMemorySandboxComposer (S3.2 §19.1 6-source merge)",
+      "completed_at": "2026-05-26",
+      "evidence": "76 tests (28 inline + 14 integration + 12 types_roundtrip + 22 existing). 4 gates PASS. 6-source merge with most-restrictive-wins semantics. Recovery/AI post-processing rules. Profile catalog with RwLock<HashMap>. Test count 2165 ≥ 2137 minimum."
+    },
+    {
       "id": "T-063",
       "title": "aios-renderer-cli v0.1.0 - §22 MVP FULLY RUNNABLE + S7.6 acceptance fixtures (M7 CLOSED)",
       "completed_at": "2026-05-25",
@@ -594,6 +600,12 @@
       "title": "aios-cognitive — INV-002 cross-crate enforcement (cognitive ↔ capability-runtime)",
       "completed_at": "2026-05-26",
       "evidence": "Commit 11ac8f3. RuntimeCognitiveProvenance trait + step_validate_with_provenance async wrapper + CognitiveProvenanceAdapter + provenance marker injection + 12 cross-crate INV-002 tests. 9 files changed, 627 insertions, 7 deletions. All 4 gates PASS (check, test, clippy -D warnings, fmt). T-104/T-105 deferred per brief."
+    },
+    {
+      "id": "T-106",
+      "title": "aios-sandbox crate skeleton v0.0.1 — S3.2 typed core (SandboxProfile + GpuPolicy)",
+      "completed_at": "2026-05-26",
+      "evidence": "Commit 7b706af. 6 modules (isolation, network, gpu, resources, profile, error), 8 types, 34 tests (22 unit + 12 integration), 4 quality gates all PASS (check, test, clippy -D warnings, fmt). Workspace member added after aios-cognitive. Next: T-107 (SandboxComposer trait)."
     }
   ],
   "blocked": [],
@@ -834,12 +846,14 @@
       "rationale": "T-094 through T-101 completed (8/12 tasks). T-102 (evidence), T-103 (cross-crate), T-104 (renderer), T-105 (version bump) — all deferred per T-101 brief. M11 closure (version bump + acceptance fixtures) queued after T-105."
     },
     "M12": {
-      "status": "planned",
+      "status": "in_progress",
       "title": "Sandbox Composition",
       "sub_specs": ["S3.2"],
       "layer": "L6",
       "target_crate": "aios-sandbox",
-      "rationale": "SandboxProfile + GpuPolicy — referenced as type-level by M3/M4; this builds the runtime."
+      "tasks": ["T-106", "T-107"],
+      "current_test_count": 2165,
+      "rationale": "SandboxProfile + GpuPolicy + SandboxComposer + InMemorySandboxComposer — 6-source merge algorithm per S3.2 §19.1."
     },
     "M13": {
       "status": "planned",

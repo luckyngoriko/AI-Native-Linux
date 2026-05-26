@@ -20,6 +20,7 @@ pub mod ecosystem;
 pub mod error;
 pub mod orchestration;
 pub mod package;
+pub mod runtime;
 pub mod session;
 
 // Re-export all public types at crate root for convenience.
@@ -38,6 +39,9 @@ pub use orchestration::{
 pub use package::{
     PackageContentKind, PackageId, PackageObjectKind, PackageObjectState, PackageRecord,
     RollbackKind,
+};
+pub use runtime::{
+    AppManifestProposal, AppRuntime, InMemoryAppRuntime, ObservedBehavior, SyscallClass,
 };
 pub use session::{
     SessionContainerMode, SessionContainerRuntime, SessionContainerState, SessionFailureClass,

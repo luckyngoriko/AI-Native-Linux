@@ -105,6 +105,16 @@ pub enum AppsError {
     #[error("staged update already exists for {0}")]
     StagedUpdateAlreadyExists(String),
 
+    /// Observation rejected because requested duration exceeds the hard cap
+    /// per S12.1 §4.1.
+    #[error("observation {observation_id} rejected: {reason}")]
+    ObservationRejected {
+        /// The observation identifier (may be empty if pre-observation rejection).
+        observation_id: String,
+        /// Reason for rejection.
+        reason: String,
+    },
+
     /// Validation failed for an incoming manifest or contribution.
     #[error("validation failed: {0}")]
     ValidationFailed(String),

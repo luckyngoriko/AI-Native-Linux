@@ -23,6 +23,7 @@ async-trait    = { workspace = true }
 
 [dev-dependencies]
 serde_json     = { workspace = true }
+rand_core      = { workspace = true }
 
 [lints]
 workspace = true

@@ -20,8 +20,10 @@ pub mod ecosystem;
 pub mod error;
 pub mod orchestration;
 pub mod package;
+pub mod package_store;
 pub mod runtime;
 pub mod session;
+pub mod version_chain;
 
 // Re-export all public types at crate root for convenience.
 pub use app_profile::{
@@ -40,6 +42,7 @@ pub use package::{
     PackageContentKind, PackageId, PackageObjectKind, PackageObjectState, PackageRecord,
     RollbackKind,
 };
+pub use package_store::{blake3_hex, AppPackage, InMemoryPackageStore, PackageStore};
 pub use runtime::{
     AppManifestProposal, AppRuntime, InMemoryAppRuntime, ObservedBehavior, SyscallClass,
 };
@@ -47,3 +50,4 @@ pub use session::{
     SessionContainerMode, SessionContainerRuntime, SessionContainerState, SessionFailureClass,
     SessionId, SessionRecord, StreamProtocol,
 };
+pub use version_chain::{PackageState, VersionChain, VersionChainEntry};

@@ -20,6 +20,7 @@ pub mod compatibility_orchestrator;
 pub mod compatibility_runtime;
 pub mod ecosystem;
 pub mod error;
+pub mod knowledge_db;
 pub mod orchestration;
 pub mod package;
 pub mod package_store;
@@ -42,6 +43,7 @@ pub use ecosystem::{
     RecipeTrustClass,
 };
 pub use error::AppsError;
+pub use knowledge_db::{AppProfileMutation, CompatibilityKnowledgeDB};
 pub use orchestration::{
     LaunchOutcome, OrchestrationKind, VMFallbackKind, WaydroidIsolationLevel, WinePrefixKind,
 };

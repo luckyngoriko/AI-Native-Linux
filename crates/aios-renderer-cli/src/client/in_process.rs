@@ -9,6 +9,12 @@ use std::net::SocketAddr;
 use std::sync::Arc;
 use std::time::Duration as StdDuration;
 
+use aios_apps::compatibility_orchestrator::CompatibilityOrchestrator;
+use aios_apps::knowledge_db::CompatibilityKnowledgeDB;
+use aios_apps::package_store::{InMemoryPackageStore, PackageStore};
+use aios_apps::service::{build_router as apps_build_router, AppsServer};
+use aios_apps::session_driver::{InMemorySessionDriver, SessionDriver};
+use aios_apps::update_driver::{InMemoryUpdateDriver, UpdateRollbackDriver};
 use aios_capability_runtime::service as runtime_service;
 use aios_capability_runtime::InMemoryCapabilityRuntime;
 use aios_cognitive::service as cognitive_service;
@@ -71,6 +77,11 @@ pub struct InProcessBackend {
     sandbox_composer: Arc<InMemorySandboxComposer>,
     gpu_enforcer: Arc<GpuPolicyEnforcer>,
     resource_enforcer: Arc<ResourceLimitEnforcer>,
+    apps_store: Arc<InMemoryPackageStore>,
+    apps_knowledge: Arc<CompatibilityKnowledgeDB>,
+    apps_sessions: Arc<InMemorySessionDriver>,
+    apps_updates: Arc<InMemoryUpdateDriver>,
+    apps_orchestrator: Arc<CompatibilityOrchestrator>,
 }
 
 /// Graceful shutdown handle for an in-process backend service set.
@@ -163,6 +174,12 @@ impl InProcessBackend {
         let gpu_enforcer = Arc::new(GpuPolicyEnforcer::new_with_defaults());
         let resource_enforcer = Arc::new(ResourceLimitEnforcer::new_with_defaults());
 
+        let apps_store = Arc::new(InMemoryPackageStore::new(std::collections::HashMap::new()));
+        let apps_knowledge = Arc::new(CompatibilityKnowledgeDB::with_fixtures());
+        let apps_orchestrator = Arc::new(CompatibilityOrchestrator::new_with_defaults());
+        let apps_sessions = Arc::new(InMemorySessionDriver::new((*apps_orchestrator).clone()));
+        let apps_updates = Arc::new(InMemoryUpdateDriver::new());
+
         Self {
             policy_kernel,
             runtime,
@@ -185,6 +202,11 @@ impl InProcessBackend {
             sandbox_composer,
             gpu_enforcer,
             resource_enforcer,
+            apps_store,
+            apps_knowledge,
+            apps_sessions,
+            apps_updates,
+            apps_orchestrator,
         }
     }
 
@@ -246,6 +268,7 @@ impl InProcessBackend {
         )
         .await?;
         let sandbox = spawn_router("sandbox", sandbox_router(self.sandbox_service())).await?;
+        let apps = spawn_router("apps", apps_build_router(self.apps_service())).await?;
 
         let endpoints = AiosEndpoints {
             policy: policy.endpoint,
@@ -257,6 +280,7 @@ impl InProcessBackend {
             sgr: sgr.endpoint,
             cognitive: cognitive.endpoint,
             sandbox: sandbox.endpoint,
+            apps: apps.endpoint,
             evidence: None,
         };
         let shutdown = ShutdownHandle::new(
@@ -270,6 +294,7 @@ impl InProcessBackend {
                 sgr.shutdown,
                 cognitive.shutdown,
                 sandbox.shutdown,
+                apps.shutdown,
             ],
             vec![
                 policy.task,
@@ -281,6 +306,7 @@ impl InProcessBackend {
                 sgr.task,
                 cognitive.task,
                 sandbox.task,
+                apps.task,
             ],
         );
         let client = AiosClient::connect(&endpoints).await?;
@@ -347,6 +373,16 @@ impl InProcessBackend {
             Arc::clone(&self.sandbox_composer),
             Arc::clone(&self.gpu_enforcer),
             Arc::clone(&self.resource_enforcer),
+        )
+    }
+
+    fn apps_service(&self) -> AppsServer {
+        AppsServer::new(
+            Arc::clone(&self.apps_store) as Arc<dyn PackageStore>,
+            Arc::clone(&self.apps_knowledge),
+            Arc::clone(&self.apps_sessions) as Arc<dyn SessionDriver>,
+            Arc::clone(&self.apps_updates) as Arc<dyn UpdateRollbackDriver>,
+            Arc::clone(&self.apps_orchestrator),
         )
     }
 

@@ -19,6 +19,7 @@ aios-recovery = { path = "../aios-recovery" }
 aios-sgr = { path = "../aios-sgr" }
 aios-verification = { path = "../aios-verification" }
 aios-sandbox = { path = "../aios-sandbox" }
+aios-apps = { path = "../aios-apps" }
 aios-vault = { path = "../aios-vault" }
 anyhow      = { workspace = true }
 clap        = { workspace = true }

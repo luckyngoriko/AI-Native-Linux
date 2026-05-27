@@ -722,9 +722,9 @@ fn parse_keyed_endpoints(parts: &[&str]) -> Result<AiosEndpoints, RenderError> {
 }
 
 fn parse_positional_endpoints(parts: &[&str]) -> Result<AiosEndpoints, RenderError> {
-    if !(9..=10).contains(&parts.len()) {
+    if !(10..=11).contains(&parts.len()) {
         return Err(RenderError::Internal(
-            "AIOS_ENDPOINTS positional form is policy,runtime,fs,vault,verification,recovery,sgr,cognitive,sandbox[,evidence]"
+            "AIOS_ENDPOINTS positional form is policy,runtime,fs,vault,verification,recovery,sgr,cognitive,sandbox,apps[,evidence]"
                 .to_owned(),
         ));
     }
@@ -739,8 +739,9 @@ fn parse_positional_endpoints(parts: &[&str]) -> Result<AiosEndpoints, RenderErr
         sgr: normalize_endpoint(parts[6])?,
         cognitive: normalize_endpoint(parts[7])?,
         sandbox: normalize_endpoint(parts[8])?,
+        apps: normalize_endpoint(parts[9])?,
         evidence: parts
-            .get(9)
+            .get(10)
             .map(|value| {
                 if value.trim().eq_ignore_ascii_case("none") {
                     Ok(None)

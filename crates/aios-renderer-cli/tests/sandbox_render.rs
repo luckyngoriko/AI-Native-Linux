@@ -313,7 +313,7 @@ async fn in_process_backend_spawns_sandbox_service() {
         .await
         .expect("spawn backend");
 
-    assert_eq!(shutdown.service_count(), 9);
+    assert_eq!(shutdown.service_count(), 10);
 
     shutdown.shutdown().await.expect("shutdown");
 }

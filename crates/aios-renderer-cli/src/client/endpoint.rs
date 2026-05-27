@@ -21,6 +21,8 @@ pub struct AiosEndpoints {
     pub cognitive: String,
     /// Sandbox Composer gRPC endpoint.
     pub sandbox: String,
+    /// Apps Service gRPC endpoint.
+    pub apps: String,
     /// Optional Evidence Log gRPC endpoint.
     pub evidence: Option<String>,
 }
@@ -43,6 +45,7 @@ impl AiosEndpoints {
             sgr: "http://[::1]:50058".to_owned(),
             cognitive: "http://[::1]:50059".to_owned(),
             sandbox: "http://[::1]:50060".to_owned(),
+            apps: "http://[::1]:50061".to_owned(),
             evidence: Some("http://[::1]:50055".to_owned()),
         }
     }

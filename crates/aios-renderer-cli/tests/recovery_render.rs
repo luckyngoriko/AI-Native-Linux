@@ -326,12 +326,12 @@ fn parser_kernel_rollback_accepts_candidate_id() {
 }
 
 #[tokio::test]
-async fn in_process_backend_service_count_is_nine() {
+async fn in_process_backend_service_count_is_ten() {
     let (_client, shutdown) = InProcessBackend::spawn_and_connect()
         .await
         .expect("spawn backend");
 
-    assert_eq!(shutdown.service_count(), 9);
+    assert_eq!(shutdown.service_count(), 10);
 
     shutdown.shutdown().await.expect("shutdown");
 }

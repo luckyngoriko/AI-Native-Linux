@@ -1,6 +1,37 @@
 {
   "backlog": [],
+  "in_progress": [],
   "completed": [
+    {
+      "id": "T-122",
+      "title": "aios-apps — gRPC AppsService surface (S12.x)",
+      "completed_at": "2026-05-26",
+      "evidence": "Commit 1d123a0. Proto3 IDL + tonic-build + 12 RPCs + bidirectional conversions + AppsServer + 14 integration tests. All 4 gates green."
+    },
+    {
+      "id": "T-121",
+      "title": "aios-apps — Update + rollback FSM (S12.2 §rollback)",
+      "completed_at": "2026-05-26",
+      "evidence": "Commit a77b696. UpdateRollbackDriver async trait + InMemoryUpdateDriver + 11-state FSM + 18 integration tests + 16 inline tests. All 4 gates green."
+    },
+    {
+      "id": "T-120",
+      "title": "aios-apps — Session container driver (S6.5)",
+      "completed_at": "2026-05-26",
+      "evidence": "Commit 68ca420. SessionDriver async trait + InMemorySessionDriver + 10+ types + 14 tests. All 4 gates green."
+    },
+    {
+      "id": "T-119",
+      "title": "aios-apps — Compatibility knowledge DB (S12.4)",
+      "completed_at": "2026-05-26",
+      "evidence": "Commit e9e47da. CompatibilityKnowledgeDB + AppProfileMutation + 5 fixtures + 16 tests. All 4 gates green."
+    },
+    {
+      "id": "T-117",
+      "title": "aios-apps — Package object model + versioning (S12.2)",
+      "completed_at": "2026-05-26",
+      "evidence": "Commit c9117a6. PackageStore async trait + InMemoryPackageStore + VersionChain. 3 new files, +974 LOC. 21 tests. All 4 gates green."
+    },
     {
       "id": "T-001",
       "title": "aios-action crate skeleton + S0.1 core types",
@@ -647,7 +678,19 @@
       "id": "T-114",
       "title": "aios-sandbox v0.1.0 — §22 sandbox walk + S3.2 acceptance (M12 CLOSER)",
       "completed_at": "2026-05-26",
-      "evidence": "Commit pending. tests/mvp_sandbox_walk.rs (7 scenarios: AI restrictive, human permissive, recovery forced, GPU violation, resource limit exceeded, syscall not allowed, runtime adapter), tests/acceptance_fixtures.rs (10 S3.2 fixtures), tests/m12_closure.rs (8 invariants). Bumped aios-sandbox 0.0.1→0.1.0, DEFAULT_CODE_VERSION=aios-sandbox/0.1.0-T114. Workspace 2345 tests, sandbox 230 tests."
+      "evidence": "Commit 690c231. 7 sandbox walk scenarios, 10 S3.2 acceptance fixtures, 8 invariants. Bumped aios-sandbox 0.0.1→0.1.0, DEFAULT_CODE_VERSION=aios-sandbox/0.1.0-T114. Workspace 2345 tests, sandbox 230 tests."
+    },
+    {
+      "id": "T-115",
+      "title": "aios-apps v0.0.1 — L6 Apps/Packages/Compatibility typed skeleton",
+      "completed_at": "2026-05-26",
+      "evidence": "Commit dcd3c35. 11 files, 1746 LOC. 22 closed enums across 5 layer sub-specs (S12.1/2/3/4, S6.5). 6 modules: ecosystem, package, orchestration, app_profile, session, error. 36 tests. All 4 gates green."
+    },
+    {
+      "id": "T-116",
+      "title": "aios-apps — AppRuntime async trait + InMemoryAppRuntime (S12.1 §3-4)",
+      "completed_at": "2026-05-26",
+      "evidence": "Commit 812256b. 6 files, 965 LOC. SyscallClass 10-variant enum, ObservedBehavior 18-field struct, AppManifestProposal 12-field struct, AppRuntime async trait, InMemoryAppRuntime with honesty class mapping. 58 tests (36 round-trip + 22 runtime). All 4 gates green."
     }
   ],
   "blocked": [],

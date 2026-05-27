@@ -7,6 +7,7 @@
 #![deny(unsafe_code)]
 
 pub mod compilation;
+pub mod css_compile;
 pub mod error;
 pub mod exposure;
 pub mod origin;
@@ -15,6 +16,10 @@ pub mod types;
 
 pub use compilation::{
     WebCompilationContext, WebCompilationRule, WebSurfaceZone, WEB_COMPILATION_RULE_CONST_CHECK,
+};
+pub use css_compile::{
+    compile_token_to_css, compile_token_to_css_with_ctx, recipe_to_css_block, CssEasing, CssRecipe,
+    WebIconLookupCtx, WebShapeKind,
 };
 pub use error::WebRendererError;
 pub use exposure::{ExposureLevel, ExposureLevelLabel};

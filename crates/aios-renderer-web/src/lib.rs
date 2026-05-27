@@ -68,4 +68,4 @@ pub use integration::{
 };
 
 /// Crate version marker used by closure-invariant tests in T-150.
-pub const DEFAULT_CODE_VERSION: &str = "aios-renderer-web/0.0.1-T139";
+pub const DEFAULT_CODE_VERSION: &str = "aios-renderer-web/0.1.0-T150";

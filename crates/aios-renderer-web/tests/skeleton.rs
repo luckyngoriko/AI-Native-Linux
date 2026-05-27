@@ -20,7 +20,7 @@ use aios_renderer_web::{
 
 #[test]
 fn default_code_version_constant_is_correct() {
-    assert_eq!(DEFAULT_CODE_VERSION, "aios-renderer-web/0.0.1-T139");
+    assert_eq!(DEFAULT_CODE_VERSION, "aios-renderer-web/0.1.0-T150");
 }
 
 // ── NodeKind re-export ────────────────────────────────────────────────────────

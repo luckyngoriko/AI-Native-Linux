@@ -1,37 +1,28 @@
 {
   "project_goal": "AIOS — AI-native Linux distribution. Implement the spec contracts from rev.2 (53 sub-specs CONTRACT-grade) into working Rust + Python + KDE code, following §22 MVP golden path discipline.",
-  "current_milestone": "M15 — AIOS Web Renderer (aios-renderer-web S7.5; HTTPS, gRPC-Web, Exposure FSM)",
-  "current_task_id": "T-148",
-  "current_task_title": "T-148 completed — Next.js scaffolding + 19 React components for NodeKind. web-app/ subproject lands as a Next.js 15 + React 18 + TypeScript scaffold inside the aios-renderer-web Cargo crate. 19 React components map 1:1 to the S7.2 NodeKind closed enum. ShadowRootHost client component attaches a closed shadow root at z-index 9999 for chrome-zone components (INV I2 + I7). Vitest + @testing-library/react test asserts the registry has all 19 entries. build.rs gated by AIOS_BUILD_WEB_APP=1 env var. All 5 Rust gates + pnpm install + pnpm typecheck green. Commit on top of 753ff7f.",
-  "current_step": "T-148 completed — STOP per brief. Next: T-149 (cross-crate integration).",
+  "current_milestone": "M15 — AIOS Web Renderer (aios-renderer-web S7.5; CLOSED at T-150)",
+  "current_task_id": "T-150",
+  "current_task_title": "T-150 completed — M15 closer (version 0.1.0, 22 closure invariants + 6 acceptance fixtures + MILESTONES update)",
+  "current_step": "T-150 committed and verified. All 5 gates green. M15 closed. Next: M16 (aios-network).",
   "files_touched": [
-    ".gitignore",
-    "crates/aios-renderer-web/build.rs",
-    "crates/aios-renderer-web/tests/web_app_layout.rs",
-    "crates/aios-renderer-web/web-app/package.json",
-    "crates/aios-renderer-web/web-app/tsconfig.json",
-    "crates/aios-renderer-web/web-app/next.config.mjs",
-    "crates/aios-renderer-web/web-app/vitest.config.ts",
-    "crates/aios-renderer-web/web-app/pnpm-lock.yaml",
-    "crates/aios-renderer-web/web-app/app/layout.tsx",
-    "crates/aios-renderer-web/web-app/app/page.tsx",
-    "crates/aios-renderer-web/web-app/app/recovery/page.tsx",
-    "crates/aios-renderer-web/web-app/components/nodes/ (19 components + index.ts)",
-    "crates/aios-renderer-web/web-app/components/chrome/ShadowRootHost.tsx",
-    "crates/aios-renderer-web/web-app/lib/nodeKindRegistry.ts",
-    "crates/aios-renderer-web/web-app/__tests__/nodeKindRegistry.test.ts"
+    "Cargo.lock",
+    "MILESTONES.md",
+    "crates/aios-renderer-web/Cargo.toml",
+    "crates/aios-renderer-web/src/lib.rs",
+    "crates/aios-renderer-web/tests/compilation.rs",
+    "crates/aios-renderer-web/tests/skeleton.rs",
+    "crates/aios-renderer-web/tests/m15_closure.rs",
+    "crates/aios-renderer-web/tests/m15_acceptance.rs"
   ],
   "discovered_constraints": [
-    "Next.js 15 scaffold lives as a subdir of the Rust crate, not a workspace member",
-    "cargo build is unchanged — Node build runs only when AIOS_BUILD_WEB_APP=1 is set (cxx-qt-style optional gate)",
-    "pnpm generates pnpm-workspace.yaml for build approvals — gitignored",
-    "tsconfig.tsbuildinfo is an incremental build artefact — gitignored",
-    "No tonic-web JS client in deps yet — T-149 cross-crate integration"
+    "OriginVerifier.register_binding only accepts AppOrigin (host=aios.localhost), not AiosLocalhost",
+    "VisualToken.canonical_value is a String, not a JSON value",
+    "Two pre-existing DEFAULT_CODE_VERSION tests (compilation.rs, skeleton.rs) needed updating to 0.1.0-T150",
+    "OriginScheme::parse maps https://<token>.aios.localhost → AiosLocalhost, not AppOrigin"
   ],
-  "discovered_dependencies": [
-    "pnpm 11.2.2 via Volta, Node 26.2.0 via Volta",
-    "next 15.5.18, react 18.3.1, typescript 5.9.3"
+  "discovered_dependencies": [],
+  "last_errors": [
+    "3 test failures fixed: origin verifier tests used AiosLocalhost instead of AppOrigin; VisualToken.payload → canonical_value"
   ],
-  "last_errors": [],
-  "last_verification_result": "All 5 Rust gates PASS + pnpm install + pnpm typecheck. Workspace 2995 tests (0 failures)."
+  "last_verification_result": "All 5 gates PASS. 22 closure + 6 acceptance tests pass. Workspace: 0 failures."
 }

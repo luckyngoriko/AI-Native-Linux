@@ -725,3 +725,16 @@ Next: M15 (aios-renderer-web)
   gates: cargo check PASS | cargo test -p aios-renderer-web 194 PASS | cargo test --workspace 2995 PASS | cargo clippy PASS | cargo fmt PASS | pnpm install PASS | pnpm typecheck PASS
   status: SUCCESS
   next: T-149 (cross-crate integration: web ↔ renderer-cli + apps + kde parity)
+2026-05-27T00:00:00Z T-149 STEP=commit
+  Commands: cargo clippy --workspace --all-targets -- -D warnings; cargo test --workspace; cargo fmt --all -- --check; cargo check --workspace
+  All 5 gates PASS. 11 integration tests pass.
+  Commit: 0c05161 — T-149: aios-renderer-web — cross-crate integration (WebAppsBridge + three-way renderer parity + 11 E2E tests)
+  STATUS: SUCCESS
+  Next: T-150 (web renderer closure invariants + acceptance fixtures)
+2026-05-27T00:00:00Z T-150 STEP=commit
+  Commands: cargo clippy --workspace --all-targets -- -D warnings; cargo test --workspace; cargo fmt --all -- --check; cargo check --workspace
+  All 5 gates PASS. Version bumped 0.0.1→0.1.0. 22 closure invariants + 6 acceptance fixtures pass.
+  DEFAULT_CODE_VERSION = aios-renderer-web/0.1.0-T150. MILESTONES.md updated. M15 CLOSED.
+  Commit: T-150: aios-renderer-web — M15 closer (version 0.1.0, closure invariants + acceptance fixtures + MILESTONES update)
+  STATUS: SUCCESS
+  Next: M16 (aios-network)

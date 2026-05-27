@@ -320,8 +320,10 @@ name = "aios-renderer-web"
 version = "0.0.1"
 dependencies = [
  "aios-action",
+ "aios-apps",
  "aios-evidence",
  "aios-policy",
+ "aios-renderer-cli",
  "aios-renderer-kde",
  "async-trait",
  "chrono",

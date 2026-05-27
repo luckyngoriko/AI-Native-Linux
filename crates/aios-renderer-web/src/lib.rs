@@ -15,6 +15,7 @@ pub mod exposure;
 pub mod exposure_fsm;
 pub mod grpc_web_bridge;
 pub mod https;
+pub mod integration;
 pub mod origin;
 pub mod origin_verifier;
 pub mod renderer;
@@ -59,6 +60,12 @@ pub use types::{
 /// Re-exported from `aios-renderer-kde` so both L7 renderers share the
 /// same closed `NodeKind` vocabulary (S7.2 §3 — 19 declared values).
 pub use aios_renderer_kde::{NodeKind, NodeKindCompilationHint, VisualToken, VisualTokenKind};
+
+// T-149: integration re-exports
+pub use integration::{
+    apps_package_envelope_to_web_render_tree, assert_three_way_parity_for_apps_domain,
+    ThreeWayParity, ThreeWayParityEntry, WebAppsBridge, WebRenderTree, WebRenderTreeEntry,
+};
 
 /// Crate version marker used by closure-invariant tests in T-150.
 pub const DEFAULT_CODE_VERSION: &str = "aios-renderer-web/0.0.1-T139";

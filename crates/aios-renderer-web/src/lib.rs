@@ -6,12 +6,16 @@
 
 #![deny(unsafe_code)]
 
+pub mod compilation;
 pub mod error;
 pub mod exposure;
 pub mod origin;
 pub mod renderer;
 pub mod types;
 
+pub use compilation::{
+    WebCompilationContext, WebCompilationRule, WebSurfaceZone, WEB_COMPILATION_RULE_CONST_CHECK,
+};
 pub use error::WebRendererError;
 pub use exposure::{ExposureLevel, ExposureLevelLabel};
 pub use origin::{OriginScheme, OriginToken, ParsedOrigin};

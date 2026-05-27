@@ -11,6 +11,7 @@ pub mod qt_bridge;
 pub mod compilation;
 pub mod error;
 pub mod evidence;
+pub mod integration;
 pub mod kwin_script;
 pub mod node_kind;
 pub mod recovery_shell;
@@ -48,6 +49,12 @@ pub use wayland::{
     WaylandSurfaceGrant, WaylandSurfaceLayer, WaylandSurfaceRequest,
 };
 pub use zone::{CompositionZone, ZoneLayer};
+
+// T-137: integration re-exports
+pub use integration::{
+    apps_package_envelope_to_kde_node_tree, assert_parity_for_apps_domain, AppsBridge,
+    DomainTypeParity, DomainTypeParityEntry, KdeNodeTree, KdeNodeTreeEntry,
+};
 
 /// Crate version marker used by closure-invariant tests in T-138.
 pub const DEFAULT_CODE_VERSION: &str = "aios-renderer-kde/0.0.1-T127";

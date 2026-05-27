@@ -222,9 +222,7 @@ impl InMemoryEvidenceLog {
     /// Snapshot of the sealed-segment count. Operator telemetry.
     #[must_use]
     pub fn sealed_segment_count(&self) -> usize {
-        self.sealed_segments
-            .lock()
-            .map_or(0, |s| s.sealed.len())
+        self.sealed_segments.lock().map_or(0, |s| s.sealed.len())
     }
 
     /// Snapshot of the warm-tier receipt count for a given sealed segment.

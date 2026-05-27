@@ -26,6 +26,7 @@ tonic          = { workspace = true }
 prost          = { workspace = true }
 prost-types    = { workspace = true }
 aios-action    = { path = "../aios-action" }
+aios-apps      = { path = "../aios-apps" }
 aios-evidence  = { path = "../aios-evidence" }
 aios-policy    = { path = "../aios-policy" }
 

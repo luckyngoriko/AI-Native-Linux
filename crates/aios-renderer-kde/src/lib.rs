@@ -12,6 +12,7 @@ pub mod renderer;
 pub mod token_compile;
 pub mod types;
 pub mod visual_token;
+pub mod wayland;
 pub mod zone;
 
 pub use compilation::{CompilationContext, CompilationRule, NodeSurfaceKind};
@@ -27,6 +28,10 @@ pub use token_compile::{
 };
 pub use types::{KdeSurfaceDescriptor, KdeSurfaceId, RecoveryShellMode, RendererMode};
 pub use visual_token::{VisualToken, VisualTokenKind};
+pub use wayland::{
+    evaluate_surface_request, WaylandClient, WaylandInteractivity, WaylandProtocol,
+    WaylandSurfaceGrant, WaylandSurfaceLayer, WaylandSurfaceRequest,
+};
 pub use zone::{CompositionZone, ZoneLayer};
 
 /// Crate version marker used by closure-invariant tests in T-138.

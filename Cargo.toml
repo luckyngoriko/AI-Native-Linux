@@ -15,6 +15,7 @@ members = [
     "crates/aios-evidence",
     "crates/aios-policy",
     "crates/aios-apps",
+    "crates/aios-renderer-web",
 ]
 
 # Crates added later (per §22 MVP golden path order):

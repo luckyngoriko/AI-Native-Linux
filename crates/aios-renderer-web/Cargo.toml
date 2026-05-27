@@ -1,0 +1,29 @@
+[package]
+name = "aios-renderer-web"
+description = "AIOS L7 Web renderer typed skeleton — WebRendererError, ExposureLevel, OriginScheme, WebSurfaceDescriptor (S7.5)"
+edition.workspace = true
+rust-version.workspace = true
+version = "0.0.1"
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+
+[dependencies]
+serde          = { workspace = true }
+serde_json     = { workspace = true }
+thiserror      = { workspace = true }
+tracing        = { workspace = true }
+chrono         = { workspace = true }
+ulid           = { workspace = true }
+tokio          = { workspace = true, features = ["sync", "macros"] }
+async-trait    = { workspace = true }
+aios-action    = { path = "../aios-action" }
+aios-evidence  = { path = "../aios-evidence" }
+aios-policy    = { path = "../aios-policy" }
+aios-renderer-kde = { path = "../aios-renderer-kde" }
+
+[dev-dependencies]
+tokio = { workspace = true, features = ["rt-multi-thread", "macros", "test-util"] }
+
+[lints]
+workspace = true

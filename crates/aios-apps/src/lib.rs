@@ -80,5 +80,8 @@ pub use update_driver::{
 };
 pub use version_chain::{PackageState, VersionChain, VersionChainEntry};
 
+/// M13 closure marker — canonical code version.
+pub const DEFAULT_CODE_VERSION: &str = "aios-apps/0.1.0-T126";
+
 // Integration bridge re-exports
 pub use integration::{RuntimeBridge, SandboxBridge, SgrBridge};

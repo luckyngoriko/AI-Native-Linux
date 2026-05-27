@@ -62,7 +62,7 @@ dependencies = [
 
 [[package]]
 name = "aios-apps"
-version = "0.0.1"
+version = "0.1.0"
 dependencies = [
  "aios-action",
  "aios-capability-runtime",

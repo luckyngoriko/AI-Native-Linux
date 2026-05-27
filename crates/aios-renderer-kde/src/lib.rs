@@ -57,4 +57,4 @@ pub use integration::{
 };
 
 /// Crate version marker used by closure-invariant tests in T-138.
-pub const DEFAULT_CODE_VERSION: &str = "aios-renderer-kde/0.0.1-T127";
+pub const DEFAULT_CODE_VERSION: &str = "aios-renderer-kde/0.1.0-T138";

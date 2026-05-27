@@ -198,7 +198,7 @@ fn visual_token_round_trip_through_serde() {
 
 #[test]
 fn default_code_version_constant_is_correct() {
-    assert_eq!(DEFAULT_CODE_VERSION, "aios-renderer-kde/0.0.1-T127");
+    assert_eq!(DEFAULT_CODE_VERSION, "aios-renderer-kde/0.1.0-T138");
 }
 
 // ── KdeRendererError Display ────────────────────────────────────────────────

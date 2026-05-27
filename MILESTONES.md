@@ -36,6 +36,10 @@ Source of truth: `.ai/tasks.json` (machine-readable). This document is the human
 
 **M12 closure marker:** `aios-sandbox` is v0.1.0. S3.2 sandbox composition with 6-source merge, GPU policy enforcement, resource limit enforcement, syscall allowlisting, and §22 sandbox walk scenarios are closed with 10 acceptance fixtures and 8 closure invariants.
 
+**M13 closure marker:** `aios-apps` is v0.1.0. S12.1 package store, S12.2 update FSM, S12.3 session management, S12.4 compatibility knowledge DB, and S6.5 DEC-056 session container are closed with 11-variant UpdateState FSM, full rollback path, gRPC AppsService (12 RPCs), 10 evidence record types, cross-crate bridges to runtime/sandbox/sgr, and `aios apps` CLI subcommand.
+
+**M14 closure marker:** `aios-renderer-kde` is v0.1.0. S7.1 composition surface model, S7.2 shared UI schema (19-variant closed NodeKind vocabulary), and S7.4 KDE Plasma renderer are closed with full Qt/QML compilation table, VisualToken→QtRecipe compilation, Wayland surface model + INV I4 wlr-layer-shell enforcement, signed KWin script loader (INV I8), recovery shell session marker (INV I5) + constitutional icon bundle verification (INV I6), fail-closed degraded fallback (INV I7), gRPC KdeRendererService (14 RPCs), 10 evidence record types with INV-015 redaction, optional cxx-qt 0.7 bridge behind qt-bridge feature, and AppsBridge proving cross-renderer domain parity with aios-apps.
+
 ## §22 MVP Golden Path closure (M5 → M9)
 
 These 5 milestones make the §22 MVP runnable, trustworthy, and fully real. After M9, AIOS can drive the policy/runtime/fs/vault/verification/recovery stack through real in-process backends, create/read/list/version AIOS-FS objects, verify action completion, emit a signed chain, and render the resulting action state.
@@ -50,19 +54,19 @@ These 5 milestones make the §22 MVP runnable, trustworthy, and fully real. Afte
 
 ## Beyond MVP — full distro (M10 → M18)
 
-| Milestone | Crate             | Sub-specs                        | Layer | Rationale                                                                                                                                                                                        |
-| --------- | ----------------- | -------------------------------- | ----- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| M8        | aios-verification | S2.4                             | L9    | ✓ closed. Real VerificationEngine.RunVerification replaces the M4 `step_verify` stub when configured; failure blocks success.                                                                    |
-| M9        | aios-recovery     | S9.1, S9.2, S9.3                 | L1    | ✓ closed. Recovery boundary + first-boot + dedicated kernel pipeline; §22 FULL-REAL MVP marker.                                                                                                  |
-| M10       | aios-sgr          | S15.1, S15.2, S15.3              | L3    | ✓ closed at 169 crate tests / 1775 workspace tests. Desired-state service graph, unit manifest, graph traversal/cycle detection, recovery-aware pause/resume, and adapter fail-closed semantics. |
-| M11       | aios-cognitive    | S1.1, S1.2, S13.1, S13.2, S14.1  | L5    | ✓ closed at 174 crate tests. Cognitive core + model router + circuit breaker. INV-002 AI-proposes-never-executes enforcement at runtime.                                                         |
-| M12       | aios-sandbox      | S3.2                             | L6    | ✓ closed at 230 crate tests / 2345 workspace tests. SandboxProfile + GpuPolicy — 6-source merge, GPU enforcement, resource limits, syscall allowlisting, §22 sandbox walk.                       |
-| M13       | aios-apps         | S12.1, S12.2, S12.3, S12.4, S6.5 | L6    | Cross-ecosystem runtimes (Linux/Windows/Android via sandboxed adapters). DEC-056 session container.                                                                                              |
-| M14       | aios-renderer-kde | S7.1, S7.2, S7.4                 | L7    | KDE Plasma + surface + shared UI. S7.1↔S8.2 vocabulary relocation (W12+ scheduled from Capella iter 5) may land here.                                                                            |
-| M15       | aios-renderer-web | S7.5                             | L7    | Localhost-only by default (INV-021). LAN/remote exposure gated by explicit policy.                                                                                                               |
-| M16       | aios-network      | S8.1, S8.4, S8.5                 | L8    | Network policy + DNS/VPN + firmware trust. AICrossOriginPosture enforcement.                                                                                                                     |
-| M17       | aios-hardware     | S8.3, S8.2                       | L8    | Hardware graph + GPU resource model. GpuCapabilityClass referenced by M3 hard-deny + constraints.                                                                                                |
-| M18       | aios-distribution | S11.1                            | L10   | Repository + signed package distribution + marketplace + publisher trust chain.                                                                                                                  |
+| Milestone | Crate             | Sub-specs                        | Layer | Rationale                                                                                                                                                                                         |
+| --------- | ----------------- | -------------------------------- | ----- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| M8        | aios-verification | S2.4                             | L9    | ✓ closed. Real VerificationEngine.RunVerification replaces the M4 `step_verify` stub when configured; failure blocks success.                                                                     |
+| M9        | aios-recovery     | S9.1, S9.2, S9.3                 | L1    | ✓ closed. Recovery boundary + first-boot + dedicated kernel pipeline; §22 FULL-REAL MVP marker.                                                                                                   |
+| M10       | aios-sgr          | S15.1, S15.2, S15.3              | L3    | ✓ closed at 169 crate tests / 1775 workspace tests. Desired-state service graph, unit manifest, graph traversal/cycle detection, recovery-aware pause/resume, and adapter fail-closed semantics.  |
+| M11       | aios-cognitive    | S1.1, S1.2, S13.1, S13.2, S14.1  | L5    | ✓ closed at 174 crate tests. Cognitive core + model router + circuit breaker. INV-002 AI-proposes-never-executes enforcement at runtime.                                                          |
+| M12       | aios-sandbox      | S3.2                             | L6    | ✓ closed at 230 crate tests / 2345 workspace tests. SandboxProfile + GpuPolicy — 6-source merge, GPU enforcement, resource limits, syscall allowlisting, §22 sandbox walk.                        |
+| M13       | aios-apps         | S12.1, S12.2, S12.3, S12.4, S6.5 | L6    | ✓ closed. Cross-ecosystem runtimes (Linux/Windows/Android via sandboxed adapters). DEC-056 session container.                                                                                     |
+| M14       | aios-renderer-kde | S7.1, S7.2, S7.4                 | L7    | ✓ closed. KDE Plasma + surface + shared UI. 19-variant closed NodeKind vocabulary, Qt/QML compilation, Wayland surface model, evidence emission, cxx-qt bridge, AppsBridge cross-renderer parity. |
+| M15       | aios-renderer-web | S7.5                             | L7    | Localhost-only by default (INV-021). LAN/remote exposure gated by explicit policy.                                                                                                                |
+| M16       | aios-network      | S8.1, S8.4, S8.5                 | L8    | Network policy + DNS/VPN + firmware trust. AICrossOriginPosture enforcement.                                                                                                                      |
+| M17       | aios-hardware     | S8.3, S8.2                       | L8    | Hardware graph + GPU resource model. GpuCapabilityClass referenced by M3 hard-deny + constraints.                                                                                                 |
+| M18       | aios-distribution | S11.1                            | L10   | Repository + signed package distribution + marketplace + publisher trust chain.                                                                                                                   |
 
 ## Progress projection
 
@@ -96,4 +100,4 @@ Reused from M1–M6 closure pattern:
 # 5. Final T-task is the milestone closer: §22-style acceptance fixtures + version bump + closure-invariant tests
 ```
 
-Last update: 2026-05-26 (M12 closed at T-114, 2345 workspace tests; M13 ready).
+Last update: 2026-05-27 (M14 closed at T-138, aios-renderer-kde v0.1.0; M15 pending).

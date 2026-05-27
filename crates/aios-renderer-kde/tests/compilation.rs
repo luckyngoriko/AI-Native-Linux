@@ -255,7 +255,7 @@ fn compilation_rule_round_trip_constructable_at_compile_time() {
 
 #[test]
 fn default_code_version_constant_present_unchanged() {
-    assert_eq!(DEFAULT_CODE_VERSION, "aios-renderer-kde/0.0.1-T127");
+    assert_eq!(DEFAULT_CODE_VERSION, "aios-renderer-kde/0.1.0-T138");
 }
 
 // ── Extra surface-kind coverage ─────────────────────────────────────────────

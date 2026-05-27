@@ -9,11 +9,16 @@
 pub mod error;
 pub mod exposure;
 pub mod origin;
+pub mod renderer;
 pub mod types;
 
 pub use error::WebRendererError;
 pub use exposure::{ExposureLevel, ExposureLevelLabel};
 pub use origin::{OriginScheme, OriginToken, ParsedOrigin};
+pub use renderer::{
+    AllocateWebSurfaceRequest, InMemoryWebRenderer, RecoveryEntryReceipt, TokenApplicationReceipt,
+    WebRenderer, WebSurfaceFilter, WebSurfaceReleaseReceipt,
+};
 pub use types::{
     ChromeShadowRootMarker, RouteDescriptor, ShadowRootMode, WebRendererMode, WebSurfaceDescriptor,
     WebSurfaceId,

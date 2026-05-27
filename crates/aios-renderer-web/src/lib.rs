@@ -11,6 +11,7 @@ pub mod css_compile;
 pub mod error;
 pub mod exposure;
 pub mod exposure_fsm;
+pub mod grpc_web_bridge;
 pub mod https;
 pub mod origin;
 pub mod renderer;
@@ -26,6 +27,9 @@ pub use css_compile::{
 pub use error::WebRendererError;
 pub use exposure::{ExposureLevel, ExposureLevelLabel};
 pub use exposure_fsm::{ExposureFsm, ExposureTransition, ExposureTransitionReason};
+pub use grpc_web_bridge::{
+    default_localhost_config, GrpcWebBridge, GrpcWebBridgeConfig, GrpcWebClientStub,
+};
 pub use https::{
     generate_self_signed_loopback_cert, lan_bind_addrs, loopback_only_bind_addrs,
     plain_http_rejection_response_body, GeneratedCert, HttpsListener, HttpsServerConfig,

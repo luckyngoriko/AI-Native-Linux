@@ -17,6 +17,7 @@ chrono         = { workspace = true }
 ulid           = { workspace = true }
 tokio          = { workspace = true, features = ["sync", "macros"] }
 async-trait    = { workspace = true }
+ed25519-dalek  = { workspace = true }
 aios-action    = { path = "../aios-action" }
 aios-evidence  = { path = "../aios-evidence" }
 aios-policy    = { path = "../aios-policy" }
@@ -38,6 +39,7 @@ tower-http = { version = "0.6", features = ["cors", "trace"] }
 
 [dev-dependencies]
 tokio = { workspace = true, features = ["rt-multi-thread", "macros", "test-util"] }
+rand_core = { workspace = true }
 
 [lints]
 workspace = true

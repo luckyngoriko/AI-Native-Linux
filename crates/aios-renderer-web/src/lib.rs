@@ -6,6 +6,7 @@
 
 #![deny(unsafe_code)]
 
+pub mod chrome_integrity;
 pub mod compilation;
 pub mod css_compile;
 pub mod error;
@@ -14,9 +15,13 @@ pub mod exposure_fsm;
 pub mod grpc_web_bridge;
 pub mod https;
 pub mod origin;
+pub mod origin_verifier;
 pub mod renderer;
 pub mod types;
 
+pub use chrome_integrity::{
+    ChromeIntegrityMonitor, ChromeTreeFragment, IntegrityCheckOutcome, IntegrityCheckRecord,
+};
 pub use compilation::{
     WebCompilationContext, WebCompilationRule, WebSurfaceZone, WEB_COMPILATION_RULE_CONST_CHECK,
 };
@@ -36,6 +41,7 @@ pub use https::{
     PLAIN_HTTP_REJECTION_STATUS,
 };
 pub use origin::{OriginScheme, OriginToken, ParsedOrigin};
+pub use origin_verifier::{IframeOriginBinding, OriginVerifier};
 pub use renderer::{
     AllocateWebSurfaceRequest, InMemoryWebRenderer, RecoveryEntryReceipt, TokenApplicationReceipt,
     WebRenderer, WebSurfaceFilter, WebSurfaceReleaseReceipt,

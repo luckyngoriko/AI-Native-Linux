@@ -9,6 +9,7 @@ pub mod compilation;
 pub mod error;
 pub mod node_kind;
 pub mod renderer;
+pub mod token_compile;
 pub mod types;
 pub mod visual_token;
 pub mod zone;
@@ -19,6 +20,10 @@ pub use node_kind::{NodeKind, NodeKindCompilationHint};
 pub use renderer::{
     AllocateSurfaceRequest, InMemoryKdeRenderer, KdeRenderer, RecoveryEntryReceipt, SurfaceFilter,
     SurfaceReleaseReceipt, TokenApplicationReceipt,
+};
+pub use token_compile::{
+    compile_token, compile_token_with_ctx, IconLookupCtx, QEasingCurve, QFontWeight, QPaletteRole,
+    QtRecipe, ShapeKind,
 };
 pub use types::{KdeSurfaceDescriptor, KdeSurfaceId, RecoveryShellMode, RendererMode};
 pub use visual_token::{VisualToken, VisualTokenKind};

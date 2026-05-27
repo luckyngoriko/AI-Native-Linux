@@ -7,12 +7,17 @@
 
 pub mod error;
 pub mod node_kind;
+pub mod renderer;
 pub mod types;
 pub mod visual_token;
 pub mod zone;
 
 pub use error::KdeRendererError;
 pub use node_kind::{NodeKind, NodeKindCompilationHint};
+pub use renderer::{
+    AllocateSurfaceRequest, InMemoryKdeRenderer, KdeRenderer, RecoveryEntryReceipt, SurfaceFilter,
+    SurfaceReleaseReceipt, TokenApplicationReceipt,
+};
 pub use types::{KdeSurfaceDescriptor, KdeSurfaceId, RecoveryShellMode, RendererMode};
 pub use visual_token::{VisualToken, VisualTokenKind};
 pub use zone::{CompositionZone, ZoneLayer};

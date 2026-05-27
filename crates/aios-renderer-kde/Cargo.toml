@@ -19,12 +19,15 @@ strum          = { workspace = true }
 strum_macros   = { workspace = true }
 tokio          = { workspace = true }
 async-trait    = { workspace = true }
+ed25519-dalek  = { workspace = true }
+blake3         = { workspace = true }
 aios-action    = { path = "../aios-action" }
 aios-evidence  = { path = "../aios-evidence" }
 aios-policy    = { path = "../aios-policy" }
 
 [dev-dependencies]
-tokio = { workspace = true }
+tokio     = { workspace = true }
+rand_core = { workspace = true }
 
 [lints]
 workspace = true

@@ -218,7 +218,7 @@ pub struct OverrideBoundary {
 
 impl std::fmt::Debug for OverrideBoundary {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let count = self.grants.read().map(|g| g.len()).unwrap_or(0);
+        let count = self.grants.read().map_or(0, |g| g.len());
         f.debug_struct("OverrideBoundary")
             .field("active_grants", &count)
             .finish_non_exhaustive()

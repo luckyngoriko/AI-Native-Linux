@@ -137,7 +137,7 @@ async fn m13_acceptance_full_e2e_install_update_rollback_close() {
             ecosystem: EcosystemRuntime::RuntimeLinuxNative,
             requester: principal("human:tester"),
             capability_grants: vec![],
-            timeout: Duration::from_secs(300),
+            timeout: Duration::from_mins(5),
         })
         .await
         .expect("open session");
@@ -502,7 +502,7 @@ async fn m13_acceptance_evidence_chain_hash_continuity() {
             ecosystem: EcosystemRuntime::RuntimeLinuxNative,
             requester: principal("human:chain"),
             capability_grants: vec![],
-            timeout: Duration::from_secs(300),
+            timeout: Duration::from_mins(5),
         })
         .await
         .expect("open");
@@ -566,7 +566,7 @@ async fn m13_acceptance_inv015_no_secrets_in_payloads() {
             ecosystem: EcosystemRuntime::RuntimeLinuxNative,
             requester: principal("human:inv015"),
             capability_grants: vec![],
-            timeout: Duration::from_secs(300),
+            timeout: Duration::from_mins(5),
         })
         .await
         .expect("open");

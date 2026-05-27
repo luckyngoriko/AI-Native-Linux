@@ -27,7 +27,7 @@ fn default_request() -> OpenSessionRequest {
             canonical_id: "human:test".into(),
         },
         capability_grants: vec![],
-        timeout: Duration::from_secs(300),
+        timeout: Duration::from_mins(5),
     }
 }
 

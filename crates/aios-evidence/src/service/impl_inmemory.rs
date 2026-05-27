@@ -224,8 +224,7 @@ impl InMemoryEvidenceLog {
     pub fn sealed_segment_count(&self) -> usize {
         self.sealed_segments
             .lock()
-            .map(|s| s.sealed.len())
-            .unwrap_or(0)
+            .map_or(0, |s| s.sealed.len())
     }
 
     /// Snapshot of the warm-tier receipt count for a given sealed segment.

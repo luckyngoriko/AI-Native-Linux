@@ -294,7 +294,7 @@ async fn session_driver_no_emitter_open_and_close() {
                 canonical_id: "human:test".into(),
             },
             capability_grants: vec![],
-            timeout: Duration::from_secs(300),
+            timeout: Duration::from_mins(5),
         })
         .await
         .expect("open");
@@ -324,7 +324,7 @@ async fn session_driver_with_emitter_emits_open_and_close() {
                 canonical_id: "human:test".into(),
             },
             capability_grants: vec![],
-            timeout: Duration::from_secs(300),
+            timeout: Duration::from_mins(5),
         })
         .await
         .expect("open");
@@ -353,7 +353,7 @@ async fn session_driver_close_emits_exit_reason() {
                 canonical_id: "human:test".into(),
             },
             capability_grants: vec![],
-            timeout: Duration::from_secs(300),
+            timeout: Duration::from_mins(5),
         })
         .await
         .expect("open");
@@ -424,7 +424,7 @@ async fn full_e2e_package_update_session_chain() {
                 canonical_id: "human:test".into(),
             },
             capability_grants: vec![],
-            timeout: Duration::from_secs(300),
+            timeout: Duration::from_mins(5),
         })
         .await
         .expect("open");
@@ -546,7 +546,7 @@ async fn emitter_field_is_accessible_on_driver() {
                 canonical_id: "human:test".into(),
             },
             capability_grants: vec![],
-            timeout: Duration::from_secs(300),
+            timeout: Duration::from_mins(5),
         })
         .await
         .expect("open");
@@ -607,7 +607,7 @@ async fn session_driver_unknown_ecosystem_fails_without_emit() {
                 canonical_id: "human:test".into(),
             },
             capability_grants: vec![],
-            timeout: Duration::from_secs(300),
+            timeout: Duration::from_mins(5),
         })
         .await;
 

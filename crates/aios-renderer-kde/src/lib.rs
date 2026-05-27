@@ -11,6 +11,7 @@ pub mod kwin_script;
 pub mod node_kind;
 pub mod recovery_shell;
 pub mod renderer;
+pub mod service;
 pub mod token_compile;
 pub mod types;
 pub mod visual_token;

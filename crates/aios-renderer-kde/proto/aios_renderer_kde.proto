@@ -1,0 +1,278 @@
+// T-134 — gRPC KdeRendererService surface (S7.4 §10).
+//
+// 14-RPC closed surface: surface allocation lifecycle, recovery/degraded
+// mode entry, visual token application, Wayland grant evaluation, and
+// signed KWin script management.
+//
+// Rust integration:
+//   - `crates/aios-renderer-kde/build.rs` invokes tonic-build for stubs.
+//   - `src/service/conversions.rs` owns Rust ↔ proto translation.
+//   - `src/service/server.rs` hosts `KdeRendererServer`.
+
+syntax = "proto3";
+package aios.renderer.kde;
+
+import "google/protobuf/timestamp.proto";
+import "google/protobuf/empty.proto";
+
+// ── Enums ──────────────────────────────────────────────────────────────
+
+enum CompositionZoneProto {
+  ZONE_UNSPECIFIED = 0;
+  CHROME           = 1;
+  CONTENT          = 2;
+  BACKGROUND       = 3;
+  RECOVERY         = 4;
+}
+
+enum ZoneLayerProto {
+  ZONE_LAYER_UNSPECIFIED = 0;
+  ZL_BACKGROUND          = 1;
+  ZL_BOTTOM              = 2;
+  ZL_TOP                 = 3;
+  ZL_OVERLAY             = 4;
+}
+
+enum NodeKindProto {
+  NODE_KIND_UNSPECIFIED = 0;
+  CONTAINER             = 1;
+  DIVIDER               = 2;
+  SPACER                = 3;
+  TEXT                  = 4;
+  HEADING               = 5;
+  INLINE_CODE           = 6;
+  CODE_BLOCK            = 7;
+  CARD                  = 8;
+  LIST                  = 9;
+  TABLE                 = 10;
+  FORM                  = 11;
+  ACTION_BUTTON         = 12;
+  VISUALIZATION         = 13;
+  STREAM                = 14;
+  SURFACE_EMBED         = 15;
+  SECURITY_INDICATOR    = 16;
+  APPROVAL_PROMPT       = 17;
+  EVIDENCE_LINK         = 18;
+  AGENT_MESSAGE         = 19;
+}
+
+enum VisualTokenKindProto {
+  TOKEN_KIND_UNSPECIFIED = 0;
+  COLOR                  = 1;
+  FONT                   = 2;
+  SPACING                = 3;
+  MOTION                 = 4;
+  ICON                   = 5;
+  SHAPE                  = 6;
+  ELEVATION              = 7;
+}
+
+enum WaylandProtocolProto {
+  WAYLAND_PROTOCOL_UNSPECIFIED = 0;
+  WL_COMPOSITOR                = 1;
+  XDG_SHELL                    = 2;
+  WLR_LAYER_SHELL_V1           = 3;
+  WP_VIEWPORTER                = 4;
+  ZWP_LINUX_DMABUF_V1          = 5;
+  XDG_DECORATION_V1            = 6;
+  IDLE_INHIBIT_V1              = 7;
+}
+
+enum WaylandSurfaceLayerProto {
+  WAYLAND_SURFACE_LAYER_UNSPECIFIED = 0;
+  WSL_BACKGROUND                    = 1;
+  WSL_BOTTOM                        = 2;
+  WSL_TOP                           = 3;
+  WSL_OVERLAY                       = 4;
+}
+
+enum WaylandInteractivityProto {
+  INTERACTIVITY_UNSPECIFIED = 0;
+  NONE                      = 1;
+  ON_DEMAND                 = 2;
+  EXCLUSIVE                 = 3;
+}
+
+// ── RendererMode ────────────────────────────────────────────────────────
+
+enum KdeRendererModeKind {
+  KDE_RENDERER_MODE_UNSPECIFIED = 0;
+  MODE_NORMAL                   = 1;
+  MODE_DEGRADED                 = 2;
+  MODE_RECOVERY                 = 3;
+}
+
+message RendererModeProto {
+  KdeRendererModeKind kind = 1;
+  string degraded_reason   = 2;
+}
+
+// ── Surface messages ────────────────────────────────────────────────────
+
+message KdeSurfaceDescriptorProto {
+  string id                            = 1;
+  CompositionZoneProto zone             = 2;
+  ZoneLayerProto layer                  = 3;
+  RendererModeProto mode                = 4;
+  google.protobuf.Timestamp created_at  = 5;
+  string claimed_by                     = 6;
+}
+
+message AllocateSurfaceRequestProto {
+  CompositionZoneProto zone         = 1;
+  string claimed_by                 = 2;
+  NodeKindProto node_kind           = 3;
+  optional ZoneLayerProto requested_layer = 4;
+}
+
+message SurfaceReleaseReceiptProto {
+  string id                            = 1;
+  google.protobuf.Timestamp released_at = 2;
+  RendererModeProto final_mode         = 3;
+}
+
+message RecoveryEntryReceiptProto {
+  google.protobuf.Timestamp entered_at = 1;
+  bool aios_surfaces_only             = 2;
+  string display_separation           = 3;
+}
+
+// ── Surface filter ──────────────────────────────────────────────────────
+
+message SurfaceFilterProto {
+  oneof filter {
+    google.protobuf.Empty all           = 1;
+    CompositionZoneProto by_zone         = 2;
+    string by_claimant                   = 3;
+    NodeKindProto by_node_kind           = 4;
+    RendererModeProto in_mode_only       = 5;
+  }
+}
+
+message ListSurfacesRequest {
+  SurfaceFilterProto filter = 1;
+}
+
+message ListSurfacesResponse {
+  repeated KdeSurfaceDescriptorProto surfaces = 1;
+}
+
+// ── Get / Release / Mode requests ───────────────────────────────────────
+
+message ReleaseSurfaceRequest {
+  string id = 1;
+}
+
+message GetSurfaceRequest {
+  string id = 1;
+}
+
+message EnterRecoveryModeRequest {}
+
+message ExitRecoveryModeRequest {}
+
+message EnterDegradedModeRequest {
+  string reason = 1;
+}
+
+message GetModeRequest {}
+
+message GetModeResponse {
+  RendererModeProto mode = 1;
+}
+
+// ── Visual token messages ───────────────────────────────────────────────
+
+message VisualTokenProto {
+  string id                  = 1;
+  VisualTokenKindProto kind  = 2;
+  string canonical_value     = 3;
+}
+
+message TokenApplicationReceiptProto {
+  uint32 applied_count                  = 1;
+  google.protobuf.Timestamp timestamp   = 2;
+}
+
+message ApplyVisualTokensRequest {
+  repeated VisualTokenProto tokens = 1;
+}
+
+message GetActiveTokensRequest {}
+
+message GetActiveTokensResponse {
+  repeated VisualTokenProto tokens = 1;
+}
+
+// ── Wayland surface messages ────────────────────────────────────────────
+
+message WaylandSurfaceRequestProto {
+  WaylandProtocolProto protocol   = 1;
+  string layer_namespace          = 2;
+  string claimed_by               = 3;
+  CompositionZoneProto zone        = 4;
+  NodeKindProto node_kind          = 5;
+}
+
+message WaylandSurfaceGrantProto {
+  WaylandSurfaceLayerProto assigned_layer = 1;
+  WaylandInteractivityProto interactivity  = 2;
+  uint32 exclusive_zone                    = 3;
+}
+
+message EvaluateWaylandSurfaceRequest {
+  WaylandSurfaceRequestProto request = 1;
+}
+
+// ── KWin script messages ────────────────────────────────────────────────
+
+message KwinScriptProto {
+  string id                     = 1;
+  string canonical_path         = 2;
+  string source                 = 3;
+  string blake3_hash            = 4;
+  bytes signature               = 5;
+  string signer_key_fingerprint = 6;
+}
+
+message LoadKwinScriptRequest {
+  KwinScriptProto script = 1;
+}
+
+message UnloadKwinScriptRequest {
+  string script_id = 1;
+}
+
+message ListKwinScriptsRequest {}
+
+message ListKwinScriptsResponse {
+  repeated string script_ids = 1;
+}
+
+// ── Service definition (14 RPCs, closed) ────────────────────────────────
+
+service KdeRendererService {
+  // Surface lifecycle (4 RPCs)
+  rpc AllocateSurface(AllocateSurfaceRequestProto) returns (KdeSurfaceDescriptorProto);
+  rpc ReleaseSurface(ReleaseSurfaceRequest) returns (SurfaceReleaseReceiptProto);
+  rpc GetSurface(GetSurfaceRequest) returns (KdeSurfaceDescriptorProto);
+  rpc ListSurfaces(ListSurfacesRequest) returns (ListSurfacesResponse);
+
+  // Mode management (4 RPCs)
+  rpc EnterRecoveryMode(EnterRecoveryModeRequest) returns (RecoveryEntryReceiptProto);
+  rpc ExitRecoveryMode(ExitRecoveryModeRequest) returns (google.protobuf.Empty);
+  rpc EnterDegradedMode(EnterDegradedModeRequest) returns (google.protobuf.Empty);
+  rpc GetMode(GetModeRequest) returns (GetModeResponse);
+
+  // Visual tokens (2 RPCs)
+  rpc ApplyVisualTokens(ApplyVisualTokensRequest) returns (TokenApplicationReceiptProto);
+  rpc GetActiveTokens(GetActiveTokensRequest) returns (GetActiveTokensResponse);
+
+  // Wayland evaluation (1 RPC)
+  rpc EvaluateWaylandSurface(EvaluateWaylandSurfaceRequest) returns (WaylandSurfaceGrantProto);
+
+  // KWin script management (3 RPCs)
+  rpc LoadKwinScript(LoadKwinScriptRequest) returns (google.protobuf.Empty);
+  rpc UnloadKwinScript(UnloadKwinScriptRequest) returns (google.protobuf.Empty);
+  rpc ListKwinScripts(ListKwinScriptsRequest) returns (ListKwinScriptsResponse);
+}

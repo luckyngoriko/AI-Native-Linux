@@ -72,6 +72,29 @@ impl NodeKind {
     /// Number of declared `NodeKind` variants (excluding UNSPECIFIED sentinel).
     pub const LEN: usize = 19;
 
+    /// All 19 declared variants in declaration order.
+    pub const ALL: &'static [Self] = &[
+        Self::Container,
+        Self::Divider,
+        Self::Spacer,
+        Self::Text,
+        Self::Heading,
+        Self::InlineCode,
+        Self::CodeBlock,
+        Self::Card,
+        Self::List,
+        Self::Table,
+        Self::Form,
+        Self::ActionButton,
+        Self::Visualization,
+        Self::Stream,
+        Self::SurfaceEmbed,
+        Self::SecurityIndicator,
+        Self::ApprovalPrompt,
+        Self::EvidenceLink,
+        Self::AgentMessage,
+    ];
+
     /// Return the compile-time Qt/QML hint for this node kind.
     ///
     /// The mapping follows the S7.4 §4 compilation table. GPU-bearing kinds

@@ -5,6 +5,7 @@
 
 #![forbid(unsafe_code)]
 
+pub mod compilation;
 pub mod error;
 pub mod node_kind;
 pub mod renderer;
@@ -12,6 +13,7 @@ pub mod types;
 pub mod visual_token;
 pub mod zone;
 
+pub use compilation::{CompilationContext, CompilationRule, NodeSurfaceKind};
 pub use error::KdeRendererError;
 pub use node_kind::{NodeKind, NodeKindCompilationHint};
 pub use renderer::{

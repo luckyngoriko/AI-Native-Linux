@@ -73,6 +73,7 @@ fn signed_bundle(
         bundle_signature: sig.to_bytes().to_vec(),
         signer_fingerprint: fingerprint.to_string(),
         trusted_authorities: trusted,
+        emitter: None,
     }
 }
 
@@ -236,6 +237,7 @@ fn constitutional_icon_bundle_verify_blake3_empty_rejected() {
         bundle_signature: sig.to_bytes().to_vec(),
         signer_fingerprint: "auth1".into(),
         trusted_authorities: trusted,
+        emitter: None,
     };
 
     let err = bundle.verify().expect_err("empty blake3 must fail");

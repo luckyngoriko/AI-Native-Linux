@@ -7,6 +7,7 @@
 
 pub mod compilation;
 pub mod error;
+pub mod evidence;
 pub mod kwin_script;
 pub mod node_kind;
 pub mod recovery_shell;
@@ -20,6 +21,9 @@ pub mod zone;
 
 pub use compilation::{CompilationContext, CompilationRule, NodeSurfaceKind};
 pub use error::KdeRendererError;
+pub use evidence::{
+    InMemoryKdeEvidenceEmitter, KdeEvidenceEmitter, KdeEvidenceReceipt, KdeRecordType,
+};
 pub use kwin_script::{KwinScript, KwinScriptLoader, KwinScriptRecord, DEFAULT_ALLOWED_ROOT};
 pub use node_kind::{NodeKind, NodeKindCompilationHint};
 pub use recovery_shell::{

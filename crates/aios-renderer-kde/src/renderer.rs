@@ -8,13 +8,16 @@
 //! GPU-bearing rejection) at allocation time.
 
 use std::collections::HashMap;
+use std::sync::Arc;
 
 use async_trait::async_trait;
 use chrono::{DateTime, Utc};
 use tokio::sync::RwLock;
 
 use crate::error::KdeRendererError;
+use crate::evidence::KdeEvidenceEmitter;
 use crate::node_kind::NodeKind;
+use crate::recovery_shell::DegradedTrigger;
 use crate::types::{KdeSurfaceDescriptor, KdeSurfaceId, RendererMode};
 use crate::visual_token::VisualToken;
 use crate::zone::{CompositionZone, ZoneLayer};
@@ -152,12 +155,17 @@ struct KdeRendererState {
 /// All invariants (I4, I5, I7) are enforced at allocation time. This
 /// implementation is intended as the in-process test double and the
 /// baseline for the rest of M14 to compose against.
+///
+/// An optional [`KdeEvidenceEmitter`] emits lifecycle events into the
+/// append-only Evidence Log. When `None`, emission is silently skipped.
 pub struct InMemoryKdeRenderer {
     state: RwLock<KdeRendererState>,
+    emitter: Option<Arc<dyn KdeEvidenceEmitter>>,
 }
 
 impl InMemoryKdeRenderer {
-    /// Create a new renderer in `Normal` mode with no surfaces and no tokens.
+    /// Create a new renderer in `Normal` mode with no surfaces, no tokens,
+    /// and no evidence emitter.
     #[must_use]
     pub fn new() -> Self {
         Self {
@@ -167,7 +175,18 @@ impl InMemoryKdeRenderer {
                 mode: RendererMode::Normal,
                 active_tokens: Vec::new(),
             }),
+            emitter: None,
         }
+    }
+
+    /// Attach an evidence emitter for lifecycle event recording.
+    ///
+    /// When set, surface allocate/release, recovery entry/exit, and degraded
+    /// mode transitions produce chained BLAKE3 evidence receipts.
+    #[must_use]
+    pub fn with_emitter(mut self, emitter: Arc<dyn KdeEvidenceEmitter>) -> Self {
+        self.emitter = Some(emitter);
+        self
     }
 }
 
@@ -215,7 +234,19 @@ impl KdeRenderer for InMemoryKdeRenderer {
 
         // INV I4 enforced by KdeSurfaceDescriptor::new (chrome zone requires
         // "aios-chrome" claimant).
-        let mut desc = KdeSurfaceDescriptor::new(req.zone, req.claimed_by)?;
+        let desc_result = KdeSurfaceDescriptor::new(req.zone, req.claimed_by.clone());
+        let mut desc = match desc_result {
+            Ok(d) => d,
+            Err(e) => {
+                // Emit INV I4 rejection before propagating the error.
+                if let Some(ref emitter) = self.emitter {
+                    let _ = emitter
+                        .emit_layer_shell_rejected(&req.claimed_by, req.zone, &e.to_string())
+                        .await;
+                }
+                return Err(e);
+            }
+        };
 
         if let Some(layer) = req.requested_layer {
             desc.layer = layer;
@@ -227,6 +258,13 @@ impl KdeRenderer for InMemoryKdeRenderer {
         state.surfaces.insert(desc.id.clone(), desc.clone());
         drop(state);
 
+        // Emit surface allocation evidence.
+        if let Some(ref emitter) = self.emitter {
+            let _ = emitter
+                .emit_surface_allocated(&desc, &desc.claimed_by)
+                .await;
+        }
+
         Ok(desc)
     }
 
@@ -236,17 +274,28 @@ impl KdeRenderer for InMemoryKdeRenderer {
     ) -> Result<SurfaceReleaseReceipt, KdeRendererError> {
         let mut state = self.state.write().await;
 
-        if state.surfaces.remove(&id).is_none() {
+        let removed = state.surfaces.remove(&id);
+        if removed.is_none() {
             return Err(KdeRendererError::SurfaceNotFound(id));
         }
 
         state.node_kinds.remove(&id);
 
-        Ok(SurfaceReleaseReceipt {
+        let receipt = SurfaceReleaseReceipt {
             id,
             released_at: Utc::now(),
             final_mode: state.mode.clone(),
-        })
+        };
+
+        // Drop lock before async emission (clippy: significant_drop_tightening).
+        drop(state);
+
+        // Emit surface release evidence.
+        if let (Some(ref emitter), Some(ref desc)) = (&self.emitter, &removed) {
+            let _ = emitter.emit_surface_released(desc, &desc.claimed_by).await;
+        }
+
+        Ok(receipt)
     }
 
     async fn get_surface(
@@ -297,21 +346,44 @@ impl KdeRenderer for InMemoryKdeRenderer {
     async fn enter_recovery_mode(&self) -> Result<RecoveryEntryReceipt, KdeRendererError> {
         self.state.write().await.mode = RendererMode::Recovery;
 
-        Ok(RecoveryEntryReceipt {
+        let receipt = RecoveryEntryReceipt {
             entered_at: Utc::now(),
             aios_surfaces_only: true,
             display_separation: "separate-wayland-display".into(),
-        })
+        };
+
+        // Emit recovery entered evidence.
+        if let Some(ref emitter) = self.emitter {
+            let _ = emitter
+                .emit_recovery_entered(&receipt, "service:aios-renderer-kde")
+                .await;
+        }
+
+        Ok(receipt)
     }
 
     async fn exit_recovery_mode(&self) -> Result<(), KdeRendererError> {
         self.state.write().await.mode = RendererMode::Normal;
 
+        // Emit recovery exited evidence.
+        if let Some(ref emitter) = self.emitter {
+            let _ = emitter
+                .emit_recovery_exited("service:aios-renderer-kde")
+                .await;
+        }
+
         Ok(())
     }
 
     async fn enter_degraded_mode(&self, reason: String) -> Result<(), KdeRendererError> {
-        self.state.write().await.mode = RendererMode::Degraded(reason);
+        self.state.write().await.mode = RendererMode::Degraded(reason.clone());
+
+        // Emit degraded mode evidence (FOREVER retention).
+        if let Some(ref emitter) = self.emitter {
+            let _ = emitter
+                .emit_renderer_degraded(DegradedTrigger::KwinUnavailable, &reason)
+                .await;
+        }
 
         Ok(())
     }

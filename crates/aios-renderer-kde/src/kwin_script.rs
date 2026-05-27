@@ -12,13 +12,14 @@
 
 use std::collections::HashMap;
 use std::path::PathBuf;
-use std::sync::RwLock;
+use std::sync::{Arc, RwLock};
 
 use chrono::{DateTime, Utc};
 use ed25519_dalek::{Signature, Verifier, VerifyingKey};
 use serde::{Deserialize, Serialize};
 
 use crate::error::KdeRendererError;
+use crate::evidence::KdeEvidenceEmitter;
 
 /// Default allowed root for `KWin` scripts per INV I8.
 pub const DEFAULT_ALLOWED_ROOT: &str = "/aios/system/renderers/kde/kwin-scripts";
@@ -66,8 +67,7 @@ pub struct KwinScriptRecord {
 /// via [`Self::register_authority`].
 ///
 /// The loader holds a [`RwLock`]-protected registry of successfully loaded
-/// scripts. Evidence emission is deferred to T-135.
-#[derive(Debug)]
+/// scripts, plus an optional evidence emitter for lifecycle event recording.
 pub struct KwinScriptLoader {
     /// Only scripts whose `canonical_path` starts with this prefix are accepted.
     allowed_root: PathBuf,
@@ -75,6 +75,8 @@ pub struct KwinScriptLoader {
     trusted_authorities: HashMap<String, VerifyingKey>,
     /// Script id → verified record.
     loaded: RwLock<HashMap<String, KwinScriptRecord>>,
+    /// Optional evidence emitter for `KDE_KWIN_SCRIPT_VERIFIED` / REJECTED events.
+    emitter: Option<Arc<dyn KdeEvidenceEmitter>>,
 }
 
 impl KwinScriptLoader {
@@ -87,7 +89,15 @@ impl KwinScriptLoader {
             allowed_root: allowed_root.into(),
             trusted_authorities: HashMap::new(),
             loaded: RwLock::new(HashMap::new()),
+            emitter: None,
         }
+    }
+
+    /// Attach an evidence emitter for `KWin` script lifecycle event recording.
+    #[must_use]
+    pub fn with_emitter(mut self, emitter: Arc<dyn KdeEvidenceEmitter>) -> Self {
+        self.emitter = Some(emitter);
+        self
     }
 
     /// Register a trusted signing authority.
@@ -118,10 +128,16 @@ impl KwinScriptLoader {
     /// verification failure.
     pub async fn load_script(&self, script: KwinScript) -> Result<(), KdeRendererError> {
         let script_id = script.id.clone();
+        let signer_fp = script.signer_key_fingerprint.clone();
 
         // 1. Path must reside under allowed_root.
         let canonical = PathBuf::from(&script.canonical_path);
         if !canonical.starts_with(&self.allowed_root) {
+            if let Some(ref emitter) = self.emitter {
+                let _ = emitter
+                    .emit_kwin_script_rejected(&script_id, "path outside allowed root")
+                    .await;
+            }
             return Err(KdeRendererError::KwinScriptVerificationFailed {
                 script_id,
                 reason: "path outside allowed root".to_string(),
@@ -131,6 +147,14 @@ impl KwinScriptLoader {
         // 2. Blacklist system + user-home KWin script directories.
         for blocked in &BLACKLISTED_PREFIXES {
             if script.canonical_path.contains(blocked) {
+                if let Some(ref emitter) = self.emitter {
+                    let _ = emitter
+                        .emit_kwin_script_rejected(
+                            &script_id,
+                            "system/user-installed script path blocked",
+                        )
+                        .await;
+                }
                 return Err(KdeRendererError::KwinScriptVerificationFailed {
                     script_id,
                     reason: "system/user-installed script path blocked".to_string(),
@@ -142,6 +166,11 @@ impl KwinScriptLoader {
         let computed = blake3::hash(script.source.as_bytes());
         let computed_hex = computed.to_hex().to_string();
         if computed_hex != script.blake3_hash {
+            if let Some(ref emitter) = self.emitter {
+                let _ = emitter
+                    .emit_kwin_script_rejected(&script_id, "blake3 mismatch")
+                    .await;
+            }
             return Err(KdeRendererError::KwinScriptVerificationFailed {
                 script_id,
                 reason: "blake3 mismatch".to_string(),
@@ -149,13 +178,12 @@ impl KwinScriptLoader {
         }
 
         // 4. Ed25519 signature over the BLAKE3 hash bytes must verify.
-        let vk = self
-            .trusted_authorities
-            .get(&script.signer_key_fingerprint)
-            .ok_or_else(|| KdeRendererError::KwinScriptVerificationFailed {
+        let vk = self.trusted_authorities.get(&signer_fp).ok_or_else(|| {
+            KdeRendererError::KwinScriptVerificationFailed {
                 script_id: script_id.clone(),
                 reason: "unknown authority".to_string(),
-            })?;
+            }
+        })?;
 
         let sig_bytes: [u8; 64] = script.signature.as_slice().try_into().map_err(|_| {
             KdeRendererError::KwinScriptVerificationFailed {
@@ -180,7 +208,14 @@ impl KwinScriptLoader {
         self.loaded
             .write()
             .map_err(|e| KdeRendererError::Internal(format!("lock poisoned: {e}")))?
-            .insert(script_id, record);
+            .insert(script_id.clone(), record);
+
+        // Emit KDE_KWIN_SCRIPT_VERIFIED evidence.
+        if let Some(ref emitter) = self.emitter {
+            let _ = emitter
+                .emit_kwin_script_verified(&script_id, &signer_fp)
+                .await;
+        }
 
         Ok(())
     }
@@ -217,6 +252,11 @@ impl KwinScriptLoader {
 
 impl Default for KwinScriptLoader {
     fn default() -> Self {
-        Self::new(DEFAULT_ALLOWED_ROOT)
+        Self {
+            allowed_root: PathBuf::from(DEFAULT_ALLOWED_ROOT),
+            trusted_authorities: HashMap::new(),
+            loaded: RwLock::new(HashMap::new()),
+            emitter: None,
+        }
     }
 }

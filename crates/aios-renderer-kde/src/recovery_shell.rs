@@ -8,11 +8,14 @@
 //! fails, the renderer escalates to fail-closed text-only degraded mode.
 
 use std::collections::{BTreeMap, HashMap};
+use std::sync::Arc;
 
 use chrono::{DateTime, Utc};
 use ed25519_dalek::{Signature, VerifyingKey};
+use serde::{Deserialize, Serialize};
 
 use crate::error::KdeRendererError;
+use crate::evidence::KdeEvidenceEmitter;
 use crate::node_kind::NodeKind;
 use crate::types::RendererMode;
 
@@ -117,7 +120,9 @@ pub struct IconEntry {
 /// blake3_hash)` for every entry. The blake3 hash is canonical — file contents
 /// are not re-read at verification time, but the hash field is validated for
 /// format (non-empty, 64 hex chars).
-#[derive(Debug, Clone)]
+///
+/// An optional [`KdeEvidenceEmitter`] records icon bundle verification outcomes.
+#[derive(Clone)]
 pub struct ConstitutionalIconBundle {
     /// Theme identifier (e.g. `"aios-recovery"`).
     pub theme_id: String,
@@ -132,9 +137,18 @@ pub struct ConstitutionalIconBundle {
     pub signer_fingerprint: String,
     /// Registry of trusted signing authorities (fingerprint → verifying key).
     pub trusted_authorities: HashMap<String, VerifyingKey>,
+    /// Optional evidence emitter for icon bundle verification events.
+    pub emitter: Option<Arc<dyn KdeEvidenceEmitter>>,
 }
 
 impl ConstitutionalIconBundle {
+    /// Attach an evidence emitter for icon bundle verification event recording.
+    #[must_use]
+    pub fn with_emitter(mut self, emitter: Arc<dyn KdeEvidenceEmitter>) -> Self {
+        self.emitter = Some(emitter);
+        self
+    }
+
     /// Verify the bundle's Ed25519 signature and per-entry blake3 hashes.
     ///
     /// Checks:
@@ -222,7 +236,7 @@ fn validate_blake3_hex(hash: &str, theme_id: &str) -> Result<(), KdeRendererErro
 ///
 /// When any of these runtime capabilities are unavailable, the renderer
 /// escalates to fail-closed text-only mode.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum DegradedTrigger {
     /// `KWin` compositor process is unreachable.
     KwinUnavailable,

@@ -1,0 +1,30 @@
+[package]
+name = "aios-renderer-kde"
+description = "AIOS L7 KDE Plasma renderer typed skeleton — NodeKind, CompositionZone, ZoneLayer, VisualToken, KdeSurfaceDescriptor, KdeRendererError (S7.4)"
+edition.workspace = true
+rust-version.workspace = true
+version = "0.0.1"
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+
+[dependencies]
+serde          = { workspace = true }
+serde_json     = { workspace = true }
+thiserror      = { workspace = true }
+tracing        = { workspace = true }
+chrono         = { workspace = true }
+ulid           = { workspace = true }
+strum          = { workspace = true }
+strum_macros   = { workspace = true }
+tokio          = { workspace = true }
+async-trait    = { workspace = true }
+aios-action    = { path = "../aios-action" }
+aios-evidence  = { path = "../aios-evidence" }
+aios-policy    = { path = "../aios-policy" }
+
+[dev-dependencies]
+tokio = { workspace = true }
+
+[lints]
+workspace = true

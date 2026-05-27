@@ -11,6 +11,7 @@ members = [
     "crates/aios-sandbox",
     "crates/aios-verification",
     "crates/aios-recovery",
+    "crates/aios-renderer-kde",
     "crates/aios-evidence",
     "crates/aios-policy",
     "crates/aios-apps",

@@ -12,6 +12,7 @@
     clippy::cast_possible_wrap,
     clippy::significant_drop_tightening,
     clippy::future_not_send,
+    clippy::too_many_lines,
     reason = "test code; panic-on-failure is the idiomatic test signal"
 )]
 

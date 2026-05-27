@@ -42,7 +42,7 @@ fn inv_1_version_marker_is_0_1_0_t126() {
 /// Recursively collect .rs files under `dir`.
 fn collect_rs_files(dir: &std::path::Path, out: &mut Vec<std::path::PathBuf>) {
     if let Ok(entries) = std::fs::read_dir(dir) {
-        for entry in entries.filter_map(|e| e.ok()) {
+        for entry in entries.filter_map(std::result::Result::ok) {
             let path = entry.path();
             if path.is_dir() {
                 collect_rs_files(&path, out);
@@ -370,8 +370,8 @@ fn inv_7_deferred_surfaces_documented() {
 fn inv_8a_runtime_bridge_type_exists() {
     // RuntimeBridge struct exists and has pub fn new(...)
     use aios_apps::RuntimeBridge;
-    fn _assert_constructable<T>() {}
-    _assert_constructable::<RuntimeBridge>();
+    fn assert_constructable<T>() {}
+    assert_constructable::<RuntimeBridge>();
 }
 
 #[test]
@@ -386,6 +386,6 @@ fn inv_8b_sandbox_bridge_constructs() {
 #[test]
 fn inv_8c_sgr_bridge_type_exists() {
     use aios_apps::SgrBridge;
-    fn _assert_constructable<T>() {}
-    _assert_constructable::<SgrBridge>();
+    fn assert_constructable<T>() {}
+    assert_constructable::<SgrBridge>();
 }

@@ -10,6 +10,7 @@ pub mod compilation;
 pub mod css_compile;
 pub mod error;
 pub mod exposure;
+pub mod https;
 pub mod origin;
 pub mod renderer;
 pub mod types;
@@ -23,6 +24,11 @@ pub use css_compile::{
 };
 pub use error::WebRendererError;
 pub use exposure::{ExposureLevel, ExposureLevelLabel};
+pub use https::{
+    generate_self_signed_loopback_cert, lan_bind_addrs, loopback_only_bind_addrs,
+    plain_http_rejection_response_body, GeneratedCert, HttpsListener, HttpsServerConfig,
+    PLAIN_HTTP_REJECTION_STATUS,
+};
 pub use origin::{OriginScheme, OriginToken, ParsedOrigin};
 pub use renderer::{
     AllocateWebSurfaceRequest, InMemoryWebRenderer, RecoveryEntryReceipt, TokenApplicationReceipt,

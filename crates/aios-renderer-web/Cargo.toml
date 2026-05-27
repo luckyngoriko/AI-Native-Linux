@@ -22,6 +22,15 @@ aios-evidence  = { path = "../aios-evidence" }
 aios-policy    = { path = "../aios-policy" }
 aios-renderer-kde = { path = "../aios-renderer-kde" }
 
+# T-143: HTTPS server + self-signed cert (INV I9 + INV-006)
+rustls        = "0.23"
+rustls-pemfile = "2"
+rcgen         = "0.13"
+hyper         = { version = "1", features = ["server", "http1", "http2"] }
+hyper-util    = { version = "0.1", features = ["tokio", "server"] }
+tokio-rustls  = "0.26"
+http-body-util = "0.1"
+
 [dev-dependencies]
 tokio = { workspace = true, features = ["rt-multi-thread", "macros", "test-util"] }
 

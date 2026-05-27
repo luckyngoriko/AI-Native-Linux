@@ -1,5 +1,9 @@
 # AIOS Implementation Progress Log
 
+2026-05-27T09:30:00Z | T-145 | commit | git commit d9aa5b9 T-145: aios-renderer-web — gRPC-Web bridge transport. 2 new files (+460 LOC): grpc_web_bridge.rs (GrpcWebBridge with 3-gate validation, 3 origin patterns with wildcard matching, 13 services, 4 MiB ceiling, CORS 4-header builder, GrpcWebClientStub echo stub, 4 inline unit tests), tests/grpc_web_bridge.rs (15 integration tests). Modified: Cargo.toml (+tonic-web 0.12, tower 0.5, tower-http 0.6), lib.rs (+pub mod grpc_web_bridge + 4 re-exports), Cargo.lock. All 5 gates PASS: cargo check --workspace (clean), cargo test -p aios-renderer-web (136 tests, 0 failures), cargo test --workspace (2937 tests, 0 failures), cargo clippy --workspace --all-targets -- -D warnings (0 warnings), cargo fmt --all -- --check (clean). Clippy fixes: must_use_candidate on 7 items, doc_markdown on 13 service names, missing_errors_doc on 3 fns, missing_const_for_fn on 2 fns, unused_async allowed on send, clippy::missing_docs is not a valid lint (use missing_docs). SPEC DEVIATION: None — brief followed exactly. STOP per brief — T-146 deferred. | SUCCESS | T-146 deferred
+
+2026-05-27T08:15:00Z | T-144 | commit | git commit e0c6564 T-144: aios-renderer-web — Exposure FSM (INV I3). 2 new files (+810 LOC): exposure_fsm.rs (ExposureFsm with tokio::sync::RwLock, 10 valid transition edges, 24h heartbeat guard, closed ExposureTransitionReason 6-variant enum, full history tracking), tests/exposure_fsm.rs (18 integration tests). Modified: lib.rs (+pub mod exposure_fsm + re-exports). All 5 gates PASS: cargo check --workspace (clean), cargo test -p aios-renderer-web (117 tests, 0 failures), cargo test --workspace (2918 tests, 0 failures), cargo clippy --workspace --all-targets -- -D warnings (0 warnings), cargo fmt --all -- --check (clean). Clippy fixes: tokio::sync::RwLock instead of std::sync::RwLock, explicit drop(current) for significant_drop_tightening, missing_docs + let...else in test file. SPEC DEVIATION: check_heartbeat is async fn (not pub fn) — tokio::sync::RwLock write path requires async; brief said TRUST JUDGMENT. STOP per brief — T-145 deferred. | SUCCESS | T-145 deferred
+
 2026-05-27T00:25:00Z | T-121 | commit | git commit a77b696 T-121: aios-apps — Update + rollback FSM (S12.2 §rollback). 2 new files (+1049 LOC): update_driver.rs (UpdateRollbackDriver async trait with 6 methods + InMemoryUpdateDriver + UpdateState 11-variant FSM + FailureClass 4-variant + RollbackReason 4-variant + RollbackReceipt + RollbackExitState + is_legal_transition const fn with 16 legal transitions + 16 inline unit tests), tests/update_driver.rs (18 integration tests: happy path, rollback, dry-run, not-found, invalid-transition, concurrent, E2E). Modified: error.rs (+InvalidStateTransition + UpdatePlanNotFound variants), lib.rs (+pub mod update_driver + 11 re-exports). Clippy fixes: unnested-or-patterns in matches! macro (3 iterations: group by from-state, nest Failed|Active, remove unused parens) + missing-const-for-fn on is_legal_transition + enum-glob-use replaced with explicit 11-variant imports + expect_used allowed in test module. All 4 gates PASS: cargo check (clean), cargo test --workspace (all pass, 0 failures), cargo clippy --workspace --all-targets -- -D warnings (0 warnings), cargo fmt --check (clean). STOP per brief — T-122 deferred. | SUCCESS | T-122 deferred
 
 2026-05-27T00:10:00Z | T-120 | commit | git commit 68ca420 T-120: aios-apps — Session container driver (S6.5). 2 new files (+824 LOC): session_driver.rs (SessionDriver async trait + InMemorySessionDriver + SessionState/Principal/CapabilityHandle/SessionMetrics/OpenSessionRequest/SessionFilter/SessionExitReason/SessionTerminationReceipt/SessionDescriptor/SessionEntry), tests/session_driver.rs (14 integration tests). Modified: lib.rs (+pub mod session_driver + re-exports). All 4 gates PASS: cargo check, cargo test (workspace all pass), cargo clippy -D warnings (0), cargo fmt --check (clean). 6 clippy fixes: cast_possible_wrap→unsigned_abs, cast_sign_loss→unsigned_abs, significant_drop_tightening x3→drop(guard), redundant_closure→SessionEntry::to_descriptor, unwrap_used→allow in tests. STOP per brief — T-121 deferred. | SUCCESS | T-121 deferred
@@ -696,3 +700,28 @@ Status: completed
 Commit: 75532e8
 M14 closed: 12/12 tasks (T-127..T-138)
 Next: M15 (aios-renderer-web)
+
+[2026-05-27] T-142 COMPLETE — aios-renderer-web VisualToken → CSS custom property mapping (S7.5 §8.2)
+  3 files changed (+889 LOC):
+  - crates/aios-renderer-web/src/css_compile.rs (NEW): CssRecipe 7-variant enum, CssEasing, WebShapeKind, WebIconLookupCtx, compile_token_to_css, compile_token_to_css_with_ctx, recipe_to_css_block
+  - crates/aios-renderer-web/src/lib.rs: +pub mod css_compile + re-exports
+  - crates/aios-renderer-web/tests/css_compile.rs (NEW): 28 integration tests
+  All 4 gates green:
+  - cargo check: clean
+  - cargo test -p aios-renderer-web: 85 tests (28 css_compile + 57 existing), 0 failures
+  - cargo clippy --all-targets -- -D warnings: 0 warnings
+  - cargo fmt --check: clean
+  Workspace tests: all pass, 0 failures
+  Commit: 6eec3d7
+  Next: T-143 (HTTPS server + self-signed cert) — DEFERRED
+[2026-05-27T14:35:58Z] T-146: Per-origin verifier + chrome shadow-root integrity (INV I2/I4/I7/I10). Implemented OriginVerifier with IframeOriginBinding (register_binding/verify_composition/revoke_binding/list_bindings), ChromeIntegrityMonitor with ChromeTreeFragment (admit_signed_fragment via Ed25519, check_observed_hash, history), 15 integration tests. Modified: Cargo.toml (+ed25519-dalek/rand_core), lib.rs (+pub mod + re-exports). New files: origin_verifier.rs (141 LOC), chrome_integrity.rs (153 LOC), tests/origin_chrome.rs (283 LOC). All 5 gates PASS: cargo check (clean), cargo test -p aios-renderer-web (151 tests, +15), cargo test --workspace (2952 tests, +15), cargo clippy -D warnings (0 warnings), cargo fmt --check (clean). Commit ece44c3. STOP per brief. T-147 deferred.
+2026-05-27T15:30:00Z T-147 GATE-SWEEP: cargo check --workspace PASSED (2 pre-existing dead_code warnings only)
+2026-05-27T15:32:00Z T-147 GATE-SWEEP: cargo test --workspace PASSED (all tests pass, 0 failures across entire workspace)
+2026-05-27T15:35:00Z T-147 GATE-SWEEP: cargo clippy --workspace --all-targets -- -D warnings PASSED (after fixing 5 missing_const_for_fn + 2 dead_code + 11 significant_drop_tightening + 1 doc_markdown)
+2026-05-27T15:37:00Z T-147 GATE-SWEEP: cargo fmt --all -- --check PASSED
+2026-05-27T15:40:00Z T-147 COMMIT: 753ff7f — 14 files, 2636 insertions. M15 milestone complete. STOP.
+2026-05-27T00:00:00Z T-148 COMPLETED
+  task: Next.js scaffolding + 19 React components for NodeKind
+  gates: cargo check PASS | cargo test -p aios-renderer-web 194 PASS | cargo test --workspace 2995 PASS | cargo clippy PASS | cargo fmt PASS | pnpm install PASS | pnpm typecheck PASS
+  status: SUCCESS
+  next: T-149 (cross-crate integration: web ↔ renderer-cli + apps + kde parity)

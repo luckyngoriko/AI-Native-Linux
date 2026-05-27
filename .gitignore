@@ -33,3 +33,10 @@ __pycache__/
 tools/capella/.venv/
 tools/capella/output/build_report.json
 tools/capella/output/gap_report.json
+
+# aios-renderer-web Next.js build artefacts
+crates/aios-renderer-web/web-app/node_modules/
+crates/aios-renderer-web/web-app/.next/
+crates/aios-renderer-web/web-app/out/
+crates/aios-renderer-web/web-app/tsconfig.tsbuildinfo
+crates/aios-renderer-web/web-app/pnpm-workspace.yaml

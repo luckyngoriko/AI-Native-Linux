@@ -3,7 +3,10 @@
 //! Typed core skeleton: data model + invariants only. Wayland client,
 //! Qt/QML compilation, and `KWin` scripting land in later tasks.
 
-#![forbid(unsafe_code)]
+#![deny(unsafe_code)]
+
+#[cfg(feature = "qt-bridge")]
+pub mod qt_bridge;
 
 pub mod compilation;
 pub mod error;

@@ -29,7 +29,7 @@ repository = "https://github.com/luckyngoriko/055.AI-OS.NET--LINUX-AI"
 authors = ["AIOS Maintainers"]
 
 [workspace.lints.rust]
-unsafe_code = "forbid"
+unsafe_code = "deny"
 unused_must_use = "deny"
 missing_docs = "warn"
 
@@ -130,6 +130,25 @@ lru         = "0.12"
 # current stable line; "html_reports" feature is omitted because the CI
 # integration that consumes the reports lands in T-025+.
 criterion   = { version = "0.5", default-features = false, features = ["cargo_bench_support"] }
+# T-136: cxx-qt 0.7 bridge for Qt6/QML integration (S7.4 §4). Optional —
+# only compiled when the `qt-bridge` feature is enabled. cxx-qt-build is a
+# build-dependency invoked from build.rs to generate C++/Rust glue code.
+# `full` feature on cxx-qt-lib brings in all Qt wrapper types (QString,
+# QVariant, etc.). Qt6 headers + qmake6 must be available at build time.
+	# T-136: cxx-qt 0.7 bridge for Qt6/QML integration (S7.4 §4). Optional —
+	# only compiled when the `qt-bridge` feature is enabled. cxx-qt-build is a
+	# build-dependency invoked from build.rs to generate C++/Rust glue code.
+	# `full` feature on cxx-qt-lib brings in all Qt wrapper types (QString,
+	# QVariant, etc.). Qt6 headers + qmake6 must be available at build time.
+	cxx-qt       = { version = "0.7", default-features = false }
+	cxx-qt-lib   = { version = "0.7", features = ["full"] }
+	cxx-qt-build = "0.7"
+	# cxx must be a DIRECT (non-optional) dependency so its proc macro
+	# (cxxbridge-macro) is registered with the compiler. cxx-qt's proc macro
+	# generates #[cxx::bridge] output at compile time; if cxx is only a
+	# transitive dependency, the generated code fails with:
+	#   "non-foreign item macro in foreign item position: include"
+	cxx          = "1.0"
 
 [profile.dev]
 opt-level = 0

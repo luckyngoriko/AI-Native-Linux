@@ -29,9 +29,22 @@ aios-action    = { path = "../aios-action" }
 aios-evidence  = { path = "../aios-evidence" }
 aios-policy    = { path = "../aios-policy" }
 
+# T-136: optional cxx-qt bridge (off by default → headless CI skips Qt6 build)
+cxx-qt     = { workspace = true, optional = true }
+cxx-qt-lib = { workspace = true, optional = true }
+# cxx must be a DIRECT dependency so cxxbridge-macro is registered with the
+# compiler. When cxx is only transitive, the compiler cannot process the
+# #[cxx::bridge] modules that cxx-qt's proc macro generates at expansion time.
+cxx        = { workspace = true }
+
+[features]
+default = []
+qt-bridge = ["cxx-qt", "cxx-qt-lib"]
+
 [build-dependencies]
 tonic-build          = { workspace = true }
 protoc-bin-vendored  = { workspace = true }
+cxx-qt-build         = { workspace = true }
 
 [dev-dependencies]
 tokio          = { workspace = true }

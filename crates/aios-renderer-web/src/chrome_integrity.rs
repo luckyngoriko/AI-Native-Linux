@@ -8,9 +8,11 @@
 use chrono::{DateTime, Utc};
 use ed25519_dalek::{Signature, Verifier, VerifyingKey};
 use std::collections::HashSet;
+use std::sync::Arc;
 use tokio::sync::RwLock;
 
 use crate::error::WebRendererError;
+use crate::evidence::WebEvidenceEmitter;
 
 /// Outcome of a chrome shadow-root integrity check.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -61,6 +63,8 @@ pub struct ChromeIntegrityMonitor {
     signed_root_hashes: RwLock<HashSet<String>>,
     /// Full history of every integrity check performed.
     integrity_checks: RwLock<Vec<IntegrityCheckRecord>>,
+    /// Optional evidence emitter for extension interference events.
+    evidence_emitter: Option<Arc<dyn WebEvidenceEmitter>>,
 }
 
 impl ChromeIntegrityMonitor {
@@ -71,7 +75,15 @@ impl ChromeIntegrityMonitor {
             tree_signing_authority,
             signed_root_hashes: RwLock::new(HashSet::new()),
             integrity_checks: RwLock::new(Vec::new()),
+            evidence_emitter: None,
         }
+    }
+
+    /// Attach an optional evidence emitter for extension interference events.
+    #[must_use]
+    pub fn with_evidence_emitter(mut self, emitter: Arc<dyn WebEvidenceEmitter>) -> Self {
+        self.evidence_emitter = Some(emitter);
+        self
     }
 
     /// Admit a signed chrome tree fragment into the registry.

@@ -10,6 +10,7 @@ pub mod chrome_integrity;
 pub mod compilation;
 pub mod css_compile;
 pub mod error;
+pub mod evidence;
 pub mod exposure;
 pub mod exposure_fsm;
 pub mod grpc_web_bridge;
@@ -17,6 +18,7 @@ pub mod https;
 pub mod origin;
 pub mod origin_verifier;
 pub mod renderer;
+pub mod service;
 pub mod types;
 
 pub use chrome_integrity::{
@@ -30,6 +32,9 @@ pub use css_compile::{
     WebIconLookupCtx, WebShapeKind,
 };
 pub use error::WebRendererError;
+pub use evidence::{
+    InMemoryWebEvidenceEmitter, WebEvidenceEmitter, WebEvidenceReceipt, WebRecordType,
+};
 pub use exposure::{ExposureLevel, ExposureLevelLabel};
 pub use exposure_fsm::{ExposureFsm, ExposureTransition, ExposureTransitionReason};
 pub use grpc_web_bridge::{

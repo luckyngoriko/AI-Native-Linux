@@ -1,0 +1,322 @@
+// T-147 — gRPC WebRendererService surface (S7.5 §10).
+//
+// 24-RPC closed surface: surface allocation lifecycle, route registration,
+// recovery/degraded mode entry, exposure FSM operations, visual token
+// application, iframe origin binding (INV I4), and chrome shadow-root
+// integrity admission/check (INV I10).
+//
+// Rust integration:
+//   - `crates/aios-renderer-web/build.rs` invokes tonic-build for stubs.
+//   - `src/service/conversions.rs` owns Rust ↔ proto translation.
+//   - `src/service/server.rs` hosts `WebRendererServer`.
+
+syntax = "proto3";
+package aios.renderer.web;
+
+import "google/protobuf/timestamp.proto";
+import "google/protobuf/empty.proto";
+
+// ── Enums ──────────────────────────────────────────────────────────────
+
+enum WebRendererModeKind {
+  WEB_RENDERER_MODE_UNSPECIFIED = 0;
+  MODE_NORMAL                   = 1;
+  MODE_RECOVERY                 = 2;
+  MODE_DEGRADED                 = 3;
+}
+
+message WebRendererModeProto {
+  WebRendererModeKind kind = 1;
+  string degraded_reason   = 2;
+}
+
+enum ExposureLevelLabelProto {
+  EXPOSURE_LEVEL_LABEL_UNSPECIFIED = 0;
+  LABEL_LOCALHOST                  = 1;
+  LABEL_LAN_PENDING                = 2;
+  LABEL_LAN_APPROVED               = 3;
+  LABEL_LAN_ACTIVE                 = 4;
+  LABEL_PUBLIC                     = 5;
+  LABEL_REVOKED                    = 6;
+}
+
+message ExposureLevelProto {
+  ExposureLevelLabelProto label = 1;
+  // Fields populated depending on the variant:
+  //   Localhost → none
+  //   LanPending → since, approver_canonical_id
+  //   LanApproved → granted_at, policy_decision_id
+  //   LanActive → activated_at, last_heartbeat_at
+  //   Public → granted_at, recovery_authorized_by, policy_decision_id
+  //   Revoked → reason, revoked_at
+  optional google.protobuf.Timestamp since                = 2;
+  optional string approver_canonical_id                   = 3;
+  optional google.protobuf.Timestamp granted_at           = 4;
+  optional string policy_decision_id                      = 5;
+  optional google.protobuf.Timestamp activated_at         = 6;
+  optional google.protobuf.Timestamp last_heartbeat_at    = 7;
+  optional string recovery_authorized_by                  = 8;
+  optional string reason                                  = 9;
+  optional google.protobuf.Timestamp revoked_at           = 10;
+}
+
+enum NodeKindProto {
+  NODE_KIND_UNSPECIFIED = 0;
+  CONTAINER             = 1;
+  DIVIDER               = 2;
+  SPACER                = 3;
+  TEXT                  = 4;
+  HEADING               = 5;
+  INLINE_CODE           = 6;
+  CODE_BLOCK            = 7;
+  CARD                  = 8;
+  LIST                  = 9;
+  TABLE                 = 10;
+  FORM                  = 11;
+  ACTION_BUTTON         = 12;
+  VISUALIZATION         = 13;
+  STREAM                = 14;
+  SURFACE_EMBED         = 15;
+  SECURITY_INDICATOR    = 16;
+  APPROVAL_PROMPT       = 17;
+  EVIDENCE_LINK         = 18;
+  AGENT_MESSAGE         = 19;
+}
+
+enum VisualTokenKindProto {
+  TOKEN_KIND_UNSPECIFIED = 0;
+  COLOR                  = 1;
+  FONT                   = 2;
+  SPACING                = 3;
+  MOTION                 = 4;
+  ICON                   = 5;
+  SHAPE                  = 6;
+  ELEVATION              = 7;
+}
+
+// ── Origin message ─────────────────────────────────────────────────────
+
+message ParsedOriginProto {
+  string full_origin = 1;
+  string host        = 2;
+  uint32 port        = 3;
+  // The scheme is encoded as a string: "aios_localhost", "recovery", "app_origin".
+  string origin_scheme = 4;
+  // When origin_scheme is "aios_localhost" or "app_origin", the token value.
+  optional string origin_token = 5;
+}
+
+// ── Surface messages ───────────────────────────────────────────────────
+
+message WebSurfaceDescriptorProto {
+  string id                                    = 1;
+  ParsedOriginProto origin                     = 2;
+  NodeKindProto node_kind                      = 3;
+  string claimed_by                            = 4;
+  WebRendererModeProto mode                    = 5;
+  google.protobuf.Timestamp created_at         = 6;
+}
+
+message AllocateWebSurfaceRequestProto {
+  ParsedOriginProto origin     = 1;
+  NodeKindProto node_kind      = 2;
+  string claimed_by            = 3;
+  optional string expected_group_id = 4;
+}
+
+message WebSurfaceReleaseReceiptProto {
+  string id                             = 1;
+  google.protobuf.Timestamp released_at = 2;
+  WebRendererModeProto final_mode       = 3;
+}
+
+message GetSurfaceRequest {
+  string id = 1;
+}
+
+message WebSurfaceFilterProto {
+  oneof filter {
+    google.protobuf.Empty all      = 1;
+    string by_origin               = 2;
+    string by_claimant             = 3;
+    NodeKindProto by_node_kind     = 4;
+    WebRendererModeProto in_mode_only = 5;
+  }
+}
+
+message ListSurfacesRequest {
+  WebSurfaceFilterProto filter = 1;
+}
+
+message ListSurfacesResponse {
+  repeated WebSurfaceDescriptorProto surfaces = 1;
+}
+
+message ReleaseSurfaceRequest {
+  string id = 1;
+}
+
+// ── Route messages ─────────────────────────────────────────────────────
+
+message RouteDescriptorProto {
+  string path               = 1;
+  bool requires_auth        = 2;
+  bool served_in_recovery   = 3;
+}
+
+message RegisterRouteRequest {
+  RouteDescriptorProto route = 1;
+}
+
+message UnregisterRouteRequest {
+  string path = 1;
+}
+
+message ListRoutesRequest {}
+
+message ListRoutesResponse {
+  repeated RouteDescriptorProto routes = 1;
+}
+
+// ── Mode messages ──────────────────────────────────────────────────────
+
+message EnterRecoveryModeRequest {}
+
+message RecoveryEntryReceiptProto {
+  google.protobuf.Timestamp entered_at         = 1;
+  string recovery_origin                       = 2;
+  bool service_worker_disabled                 = 3;
+}
+
+message ExitRecoveryModeRequest {}
+
+message EnterDegradedModeRequest {
+  string reason = 1;
+}
+
+message GetModeRequest {}
+
+message GetModeResponse {
+  WebRendererModeProto mode = 1;
+}
+
+// ── Exposure messages ──────────────────────────────────────────────────
+
+message CurrentExposureRequest {}
+
+message CurrentExposureResponse {
+  ExposureLevelProto level = 1;
+}
+
+message RequestLanEscalationRequest {
+  string approver_canonical_id = 1;
+}
+
+message ApplyPolicyDecisionRequest {
+  string decision_id = 1;
+}
+
+message ActivateLanExposureRequest {}
+
+message RecordHeartbeatRequest {}
+
+message RevokeExposureRequest {
+  string reason = 1;
+}
+
+message EscalateToPublicRequest {
+  string authorized_by = 1;
+  string decision_id   = 2;
+}
+
+// ── Visual token messages ──────────────────────────────────────────────
+
+message VisualTokenProto {
+  string id                  = 1;
+  VisualTokenKindProto kind  = 2;
+  string canonical_value     = 3;
+}
+
+message TokenApplicationReceiptProto {
+  uint32 applied_count                  = 1;
+  google.protobuf.Timestamp timestamp   = 2;
+}
+
+message ApplyVisualTokensRequest {
+  repeated VisualTokenProto tokens = 1;
+}
+
+message GetActiveTokensRequest {}
+
+message GetActiveTokensResponse {
+  repeated VisualTokenProto tokens = 1;
+}
+
+// ── Iframe origin binding messages (INV I4) ────────────────────────────
+
+message RegisterIframeBindingRequest {
+  string iframe_origin               = 1;
+  string surface_id                  = 2;
+  string bound_group_id             = 3;
+  string scope_binding_evidence_id  = 4;
+}
+
+message VerifyCompositionRequest {
+  string surface_id         = 1;
+  string presented_origin   = 2;
+}
+
+// ── Chrome shadow-root integrity messages (INV I10) ────────────────────
+
+message AdmitChromeFragmentRequest {
+  string root_hash                        = 1;
+  bytes signature                         = 2;
+  google.protobuf.Timestamp signed_at     = 3;
+}
+
+message CheckChromeIntegrityRequest {
+  string observed_hash    = 1;
+  optional string expected_tag = 2;
+}
+
+// ── Service definition (24 RPCs, closed) ───────────────────────────────
+
+service WebRendererService {
+  // Surface lifecycle (4 RPCs)
+  rpc AllocateSurface(AllocateWebSurfaceRequestProto) returns (WebSurfaceDescriptorProto);
+  rpc ReleaseSurface(ReleaseSurfaceRequest) returns (WebSurfaceReleaseReceiptProto);
+  rpc GetSurface(GetSurfaceRequest) returns (WebSurfaceDescriptorProto);
+  rpc ListSurfaces(ListSurfacesRequest) returns (ListSurfacesResponse);
+
+  // Route management (3 RPCs)
+  rpc RegisterRoute(RegisterRouteRequest) returns (google.protobuf.Empty);
+  rpc UnregisterRoute(UnregisterRouteRequest) returns (google.protobuf.Empty);
+  rpc ListRoutes(ListRoutesRequest) returns (ListRoutesResponse);
+
+  // Mode management (4 RPCs)
+  rpc EnterRecoveryMode(EnterRecoveryModeRequest) returns (RecoveryEntryReceiptProto);
+  rpc ExitRecoveryMode(ExitRecoveryModeRequest) returns (google.protobuf.Empty);
+  rpc EnterDegradedMode(EnterDegradedModeRequest) returns (google.protobuf.Empty);
+  rpc GetMode(GetModeRequest) returns (GetModeResponse);
+
+  // Exposure FSM (7 RPCs)
+  rpc CurrentExposure(CurrentExposureRequest) returns (CurrentExposureResponse);
+  rpc RequestLanEscalation(RequestLanEscalationRequest) returns (google.protobuf.Empty);
+  rpc ApplyPolicyDecision(ApplyPolicyDecisionRequest) returns (google.protobuf.Empty);
+  rpc ActivateLanExposure(ActivateLanExposureRequest) returns (google.protobuf.Empty);
+  rpc RecordHeartbeat(RecordHeartbeatRequest) returns (google.protobuf.Empty);
+  rpc RevokeExposure(RevokeExposureRequest) returns (google.protobuf.Empty);
+  rpc EscalateToPublic(EscalateToPublicRequest) returns (google.protobuf.Empty);
+
+  // Visual tokens (2 RPCs)
+  rpc ApplyVisualTokens(ApplyVisualTokensRequest) returns (TokenApplicationReceiptProto);
+  rpc GetActiveTokens(GetActiveTokensRequest) returns (GetActiveTokensResponse);
+
+  // Iframe origin binding (2 RPCs, INV I4)
+  rpc RegisterIframeBinding(RegisterIframeBindingRequest) returns (google.protobuf.Empty);
+  rpc VerifyComposition(VerifyCompositionRequest) returns (google.protobuf.Empty);
+
+  // Chrome shadow-root integrity (2 RPCs, INV I10)
+  rpc AdmitChromeFragment(AdmitChromeFragmentRequest) returns (google.protobuf.Empty);
+  rpc CheckChromeIntegrity(CheckChromeIntegrityRequest) returns (google.protobuf.Empty);
+}

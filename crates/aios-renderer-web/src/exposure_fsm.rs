@@ -7,12 +7,14 @@
 //!
 //! All invalid transitions return `WebRendererError::ExposureEscalationDenied`.
 
+use std::sync::Arc;
 use std::time::Duration;
 
 use chrono::{DateTime, Utc};
 use tokio::sync::RwLock;
 
 use crate::error::WebRendererError;
+use crate::evidence::WebEvidenceEmitter;
 use crate::exposure::{ExposureLevel, ExposureLevelLabel};
 
 /// Twenty-four hours in seconds — INV I3 default heartbeat interval.
@@ -28,6 +30,7 @@ pub struct ExposureFsm {
     history: RwLock<Vec<ExposureTransition>>,
     last_heartbeat_at: RwLock<Option<DateTime<Utc>>>,
     heartbeat_interval: Duration,
+    evidence_emitter: Option<Arc<dyn WebEvidenceEmitter>>,
 }
 
 /// One recorded transition in the exposure lifecycle.
@@ -81,6 +84,7 @@ impl ExposureFsm {
             history: RwLock::new(Vec::new()),
             last_heartbeat_at: RwLock::new(None),
             heartbeat_interval: Duration::from_secs(DEFAULT_HEARTBEAT_INTERVAL_SECS),
+            evidence_emitter: None,
         }
     }
 
@@ -92,7 +96,15 @@ impl ExposureFsm {
             history: RwLock::new(Vec::new()),
             last_heartbeat_at: RwLock::new(None),
             heartbeat_interval: interval,
+            evidence_emitter: None,
         }
+    }
+
+    /// Attach an optional evidence emitter for lifecycle event emission.
+    #[must_use]
+    pub fn with_evidence_emitter(mut self, emitter: Arc<dyn WebEvidenceEmitter>) -> Self {
+        self.evidence_emitter = Some(emitter);
+        self
     }
 
     // ── accessors ──────────────────────────────────────────────────────

@@ -9,11 +9,13 @@
 //! backends (gRPC-Web bridge, Next.js) compose against the trait.
 
 use std::collections::HashMap;
+use std::sync::Arc;
 
 use chrono::{DateTime, Utc};
 use tokio::sync::RwLock;
 
 use crate::error::WebRendererError;
+use crate::evidence::WebEvidenceEmitter;
 use crate::exposure::ExposureLevel;
 use crate::origin::{OriginScheme, ParsedOrigin};
 use crate::types::{RouteDescriptor, WebRendererMode, WebSurfaceDescriptor, WebSurfaceId};
@@ -183,6 +185,7 @@ pub trait WebRenderer: Send + Sync {
 /// Next.js) that perform I/O.
 pub struct InMemoryWebRenderer {
     state: RwLock<WebRendererState>,
+    evidence_emitter: Option<Arc<dyn WebEvidenceEmitter>>,
 }
 
 impl InMemoryWebRenderer {
@@ -192,7 +195,15 @@ impl InMemoryWebRenderer {
     pub fn new() -> Self {
         Self {
             state: RwLock::new(WebRendererState::default()),
+            evidence_emitter: None,
         }
+    }
+
+    /// Attach an optional evidence emitter for lifecycle event emission.
+    #[must_use]
+    pub fn with_evidence_emitter(mut self, emitter: Arc<dyn WebEvidenceEmitter>) -> Self {
+        self.evidence_emitter = Some(emitter);
+        self
     }
 }
 

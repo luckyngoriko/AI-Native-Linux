@@ -1,10 +1,11 @@
 use std::collections::HashMap;
-use std::sync::RwLock;
+use std::sync::{Arc, RwLock};
 
 use chrono::{DateTime, Utc};
 
 use crate::cve::{CveId, CveSeverity, CveStatus};
 use crate::error::IntegrationError;
+use crate::evidence::IntegrationEvidenceEmitter;
 
 // ---------------------------------------------------------------------------
 // CveRecord
@@ -126,6 +127,7 @@ pub struct CveFeedShape {
     records: RwLock<HashMap<CveId, CveRecord>>,
     bindings: RwLock<HashMap<String, PackageCveBinding>>,
     by_package: RwLock<HashMap<String, Vec<String>>>,
+    emitter: Option<Arc<dyn IntegrationEvidenceEmitter>>,
 }
 
 #[allow(clippy::unused_async)]
@@ -137,7 +139,16 @@ impl CveFeedShape {
             records: RwLock::new(HashMap::new()),
             bindings: RwLock::new(HashMap::new()),
             by_package: RwLock::new(HashMap::new()),
+            emitter: None,
         }
+    }
+
+    /// Attach an optional [`IntegrationEvidenceEmitter`] for chain-of-custody
+    /// evidence emission.
+    #[must_use]
+    pub fn with_emitter(mut self, emitter: Arc<dyn IntegrationEvidenceEmitter>) -> Self {
+        self.emitter = Some(emitter);
+        self
     }
 
     // -- record ingestion ---------------------------------------------------
@@ -209,14 +220,37 @@ impl CveFeedShape {
         }
         let binding_id = binding.binding_id.clone();
         let package_id = binding.package_id.clone();
+        let cve_id_for_emit = binding.cve_id.clone();
         {
             let mut bindings = self.bindings.write().map_err(|_| lock_poisoned())?;
             bindings.insert(binding_id.clone(), binding);
         }
         {
             let mut by_pkg = self.by_package.write().map_err(|_| lock_poisoned())?;
-            by_pkg.entry(package_id).or_default().push(binding_id);
+            by_pkg
+                .entry(package_id)
+                .or_default()
+                .push(binding_id.clone());
         }
+
+        if let Some(ref emitter) = self.emitter {
+            let binding_for_emit = {
+                let bindings = self.bindings.read().map_err(|_| lock_poisoned())?;
+                bindings.get(&binding_id).cloned()
+            };
+            if let Some(ref b) = binding_for_emit {
+                let severity = self
+                    .records
+                    .read()
+                    .map_err(|_| lock_poisoned())?
+                    .get(&cve_id_for_emit)
+                    .map(|r| r.severity);
+                if let Some(severity) = severity {
+                    let _ = emitter.emit_package_has_known_cve(b, severity).await;
+                }
+            }
+        }
+
         Ok(())
     }
 
@@ -329,6 +363,11 @@ impl CveFeedShape {
 
 impl Default for CveFeedShape {
     fn default() -> Self {
-        Self::new()
+        Self {
+            records: RwLock::new(HashMap::new()),
+            bindings: RwLock::new(HashMap::new()),
+            by_package: RwLock::new(HashMap::new()),
+            emitter: None,
+        }
     }
 }

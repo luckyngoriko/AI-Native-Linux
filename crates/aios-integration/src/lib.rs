@@ -3,6 +3,7 @@
 //! Typed core skeleton: closed vocabularies + error enum + identifier types.
 //! Vendor registry, standards subscriptions, CVE shape, system composition,
 //! orchestrator binary, gRPC, evidence, cross-crate land in later tasks.
+#![allow(clippy::too_long_first_doc_paragraph)]
 /// External bridge contracts (Flathub/OCI/apt/dnf/pacman).
 pub mod bridges;
 /// System composition graph types (S11.4 §2 I5).
@@ -17,12 +18,18 @@ pub mod cve;
 pub mod cve_feed;
 /// Integration-layer structured error catalogue.
 pub mod error;
+/// L10 Integration Evidence Emitter — typed lifecycle event emission into the
+/// append-only Evidence Log (S11.4 ↔ S3.1).
+pub mod evidence;
 /// Identifier newtypes for integration resources.
 pub mod ids;
 /// 6-state integration lifecycle FSM (S11.4 §2 I1).
 pub mod lifecycle;
 /// Service composition orchestrator — typed scaffold for the boot sequence.
 pub mod orchestrator;
+/// Unified Record Catalogue — canonical index of every `RecordType` the AIOS
+/// evidence system can emit, keyed by wire name with ownership metadata.
+pub mod record_catalogue;
 /// gRPC IntegrationService surface — tonic server/client stubs, conversions, server adapter.
 pub mod service;
 /// Compliance standard taxonomy and subscription types.
@@ -53,9 +60,16 @@ pub use cve_feed::{
     PackageCveBinding,
 };
 pub use error::{IntegrationError, IntegrationErrorCode};
+pub use evidence::{
+    EvidenceReceipt, InMemoryIntegrationEvidenceEmitter, IntegrationEvidenceEmitter,
+    IntegrationRecordType, WithIntegrationEmitter,
+};
 pub use ids::{ComposedSystemId, IntegrationId, StandardSubscriptionId, VendorContractId};
 pub use lifecycle::{IntegrationLifecycleLabel, IntegrationLifecycleState};
 pub use orchestrator::{Orchestrator, ServiceHealthSummary, ServiceScaffoldStatus};
+pub use record_catalogue::{
+    default_index_entries, CatalogueEntry, RecordTypeOwnership, UnifiedRecordCatalogue,
+};
 pub use standard::{StandardKind, StandardSubscription};
 pub use standard_registry::{
     standard_kind_to_canonical_url, ExternalStandardRegistry, StandardReviewRecord,

@@ -1,9 +1,10 @@
 use std::collections::HashMap;
-use std::sync::RwLock;
+use std::sync::{Arc, RwLock};
 
 use chrono::{DateTime, Duration, Utc};
 
 use crate::error::IntegrationError;
+use crate::evidence::IntegrationEvidenceEmitter;
 use crate::ids::StandardSubscriptionId;
 use crate::standard::{StandardKind, StandardSubscription};
 
@@ -58,6 +59,7 @@ pub struct ExternalStandardRegistry {
     subscriptions: RwLock<HashMap<StandardSubscriptionId, StandardSubscription>>,
     review_history: RwLock<Vec<StandardReviewRecord>>,
     default_review_interval_days: u32,
+    emitter: Option<Arc<dyn IntegrationEvidenceEmitter>>,
 }
 
 impl ExternalStandardRegistry {
@@ -68,6 +70,7 @@ impl ExternalStandardRegistry {
             subscriptions: RwLock::new(HashMap::new()),
             review_history: RwLock::new(Vec::new()),
             default_review_interval_days: 90,
+            emitter: None,
         }
     }
 
@@ -78,7 +81,16 @@ impl ExternalStandardRegistry {
             subscriptions: RwLock::new(HashMap::new()),
             review_history: RwLock::new(Vec::new()),
             default_review_interval_days: days,
+            emitter: None,
         }
+    }
+
+    /// Attach an optional [`IntegrationEvidenceEmitter`] for chain-of-custody
+    /// evidence emission.
+    #[must_use]
+    pub fn with_emitter(mut self, emitter: Arc<dyn IntegrationEvidenceEmitter>) -> Self {
+        self.emitter = Some(emitter);
+        self
     }
 
     /// Registers a new standard subscription.
@@ -119,31 +131,47 @@ impl ExternalStandardRegistry {
         reviewer: String,
         note: String,
     ) -> Result<(), IntegrationError> {
-        let mut subs = self.subscriptions.write().map_err(|_| lock_poisoned())?;
-        let sub = subs
-            .get_mut(subscription_id)
-            .ok_or_else(|| IntegrationError::Internal("unknown subscription".into()))?;
+        let record = {
+            let mut subs = self.subscriptions.write().map_err(|_| lock_poisoned())?;
+            let sub = subs
+                .get_mut(subscription_id)
+                .ok_or_else(|| IntegrationError::Internal("unknown subscription".into()))?;
 
-        let record = StandardReviewRecord {
-            subscription_id: subscription_id.clone(),
-            reviewed_at: Utc::now(),
-            reviewer,
-            revision_before: sub.current_revision.clone(),
-            revision_after: new_revision.clone(),
-            note,
+            let record = StandardReviewRecord {
+                subscription_id: subscription_id.clone(),
+                reviewed_at: Utc::now(),
+                reviewer,
+                revision_before: sub.current_revision.clone(),
+                revision_after: new_revision.clone(),
+                note,
+            };
+
+            sub.current_revision = new_revision;
+            sub.last_reviewed_at = record.reviewed_at;
+            sub.next_review_due_at =
+                record.reviewed_at + Duration::days(i64::from(self.default_review_interval_days));
+            drop(subs);
+            record
         };
-
-        sub.current_revision = new_revision;
-        sub.last_reviewed_at = record.reviewed_at;
-        sub.next_review_due_at =
-            record.reviewed_at + Duration::days(i64::from(self.default_review_interval_days));
-
-        drop(subs);
 
         self.review_history
             .write()
             .map_err(|_| lock_poisoned())?
             .push(record);
+
+        if let Some(ref emitter) = self.emitter {
+            let sub_for_emit = self
+                .subscriptions
+                .read()
+                .map_err(|_| lock_poisoned())?
+                .get(subscription_id)
+                .cloned();
+            if let Some(sub) = sub_for_emit {
+                let _ = emitter
+                    .emit_standard_update_available(&sub, &sub.current_revision)
+                    .await;
+            }
+        }
 
         Ok(())
     }

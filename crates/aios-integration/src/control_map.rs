@@ -1,10 +1,12 @@
 use std::collections::HashMap;
+use std::sync::Arc;
 
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use tokio::sync::RwLock;
 
 use crate::error::IntegrationError;
+use crate::evidence::IntegrationEvidenceEmitter;
 use crate::standard::StandardKind;
 
 /// An AIOS invariant from the specification (INV-001 .. INV-024).
@@ -76,13 +78,13 @@ pub struct ControlDriftReport {
 
 /// Registry that tracks AIOS-invariant ↔ external control framework mappings
 /// and produces immutable compliance baseline snapshots with drift detection.
-#[derive(Debug)]
 pub struct ControlMapRegistry {
     /// Active control mappings keyed by mapping_id.  Exposed as pub(crate) so
     /// integration tests can directly mutate the map for drift scenarios.
     #[allow(clippy::doc_markdown)]
     pub mappings: RwLock<HashMap<String, ControlMapping>>,
     baselines: RwLock<HashMap<String, ComplianceBaseline>>,
+    emitter: Option<Arc<dyn IntegrationEvidenceEmitter>>,
 }
 
 impl ControlMapRegistry {
@@ -92,7 +94,16 @@ impl ControlMapRegistry {
         Self {
             mappings: RwLock::new(HashMap::new()),
             baselines: RwLock::new(HashMap::new()),
+            emitter: None,
         }
+    }
+
+    /// Attach an optional [`IntegrationEvidenceEmitter`] for chain-of-custody
+    /// evidence emission.
+    #[must_use]
+    pub fn with_emitter(mut self, emitter: Arc<dyn IntegrationEvidenceEmitter>) -> Self {
+        self.emitter = Some(emitter);
+        self
     }
 
     /// Adds a control mapping.
@@ -117,7 +128,7 @@ impl ControlMapRegistry {
 
     /// Collects every current mapping into an immutable baseline snapshot,
     /// stores it, and returns it.
-    #[allow(clippy::unused_async, clippy::missing_errors_doc)]
+    #[allow(clippy::missing_errors_doc)]
     pub async fn snapshot_baseline(
         &self,
         baseline_id: String,
@@ -140,6 +151,11 @@ impl ControlMapRegistry {
         let mut guard = self.baselines.write().await;
         guard.insert(baseline_id, baseline.clone());
         drop(guard);
+
+        if let Some(ref emitter) = self.emitter {
+            let _ = emitter.emit_baseline_snapshot(&baseline).await;
+        }
+
         Ok(baseline)
     }
 
@@ -169,7 +185,6 @@ impl ControlMapRegistry {
     }
 
     /// Computes drift between a prior baseline and the current mapping state.
-    #[allow(clippy::unused_async)]
     pub async fn detect_drift(&self, prior: &ComplianceBaseline) -> ControlDriftReport {
         let guard = self.mappings.read().await;
 
@@ -209,13 +224,23 @@ impl ControlMapRegistry {
         removed.sort();
         modified.sort();
 
-        ControlDriftReport {
+        let report = ControlDriftReport {
             prior_baseline_id: prior.baseline_id.clone(),
             added,
             removed,
             modified,
             unchanged_count,
+        };
+
+        let has_drift =
+            !report.added.is_empty() || !report.removed.is_empty() || !report.modified.is_empty();
+        if has_drift {
+            if let Some(ref emitter) = self.emitter {
+                let _ = emitter.emit_control_drift(&report).await;
+            }
         }
+
+        report
     }
 
     /// Retrieves a baseline by its identifier.
@@ -229,6 +254,23 @@ impl ControlMapRegistry {
 impl Default for ControlMapRegistry {
     fn default() -> Self {
         Self::new()
+    }
+}
+
+impl crate::evidence::WithIntegrationEmitter for ControlMapRegistry {
+    fn with_emitter(mut self, emitter: Arc<dyn IntegrationEvidenceEmitter>) -> Self {
+        self.emitter = Some(emitter);
+        self
+    }
+}
+
+impl std::fmt::Debug for ControlMapRegistry {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("ControlMapRegistry")
+            .field("mappings", &self.mappings)
+            .field("baselines", &self.baselines)
+            .field("emitter", &self.emitter.as_ref().map(|_| ".."))
+            .finish()
     }
 }
 

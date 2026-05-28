@@ -1,10 +1,11 @@
 use std::collections::HashMap;
-use std::sync::RwLock;
+use std::sync::{Arc, RwLock};
 
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
 use crate::error::IntegrationError;
+use crate::evidence::IntegrationEvidenceEmitter;
 use crate::vendor::{VendorIntegrationContract, VendorTrustClass};
 
 /// Closed taxonomy of external package bridge kinds.
@@ -162,6 +163,7 @@ fn lock_poisoned() -> IntegrationError {
 /// Registry of admitted external bridges keyed by bridge id.
 pub struct ExternalBridgeRegistry {
     bridges: RwLock<HashMap<String, BridgeContract>>,
+    emitter: Option<Arc<dyn IntegrationEvidenceEmitter>>,
 }
 
 impl ExternalBridgeRegistry {
@@ -170,7 +172,16 @@ impl ExternalBridgeRegistry {
     pub fn new() -> Self {
         Self {
             bridges: RwLock::new(HashMap::new()),
+            emitter: None,
         }
+    }
+
+    /// Attach an optional [`IntegrationEvidenceEmitter`] for chain-of-custody
+    /// evidence emission.
+    #[must_use]
+    pub fn with_emitter(mut self, emitter: Arc<dyn IntegrationEvidenceEmitter>) -> Self {
+        self.emitter = Some(emitter);
+        self
     }
 
     /// Admits a bridge contract.
@@ -189,14 +200,28 @@ impl ExternalBridgeRegistry {
             return Err(IntegrationError::VendorBlacklisted { contract_id });
         }
 
-        let mut bridges = self.bridges.write().map_err(|_| lock_poisoned())?;
-        if bridges.contains_key(&bridge.bridge_id) {
-            return Err(IntegrationError::Internal(
-                "bridge_id already exists".into(),
-            ));
+        let bridge_id = {
+            let mut bridges = self.bridges.write().map_err(|_| lock_poisoned())?;
+            if bridges.contains_key(&bridge.bridge_id) {
+                return Err(IntegrationError::Internal(
+                    "bridge_id already exists".into(),
+                ));
+            }
+            let bridge_id = bridge.bridge_id.clone();
+            bridges.insert(bridge_id.clone(), bridge);
+            bridge_id
+        };
+
+        if let Some(ref emitter) = self.emitter {
+            let admitted = {
+                let bridges = self.bridges.read().map_err(|_| lock_poisoned())?;
+                bridges.get(&bridge_id).cloned()
+            };
+            if let Some(b) = admitted {
+                let _ = emitter.emit_bridge_admitted(&b).await;
+            }
         }
-        bridges.insert(bridge.bridge_id.clone(), bridge);
-        drop(bridges);
+
         Ok(())
     }
 
@@ -255,6 +280,9 @@ impl ExternalBridgeRegistry {
 
 impl Default for ExternalBridgeRegistry {
     fn default() -> Self {
-        Self::new()
+        Self {
+            bridges: RwLock::new(HashMap::new()),
+            emitter: None,
+        }
     }
 }

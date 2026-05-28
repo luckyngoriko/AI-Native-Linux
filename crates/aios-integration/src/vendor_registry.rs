@@ -1,10 +1,11 @@
 use std::collections::{HashMap, HashSet};
-use std::sync::RwLock;
+use std::sync::{Arc, RwLock};
 
 use chrono::Utc;
 use ed25519_dalek::{Signature, VerifyingKey};
 
 use crate::error::IntegrationError;
+use crate::evidence::IntegrationEvidenceEmitter;
 use crate::ids::VendorContractId;
 use crate::lifecycle::{IntegrationLifecycleLabel, IntegrationLifecycleState};
 use crate::vendor::{VendorIntegrationContract, VendorKind, VendorTrustClass};
@@ -78,6 +79,7 @@ pub struct VendorIntegrationRegistry {
     lifecycle_states: RwLock<HashMap<VendorContractId, IntegrationLifecycleState>>,
     trusted_authorities: HashMap<String, VerifyingKey>,
     blacklist: RwLock<HashSet<String>>,
+    emitter: Option<Arc<dyn IntegrationEvidenceEmitter>>,
 }
 
 impl VendorIntegrationRegistry {
@@ -89,7 +91,16 @@ impl VendorIntegrationRegistry {
             lifecycle_states: RwLock::new(HashMap::new()),
             trusted_authorities: HashMap::new(),
             blacklist: RwLock::new(HashSet::new()),
+            emitter: None,
         }
+    }
+
+    /// Attach an optional [`IntegrationEvidenceEmitter`] for chain-of-custody
+    /// evidence emission.
+    #[must_use]
+    pub fn with_emitter(mut self, emitter: Arc<dyn IntegrationEvidenceEmitter>) -> Self {
+        self.emitter = Some(emitter);
+        self
     }
 
     /// Registers a trusted signing authority keyed by fingerprint.
@@ -171,7 +182,17 @@ impl VendorIntegrationRegistry {
         self.lifecycle_states
             .write()
             .map_err(|_| lock_poisoned())?
-            .insert(contract_id, lifecycle);
+            .insert(contract_id.clone(), lifecycle);
+
+        if let Some(ref emitter) = self.emitter {
+            let admitted = {
+                let contracts = self.contracts.read().map_err(|_| lock_poisoned())?;
+                contracts.get(&contract_id).cloned()
+            };
+            if let Some(admitted) = admitted {
+                let _ = emitter.emit_integration_proposed(&admitted).await;
+            }
+        }
 
         Ok(())
     }
@@ -192,27 +213,37 @@ impl VendorIntegrationRegistry {
         contract_id: &VendorContractId,
         new_state: IntegrationLifecycleState,
     ) -> Result<(), IntegrationError> {
-        let mut states = self.lifecycle_states.write().map_err(|_| lock_poisoned())?;
+        let (from, to) = {
+            let mut states = self.lifecycle_states.write().map_err(|_| lock_poisoned())?;
 
-        let current = states
-            .get(contract_id)
-            .ok_or_else(|| IntegrationError::Internal("unknown contract".to_string()))?;
+            let current = states
+                .get(contract_id)
+                .ok_or_else(|| IntegrationError::Internal("unknown contract".to_string()))?;
 
-        let from = current.label();
-        let to = new_state.label();
+            let from = current.label();
+            let to = new_state.label();
 
-        if !is_transition_allowed(from, to, current) {
-            return Err(IntegrationError::LifecycleInvalidTransition {
-                from,
-                to,
-                reason: format!(
-                    "transition from {from:?} to {to:?} is not allowed by the lifecycle FSM"
-                ),
-            });
+            if !is_transition_allowed(from, to, current) {
+                return Err(IntegrationError::LifecycleInvalidTransition {
+                    from,
+                    to,
+                    reason: format!(
+                        "transition from {from:?} to {to:?} is not allowed by the lifecycle FSM"
+                    ),
+                });
+            }
+
+            states.insert(contract_id.clone(), new_state);
+            drop(states);
+            (from, to)
+        };
+
+        if let Some(ref emitter) = self.emitter {
+            let _ = emitter
+                .emit_lifecycle_transitioned(contract_id, from, to)
+                .await;
         }
 
-        states.insert(contract_id.clone(), new_state);
-        drop(states);
         Ok(())
     }
 
@@ -332,6 +363,11 @@ impl VendorIntegrationRegistry {
                     data_migration_completed: false,
                 },
             );
+
+        if let Some(ref emitter) = self.emitter {
+            let _ = emitter.emit_vendor_revoked(contract_id, reason).await;
+        }
+
         Ok(())
     }
 }

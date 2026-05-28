@@ -1,0 +1,545 @@
+// T-160 — gRPC NetworkPolicyService (21 RPCs) + DnsVpnService (13 RPCs) surfaces.
+//
+// Generated stubs land in crate::service::proto via tonic::include_proto!("aios.network").
+// Domain ↔ proto translations live in service/conversions.rs.
+// Server adapters live in service/server.rs.
+
+syntax = "proto3";
+package aios.network;
+
+import "google/protobuf/timestamp.proto";
+import "google/protobuf/empty.proto";
+
+// ── Shared enums ──────────────────────────────────────────────────────────
+
+enum NetworkPostureProto {
+  NETWORK_POSTURE_UNSPECIFIED = 0;
+  AIRGAP          = 1;
+  LOOPBACK_ONLY   = 2;
+  LAN_LOCAL       = 3;
+  LAN_EXPOSED     = 4;
+  PUBLIC          = 5;
+}
+
+enum OutboundDirectiveProto {
+  OUTBOUND_DIRECTIVE_UNSPECIFIED = 0;
+  DENY_ALL              = 1;
+  ALLOW_LOOPBACK_ONLY   = 2;
+  ALLOW_LIST_ONLY       = 3;
+  ALLOW_VPN_ONLY        = 4;
+  ALLOW_INTERNET        = 5;
+}
+
+enum ProtocolFamilyProto {
+  PROTOCOL_FAMILY_UNSPECIFIED = 0;
+  TCP  = 1;
+  UDP  = 2;
+  ICMP = 3;
+  QUIC = 4;
+}
+
+enum AllowlistEntryKindProto {
+  ALLOWLIST_ENTRY_KIND_UNSPECIFIED = 0;
+  HOST_FQDN            = 1;
+  IPV4_ADDRESS         = 2;
+  IPV6_ADDRESS         = 3;
+  IPV4_CIDR            = 4;
+  IPV6_CIDR            = 5;
+  DNS_OVER_TLS_RESOLVER = 6;
+  VPN_PEER_ENDPOINT    = 7;
+}
+
+enum PortPolicyProto {
+  PORT_POLICY_UNSPECIFIED = 0;
+  WELL_KNOWN            = 1;
+  REGISTERED_EPHEMERAL  = 2;
+  OPERATOR_ASSIGNED     = 3;
+}
+
+enum ExposureApprovalLabelProto {
+  EXPOSURE_APPROVAL_LABEL_UNSPECIFIED = 0;
+  LOOPBACK          = 1;
+  LAN_PENDING       = 2;
+  LAN_APPROVED      = 3;
+  LAN_ACTIVE        = 4;
+  PUBLIC_PENDING    = 5;
+  PUBLIC_APPROVED   = 6;
+  PUBLIC_ACTIVE     = 7;
+  REVOKED           = 8;
+}
+
+enum InboundExposureClassProto {
+  INBOUND_EXPOSURE_CLASS_UNSPECIFIED = 0;
+  EXPOSURE_LOOPBACK = 1;
+  EXPOSURE_LAN      = 2;
+  EXPOSURE_PUBLIC   = 3;
+}
+
+enum OutboundDirectiveKindProto {
+  OUTBOUND_DIRECTIVE_KIND_UNSPECIFIED = 0;
+  GRANT_ALLOW_LIST_ONLY = 1;
+  GRANT_ALLOW_VPN_ONLY  = 2;
+}
+
+enum AICrossOriginPostureProto {
+  AI_CROSS_ORIGIN_POSTURE_UNSPECIFIED = 0;
+  AI_DENY_ALL_EXTERNAL       = 1;
+  AI_VAULT_BROKERED_ONLY     = 2;
+  AI_OPERATOR_MEDIATED       = 3;
+}
+
+enum AllowedViaProto {
+  ALLOWED_VIA_UNSPECIFIED    = 0;
+  VIA_BYPASSED_NON_AI        = 1;
+  VIA_VAULT_BROKER           = 2;
+  VIA_OPERATOR_MEDIATED      = 3;
+}
+
+enum FirewallBackendProto {
+  FIREWALL_BACKEND_UNSPECIFIED = 0;
+  NFTABLES          = 1;
+  IPTABLES_FALLBACK = 2;
+}
+
+enum FirewallChainProto {
+  FIREWALL_CHAIN_UNSPECIFIED = 0;
+  FW_INPUT       = 1;
+  FW_OUTPUT      = 2;
+  FW_FORWARD     = 3;
+  FW_PREROUTING  = 4;
+  FW_POSTROUTING = 5;
+}
+
+enum FirewallActionProto {
+  FIREWALL_ACTION_UNSPECIFIED = 0;
+  FW_ACCEPT = 1;
+  FW_DROP   = 2;
+  FW_REJECT = 3;
+  FW_LOG    = 4;
+  FW_RETURN = 5;
+}
+
+enum FirewallMatchProto {
+  FIREWALL_MATCH_UNSPECIFIED = 0;
+  FW_SOURCE_IP    = 1;
+  FW_SOURCE_CIDR  = 2;
+  FW_DEST_IP      = 3;
+  FW_DEST_CIDR    = 4;
+  FW_DEST_PORT    = 5;
+  FW_INTERFACE    = 6;
+  FW_CT_STATE     = 7;
+  FW_ALL          = 8;
+}
+
+// ── NetworkPosture messages ──────────────────────────────────────────────
+
+message GetPostureRequest {}
+
+message GetPostureResponse {
+  NetworkPostureProto posture = 1;
+}
+
+message SetPostureRequest {
+  NetworkPostureProto new_posture = 1;
+  string actor = 2;
+}
+
+message PostureChangeReceiptProto {
+  NetworkPostureProto from = 1;
+  NetworkPostureProto to   = 2;
+  string actor              = 3;
+  google.protobuf.Timestamp at = 4;
+}
+
+// ── Outbound directive messages ──────────────────────────────────────────
+
+message OutboundDirectiveMsg {
+  OutboundDirectiveProto kind = 1;
+  optional string allowlist_id = 2;
+  optional string tunnel_id    = 3;
+}
+
+message GetSubjectDirectiveRequest {
+  string subject = 1;
+}
+
+message GetSubjectDirectiveResponse {
+  OutboundDirectiveMsg directive = 1;
+}
+
+message SetSubjectDirectiveRequest {
+  string subject = 1;
+  OutboundDirectiveMsg directive = 2;
+  string actor = 3;
+}
+
+message RevokeSubjectDirectiveRequest {
+  string subject = 1;
+  string actor   = 2;
+}
+
+message ListDirectivesRequest {}
+
+message DirectiveEntry {
+  string subject = 1;
+  OutboundDirectiveMsg directive = 2;
+}
+
+message ListDirectivesResponse {
+  repeated DirectiveEntry entries = 1;
+}
+
+// ── Grant messages ──────────────────────────────────────────────────────
+
+message AllowlistEntryProto {
+  AllowlistEntryKindProto kind = 1;
+  string value                  = 2;
+  PortPolicyProto port_policy   = 3;
+  ProtocolFamilyProto protocol  = 4;
+  optional uint32 assigned_port = 5;
+}
+
+message OutboundGrantProto {
+  string grant_id = 1;
+  string subject  = 2;
+  repeated AllowlistEntryProto allowlist = 3;
+  OutboundDirectiveKindProto directive_kind = 4;
+  google.protobuf.Timestamp issued_at = 5;
+  optional google.protobuf.Timestamp expires_at = 6;
+  string signer_fingerprint = 7;
+  bytes signature = 8;
+}
+
+message RevokeOutboundGrantRequest {
+  string grant_id = 1;
+  string revoker  = 2;
+  string reason   = 3;
+}
+
+message GrantTombstoneProto {
+  string revoked_grant_id = 1;
+  google.protobuf.Timestamp revoked_at = 2;
+  string revoker = 3;
+  string reason  = 4;
+}
+
+message GetSubjectManifestRequest {
+  string subject = 1;
+}
+
+message NetworkOutboundManifestProto {
+  string subject = 1;
+  repeated OutboundGrantProto grants = 2;
+  string manifest_id = 3;
+  google.protobuf.Timestamp created_at = 4;
+  google.protobuf.Timestamp last_appended_at = 5;
+}
+
+// ── Exposure FSM messages ──────────────────────────────────────────────
+
+message ExposureApprovalStateProto {
+  ExposureApprovalLabelProto label = 1;
+  optional google.protobuf.Timestamp since = 2;
+  optional string requester = 3;
+  optional google.protobuf.Timestamp granted_at = 4;
+  optional string policy_decision_id = 5;
+  optional google.protobuf.Timestamp activated_at = 6;
+  optional google.protobuf.Timestamp last_heartbeat_at = 7;
+  optional string recovery_session_id = 8;
+  optional string co_signer = 9;
+  optional google.protobuf.Timestamp ttl_expires_at = 10;
+  optional string reason = 11;
+  optional google.protobuf.Timestamp revoked_at = 12;
+}
+
+message RequestExposureRequest {
+  InboundExposureClassProto class = 1;
+  string requester = 2;
+  optional string recovery_session_id = 3;
+}
+
+message ApplyExposurePolicyDecisionRequest {
+  string decision_id = 1;
+}
+
+message ActivateExposureRequest {}
+
+message RecordExposureHeartbeatRequest {}
+
+message EscalateExposureToPublicRequest {
+  string decision_id = 1;
+  string co_signer   = 2;
+  google.protobuf.Timestamp ttl_expires_at = 3;
+}
+
+message RevokeExposureRequest {
+  string reason = 1;
+}
+
+// ── Connection evaluation messages ──────────────────────────────────────
+
+message EvaluateConnectionRequest {
+  string subject = 1;
+  string destination_host = 2;
+  uint32 destination_port = 3;
+  ProtocolFamilyProto protocol = 4;
+  optional string destination_group_hint = 5;
+}
+
+message ConnectionDecisionProto {
+  enum Decision {
+    DECISION_UNSPECIFIED = 0;
+    ALLOWED = 1;
+    DENIED  = 2;
+  }
+  Decision decision = 1;
+  optional string matched_rule_id = 2;
+  optional AllowlistEntryKindProto entry_kind = 3;
+  optional string error_code = 4;
+  optional string reason = 5;
+}
+
+// ── Subject group messages ──────────────────────────────────────────────
+
+message RegisterSubjectGroupRequest {
+  string subject = 1;
+  string group   = 2;
+}
+
+// ── AI external call messages ───────────────────────────────────────────
+
+message EvaluateAiExternalCallRequest {
+  string subject = 1;
+  string endpoint = 2;
+  optional string broker_handle = 3;
+  optional string operator_approval_id = 4;
+}
+
+message AiExternalCallDecisionProto {
+  bool allowed = 1;
+  AllowedViaProto via = 2;
+  optional string broker_handle = 3;
+  optional string signer_fingerprint = 4;
+  optional string operator = 5;
+  optional string approval_id = 6;
+}
+
+message SetAiPostureRequest {
+  string subject = 1;
+  AICrossOriginPostureProto posture = 2;
+  string setter = 3;
+}
+
+// ── Firewall messages ───────────────────────────────────────────────────
+
+message FirewallRuleProto {
+  string rule_id = 1;
+  FirewallChainProto chain = 2;
+  int32 priority = 3;
+  FirewallMatchProto match_kind = 4;
+  string match_value = 5;
+  optional uint32 match_port = 6;
+  optional ProtocolFamilyProto match_protocol = 7;
+  FirewallActionProto action = 8;
+  string comment = 9;
+}
+
+message FirewallRulesetProto {
+  FirewallBackendProto backend = 1;
+  repeated FirewallRuleProto rules = 2;
+  uint64 generation = 3;
+  google.protobuf.Timestamp built_at = 4;
+}
+
+message ApplyFirewallRulesetRequest {
+  FirewallRulesetProto ruleset = 1;
+}
+
+message GetFirewallStatusRequest {}
+
+message GetFirewallStatusResponse {
+  bool fallback_active = 1;
+  optional FirewallRulesetProto active_ruleset = 2;
+  uint64 history_count = 3;
+}
+
+// ── DNS messages ────────────────────────────────────────────────────────
+
+message ResolverEndpointProto {
+  string fqdn = 1;
+  string address = 2;
+  uint32 port = 3;
+  string transport = 4; // "DNS_OVER_TLS" | "DNS_OVER_HTTPS" | "DNS_OVER_QUIC" | "PLAIN_DNS_FORBIDDEN"
+  optional string spki_pin = 5;
+}
+
+message ResolverAllowlistProto {
+  string list_id = 1;
+  repeated ResolverEndpointProto endpoints = 2;
+  google.protobuf.Timestamp signed_at = 3;
+  string signer_fingerprint = 4;
+  bytes signature = 5;
+}
+
+message RotateActiveResolverListRequest {
+  string new_list_id = 1;
+}
+
+message GetResolverProfileRequest {}
+
+message ResolverProfileProto {
+  string backend = 1; // "SYSTEMD_RESOLVED" | "UNBOUND" | "BIND9" | "DNSMASQ" | "DEGRADED_HOSTS_FILE_ONLY"
+  string active_list_id = 2;
+  repeated ResolverEndpointProto effective_endpoints = 3;
+  uint32 cache_ttl_seconds = 4;
+}
+
+// ── VPN messages ────────────────────────────────────────────────────────
+
+message ProposeVpnTunnelRequest {
+  string tunnel_id = 1;
+  string kind = 2; // "WIREGUARD_SPLIT_TUNNEL" | "WIREGUARD_FULL_TUNNEL"
+  string interface_name = 3;
+  string local_private_key_handle = 4;
+  bytes local_public_key = 5;
+  repeated WireGuardPeerProto peers = 6;
+  optional uint32 mtu = 7;
+  optional uint32 fwmark = 8;
+  string requester = 9;
+}
+
+message WireGuardPeerProto {
+  string peer_id = 1;
+  string endpoint = 2;
+  bytes public_key = 3;
+  repeated string allowed_ips = 4;
+  uint32 persistent_keepalive_seconds = 5;
+}
+
+message ApproveVpnTunnelRequest {
+  string tunnel_id = 1;
+  string decision_id = 2;
+}
+
+message ActivateVpnTunnelRequest {
+  string tunnel_id = 1;
+}
+
+message RecordVpnHandshakeRequest {
+  string tunnel_id = 1;
+}
+
+message RevokeVpnTunnelRequest {
+  string tunnel_id = 1;
+  string reason = 2;
+}
+
+message PeerKeyRotationProto {
+  string tunnel_id = 1;
+  bytes old_pubkey = 2;
+  bytes new_pubkey = 3;
+  google.protobuf.Timestamp rotated_at = 4;
+  string authority_fingerprint = 5;
+  bytes signature = 6;
+}
+
+message ListVpnTunnelsRequest {}
+
+message VpnTunnelEntry {
+  string tunnel_id = 1;
+  string lifecycle_label = 2; // "Proposed" | "Approved" | "Active" | "Failed" | "Revoked"
+}
+
+message ListVpnTunnelsResponse {
+  repeated VpnTunnelEntry tunnels = 1;
+}
+
+// ── mDNS messages ───────────────────────────────────────────────────────
+
+message SetMdnsPostureRequest {
+  string posture = 1; // "DENY_DEFAULT" | "RECOVERY_DENIED" | "AIRGAP_DENIED"
+  optional string allowlist_id = 2;
+}
+
+message MdnsAdvertisementProto {
+  string advertisement_id = 1;
+  string service_type = 2;
+  string instance_name = 3;
+  uint32 port = 4;
+  google.protobuf.Timestamp authorised_at = 5;
+  string authoriser = 6;
+}
+
+message MdnsAdvertisementAllowlistProto {
+  string allowlist_id = 1;
+  repeated MdnsAdvertisementProto advertisements = 2;
+  google.protobuf.Timestamp signed_at = 3;
+  string signer_fingerprint = 4;
+  bytes signature = 5;
+}
+
+message CheckMdnsAdvertisementRequest {
+  string service_type = 1;
+  string instance_name = 2;
+  uint32 port = 3;
+}
+
+// ── Service definitions ─────────────────────────────────────────────────
+
+service NetworkPolicyService {
+  // Posture (2 RPCs)
+  rpc GetPosture(GetPostureRequest) returns (GetPostureResponse);
+  rpc SetPosture(SetPostureRequest) returns (PostureChangeReceiptProto);
+
+  // Subject directives (4 RPCs)
+  rpc GetSubjectDirective(GetSubjectDirectiveRequest) returns (GetSubjectDirectiveResponse);
+  rpc SetSubjectDirective(SetSubjectDirectiveRequest) returns (google.protobuf.Empty);
+  rpc RevokeSubjectDirective(RevokeSubjectDirectiveRequest) returns (google.protobuf.Empty);
+  rpc ListDirectives(ListDirectivesRequest) returns (ListDirectivesResponse);
+
+  // Outbound grants (2 RPCs)
+  rpc AppendOutboundGrant(OutboundGrantProto) returns (google.protobuf.Empty);
+  rpc RevokeOutboundGrant(RevokeOutboundGrantRequest) returns (GrantTombstoneProto);
+  rpc GetSubjectManifest(GetSubjectManifestRequest) returns (NetworkOutboundManifestProto);
+
+  // Exposure FSM (5 RPCs)
+  rpc RequestExposure(RequestExposureRequest) returns (google.protobuf.Empty);
+  rpc ApplyExposurePolicyDecision(ApplyExposurePolicyDecisionRequest) returns (google.protobuf.Empty);
+  rpc ActivateExposure(ActivateExposureRequest) returns (google.protobuf.Empty);
+  rpc RecordExposureHeartbeat(RecordExposureHeartbeatRequest) returns (google.protobuf.Empty);
+  rpc EscalateExposureToPublic(EscalateExposureToPublicRequest) returns (google.protobuf.Empty);
+  rpc RevokeExposure(RevokeExposureRequest) returns (google.protobuf.Empty);
+
+  // Connection evaluation (2 RPCs)
+  rpc EvaluateConnection(EvaluateConnectionRequest) returns (ConnectionDecisionProto);
+  rpc RegisterSubjectGroup(RegisterSubjectGroupRequest) returns (google.protobuf.Empty);
+
+  // AI external call (2 RPCs)
+  rpc EvaluateAiExternalCall(EvaluateAiExternalCallRequest) returns (AiExternalCallDecisionProto);
+  rpc SetAiPosture(SetAiPostureRequest) returns (google.protobuf.Empty);
+
+  // Firewall (2 RPCs)
+  rpc ApplyFirewallRuleset(ApplyFirewallRulesetRequest) returns (google.protobuf.Empty);
+  rpc GetFirewallStatus(GetFirewallStatusRequest) returns (GetFirewallStatusResponse);
+}
+
+service DnsVpnService {
+  // DNS (3 RPCs)
+  rpc AdmitResolverAllowlist(ResolverAllowlistProto) returns (google.protobuf.Empty);
+  rpc RotateActiveResolverList(RotateActiveResolverListRequest) returns (google.protobuf.Empty);
+  rpc GetResolverProfile(GetResolverProfileRequest) returns (ResolverProfileProto);
+
+  // VPN lifecycle (6 RPCs)
+  rpc ProposeVpnTunnel(ProposeVpnTunnelRequest) returns (google.protobuf.Empty);
+  rpc ApproveVpnTunnel(ApproveVpnTunnelRequest) returns (google.protobuf.Empty);
+  rpc ActivateVpnTunnel(ActivateVpnTunnelRequest) returns (google.protobuf.Empty);
+  rpc RecordVpnHandshake(RecordVpnHandshakeRequest) returns (google.protobuf.Empty);
+  rpc RevokeVpnTunnel(RevokeVpnTunnelRequest) returns (google.protobuf.Empty);
+  rpc RotateVpnPeerKey(PeerKeyRotationProto) returns (google.protobuf.Empty);
+  rpc ListVpnTunnels(ListVpnTunnelsRequest) returns (ListVpnTunnelsResponse);
+
+  // mDNS (3 RPCs)
+  rpc SetMdnsPosture(SetMdnsPostureRequest) returns (google.protobuf.Empty);
+  rpc AdmitMdnsAllowlist(MdnsAdvertisementAllowlistProto) returns (google.protobuf.Empty);
+  rpc CheckMdnsAdvertisement(CheckMdnsAdvertisementRequest) returns (google.protobuf.Empty);
+}

@@ -42,6 +42,8 @@ pub mod outbound_grant;
 pub mod posture;
 /// Protocol family vocabulary.
 pub mod protocol;
+/// gRPC service surfaces (T-160).
+pub mod service;
 /// VPN model: WireGuard tunnel lifecycle (S8.4 §5).
 pub mod vpn;
 

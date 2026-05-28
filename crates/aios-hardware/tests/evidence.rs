@@ -8,6 +8,8 @@
     clippy::similar_names,
     clippy::cast_possible_wrap,
     clippy::too_many_lines,
+    clippy::needless_collect,
+    clippy::format_collect,
     missing_docs,
     reason = "test code; panic-on-failure is the idiomatic test signal"
 )]

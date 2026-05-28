@@ -24,12 +24,16 @@ pub mod dns;
 pub mod error;
 /// Exposure approval state machine (S8.1 §5, INV I2+I10).
 pub mod exposure_fsm;
+/// Firewall rule model (S8.1 §10).
+pub mod firewall;
 /// Grant registry with Ed25519 signature verification (INV I7+I8).
 pub mod grant_registry;
 /// Subject and group identifier newtypes.
 pub mod ids;
 /// Inbound exposure + port policy.
 pub mod inbound;
+/// mDNS / Avahi gating (S8.4 §7).
+pub mod mdns;
 /// Outbound directive vocabulary.
 pub mod outbound;
 /// Outbound grant data structures (S8.1 §4).
@@ -63,11 +67,16 @@ pub use exposure_fsm::{
     ExposureApprovalFsm, ExposureApprovalLabel, ExposureApprovalState, ExposureTransition,
     ExposureTransitionReason,
 };
+pub use firewall::{
+    FirewallAction, FirewallBackend, FirewallChain, FirewallManager, FirewallMatch, FirewallRule,
+    FirewallRuleset, FirewallRulesetBuilder,
+};
 pub use grant_registry::{
     fingerprint_from_vk, generate_keypair, sign_grant, OutboundGrantRegistry,
 };
 pub use ids::{GroupId, SubjectId};
 pub use inbound::{InboundExposureClass, PortPolicy};
+pub use mdns::{MdnsAdvertisement, MdnsAdvertisementAllowlist, MdnsAvahiPosture, MdnsGate};
 pub use outbound::OutboundDirective;
 pub use outbound_grant::{
     GrantTombstone, NetworkOutboundManifest, OutboundDirectiveKind, OutboundGrant,

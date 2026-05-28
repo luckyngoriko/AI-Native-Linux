@@ -22,10 +22,12 @@ pub mod gpu;
 pub mod gpu_resource;
 pub mod graph;
 pub mod ids;
+pub mod iommu;
 pub mod lifecycle;
 pub mod manager;
 pub mod observation;
 pub mod removable;
+pub mod removable_policy;
 pub mod trust_class;
 
 pub use bus::BusKind;
@@ -59,10 +61,12 @@ pub use gpu_resource::{
 };
 pub use graph::{HardwareGraph, HardwareGraphBuilder};
 pub use ids::{DeviceId, DriverBindingId, FirmwareBlobId, GpuId, HardwareGraphId};
+pub use iommu::{evaluate_removable_admission, IommuFloorEnforcer, IommuRequirement};
 pub use lifecycle::DeviceLifecycleState;
 pub use manager::{HardwareManager, InMemoryHardwareManager};
 pub use observation::{EnumerationBatch, RawDeviceObservation};
 pub use removable::RemovableDevicePolicy;
+pub use removable_policy::{AiSubjectClassifier, RemovableDevicePolicyTable};
 pub use trust_class::{DeviceQuarantineReason, DeviceTrustClass};
 
 /// Crate version marker used by closure-invariant tests in T-174.

@@ -10,6 +10,8 @@
 pub mod ai_cross_origin;
 /// Allowlist entry types.
 pub mod allowlist;
+/// Network policy controller trait and in-memory implementation.
+pub mod controller;
 /// Network policy error taxonomy.
 pub mod error;
 /// Subject and group identifier newtypes.
@@ -25,6 +27,10 @@ pub mod protocol;
 
 pub use ai_cross_origin::AICrossOriginPosture;
 pub use allowlist::{AllowlistEntry, AllowlistEntryKind};
+pub use controller::{
+    ConnectionDecision, EvaluateConnectionRequest, InMemoryNetworkPolicyController,
+    NetworkPolicyController, PostureChangeReceipt,
+};
 pub use error::{NetworkPolicyError, NetworkPolicyErrorCode};
 pub use ids::{GroupId, SubjectId};
 pub use inbound::{InboundExposureClass, PortPolicy};

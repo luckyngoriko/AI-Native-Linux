@@ -7,6 +7,8 @@
 pub mod bridges;
 /// System composition graph types (S11.4 §2 I5).
 pub mod composition;
+/// AIOS-invariant ↔ external control framework mapping with baseline snapshots.
+pub mod control_map;
 /// CVE severity, status, and identifier types.
 pub mod cve;
 /// CVE feed integration shape — typed framework for CVE ingestion and package binding.
@@ -32,6 +34,10 @@ pub use bridges::{
     ExternalBridgeRegistry, ManifestTranslationRules,
 };
 pub use composition::{ComposedService, ServiceComposition, ServiceDependency};
+pub use control_map::{
+    AiosInvariant, ComplianceBaseline, ControlDriftReport, ControlFrameworkRef, ControlMapRegistry,
+    ControlMapping,
+};
 pub use cve::{CveId, CveSeverity, CveStatus};
 pub use cve_feed::{
     cvss_to_enforcement, is_valid_cve_id, CveEnforcementLevel, CveFeedShape, CveRecord,

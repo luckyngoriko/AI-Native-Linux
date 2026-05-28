@@ -3,6 +3,8 @@
 //! Typed core skeleton: closed vocabularies + error enum + identifier types.
 //! Vendor registry, standards subscriptions, CVE shape, system composition,
 //! orchestrator binary, gRPC, evidence, cross-crate land in later tasks.
+/// External bridge contracts (Flathub/OCI/apt/dnf/pacman).
+pub mod bridges;
 /// System composition graph types (S11.4 §2 I5).
 pub mod composition;
 /// CVE severity, status, and identifier types.
@@ -24,6 +26,11 @@ pub mod vendor;
 /// Ed25519-signed vendor contract registry (S11.4 §2 I2).
 pub mod vendor_registry;
 
+pub use bridges::{
+    default_apt_contract, default_dnf_contract, default_flathub_contract, default_oci_contract,
+    default_pacman_contract, BridgeContract, BridgeKind, CapabilityExtractorRule,
+    ExternalBridgeRegistry, ManifestTranslationRules,
+};
 pub use composition::{ComposedService, ServiceComposition, ServiceDependency};
 pub use cve::{CveId, CveSeverity, CveStatus};
 pub use cve_feed::{

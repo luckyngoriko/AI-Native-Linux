@@ -23,7 +23,7 @@ use chrono::Utc;
 
 #[test]
 fn default_code_version_constant_is_correct() {
-    assert_eq!(DEFAULT_CODE_VERSION, "aios-integration/0.0.1-T175");
+    assert_eq!(DEFAULT_CODE_VERSION, "aios-integration/0.1.0-T186");
 }
 
 // ---------------------------------------------------------------------------

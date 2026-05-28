@@ -83,4 +83,4 @@ pub use vendor::{VendorIntegrationContract, VendorKind, VendorTrustClass};
 pub use vendor_registry::VendorIntegrationRegistry;
 
 /// Crate version marker used by closure-invariant tests in T-186.
-pub const DEFAULT_CODE_VERSION: &str = "aios-integration/0.0.1-T175";
+pub const DEFAULT_CODE_VERSION: &str = "aios-integration/0.1.0-T186";

@@ -17,6 +17,8 @@ pub mod lifecycle;
 pub mod standard;
 /// Vendor contract types (S11.4 §2 I2).
 pub mod vendor;
+/// Ed25519-signed vendor contract registry (S11.4 §2 I2).
+pub mod vendor_registry;
 
 pub use composition::{ComposedService, ServiceComposition, ServiceDependency};
 pub use cve::{CveId, CveSeverity, CveStatus};
@@ -25,6 +27,7 @@ pub use ids::{ComposedSystemId, IntegrationId, StandardSubscriptionId, VendorCon
 pub use lifecycle::{IntegrationLifecycleLabel, IntegrationLifecycleState};
 pub use standard::{StandardKind, StandardSubscription};
 pub use vendor::{VendorIntegrationContract, VendorKind, VendorTrustClass};
+pub use vendor_registry::VendorIntegrationRegistry;
 
 /// Crate version marker used by closure-invariant tests in T-186.
 pub const DEFAULT_CODE_VERSION: &str = "aios-integration/0.0.1-T175";

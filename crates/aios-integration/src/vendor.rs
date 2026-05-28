@@ -24,6 +24,23 @@ pub enum VendorKind {
     OtherCertified,
 }
 
+impl VendorKind {
+    /// Returns the canonical label for this vendor kind (used in contract signing).
+    #[must_use]
+    pub const fn label(&self) -> &'static str {
+        match self {
+            Self::PackageRepository => "package_repository",
+            Self::ApplicationStore => "application_store",
+            Self::OciRegistry => "oci_registry",
+            Self::CveFeed => "cve_feed",
+            Self::ComplianceProvider => "compliance_provider",
+            Self::MetricsExporter => "metrics_exporter",
+            Self::IdentityProvider => "identity_provider",
+            Self::OtherCertified => "other_certified",
+        }
+    }
+}
+
 /// Trust classification for admitted vendor contracts.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum VendorTrustClass {
@@ -35,6 +52,19 @@ pub enum VendorTrustClass {
     OperatorAuthorised,
     /// Explicitly blocked; do not admit.
     BlacklistedDoNotAdmit,
+}
+
+impl VendorTrustClass {
+    /// Returns the canonical label for this trust class (used in contract signing).
+    #[must_use]
+    pub const fn label(&self) -> &'static str {
+        match self {
+            Self::AiosCertifiedPartner => "aios_certified_partner",
+            Self::CommunityVerified => "community_verified",
+            Self::OperatorAuthorised => "operator_authorised",
+            Self::BlacklistedDoNotAdmit => "blacklisted_do_not_admit",
+        }
+    }
 }
 
 /// A signed vendor integration contract (S11.4 §2, invariant I2).

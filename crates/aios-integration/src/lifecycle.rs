@@ -69,6 +69,21 @@ pub enum IntegrationLifecycleLabel {
     Retired,
 }
 
+impl IntegrationLifecycleLabel {
+    /// Returns the canonical label for this lifecycle state (used in contract signing).
+    #[must_use]
+    pub const fn label(&self) -> &'static str {
+        match self {
+            Self::Proposed => "proposed",
+            Self::Evaluated => "evaluated",
+            Self::Piloted => "piloted",
+            Self::Production => "production",
+            Self::Deprecated => "deprecated",
+            Self::Retired => "retired",
+        }
+    }
+}
+
 impl IntegrationLifecycleState {
     /// Returns the label for this lifecycle state.
     #[must_use]

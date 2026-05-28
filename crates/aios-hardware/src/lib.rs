@@ -16,6 +16,7 @@ pub mod driver_binding;
 pub mod error;
 pub mod firmware;
 pub mod gpu;
+pub mod gpu_resource;
 pub mod graph;
 pub mod ids;
 pub mod lifecycle;
@@ -40,6 +41,10 @@ pub use firmware::{
     FirmwareUpdateClass, FirmwareUpdateState,
 };
 pub use gpu::{GpuCapabilityClass, GpuVendorKind};
+pub use gpu_resource::{
+    BindingRequest, GpuCapabilityBinding, GpuDevice, GpuResourceRegistry, VkDevicePartition,
+    VramAccounting,
+};
 pub use graph::{HardwareGraph, HardwareGraphBuilder};
 pub use ids::{DeviceId, DriverBindingId, FirmwareBlobId, GpuId, HardwareGraphId};
 pub use lifecycle::DeviceLifecycleState;

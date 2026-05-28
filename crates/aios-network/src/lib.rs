@@ -18,6 +18,8 @@ pub mod allowlist;
 pub mod connection_evaluator;
 /// Network policy controller trait and in-memory implementation.
 pub mod controller;
+/// DNS resolver discipline (S8.4 §3).
+pub mod dns;
 /// Network policy error taxonomy.
 pub mod error;
 /// Exposure approval state machine (S8.1 §5, INV I2+I10).
@@ -49,6 +51,10 @@ pub use connection_evaluator::{
 pub use controller::{
     ConnectionDecision, EvaluateConnectionRequest, InMemoryNetworkPolicyController,
     NetworkPolicyController, PostureChangeReceipt,
+};
+pub use dns::{
+    sign_allowlist, validate_transport, DnsTransport, QueryGuard, ResolverAllowlist,
+    ResolverBackend, ResolverEndpoint, ResolverProfile, ResolverProfileManager,
 };
 pub use error::{NetworkPolicyError, NetworkPolicyErrorCode};
 pub use exposure_fsm::{

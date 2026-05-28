@@ -7,6 +7,8 @@
 pub mod bridges;
 /// System composition graph types (S11.4 §2 I5).
 pub mod composition;
+/// Composition engine: validation, topological ordering, default wiring (S11.4 §2 I5).
+pub mod composition_engine;
 /// AIOS-invariant ↔ external control framework mapping with baseline snapshots.
 pub mod control_map;
 /// CVE severity, status, and identifier types.
@@ -34,6 +36,9 @@ pub use bridges::{
     ExternalBridgeRegistry, ManifestTranslationRules,
 };
 pub use composition::{ComposedService, ServiceComposition, ServiceDependency};
+pub use composition_engine::{
+    compute_topological_order, default_aios_composition, CompositionEngine,
+};
 pub use control_map::{
     AiosInvariant, ComplianceBaseline, ControlDriftReport, ControlFrameworkRef, ControlMapRegistry,
     ControlMapping,

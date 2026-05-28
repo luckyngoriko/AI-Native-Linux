@@ -21,6 +21,8 @@ pub mod error;
 pub mod ids;
 /// 6-state integration lifecycle FSM (S11.4 §2 I1).
 pub mod lifecycle;
+/// Service composition orchestrator — typed scaffold for the boot sequence.
+pub mod orchestrator;
 /// Compliance standard taxonomy and subscription types.
 pub mod standard;
 /// Compliance standard subscription registry (S11.4 §2 I4).
@@ -51,6 +53,7 @@ pub use cve_feed::{
 pub use error::{IntegrationError, IntegrationErrorCode};
 pub use ids::{ComposedSystemId, IntegrationId, StandardSubscriptionId, VendorContractId};
 pub use lifecycle::{IntegrationLifecycleLabel, IntegrationLifecycleState};
+pub use orchestrator::{Orchestrator, ServiceHealthSummary, ServiceScaffoldStatus};
 pub use standard::{StandardKind, StandardSubscription};
 pub use standard_registry::{
     standard_kind_to_canonical_url, ExternalStandardRegistry, StandardReviewRecord,

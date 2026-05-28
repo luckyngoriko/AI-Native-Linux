@@ -8,18 +8,24 @@ license.workspace = true
 repository.workspace = true
 authors.workspace = true
 
+[[bin]]
+name = "aios-system"
+path = "src/bin/aios_system.rs"
+
 [dependencies]
 aios-action     = { path = "../aios-action" }
 aios-evidence   = { path = "../aios-evidence" }
 aios-policy     = { path = "../aios-policy" }
+aios-sgr        = { path = "../aios-sgr" }
 serde           = { workspace = true }
 serde_json      = { workspace = true }
 thiserror       = { workspace = true }
 chrono          = { workspace = true }
 ulid            = { workspace = true }
-tokio           = { workspace = true, features = ["sync", "macros"] }
+tokio           = { workspace = true, features = ["sync", "macros", "rt"] }
 async-trait     = { workspace = true }
 tracing         = { workspace = true }
+clap            = { workspace = true, features = ["derive"] }
 ed25519-dalek   = { workspace = true }
 
 [dev-dependencies]
@@ -27,6 +33,8 @@ tokio       = { workspace = true, features = ["rt-multi-thread", "macros", "test
 chrono      = { workspace = true }
 rand_core   = { workspace = true }
 ed25519-dalek = { workspace = true }
+assert_cmd  = "2"
+predicates  = "3"
 
 [lints]
 workspace = true

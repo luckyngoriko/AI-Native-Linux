@@ -740,3 +740,10 @@ Next: M15 (aios-renderer-web)
   Commit: T-150: aios-renderer-web — M15 closer (version 0.1.0, closure invariants + acceptance fixtures + MILESTONES update)
   STATUS: SUCCESS
   Next: M16 (aios-network)
+2026-05-28 23:45 UTC | TSK-T-162 | M16 closure commit
+  - Updated MILESTONES.md: M16 row → ✓ closed, closure marker added, totals 14 crates / 24 sub-specs / 3345 tests
+  - Fixed 6 clippy errors: default_trait_access (x2), used_underscore_binding, unused_imports (x2), ip_constant
+  - All 4 gates green: check + test (3345 workspace) + clippy -D warnings + fmt --check
+  - Commit: 3651fa6 T-162: aios-network — M16 closure
+  STATUS: SUCCESS
+  NEXT: M17 aios-hardware (S8.3, S8.2)

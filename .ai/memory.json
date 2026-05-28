@@ -1,36 +1,43 @@
 {
-  "project_goal": "AIOS — AI-native Linux distribution. Implement the spec contracts from rev.2 (53 sub-specs CONTRACT-grade) into working Rust + Python + KDE code, following §22 MVP golden path discipline.",
-  "current_milestone": "M16 — AIOS Network Policy (aios-network; T-153 completed)",
-  "current_task_id": "T-153",
-  "current_task_title": "T-153 completed — OutboundGrant + per-app manifest (S8.1 §4, INV I7+I8)",
-  "current_step": "T-153 committed at 4d98365. All 5 gates green. +21 tests (97 total in aios-network). Workspace: 3131 tests.",
+  "project_goal": "AIOS — AI-native Linux distribution. Implement the spec contracts from rev.2 (53 sub-specs CONTRACT-grade) into working Rust code, following §22 MVP golden path discipline.",
+  "current_milestone": "M16 CLOSED — aios-network v0.1.0 (next: M17 aios-hardware)",
+  "current_task_id": "T-162",
+  "current_task_title": "T-162 CLOSED — M16 closure: cross-crate bridges, acceptance fixtures, 30 evidence record types",
+  "current_step": "T-162 committed at 3651fa6. All 4 gates green. 311 aios-network tests, 3345 workspace tests.",
   "files_touched": [
+    "MILESTONES.md",
     "crates/aios-network/Cargo.toml",
-    "crates/aios-network/src/outbound_grant.rs",
-    "crates/aios-network/src/grant_registry.rs",
     "crates/aios-network/src/lib.rs",
-    "crates/aios-network/tests/grant_registry.rs",
+    "crates/aios-network/src/integration/policy_bridge.rs",
+    "crates/aios-network/src/integration/capability_bridge.rs",
+    "crates/aios-network/src/integration/apps_bridge.rs",
+    "crates/aios-network/src/integration/sandbox_bridge.rs",
+    "crates/aios-network/src/integration/renderer_web_bridge.rs",
+    "crates/aios-network/tests/skeleton.rs",
+    "crates/aios-network/tests/m16_closure.rs",
+    "crates/aios-network/tests/m16_acceptance.rs",
     "Cargo.lock",
     ".ai/memory.json"
   ],
   "discovered_constraints": [
-    "Workspace missing_docs=warn requires module doc comments on every pub mod",
-    "ed25519-dalek 2.1 uses SigningKey::generate(&mut OsRng) and VerifyingKey::verify_strict()",
-    "rand_core workspace dep at version 0.6 with features [getrandom] required for OsRng",
-    "tokio::sync::RwLock returns guards directly without Result wrapping (no poisoning)",
-    "clippy::unused_async: all async fn must contain at least one .await",
-    "clippy::missing_errors_doc: fns returning Result need # Errors section",
-    "clippy::significant_drop_tightening: explicit drop(guard) after tokio RwLock ops",
-    "clippy::missing_const_for_fn: const-eligible fns need const keyword",
-    "clippy::missing_panics_doc: fns with assert!/panic! need # Panics section"
+    "ed25519-dalek SigningKey passed directly to sign_grant() — Signer trait not needed in test scope",
+    "InMemoryNetworkEvidenceEmitter: use receipt_count()/verify_chain()/get_payload() not receipts()",
+    "ExposureApprovalFsm starts at Loopback; LAN lifecycle: request→apply_policy→activate→heartbeat",
+    "ConnectionEvaluator::new(Arc<OutboundGrantRegistry>) — takes registry not controller",
+    "clippy::default_trait_access requires explicit type on Default::default() when type is unambiguous",
+    "clippy::used_underscore_binding: _prefixed bindings used in format!/println! are errors",
+    "clippy::unused_imports is a rustc lint not a clippy lint — use `unused_imports` not `clippy::unused_imports`",
+    "clippy::ip_constant: use Ipv4Addr::LOCALHOST instead of Ipv4Addr::new(127,0,0,1)"
   ],
   "discovered_dependencies": [
-    "ed25519-dalek (workspace)",
-    "rand_core (workspace)",
-    "ed25519-dalek already in workspace Cargo.toml as workspace dependency"
+    "aios_policy depends on aios-action + serde_json + chrono",
+    "aios_capability_runtime depends on aios-action",
+    "aios_apps depends on serde_json",
+    "aios_sandbox depends on aios-policy",
+    "aios_renderer_web has ExposureLevelLabel (6 variants) compatible with ExposureApprovalLabel (8 variants)"
   ],
   "last_errors": [
-    "17 clippy errors (unused_async, missing_errors_doc, significant_drop_tightening, missing_const_for_fn, missing_panics_doc, missing_docs) — all resolved"
+    "6 clippy errors across policy_bridge.rs, renderer_web_bridge.rs, m16_closure.rs, m16_acceptance.rs — all resolved"
   ],
-  "last_verification_result": "All 5 gates PASS. 97 aios-network tests (46 unit + 17 controller + 16 grant_registry + 18 skeleton). Workspace: 3131 total, 0 failures."
+  "last_verification_result": "All 4 gates PASS. 3345 workspace tests, 311 aios-network tests. M16 CLOSED."
 }

@@ -42,3 +42,4 @@ crates/aios-renderer-web/web-app/tsconfig.tsbuildinfo
 crates/aios-renderer-web/web-app/pnpm-workspace.yaml
 rust_out
 .gitnexus
+.claude/

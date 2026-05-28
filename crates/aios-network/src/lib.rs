@@ -38,6 +38,8 @@ pub mod outbound_grant;
 pub mod posture;
 /// Protocol family vocabulary.
 pub mod protocol;
+/// VPN model: WireGuard tunnel lifecycle (S8.4 §5).
+pub mod vpn;
 
 pub use ai_cross_origin::AICrossOriginPosture;
 pub use ai_discipline::{
@@ -72,6 +74,10 @@ pub use outbound_grant::{
 };
 pub use posture::NetworkPosture;
 pub use protocol::ProtocolFamily;
+pub use vpn::{
+    validate_tunnel_kind, PeerKeyRotation, TunnelLifecycleLabel, TunnelLifecycleState,
+    VpnTunnelKind, VpnTunnelManager, WireGuardConfig, WireGuardPeer,
+};
 
 /// Crate version marker used by closure-invariant tests in T-162.
 pub const DEFAULT_CODE_VERSION: &str = "aios-network/0.0.1-T151";

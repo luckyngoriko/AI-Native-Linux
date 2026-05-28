@@ -7,6 +7,8 @@
 pub mod composition;
 /// CVE severity, status, and identifier types.
 pub mod cve;
+/// CVE feed integration shape — typed framework for CVE ingestion and package binding.
+pub mod cve_feed;
 /// Integration-layer structured error catalogue.
 pub mod error;
 /// Identifier newtypes for integration resources.
@@ -24,6 +26,10 @@ pub mod vendor_registry;
 
 pub use composition::{ComposedService, ServiceComposition, ServiceDependency};
 pub use cve::{CveId, CveSeverity, CveStatus};
+pub use cve_feed::{
+    cvss_to_enforcement, is_valid_cve_id, CveEnforcementLevel, CveFeedShape, CveRecord,
+    PackageCveBinding,
+};
 pub use error::{IntegrationError, IntegrationErrorCode};
 pub use ids::{ComposedSystemId, IntegrationId, StandardSubscriptionId, VendorContractId};
 pub use lifecycle::{IntegrationLifecycleLabel, IntegrationLifecycleState};

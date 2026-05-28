@@ -28,6 +28,7 @@ pub mod manager;
 pub mod observation;
 pub mod removable;
 pub mod removable_policy;
+pub mod service;
 pub mod trust_class;
 
 pub use bus::BusKind;

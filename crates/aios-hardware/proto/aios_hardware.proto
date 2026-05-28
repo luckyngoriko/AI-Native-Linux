@@ -1,0 +1,575 @@
+// T-172 — gRPC HardwareManagerService (16 RPCs) + GpuResourceService (10 RPCs)
+// + FirmwareTrustService (10 RPCs) for L8 hardware contract (S8.3 + S8.2 + S8.5).
+//
+// Generated stubs land in crate::service::proto via tonic::include_proto!("aios.hardware").
+// Domain ↔ proto translations live in service/conversions.rs.
+// Server adapters live in service/server.rs.
+
+syntax = "proto3";
+package aios.hardware;
+
+import "google/protobuf/timestamp.proto";
+import "google/protobuf/empty.proto";
+
+// ── Shared enums ──────────────────────────────────────────────────────────
+
+enum DeviceClassProto {
+  DEVICE_CLASS_UNSPECIFIED = 0;
+  CPU = 1;
+  MEMORY = 2;
+  GPU_INTEGRATED = 3;
+  GPU_DISCRETE = 4;
+  NETWORK_ETHERNET = 5;
+  NETWORK_WIFI = 6;
+  NETWORK_BLUETOOTH = 7;
+  STORAGE_NVME = 8;
+  STORAGE_SATA = 9;
+  STORAGE_MMC = 10;
+  AUDIO_CARD = 11;
+  AUDIO_HEADSET = 12;
+  USB_CONTROLLER = 13;
+  THUNDERBOLT_CONTROLLER = 14;
+  PRINTER_OR_SCANNER = 15;
+  SENSOR_OR_INPUT_DEVICE = 16;
+}
+
+enum BusKindProto {
+  BUS_KIND_UNSPECIFIED = 0;
+  PCI = 1;
+  PCIE = 2;
+  USB2 = 3;
+  USB3 = 4;
+  USB4 = 5;
+  THUNDERBOLT = 6;
+  NVME = 7;
+  I2C = 8;
+}
+
+enum DeviceTrustClassProto {
+  DEVICE_TRUST_CLASS_UNSPECIFIED = 0;
+  ROOT_SIGNED = 1;
+  VENDOR_SIGNED = 2;
+  COMMUNITY_SIGNED = 3;
+  OPERATOR_LOCAL = 4;
+  UNTRUSTED = 5;
+}
+
+enum DeviceLifecycleStateProto {
+  DEVICE_LIFECYCLE_STATE_UNSPECIFIED = 0;
+  DETECTED = 1;
+  PROBED = 2;
+  BOUND = 3;
+  ACTIVE = 4;
+  SUSPENDED = 5;
+  QUARANTINED = 6;
+  REMOVED = 7;
+  RECOVERED = 8;
+}
+
+enum DriverProvenanceProto {
+  DRIVER_PROVENANCE_UNSPECIFIED = 0;
+  AIOS_VERIFIED = 1;
+  SIGNED_KERNEL_MODULE = 2;
+  DISTRO_PROVIDED = 3;
+  OUT_OF_TREE_BLACKLISTED = 4;
+  OPERATOR_LOCAL_SIGNED = 5;
+}
+
+enum RemovableDevicePolicyProto {
+  REMOVABLE_DEVICE_POLICY_UNSPECIFIED = 0;
+  DENY_DEFAULT = 1;
+  ALLOW_READ_ONLY = 2;
+  ALLOW_MOUNT = 3;
+  ALLOW_READ_WRITE = 4;
+  RECOVERY_DENIED = 5;
+}
+
+enum LieSeverityProto {
+  LIE_SEVERITY_UNSPECIFIED = 0;
+  SOFT = 1;
+  HARD = 2;
+  CONSTITUTIONAL = 3;
+}
+
+enum GpuVendorKindProto {
+  GPU_VENDOR_KIND_UNSPECIFIED = 0;
+  AMD = 1;
+  INTEL = 2;
+  NVIDIA = 3;
+  ARM = 4;
+  APPLE = 5;
+  OTHER = 6;
+}
+
+enum GpuCapabilityClassProto {
+  GPU_CAPABILITY_CLASS_UNSPECIFIED = 0;
+  RENDER_ONLY = 1;
+  COMPUTE_ONLY = 2;
+  RENDER_AND_COMPUTE = 3;
+  VIDEO_ENCODE = 4;
+  VIDEO_DECODE = 5;
+}
+
+enum FirmwareUpdateStateProto {
+  FIRMWARE_UPDATE_STATE_UNSPECIFIED = 0;
+  PROPOSED = 1;
+  VERIFIED = 2;
+  APPROVED = 3;
+  STAGED = 4;
+  APPLYING = 5;
+  APPLIED = 6;
+  FAILED = 7;
+  REVERTED = 8;
+}
+
+enum FirmwareTrustResultProto {
+  FIRMWARE_TRUST_RESULT_UNSPECIFIED = 0;
+  AIOS_PUBLISHER_SIGNED = 1;
+  VENDOR_SIGNED_THROUGH_AIOS_BRIDGE = 2;
+  OPERATOR_LOCAL_SIGNED_RESULT = 3;
+  UNSIGNED_REFUSED = 4;
+  REVOKED_KEY = 5;
+  VERSION_REGRESSION = 6;
+  INCOMPATIBLE_SCOPE = 7;
+  CONSTITUTIONAL_REFUSAL = 8;
+}
+
+enum FirmwareScopeProto {
+  FIRMWARE_SCOPE_UNSPECIFIED = 0;
+  BIOS_UEFI = 1;
+  CPU_SCOPE = 2;
+  GPU_SCOPE = 3;
+  NETWORK_ADAPTER = 4;
+  STORAGE_SCOPE = 5;
+  THUNDERBOLT_SCOPE = 6;
+  TPM = 7;
+  OTHER_PERIPHERAL = 8;
+}
+
+enum FirmwareApplyStrategyProto {
+  FIRMWARE_APPLY_STRATEGY_UNSPECIFIED = 0;
+  ATOMIC = 1;
+  STAGED_APPLY = 2;
+  DEFERRED = 3;
+}
+
+enum FirmwareUpdateClassProto {
+  FIRMWARE_UPDATE_CLASS_UNSPECIFIED = 0;
+  CPU_MICROCODE = 1;
+  GPU_FIRMWARE = 2;
+  NETWORK_FIRMWARE = 3;
+  STORAGE_FIRMWARE = 4;
+  PERIPHERAL_FIRMWARE = 5;
+}
+
+// ── HardwareManagerService messages ───────────────────────────────────────
+
+message HardwareDeviceRecordProto {
+  string device_id = 1;
+  DeviceClassProto class = 2;
+  BusKindProto bus = 3;
+  uint32 vendor_id = 4;
+  uint32 product_id = 5;
+  string vendor_name = 6;
+  string product_name = 7;
+  DeviceTrustClassProto trust_class = 8;
+  DeviceLifecycleStateProto lifecycle = 9;
+  optional DriverProvenanceProto driver_provenance = 10;
+  optional string firmware_version = 11;
+  bool removable = 12;
+  bool iommu_protected = 13;
+  google.protobuf.Timestamp probed_at = 14;
+}
+
+message DeregisterDeviceRequest {
+  string device_id = 1;
+}
+
+message GetDeviceRequest {
+  string device_id = 1;
+}
+
+message ListPendingDevicesRequest {}
+
+message ListPendingDevicesResponse {
+  repeated HardwareDeviceRecordProto devices = 1;
+}
+
+message SetDeviceLifecycleRequest {
+  string device_id = 1;
+  DeviceLifecycleStateProto state = 2;
+}
+
+message RebuildGraphRequest {
+  string host_canonical_id = 1;
+  bytes signer_key = 2;
+  string signer_fingerprint = 3;
+}
+
+message HardwareGraphProto {
+  string graph_id = 1;
+  repeated HardwareDeviceRecordProto devices = 2;
+  google.protobuf.Timestamp built_at = 3;
+  string host_canonical_id = 4;
+  string signer_fingerprint = 5;
+  bytes signature = 6;
+}
+
+message CurrentGraphRequest {}
+
+message CurrentGraphResponse {
+  optional HardwareGraphProto graph = 1;
+}
+
+message RawDeviceObservationProto {
+  BusKindProto bus = 1;
+  string bus_address = 2;
+  uint32 vendor_id = 3;
+  uint32 product_id = 4;
+  uint32 class_hint = 5;
+  optional string vendor_name = 6;
+  optional string product_name = 7;
+  bool removable_hint = 8;
+  bool iommu_protected_hint = 9;
+  optional string firmware_version_hint = 10;
+}
+
+message DriverBindingProto {
+  string binding_id = 1;
+  string device_id = 2;
+  string driver_module_name = 3;
+  string kernel_module_version = 4;
+  DriverProvenanceProto provenance = 5;
+  string blake3_hash = 6;
+  string signer_fingerprint = 7;
+  bytes signature = 8;
+  google.protobuf.Timestamp admitted_at = 9;
+}
+
+message LookupDriverBindingRequest {
+  string device_id = 1;
+}
+
+message LookupDriverBindingResponse {
+  optional DriverBindingProto binding = 1;
+}
+
+message DriftSignalProto {
+  enum Signal {
+    SIGNAL_UNSPECIFIED = 0;
+    NO_DRIFT = 1;
+    FIRST_BOOT = 2;
+    DRIFT_DETECTED = 3;
+  }
+  Signal signal = 1;
+  optional string prior_graph_id = 2;
+  optional string current_graph_id = 3;
+  optional GraphDiffProto diff = 4;
+}
+
+message GraphDiffProto {
+  repeated string added = 1;
+  repeated string removed = 2;
+  repeated string modified = 3;
+  uint32 kept = 4;
+}
+
+message EvaluateRemovableAdmissionRequest {
+  string device_id = 1;
+  BusKindProto bus = 2;
+  string requester = 3;
+}
+
+message RecordIommuObservationRequest {
+  string device_id = 1;
+  BusKindProto bus = 2;
+  bool iommu_observed = 3;
+}
+
+message AdvertisedCapabilityProto {
+  string device_id = 1;
+  string key = 2;
+  string advertised_value = 3;
+}
+
+message ObservedCapabilityProto {
+  string device_id = 1;
+  string key = 2;
+  string observed_value = 3;
+  google.protobuf.Timestamp observed_at = 4;
+}
+
+message CapabilityLieOutcomeProto {
+  enum Outcome {
+    OUTCOME_UNSPECIFIED = 0;
+    MATCH = 1;
+    LIE = 2;
+  }
+  Outcome outcome = 1;
+  optional string device_id = 2;
+  optional string key = 3;
+  optional string advertised = 4;
+  optional string observed = 5;
+  optional LieSeverityProto severity = 6;
+}
+
+message SetRemovablePolicyRequest {
+  string device_id = 1;
+  RemovableDevicePolicyProto policy = 2;
+  string setter = 3;
+}
+
+// ── GpuResourceService messages ───────────────────────────────────────────
+
+message GpuDeviceProto {
+  string gpu_id = 1;
+  GpuVendorKindProto vendor = 2;
+  string product_name = 3;
+  uint64 vram_total_bytes = 4;
+  repeated GpuCapabilityClassProto supported_classes = 5;
+  bool iommu_protected = 6;
+  string host_canonical_id = 7;
+}
+
+message ListGpusRequest {}
+
+message ListGpusResponse {
+  repeated GpuDeviceProto gpus = 1;
+}
+
+message EnsurePartitionRequest {
+  string gpu_id = 1;
+  string group_id = 2;
+}
+
+message VkDevicePartitionProto {
+  string partition_id = 1;
+  string gpu_id = 2;
+  string group_id = 3;
+  google.protobuf.Timestamp created_at = 4;
+  repeated string authorized_subjects = 5;
+}
+
+message BindingRequestProto {
+  string gpu_id = 1;
+  string group_id = 2;
+  string subject_canonical_id = 3;
+  GpuCapabilityClassProto capability_class = 4;
+  uint64 vram_bytes = 5;
+  optional uint32 ttl_seconds = 6;
+}
+
+message GpuCapabilityBindingProto {
+  string binding_id = 1;
+  string gpu_id = 2;
+  string group_id = 3;
+  string subject_canonical_id = 4;
+  GpuCapabilityClassProto capability_class = 5;
+  uint64 vram_bytes_reserved = 6;
+  string vk_device_partition_id = 7;
+  google.protobuf.Timestamp bound_at = 8;
+  optional google.protobuf.Timestamp expires_at = 9;
+}
+
+message ReleaseBindingRequest {
+  string binding_id = 1;
+}
+
+message GetAccountingRequest {
+  string gpu_id = 1;
+  string group_id = 2;
+}
+
+message GetAccountingResponse {
+  repeated VramAccountingProto entries = 1;
+}
+
+message VramAccountingProto {
+  string gpu_id = 1;
+  string group_id = 2;
+  string subject_canonical_id = 3;
+  GpuCapabilityClassProto capability_class = 4;
+  uint64 bytes_used = 5;
+  uint64 bytes_reserved = 6;
+}
+
+message DmabufHandleProto {
+  string handle_id = 1;
+  string source_gpu = 2;
+  string source_group = 3;
+  string source_subject = 4;
+  uint64 size_bytes = 5;
+  uint32 format_code = 6;
+  google.protobuf.Timestamp created_at = 7;
+}
+
+message DmabufPeerProto {
+  string target_gpu = 1;
+  string target_group = 2;
+  string target_subject = 3;
+}
+
+message DmabufPeerSetProto {
+  string handle_id = 1;
+  repeated DmabufPeerProto authorized_peers = 2;
+  string policy_decision_id = 3;
+}
+
+message CheckDmabufImportRequest {
+  string handle_id = 1;
+  string target_gpu = 2;
+  string target_group = 3;
+  string target_subject = 4;
+}
+
+message RevokeDmabufHandleRequest {
+  string handle_id = 1;
+}
+
+// ── FirmwareTrustService messages ─────────────────────────────────────────
+
+message FirmwareBlobProto {
+  string blob_id = 1;
+  FirmwareUpdateClassProto update_class = 2;
+  FirmwareScopeProto scope = 3;
+  optional string target_device = 4;
+  string vendor_name = 5;
+  string version = 6;
+  string blake3_hash = 7;
+  bytes signature = 8;
+  string signer_fingerprint = 9;
+  google.protobuf.Timestamp published_at = 10;
+}
+
+message FirmwareStageEntryProto {
+  FirmwareUpdateStateProto state = 1;
+  google.protobuf.Timestamp transitioned_at = 2;
+  string note = 3;
+}
+
+message FirmwareUpdatePlanProto {
+  FirmwareBlobProto blob = 1;
+  FirmwareUpdateStateProto current_state = 2;
+  FirmwareApplyStrategyProto apply_strategy = 3;
+  optional FirmwareTrustResultProto trust_result = 4;
+  repeated FirmwareStageEntryProto history = 5;
+  optional string installed_version_before = 6;
+}
+
+message ProposeFirmwareRequest {
+  FirmwareBlobProto blob = 1;
+  FirmwareApplyStrategyProto apply_strategy = 2;
+}
+
+message VerifyFirmwareRequest {
+  string blob_id = 1;
+}
+
+message ApproveFirmwareRequest {
+  string blob_id = 1;
+}
+
+message StageFirmwareRequest {
+  string blob_id = 1;
+}
+
+message ApplyFirmwareRequest {
+  string blob_id = 1;
+}
+
+message FinalizeStagedApplyRequest {
+  string blob_id = 1;
+}
+
+message RevertFirmwareRequest {
+  string blob_id = 1;
+  string reason = 2;
+}
+
+message FailFirmwareRequest {
+  string blob_id = 1;
+  string reason = 2;
+}
+
+message GetFirmwarePlanRequest {
+  string blob_id = 1;
+}
+
+message VerifyFirmwareResponse {
+  FirmwareTrustResultProto result = 1;
+}
+
+message ListFirmwarePlansRequest {}
+
+message ListFirmwarePlansResponse {
+  repeated FirmwareUpdatePlanProto plans = 1;
+}
+
+// ── Service definitions ───────────────────────────────────────────────────
+
+service HardwareManagerService {
+  // Device registry (5 RPCs)
+  rpc RegisterDevice(HardwareDeviceRecordProto) returns (google.protobuf.Empty);
+  rpc DeregisterDevice(DeregisterDeviceRequest) returns (google.protobuf.Empty);
+  rpc GetDevice(GetDeviceRequest) returns (HardwareDeviceRecordProto);
+  rpc ListPendingDevices(ListPendingDevicesRequest) returns (ListPendingDevicesResponse);
+  rpc SetDeviceLifecycle(SetDeviceLifecycleRequest) returns (google.protobuf.Empty);
+
+  // Graph (2 RPCs)
+  rpc RebuildGraph(RebuildGraphRequest) returns (HardwareGraphProto);
+  rpc CurrentGraph(CurrentGraphRequest) returns (CurrentGraphResponse);
+
+  // Classification (1 RPC)
+  rpc ClassifyObservation(RawDeviceObservationProto) returns (HardwareDeviceRecordProto);
+
+  // Driver binding (2 RPCs)
+  rpc AdmitDriverBinding(DriverBindingProto) returns (google.protobuf.Empty);
+  rpc LookupDriverBinding(LookupDriverBindingRequest) returns (LookupDriverBindingResponse);
+
+  // Drift (1 RPC)
+  rpc CheckDrift(HardwareGraphProto) returns (DriftSignalProto);
+
+  // Removable + IOMMU (3 RPCs)
+  rpc EvaluateRemovableAdmission(EvaluateRemovableAdmissionRequest) returns (google.protobuf.Empty);
+  rpc RecordIommuObservation(RecordIommuObservationRequest) returns (google.protobuf.Empty);
+  rpc SetRemovablePolicy(SetRemovablePolicyRequest) returns (google.protobuf.Empty);
+
+  // Capability-lie (2 RPCs)
+  rpc AdvertiseCapability(AdvertisedCapabilityProto) returns (google.protobuf.Empty);
+  rpc ObserveCapability(ObservedCapabilityProto) returns (CapabilityLieOutcomeProto);
+}
+
+service GpuResourceService {
+  // Device (2 RPCs)
+  rpc RegisterGpu(GpuDeviceProto) returns (google.protobuf.Empty);
+  rpc ListGpus(ListGpusRequest) returns (ListGpusResponse);
+
+  // Partition (1 RPC)
+  rpc EnsurePartition(EnsurePartitionRequest) returns (VkDevicePartitionProto);
+
+  // Binding (2 RPCs)
+  rpc RequestBinding(BindingRequestProto) returns (GpuCapabilityBindingProto);
+  rpc ReleaseBinding(ReleaseBindingRequest) returns (google.protobuf.Empty);
+
+  // Accounting (1 RPC)
+  rpc GetAccounting(GetAccountingRequest) returns (GetAccountingResponse);
+
+  // Dmabuf (4 RPCs)
+  rpc CreateDmabufHandle(DmabufHandleProto) returns (google.protobuf.Empty);
+  rpc AuthorizeDmabufPeerSet(DmabufPeerSetProto) returns (google.protobuf.Empty);
+  rpc CheckDmabufImport(CheckDmabufImportRequest) returns (google.protobuf.Empty);
+  rpc RevokeDmabufHandle(RevokeDmabufHandleRequest) returns (google.protobuf.Empty);
+}
+
+service FirmwareTrustService {
+  rpc ProposeFirmware(ProposeFirmwareRequest) returns (FirmwareUpdatePlanProto);
+  rpc VerifyFirmware(VerifyFirmwareRequest) returns (VerifyFirmwareResponse);
+  rpc ApproveFirmware(ApproveFirmwareRequest) returns (google.protobuf.Empty);
+  rpc StageFirmware(StageFirmwareRequest) returns (google.protobuf.Empty);
+  rpc ApplyFirmware(ApplyFirmwareRequest) returns (google.protobuf.Empty);
+  rpc FinalizeStagedApply(FinalizeStagedApplyRequest) returns (google.protobuf.Empty);
+  rpc RevertFirmware(RevertFirmwareRequest) returns (google.protobuf.Empty);
+  rpc FailFirmware(FailFirmwareRequest) returns (google.protobuf.Empty);
+  rpc GetFirmwarePlan(GetFirmwarePlanRequest) returns (FirmwareUpdatePlanProto);
+  rpc ListFirmwarePlans(ListFirmwarePlansRequest) returns (ListFirmwarePlansResponse);
+}

@@ -7,12 +7,14 @@
 //! INV-018 — never in config.
 
 use std::collections::HashMap;
+use std::sync::Arc;
 
 use chrono::{DateTime, Utc};
 use ed25519_dalek::{Signature, VerifyingKey};
 use tokio::sync::RwLock;
 
 use crate::error::NetworkPolicyError;
+use crate::evidence::{NetworkEvidenceEmitter, WithEmitter};
 use crate::ids::SubjectId;
 
 // ---------------------------------------------------------------------------
@@ -217,6 +219,8 @@ pub struct VpnTunnelManager {
     peer_authorities: RwLock<HashMap<String, VerifyingKey>>,
     /// Append-only rotation history.
     rotation_history: RwLock<Vec<PeerKeyRotation>>,
+    /// Optional evidence emitter.
+    emitter: RwLock<Option<Arc<dyn NetworkEvidenceEmitter>>>,
 }
 
 impl VpnTunnelManager {
@@ -227,6 +231,7 @@ impl VpnTunnelManager {
             tunnels: RwLock::new(HashMap::new()),
             peer_authorities: RwLock::new(HashMap::new()),
             rotation_history: RwLock::new(Vec::new()),
+            emitter: RwLock::new(None),
         }
     }
 
@@ -275,8 +280,16 @@ impl VpnTunnelManager {
             since: Utc::now(),
             requester,
         };
-        tunnels.insert(config.tunnel_id.clone(), (config, state));
+        let tunnel_id = config.tunnel_id.clone();
+        tunnels.insert(tunnel_id.clone(), (config, state));
         drop(tunnels);
+
+        if let Some(ref e) = *self.emitter.read().await {
+            let _ = e
+                .emit_vpn_tunnel_event(&tunnel_id, TunnelLifecycleLabel::Proposed)
+                .await;
+        }
+
         Ok(())
     }
 
@@ -304,6 +317,13 @@ impl VpnTunnelManager {
                 granted_at: Utc::now(),
                 policy_decision_id: decision_id.to_owned(),
             };
+            drop(tunnels);
+
+            if let Some(ref e) = *self.emitter.read().await {
+                let _ = e
+                    .emit_vpn_tunnel_event(tunnel_id, TunnelLifecycleLabel::Approved)
+                    .await;
+            }
             Ok(())
         } else {
             let label = state.label();
@@ -335,6 +355,13 @@ impl VpnTunnelManager {
                 activated_at: now,
                 last_handshake_at: now,
             };
+            drop(tunnels);
+
+            if let Some(ref e) = *self.emitter.read().await {
+                let _ = e
+                    .emit_vpn_tunnel_event(tunnel_id, TunnelLifecycleLabel::Active)
+                    .await;
+            }
             Ok(())
         } else {
             let label = state.label();
@@ -366,6 +393,13 @@ impl VpnTunnelManager {
         } = state
         {
             *last_handshake_at = Utc::now();
+            drop(tunnels);
+
+            if let Some(ref e) = *self.emitter.read().await {
+                let _ = e
+                    .emit_vpn_tunnel_event(tunnel_id, TunnelLifecycleLabel::Active)
+                    .await;
+            }
             Ok(())
         } else {
             let label = state.label();
@@ -400,6 +434,13 @@ impl VpnTunnelManager {
                 reason: reason.to_owned(),
                 failed_at: Utc::now(),
             };
+            drop(tunnels);
+
+            if let Some(ref e) = *self.emitter.read().await {
+                let _ = e
+                    .emit_vpn_tunnel_event(tunnel_id, TunnelLifecycleLabel::Failed)
+                    .await;
+            }
             Ok(())
         } else {
             let label = state.label();
@@ -443,6 +484,13 @@ impl VpnTunnelManager {
                 reason: reason.to_owned(),
                 revoked_at: Utc::now(),
             };
+            drop(tunnels);
+
+            if let Some(ref e) = *self.emitter.read().await {
+                let _ = e
+                    .emit_vpn_tunnel_event(tunnel_id, TunnelLifecycleLabel::Revoked)
+                    .await;
+            }
             Ok(())
         }
     }
@@ -501,6 +549,11 @@ impl VpnTunnelManager {
 
         peer.public_key = rotation.new_pubkey;
         drop(tunnels);
+
+        if let Some(ref e) = *self.emitter.read().await {
+            let _ = e.emit_vpn_peer_key_rotated(&rotation).await;
+        }
+
         self.rotation_history.write().await.push(rotation);
         Ok(())
     }
@@ -531,6 +584,13 @@ impl VpnTunnelManager {
     /// Return a clone of the append-only rotation history.
     pub async fn list_rotations(&self) -> Vec<PeerKeyRotation> {
         self.rotation_history.read().await.clone()
+    }
+}
+
+impl WithEmitter for VpnTunnelManager {
+    fn with_emitter(mut self, emitter: Option<Arc<dyn NetworkEvidenceEmitter>>) -> Self {
+        self.emitter = RwLock::new(emitter);
+        self
     }
 }
 

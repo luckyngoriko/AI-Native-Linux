@@ -10,6 +10,7 @@
 use std::collections::HashMap;
 use std::net::IpAddr;
 use std::sync::atomic::{AtomicU64, Ordering};
+use std::sync::Arc;
 
 use chrono::{DateTime, Utc};
 use ed25519_dalek::{Signature, Signer, SigningKey, VerifyingKey};
@@ -18,6 +19,7 @@ use tokio::sync::RwLock;
 use tracing;
 
 use crate::error::NetworkPolicyError;
+use crate::evidence::{NetworkEvidenceEmitter, WithEmitter};
 
 /// Closed resolver backend vocabulary (S8.4 §3).
 ///
@@ -137,6 +139,8 @@ pub struct ResolverProfileManager {
     trusted_authorities: HashMap<String, VerifyingKey>,
     /// In-flight DNS query count (RAII-guarded, observability only).
     in_flight_query_count: AtomicU64,
+    /// Optional evidence emitter.
+    emitter: RwLock<Option<Arc<dyn NetworkEvidenceEmitter>>>,
 }
 
 impl ResolverProfileManager {
@@ -148,6 +152,7 @@ impl ResolverProfileManager {
             allowlists: RwLock::new(HashMap::new()),
             trusted_authorities: HashMap::new(),
             in_flight_query_count: AtomicU64::new(0),
+            emitter: RwLock::new(None),
         }
     }
 
@@ -195,6 +200,11 @@ impl ResolverProfileManager {
         // 2. Reject PlainDnsForbidden endpoints.
         for ep in &list.endpoints {
             if ep.transport == DnsTransport::PlainDnsForbidden {
+                if let Some(ref e) = *self.emitter.read().await {
+                    let _ = e
+                        .emit_plain_dns_blocked("allowlist contains forbidden plain DNS endpoint")
+                        .await;
+                }
                 return Err(NetworkPolicyError::PlainDnsForbidden(
                     "allowlist contains forbidden plain DNS endpoint".into(),
                 ));
@@ -216,9 +226,19 @@ impl ResolverProfileManager {
             }
         }
 
+        let list_id = list.list_id.clone();
+        let signer_fingerprint = list.signer_fingerprint.clone();
+
         let mut allowlists = self.allowlists.write().await;
-        allowlists.insert(list.list_id.clone(), list);
+        allowlists.insert(list_id.clone(), list);
         drop(allowlists);
+
+        if let Some(ref e) = *self.emitter.read().await {
+            let _ = e
+                .emit_resolver_list_admitted(&list_id, &signer_fingerprint)
+                .await;
+        }
+
         Ok(())
     }
 
@@ -240,10 +260,22 @@ impl ResolverProfileManager {
         let new_endpoints = new_list.endpoints.clone();
         drop(allowlists);
 
+        let from_list_id = {
+            let current = self.current.read().await;
+            current.active_list_id.clone()
+        };
+
         let mut current = self.current.write().await;
         current.active_list_id = new_list_id.to_string();
         current.effective_endpoints = new_endpoints;
         drop(current);
+
+        if let Some(ref e) = *self.emitter.read().await {
+            let _ = e
+                .emit_resolver_list_rotated(&from_list_id, new_list_id)
+                .await;
+        }
+
         Ok(())
     }
 
@@ -267,6 +299,13 @@ impl ResolverProfileManager {
     pub fn begin_query(&self) -> QueryGuard<'_> {
         self.in_flight_query_count.fetch_add(1, Ordering::Relaxed);
         QueryGuard { manager: self }
+    }
+}
+
+impl WithEmitter for ResolverProfileManager {
+    fn with_emitter(mut self, emitter: Option<Arc<dyn NetworkEvidenceEmitter>>) -> Self {
+        self.emitter = RwLock::new(emitter);
+        self
     }
 }
 

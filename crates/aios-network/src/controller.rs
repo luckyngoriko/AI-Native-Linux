@@ -6,12 +6,14 @@
 //! in-memory backing used by all M16 tasks.
 
 use std::collections::HashMap;
+use std::sync::Arc;
 
 use async_trait::async_trait;
 use chrono::{DateTime, Utc};
 use tokio::sync::RwLock;
 
 use crate::error::{NetworkPolicyError, NetworkPolicyErrorCode};
+use crate::evidence::{NetworkEvidenceEmitter, WithEmitter};
 use crate::ids::SubjectId;
 use crate::outbound::OutboundDirective;
 use crate::posture::NetworkPosture;
@@ -116,6 +118,7 @@ struct ControllerState {
 /// controller is wired (T-161).
 pub struct InMemoryNetworkPolicyController {
     state: RwLock<ControllerState>,
+    emitter: RwLock<Option<Arc<dyn NetworkEvidenceEmitter>>>,
 }
 
 impl InMemoryNetworkPolicyController {
@@ -128,6 +131,7 @@ impl InMemoryNetworkPolicyController {
                 directives: HashMap::new(),
                 posture_history: Vec::new(),
             }),
+            emitter: RwLock::new(None),
         }
     }
 
@@ -140,12 +144,20 @@ impl InMemoryNetworkPolicyController {
                 directives: HashMap::new(),
                 posture_history: Vec::new(),
             }),
+            emitter: RwLock::new(None),
         }
     }
 
     /// Return a clone of the full posture change history.
     pub async fn posture_history(&self) -> Vec<PostureChangeReceipt> {
         self.state.read().await.posture_history.clone()
+    }
+}
+
+impl WithEmitter for InMemoryNetworkPolicyController {
+    fn with_emitter(mut self, emitter: Option<Arc<dyn NetworkEvidenceEmitter>>) -> Self {
+        self.emitter = RwLock::new(emitter);
+        self
     }
 }
 
@@ -176,6 +188,11 @@ impl NetworkPolicyController for InMemoryNetworkPolicyController {
         state.posture = new;
         state.posture_history.push(receipt.clone());
         drop(state);
+
+        if let Some(ref e) = *self.emitter.read().await {
+            e.emit_posture_changed(&receipt).await?;
+        }
+
         Ok(receipt)
     }
 

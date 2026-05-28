@@ -6,6 +6,7 @@
 //! sets a FOREVER evidence flag (evidence emission deferred to T-161).
 
 use std::net::IpAddr;
+use std::sync::Arc;
 
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -13,6 +14,7 @@ use strum_macros::{EnumCount, EnumIter};
 use tokio::sync::RwLock;
 
 use crate::error::NetworkPolicyError;
+use crate::evidence::{NetworkEvidenceEmitter, WithEmitter};
 use crate::ids::SubjectId;
 use crate::outbound::OutboundDirective;
 use crate::protocol::ProtocolFamily;
@@ -207,6 +209,8 @@ pub struct FirewallManager {
     history: RwLock<Vec<FirewallRuleset>>,
     /// Whether the system is currently running on the iptables fallback path.
     fallback_active: RwLock<bool>,
+    /// Optional evidence emitter.
+    emitter: RwLock<Option<Arc<dyn NetworkEvidenceEmitter>>>,
 }
 
 impl FirewallManager {
@@ -217,6 +221,7 @@ impl FirewallManager {
             active: RwLock::new(None),
             history: RwLock::new(Vec::new()),
             fallback_active: RwLock::new(false),
+            emitter: RwLock::new(None),
         }
     }
 
@@ -240,6 +245,11 @@ impl FirewallManager {
 
         if is_fallback {
             *self.fallback_active.write().await = true;
+            if let Some(ref e) = *self.emitter.read().await {
+                let _ = e
+                    .emit_firewall_fallback_activated(FirewallBackend::IptablesFallback)
+                    .await;
+            }
         }
         Ok(())
     }
@@ -317,6 +327,13 @@ impl FirewallManager {
                 vec![]
             }
         }
+    }
+}
+
+impl WithEmitter for FirewallManager {
+    fn with_emitter(mut self, emitter: Option<Arc<dyn NetworkEvidenceEmitter>>) -> Self {
+        self.emitter = RwLock::new(emitter);
+        self
     }
 }
 

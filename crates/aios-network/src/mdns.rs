@@ -6,6 +6,7 @@
 //! Recovery and airgap postures hard-deny regardless of allowlists.
 
 use std::collections::HashMap;
+use std::sync::Arc;
 
 use chrono::{DateTime, Utc};
 use ed25519_dalek::{Signature, VerifyingKey};
@@ -13,6 +14,7 @@ use serde::{Deserialize, Serialize};
 use tokio::sync::RwLock;
 
 use crate::error::NetworkPolicyError;
+use crate::evidence::{NetworkEvidenceEmitter, WithEmitter};
 use crate::ids::SubjectId;
 
 // ---------------------------------------------------------------------------
@@ -112,6 +114,8 @@ pub struct MdnsGate {
     allowlists: RwLock<HashMap<String, MdnsAdvertisementAllowlist>>,
     /// Trusted signing authorities keyed by hex fingerprint.
     trusted_authorities: RwLock<HashMap<String, VerifyingKey>>,
+    /// Optional evidence emitter.
+    emitter: RwLock<Option<Arc<dyn NetworkEvidenceEmitter>>>,
 }
 
 impl MdnsGate {
@@ -122,6 +126,7 @@ impl MdnsGate {
             current_posture: RwLock::new(MdnsAvahiPosture::DenyDefault),
             allowlists: RwLock::new(HashMap::new()),
             trusted_authorities: RwLock::new(HashMap::new()),
+            emitter: RwLock::new(None),
         }
     }
 
@@ -140,6 +145,10 @@ impl MdnsGate {
     /// Never fails for T-159 — always returns `Ok(())`.
     pub async fn set_posture(&self, new: MdnsAvahiPosture) -> Result<(), NetworkPolicyError> {
         *self.current_posture.write().await = new;
+        if let Some(ref e) = *self.emitter.read().await {
+            let posture = self.current_posture.read().await;
+            let _ = e.emit_mdns_posture_changed(&posture).await;
+        }
         Ok(())
     }
 
@@ -205,15 +214,33 @@ impl MdnsGate {
     ) -> Result<(), NetworkPolicyError> {
         let posture = self.current_posture.read().await;
         match &*posture {
-            MdnsAvahiPosture::RecoveryDenied => Err(NetworkPolicyError::MdnsAdvertisementDenied(
-                "recovery-denied".into(),
-            )),
-            MdnsAvahiPosture::AirgapDenied => Err(NetworkPolicyError::MdnsAdvertisementDenied(
-                "airgap-denied".into(),
-            )),
-            MdnsAvahiPosture::DenyDefault => Err(NetworkPolicyError::MdnsAdvertisementDenied(
-                "default-deny".into(),
-            )),
+            MdnsAvahiPosture::RecoveryDenied => {
+                let reason = "recovery-denied";
+                if let Some(ref e) = *self.emitter.read().await {
+                    let _ = e
+                        .emit_mdns_advertisement_rejected(service_type, instance_name, port, reason)
+                        .await;
+                }
+                Err(NetworkPolicyError::MdnsAdvertisementDenied(reason.into()))
+            }
+            MdnsAvahiPosture::AirgapDenied => {
+                let reason = "airgap-denied";
+                if let Some(ref e) = *self.emitter.read().await {
+                    let _ = e
+                        .emit_mdns_advertisement_rejected(service_type, instance_name, port, reason)
+                        .await;
+                }
+                Err(NetworkPolicyError::MdnsAdvertisementDenied(reason.into()))
+            }
+            MdnsAvahiPosture::DenyDefault => {
+                let reason = "default-deny";
+                if let Some(ref e) = *self.emitter.read().await {
+                    let _ = e
+                        .emit_mdns_advertisement_rejected(service_type, instance_name, port, reason)
+                        .await;
+                }
+                Err(NetworkPolicyError::MdnsAdvertisementDenied(reason.into()))
+            }
             MdnsAvahiPosture::OperatorAuthorised { allowlist_id } => {
                 let ads = {
                     let allowlists = self.allowlists.read().await;
@@ -221,9 +248,20 @@ impl MdnsGate {
                         .get(allowlist_id)
                         .map(|l| l.advertisements.clone())
                 };
-                let list_ads = ads.ok_or_else(|| {
-                    NetworkPolicyError::MdnsAdvertisementDenied("not in allowlist".into())
-                })?;
+                let Some(list_ads) = ads else {
+                    let reason = "not in allowlist";
+                    if let Some(ref e) = *self.emitter.read().await {
+                        let _ = e
+                            .emit_mdns_advertisement_rejected(
+                                service_type,
+                                instance_name,
+                                port,
+                                reason,
+                            )
+                            .await;
+                    }
+                    return Err(NetworkPolicyError::MdnsAdvertisementDenied(reason.into()));
+                };
                 let found = list_ads.iter().any(|ad| {
                     ad.service_type == service_type
                         && ad.instance_name == instance_name
@@ -232,12 +270,28 @@ impl MdnsGate {
                 if found {
                     Ok(())
                 } else {
-                    Err(NetworkPolicyError::MdnsAdvertisementDenied(
-                        "not in allowlist".into(),
-                    ))
+                    let reason = "not in allowlist";
+                    if let Some(ref e) = *self.emitter.read().await {
+                        let _ = e
+                            .emit_mdns_advertisement_rejected(
+                                service_type,
+                                instance_name,
+                                port,
+                                reason,
+                            )
+                            .await;
+                    }
+                    Err(NetworkPolicyError::MdnsAdvertisementDenied(reason.into()))
                 }
             }
         }
+    }
+}
+
+impl WithEmitter for MdnsGate {
+    fn with_emitter(mut self, emitter: Option<Arc<dyn NetworkEvidenceEmitter>>) -> Self {
+        self.emitter = RwLock::new(emitter);
+        self
     }
 }
 

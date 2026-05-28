@@ -17,6 +17,7 @@ use tokio::sync::RwLock;
 
 use crate::allowlist::AllowlistEntryKind;
 use crate::error::{NetworkPolicyError, NetworkPolicyErrorCode};
+use crate::evidence::{NetworkEvidenceEmitter, WithEmitter};
 use crate::grant_registry::OutboundGrantRegistry;
 use crate::ids::{GroupId, SubjectId};
 use crate::inbound::PortPolicy;
@@ -28,6 +29,7 @@ pub struct ConnectionEvaluator {
     registry: Arc<OutboundGrantRegistry>,
     group_membership: RwLock<HashMap<SubjectId, GroupId>>,
     fqdn_fanout_limit: usize,
+    emitter: RwLock<Option<Arc<dyn NetworkEvidenceEmitter>>>,
 }
 
 /// Request to evaluate a connection through the full evaluator pipeline.
@@ -84,6 +86,7 @@ impl ConnectionEvaluator {
             registry,
             group_membership: RwLock::new(HashMap::new()),
             fqdn_fanout_limit: 16,
+            emitter: RwLock::new(None),
         }
     }
 
@@ -124,11 +127,29 @@ impl ConnectionEvaluator {
         &self,
         req: EvaluateConnectionRequestV2,
     ) -> Result<ConnectionDecisionV2, NetworkPolicyError> {
+        let decision = self.compute_decision(&req).await;
+
+        if let Ok(ref dec) = decision {
+            if let Some(ref e) = *self.emitter.read().await {
+                let _ = e.emit_connection_decision(&req, dec).await;
+            }
+        }
+
+        decision
+    }
+
+    async fn compute_decision(
+        &self,
+        req: &EvaluateConnectionRequestV2,
+    ) -> Result<ConnectionDecisionV2, NetworkPolicyError> {
         // --- INV I3: cross-group access check ---
         if let Some(ref dest_group) = req.destination_group_hint {
             let memberships = self.group_membership.read().await;
             if let Some(src_group) = memberships.get(&req.subject) {
                 if src_group != dest_group {
+                    if let Some(ref e) = *self.emitter.read().await {
+                        let _ = e.emit_cross_group_forbidden(src_group, dest_group).await;
+                    }
                     return Ok(ConnectionDecisionV2::Denied {
                         code: NetworkPolicyErrorCode::CrossGroupAccessForbidden,
                         reason: format!(
@@ -145,17 +166,12 @@ impl ConnectionEvaluator {
 
         // --- Match against allowlist entries ---
         for entry in &entries {
-            // Protocol must match.
             if entry.protocol != req.protocol {
                 continue;
             }
-
-            // Port policy must match.
             if !port_policy_matches(entry.port_policy, req.destination_port) {
                 continue;
             }
-
-            // Match by entry kind.
             let matched = match entry.kind {
                 AllowlistEntryKind::HostFqdn => {
                     req.destination_host.eq_ignore_ascii_case(&entry.value)
@@ -168,12 +184,10 @@ impl ConnectionEvaluator {
                 }
                 AllowlistEntryKind::IpV4Cidr => ipv4_in_cidr(&req.destination_host, &entry.value),
                 AllowlistEntryKind::IpV6Cidr => ipv6_in_cidr(&req.destination_host, &entry.value),
-                // Deferred to T-157/T-158.
                 AllowlistEntryKind::DnsOverTlsResolver | AllowlistEntryKind::VpnPeerEndpoint => {
                     continue;
                 }
             };
-
             if matched {
                 let kind_label = match entry.kind {
                     AllowlistEntryKind::HostFqdn => "fqdn",
@@ -190,13 +204,21 @@ impl ConnectionEvaluator {
             }
         }
 
-        // No matching entry — default deny.
         Ok(ConnectionDecisionV2::Denied {
             code: NetworkPolicyErrorCode::DefaultDeny,
             reason: "no allowlist entry matches".into(),
         })
     }
+}
 
+impl WithEmitter for ConnectionEvaluator {
+    fn with_emitter(mut self, emitter: Option<Arc<dyn NetworkEvidenceEmitter>>) -> Self {
+        self.emitter = RwLock::new(emitter);
+        self
+    }
+}
+
+impl ConnectionEvaluator {
     /// Check FQDN fan-out cardinality bound (INV I9).
     ///
     /// No real DNS resolution — the caller supplies pre-resolved addresses.

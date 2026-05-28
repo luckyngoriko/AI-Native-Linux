@@ -5,12 +5,14 @@
 //! LanActive → PublicPending direct transition is forbidden; PUBLIC must re-arm from Loopback.
 //! Invalid transitions return ExposureEscalationDenied carrying from/to labels and the reason.
 
+use std::sync::Arc;
 use std::time::Duration;
 
 use chrono::{DateTime, Utc};
 use tokio::sync::RwLock;
 
 use crate::error::NetworkPolicyError;
+use crate::evidence::{NetworkEvidenceEmitter, WithEmitter};
 use crate::ids::SubjectId;
 
 // ---------------------------------------------------------------------------
@@ -260,6 +262,7 @@ pub struct ExposureApprovalFsm {
     history: RwLock<Vec<ExposureTransition>>,
     lan_heartbeat_interval: Duration,
     public_heartbeat_interval: Duration,
+    emitter: RwLock<Option<Arc<dyn NetworkEvidenceEmitter>>>,
 }
 
 impl ExposureApprovalFsm {
@@ -274,6 +277,7 @@ impl ExposureApprovalFsm {
             history: RwLock::new(Vec::new()),
             lan_heartbeat_interval: Duration::from_hours(24),
             public_heartbeat_interval: Duration::from_mins(5),
+            emitter: RwLock::new(None),
         }
     }
 
@@ -285,6 +289,7 @@ impl ExposureApprovalFsm {
             history: RwLock::new(Vec::new()),
             lan_heartbeat_interval: lan_heartbeat,
             public_heartbeat_interval: public_heartbeat,
+            emitter: RwLock::new(None),
         }
     }
 
@@ -308,12 +313,18 @@ impl ExposureApprovalFsm {
         to: ExposureApprovalLabel,
         reason: ExposureTransitionReason,
     ) {
-        self.history.write().await.push(ExposureTransition {
+        let transition = ExposureTransition {
             from,
             to,
             transitioned_at: Utc::now(),
             reason,
-        });
+        };
+        self.history.write().await.push(transition.clone());
+
+        if let Some(ref e) = *self.emitter.read().await {
+            let actor = actor_from_reason(&transition.reason);
+            let _ = e.emit_exposure_transition(&transition, actor).await;
+        }
     }
 
     async fn enforce_transition(
@@ -681,8 +692,24 @@ impl ExposureApprovalFsm {
     }
 }
 
+impl WithEmitter for ExposureApprovalFsm {
+    fn with_emitter(mut self, emitter: Option<Arc<dyn NetworkEvidenceEmitter>>) -> Self {
+        self.emitter = RwLock::new(emitter);
+        self
+    }
+}
+
 impl Default for ExposureApprovalFsm {
     fn default() -> Self {
         Self::new()
+    }
+}
+
+fn actor_from_reason(reason: &ExposureTransitionReason) -> &str {
+    match reason {
+        ExposureTransitionReason::LanRequest { requester }
+        | ExposureTransitionReason::PublicRequest { requester, .. } => &requester.0,
+        ExposureTransitionReason::PublicCoSignerApproved { co_signer, .. } => &co_signer.0,
+        _ => "_system",
     }
 }

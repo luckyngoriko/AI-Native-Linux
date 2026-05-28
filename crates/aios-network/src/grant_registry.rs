@@ -7,6 +7,7 @@
 //! reduction happens via [`GrantTombstone`] (INV I8).
 
 use std::collections::HashMap;
+use std::sync::Arc;
 
 use chrono::Utc;
 use ed25519_dalek::{Signature, Signer, SigningKey, VerifyingKey};
@@ -14,6 +15,7 @@ use tokio::sync::RwLock;
 
 use crate::allowlist::AllowlistEntry;
 use crate::error::NetworkPolicyError;
+use crate::evidence::{NetworkEvidenceEmitter, WithEmitter};
 use crate::ids::SubjectId;
 use crate::outbound_grant::{GrantTombstone, NetworkOutboundManifest, OutboundGrant};
 
@@ -25,6 +27,8 @@ pub struct OutboundGrantRegistry {
     manifests: RwLock<HashMap<SubjectId, NetworkOutboundManifest>>,
     /// Append-only tombstone log.
     tombstones: RwLock<Vec<GrantTombstone>>,
+    /// Optional evidence emitter.
+    emitter: RwLock<Option<Arc<dyn NetworkEvidenceEmitter>>>,
 }
 
 impl OutboundGrantRegistry {
@@ -35,6 +39,7 @@ impl OutboundGrantRegistry {
             trusted_authorities: HashMap::new(),
             manifests: RwLock::new(HashMap::new()),
             tombstones: RwLock::new(Vec::new()),
+            emitter: RwLock::new(None),
         }
     }
 
@@ -117,6 +122,9 @@ impl OutboundGrantRegistry {
         }
 
         // --- Append grant to subject's manifest ---
+        let grant_id = grant.grant_id.clone();
+        let subject = grant.subject.clone();
+
         let mut manifests = self.manifests.write().await;
         let manifest =
             manifests
@@ -130,6 +138,11 @@ impl OutboundGrantRegistry {
                 });
         manifest.append_grant(grant);
         drop(manifests);
+
+        if let Some(ref e) = *self.emitter.read().await {
+            let _ = e.emit_outbound_grant_issued(&grant_id, &subject).await;
+        }
+
         Ok(())
     }
 
@@ -172,6 +185,11 @@ impl OutboundGrantRegistry {
         let mut tombstones = self.tombstones.write().await;
         tombstones.push(tombstone.clone());
         drop(tombstones);
+
+        if let Some(ref e) = *self.emitter.read().await {
+            let _ = e.emit_outbound_grant_revoked(&tombstone).await;
+        }
+
         Ok(tombstone)
     }
 
@@ -223,6 +241,13 @@ impl OutboundGrantRegistry {
         drop(tombstones);
 
         entries
+    }
+}
+
+impl WithEmitter for OutboundGrantRegistry {
+    fn with_emitter(mut self, emitter: Option<Arc<dyn NetworkEvidenceEmitter>>) -> Self {
+        self.emitter = RwLock::new(emitter);
+        self
     }
 }
 

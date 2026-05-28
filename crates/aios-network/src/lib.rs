@@ -22,6 +22,8 @@ pub mod controller;
 pub mod dns;
 /// Network policy error taxonomy.
 pub mod error;
+/// Network evidence emitter (S8.1 + S8.4 ↔ S3.1).
+pub mod evidence;
 /// Exposure approval state machine (S8.1 §5, INV I2+I10).
 pub mod exposure_fsm;
 /// Firewall rule model (S8.1 §10).
@@ -88,6 +90,10 @@ pub use protocol::ProtocolFamily;
 pub use vpn::{
     validate_tunnel_kind, PeerKeyRotation, TunnelLifecycleLabel, TunnelLifecycleState,
     VpnTunnelKind, VpnTunnelManager, WireGuardConfig, WireGuardPeer,
+};
+
+pub use evidence::{
+    EvidenceReceipt, InMemoryNetworkEvidenceEmitter, NetworkEvidenceEmitter, WithEmitter,
 };
 
 /// Crate version marker used by closure-invariant tests in T-162.

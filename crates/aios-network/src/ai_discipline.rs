@@ -9,11 +9,13 @@
 //! bypass this gate (`Allowed { via: BypassedNonAi }`).
 
 use std::collections::HashMap;
+use std::sync::Arc;
 
 use tokio::sync::RwLock;
 
 use crate::ai_cross_origin::AICrossOriginPosture;
 use crate::error::NetworkPolicyError;
+use crate::evidence::{NetworkEvidenceEmitter, WithEmitter};
 use crate::ids::SubjectId;
 
 /// Request to evaluate whether an AI subject may make an external call.
@@ -106,6 +108,7 @@ pub struct AiCrossOriginGate {
     classifier: AiSubjectClassifier,
     postures: RwLock<HashMap<SubjectId, AICrossOriginPosture>>,
     broker_handle_authority: HashMap<String, String>,
+    emitter: RwLock<Option<Arc<dyn NetworkEvidenceEmitter>>>,
 }
 
 impl AiCrossOriginGate {
@@ -117,6 +120,7 @@ impl AiCrossOriginGate {
             classifier,
             postures: RwLock::new(HashMap::new()),
             broker_handle_authority: HashMap::new(),
+            emitter: RwLock::new(None),
         }
     }
 
@@ -190,8 +194,13 @@ impl AiCrossOriginGate {
 
         let posture = self.get_posture(&req.subject).await;
 
-        match posture {
+        let decision = match posture {
             AICrossOriginPosture::DenyAllExternal => {
+                if let Some(ref e) = *self.emitter.read().await {
+                    let _ = e
+                        .emit_ai_direct_internet_denied(&req.subject, &req.endpoint)
+                        .await;
+                }
                 Err(NetworkPolicyError::AiDirectInternetDenied {
                     subject: req.subject,
                     attempted_endpoint: req.endpoint,
@@ -201,6 +210,11 @@ impl AiCrossOriginGate {
                 match req.broker_handle.as_deref() {
                     Some(h) if h == broker_handle.as_str() => {}
                     _ => {
+                        if let Some(ref e) = *self.emitter.read().await {
+                            let _ = e
+                                .emit_ai_direct_internet_denied(&req.subject, &req.endpoint)
+                                .await;
+                        }
                         return Err(NetworkPolicyError::AiDirectInternetDenied {
                             subject: req.subject,
                             attempted_endpoint: req.endpoint,
@@ -208,34 +222,62 @@ impl AiCrossOriginGate {
                     }
                 }
                 let fingerprint = self.broker_handle_authority.get(&broker_handle).cloned();
-                match fingerprint {
-                    Some(signer_fingerprint) => Ok(AiExternalCallDecision::Allowed {
+                if let Some(signer_fingerprint) = fingerprint {
+                    if let Some(ref e) = *self.emitter.read().await {
+                        let _ = e
+                            .emit_ai_external_call_brokered(&req.subject, &broker_handle)
+                            .await;
+                    }
+                    Ok(AiExternalCallDecision::Allowed {
                         via: AllowedVia::VaultBroker {
                             broker_handle,
                             signer_fingerprint,
                         },
-                    }),
-                    None => Err(NetworkPolicyError::AiDirectInternetDenied {
+                    })
+                } else {
+                    if let Some(ref e) = *self.emitter.read().await {
+                        let _ = e
+                            .emit_ai_direct_internet_denied(&req.subject, &req.endpoint)
+                            .await;
+                    }
+                    Err(NetworkPolicyError::AiDirectInternetDenied {
                         subject: req.subject,
                         attempted_endpoint: req.endpoint,
-                    }),
+                    })
                 }
             }
             AICrossOriginPosture::OperatorMediated {
                 operator_canonical_id,
-            } => match req.operator_approval_id {
-                Some(approval_id) => Ok(AiExternalCallDecision::Allowed {
-                    via: AllowedVia::OperatorMediated {
-                        operator: operator_canonical_id,
-                        approval_id,
-                    },
-                }),
-                None => Err(NetworkPolicyError::AiDirectInternetDenied {
-                    subject: req.subject,
-                    attempted_endpoint: req.endpoint,
-                }),
-            },
-        }
+            } => {
+                if let Some(approval_id) = req.operator_approval_id {
+                    Ok(AiExternalCallDecision::Allowed {
+                        via: AllowedVia::OperatorMediated {
+                            operator: operator_canonical_id,
+                            approval_id,
+                        },
+                    })
+                } else {
+                    if let Some(ref e) = *self.emitter.read().await {
+                        let _ = e
+                            .emit_ai_direct_internet_denied(&req.subject, &req.endpoint)
+                            .await;
+                    }
+                    Err(NetworkPolicyError::AiDirectInternetDenied {
+                        subject: req.subject,
+                        attempted_endpoint: req.endpoint,
+                    })
+                }
+            }
+        };
+
+        decision
+    }
+}
+
+impl WithEmitter for AiCrossOriginGate {
+    fn with_emitter(mut self, emitter: Option<Arc<dyn NetworkEvidenceEmitter>>) -> Self {
+        self.emitter = RwLock::new(emitter);
+        self
     }
 }
 

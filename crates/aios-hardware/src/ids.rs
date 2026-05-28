@@ -3,7 +3,7 @@
 use serde::{Deserialize, Serialize};
 
 /// Canonical bus+vendor+product device identifier (e.g., `pci:8086:9a49`).
-#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 pub struct DeviceId(pub String);
 
 /// GPU identifier.

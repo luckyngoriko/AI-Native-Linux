@@ -8,17 +8,21 @@
 
 pub mod bus;
 pub mod device;
+pub mod device_record;
 pub mod driver;
 pub mod error;
 pub mod firmware;
 pub mod gpu;
+pub mod graph;
 pub mod ids;
 pub mod lifecycle;
+pub mod manager;
 pub mod removable;
 pub mod trust_class;
 
 pub use bus::BusKind;
 pub use device::DeviceClass;
+pub use device_record::HardwareDeviceRecord;
 pub use driver::DriverProvenance;
 pub use error::{HardwareError, HardwareErrorCode};
 pub use firmware::{
@@ -26,8 +30,10 @@ pub use firmware::{
     FirmwareUpdateClass, FirmwareUpdateState,
 };
 pub use gpu::{GpuCapabilityClass, GpuVendorKind};
+pub use graph::{HardwareGraph, HardwareGraphBuilder};
 pub use ids::{DeviceId, DriverBindingId, FirmwareBlobId, GpuId, HardwareGraphId};
 pub use lifecycle::DeviceLifecycleState;
+pub use manager::{HardwareManager, InMemoryHardwareManager};
 pub use removable::RemovableDevicePolicy;
 pub use trust_class::{DeviceQuarantineReason, DeviceTrustClass};
 

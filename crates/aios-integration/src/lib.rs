@@ -15,6 +15,8 @@ pub mod ids;
 pub mod lifecycle;
 /// Compliance standard taxonomy and subscription types.
 pub mod standard;
+/// Compliance standard subscription registry (S11.4 §2 I4).
+pub mod standard_registry;
 /// Vendor contract types (S11.4 §2 I2).
 pub mod vendor;
 /// Ed25519-signed vendor contract registry (S11.4 §2 I2).
@@ -26,6 +28,10 @@ pub use error::{IntegrationError, IntegrationErrorCode};
 pub use ids::{ComposedSystemId, IntegrationId, StandardSubscriptionId, VendorContractId};
 pub use lifecycle::{IntegrationLifecycleLabel, IntegrationLifecycleState};
 pub use standard::{StandardKind, StandardSubscription};
+pub use standard_registry::{
+    standard_kind_to_canonical_url, ExternalStandardRegistry, StandardReviewRecord,
+    SubscriptionStatus,
+};
 pub use vendor::{VendorIntegrationContract, VendorKind, VendorTrustClass};
 pub use vendor_registry::VendorIntegrationRegistry;
 

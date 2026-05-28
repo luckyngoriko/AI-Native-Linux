@@ -21,6 +21,8 @@ tokio           = { workspace = true, features = ["sync", "macros"] }
 async-trait     = { workspace = true }
 strum           = { workspace = true }
 strum_macros    = { workspace = true }
+ed25519-dalek   = { workspace = true }
+rand_core       = { workspace = true }
 tracing         = { workspace = true }
 
 [dev-dependencies]

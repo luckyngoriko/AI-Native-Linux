@@ -14,12 +14,16 @@ pub mod allowlist;
 pub mod controller;
 /// Network policy error taxonomy.
 pub mod error;
+/// Grant registry with Ed25519 signature verification (INV I7+I8).
+pub mod grant_registry;
 /// Subject and group identifier newtypes.
 pub mod ids;
 /// Inbound exposure + port policy.
 pub mod inbound;
 /// Outbound directive vocabulary.
 pub mod outbound;
+/// Outbound grant data structures (S8.1 §4).
+pub mod outbound_grant;
 /// System-wide network posture.
 pub mod posture;
 /// Protocol family vocabulary.
@@ -32,9 +36,15 @@ pub use controller::{
     NetworkPolicyController, PostureChangeReceipt,
 };
 pub use error::{NetworkPolicyError, NetworkPolicyErrorCode};
+pub use grant_registry::{
+    fingerprint_from_vk, generate_keypair, sign_grant, OutboundGrantRegistry,
+};
 pub use ids::{GroupId, SubjectId};
 pub use inbound::{InboundExposureClass, PortPolicy};
 pub use outbound::OutboundDirective;
+pub use outbound_grant::{
+    GrantTombstone, NetworkOutboundManifest, OutboundDirectiveKind, OutboundGrant,
+};
 pub use posture::NetworkPosture;
 pub use protocol::ProtocolFamily;
 

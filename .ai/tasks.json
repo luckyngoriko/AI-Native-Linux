@@ -3,6 +3,12 @@
   "in_progress": [],
   "completed": [
     {
+      "id": "T-180",
+      "title": "aios-integration — Compliance baseline snapshot + control map",
+      "completed_at": "2026-05-28",
+      "evidence": "Commit 7b69ca1. ControlMapRegistry + AiosInvariant + ControlFrameworkRef + ControlMapping + ComplianceBaseline + ControlDriftReport. 30 tests (15 unit + 15 integration). 153 aios-integration total. Workspace 3810. All 5 gates green."
+    },
+    {
       "id": "T-122",
       "title": "aios-apps — gRPC AppsService surface (S12.x)",
       "completed_at": "2026-05-26",

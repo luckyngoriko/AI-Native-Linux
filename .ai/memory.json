@@ -1,43 +1,53 @@
 {
   "project_goal": "AIOS — AI-native Linux distribution. Implement the spec contracts from rev.2 (53 sub-specs CONTRACT-grade) into working Rust code, following §22 MVP golden path discipline.",
-  "current_milestone": "M17 CLOSED — aios-hardware v0.1.0 (next: M18 aios-distribution)",
-  "current_task_id": "T-174",
-  "current_task_title": "T-174 CLOSED — M17 closure: cross-crate integration bridges (5), closure invariants (18), acceptance fixtures (18), version bump",
-  "current_step": "T-174 committed at 208efa1. All 5 gates green: check, test (306 aios-hardware, full workspace), clippy -D warnings, fmt.",
+  "current_milestone": "M18 aios-integration — CLOSED at T-186 (ef05903). 31 closure + 6 acceptance tests. 339 crate / 3993 workspace. Next: M19 aios-distribution (T-187..T-198).",
+  "current_task_id": "T-186",
+  "current_task_title": "T-186 COMMITTED — M18 closer: S11.4 spec finalised (REAL), version 0.0.1→0.1.0, 31 closure-invariant tests (m18_closure.rs, 937 lines), 6 acceptance tests (m18_acceptance.rs, 442 lines), skeleton.rs version assert fix, MILESTONES.md M18 row ✓ closed, all 5 gates green (3993 workspace tests)",
+  "current_step": "T-186 committed at ef05903. M18 CLOSED — 15/19 milestones complete. M19 next.",
   "files_touched": [
+    "crates/aios-integration/Cargo.toml",
+    "crates/aios-integration/src/lib.rs",
+    "crates/aios-integration/tests/skeleton.rs",
+    "crates/aios-integration/tests/m18_closure.rs",
+    "crates/aios-integration/tests/m18_acceptance.rs",
+    "002.AI-OS.NET--SPECREV.2/L10_Distribution_Ecosystem_Marketplace/04_integration_process.md",
     "MILESTONES.md",
-    "crates/aios-hardware/Cargo.toml",
-    "crates/aios-hardware/src/lib.rs",
-    "crates/aios-hardware/src/integration/mod.rs",
-    "crates/aios-hardware/src/integration/policy_bridge.rs",
-    "crates/aios-hardware/src/integration/capability_bridge.rs",
-    "crates/aios-hardware/src/integration/sandbox_bridge.rs",
-    "crates/aios-hardware/src/integration/recovery_bridge.rs",
-    "crates/aios-hardware/src/integration/network_bridge.rs",
-    "crates/aios-hardware/tests/skeleton.rs",
-    "crates/aios-hardware/tests/m17_closure.rs",
-    "crates/aios-hardware/tests/m17_acceptance.rs",
-    "Cargo.lock",
-    ".ai/memory.json"
+    "Cargo.lock"
   ],
   "discovered_constraints": [
-    "EvilMaidRecommendedAction has OperatorInvestigation not ContinueNormalOperation",
-    "RemovableDevicePolicy::DenyDefault not DenyAll",
-    "FirmwareScope::Gpu not GpuVbios",
-    "HardwareGraph field is `id: HardwareGraphId` not `graph_id`",
-    "DriftDetector::new takes Arc<PriorGraphStore>, uses `check(&graph)` not `compare_with_prior()`",
-    "PriorGraphStore uses `store(&graph).await` not `store_prior()`",
-    "GpuResourceRegistry uses `list_devices()` not `list_pending_devices()` - wait, it's `list_devices()` on GpuResourceRegistry but `list_pending_devices()` on HardwareManager trait"
+    "ed25519-dalek 2.1 API: VerifyingKey::verify_strict() not verify()",
+    "Signature::from_slice() returns Result, not Option",
+    "tokio::sync::RwLock has NO lock poisoning — .read().await / .write().await return guard directly, NOT Result",
+    "std::sync::RwLockWriteGuard is NOT Send — must be dropped before .await points in tonic gRPC handlers. Scope guard in a block { let guard = ...; ...; drop(guard); (result) } so it drops before the await",
+    "Workspace lints: all=deny, pedantic=warn, nursery=warn, unwrap_used=deny, expect_used=deny, panic=deny, unsafe_code=deny, todo=deny, unimplemented=deny",
+    "tonic in-process test pattern: TcpListener bind 127.0.0.1:0 → drop → serve_with_shutdown with oneshot channel",
+    "dyn IntegrationEvidenceEmitter does NOT implement Debug — cannot derive Debug on structs containing it. Use manual Debug impl with .field(\"emitter\", &self.emitter.as_ref().map(|_| \"..\"))",
+    "INV-015: NO raw signatures, raw CVE feed payloads, or private keys in evidence payloads",
+    "IntegrationRecordType maps to aios_evidence::RecordType: StatusTransition, PolicyDecision, FailureObserved, ExternalBridgePackageAdmitted, ChainCheckpoint",
+    "Retention: VendorContractRevoked/ComplianceBaselineSnapshot/ControlMapDriftDetected = Forever; rest = Standard24M",
+    "Evidence emission is best-effort — errors from emitter are silently dropped (let _ = emitter.emit_...().await)",
+    "clippy::too_long_first_doc_paragraph (nursery) allowed at crate level in lib.rs — default 200-char limit too restrictive",
+    "CveId suffix must be all ASCII digits (>=4 chars) — is_valid_cve_id enforces CVE-YYYY-NNNN+ format",
+    "Arc::get_mut pattern for pre-clone mutation of authority registries",
+    "Orphan rule: test files cannot add inherent impl blocks for types defined in the crate",
+    "CveStatus enum: Open, UnderReview, Patched, Quarantined, NotApplicable — NO 'Active' variant",
+    "clippy::expect_used denied workspace-wide — MUST #[allow] on harness new() and register_vendor_authority()",
+    "clippy::missing_panics_doc (nursery) triggers on functions with expect() — must add # Panics section or #[allow]",
+    "clippy::items_after_statements: use statements inside function bodies must appear BEFORE any other statements; moving to top of fn body is the fix (NOT #[allow])",
+    "clippy::redundant_closure_for_method_calls: .map(|x| x.method()) can be .map(Type::method) when method takes &self"
   ],
   "discovered_dependencies": [
-    "aios-hardware depends on aios-policy, aios-capability-runtime, aios-sandbox, aios-recovery, aios-network",
-    "GpuCapabilityClass (S8.2) differs from aios_sandbox::GpuCapabilityClass (S3.2) — bridge maps between vocabularies",
-    "HardwareError (19 variants) maps to PolicyDecision denial pathway"
+    "IntegrationEvidenceEmitter trait is Option<Arc<dyn IntegrationEvidenceEmitter>> — when None, no emission occurs and no error is raised",
+    "WithIntegrationEmitter trait in evidence.rs for uniform builder pattern across 5 registries",
+    "ReceiptBuilder from aios_evidence crate requires subject, record_type, retention_class; seal(prev) produces chain-linked receipt",
+    "UnifiedRecordCatalogue is pre-populated via default_index_entries() which returns 64 CatalogueEntry values"
   ],
   "last_errors": [
-    "skeleton.rs version string was 0.0.1-T163 — fixed to 0.1.0-T174",
-    "5 clippy errors in sandbox_bridge.rs + network_bridge.rs: unreadable_literal, struct_excessive_bools, doc_markdown, match_same_arms, missing_const_for_fn — all resolved",
-    "Duplicate #[must_use] on has_risk_signal — removed"
+    "CveStatus::Active does not exist — renamed to CveStatus::Open in tests 4, 7, 8",
+    "Orphan rule violation — moved evidence_emitter() accessor from test file into harness.rs",
+    "CVE IDs with non-numeric suffixes rejected — changed E2E01/CONCC to 99998/77777",
+    "clippy::items_after_statements on use IRT inside fn body — moved use to top of fn",
+    "clippy::redundant_closure_for_method_calls (3 occurrences) — replaced .map(|x| x.m()) with .map(Type::m)"
   ],
-  "last_verification_result": "All 5 gates PASS. 306 aios-hardware tests, full workspace pass. M17 CLOSED."
+  "last_verification_result": "All 5 gates PASS. 3993 workspace tests. 339 aios-integration tests. M18 CLOSED. T-186 COMMITTED at ef05903."
 }

@@ -1,43 +1,43 @@
 {
   "project_goal": "AIOS — AI-native Linux distribution. Implement the spec contracts from rev.2 (53 sub-specs CONTRACT-grade) into working Rust code, following §22 MVP golden path discipline.",
-  "current_milestone": "M16 CLOSED — aios-network v0.1.0 (next: M17 aios-hardware)",
-  "current_task_id": "T-162",
-  "current_task_title": "T-162 CLOSED — M16 closure: cross-crate bridges, acceptance fixtures, 30 evidence record types",
-  "current_step": "T-162 committed at 3651fa6. All 4 gates green. 311 aios-network tests, 3345 workspace tests.",
+  "current_milestone": "M17 CLOSED — aios-hardware v0.1.0 (next: M18 aios-distribution)",
+  "current_task_id": "T-174",
+  "current_task_title": "T-174 CLOSED — M17 closure: cross-crate integration bridges (5), closure invariants (18), acceptance fixtures (18), version bump",
+  "current_step": "T-174 committed at 208efa1. All 5 gates green: check, test (306 aios-hardware, full workspace), clippy -D warnings, fmt.",
   "files_touched": [
     "MILESTONES.md",
-    "crates/aios-network/Cargo.toml",
-    "crates/aios-network/src/lib.rs",
-    "crates/aios-network/src/integration/policy_bridge.rs",
-    "crates/aios-network/src/integration/capability_bridge.rs",
-    "crates/aios-network/src/integration/apps_bridge.rs",
-    "crates/aios-network/src/integration/sandbox_bridge.rs",
-    "crates/aios-network/src/integration/renderer_web_bridge.rs",
-    "crates/aios-network/tests/skeleton.rs",
-    "crates/aios-network/tests/m16_closure.rs",
-    "crates/aios-network/tests/m16_acceptance.rs",
+    "crates/aios-hardware/Cargo.toml",
+    "crates/aios-hardware/src/lib.rs",
+    "crates/aios-hardware/src/integration/mod.rs",
+    "crates/aios-hardware/src/integration/policy_bridge.rs",
+    "crates/aios-hardware/src/integration/capability_bridge.rs",
+    "crates/aios-hardware/src/integration/sandbox_bridge.rs",
+    "crates/aios-hardware/src/integration/recovery_bridge.rs",
+    "crates/aios-hardware/src/integration/network_bridge.rs",
+    "crates/aios-hardware/tests/skeleton.rs",
+    "crates/aios-hardware/tests/m17_closure.rs",
+    "crates/aios-hardware/tests/m17_acceptance.rs",
     "Cargo.lock",
     ".ai/memory.json"
   ],
   "discovered_constraints": [
-    "ed25519-dalek SigningKey passed directly to sign_grant() — Signer trait not needed in test scope",
-    "InMemoryNetworkEvidenceEmitter: use receipt_count()/verify_chain()/get_payload() not receipts()",
-    "ExposureApprovalFsm starts at Loopback; LAN lifecycle: request→apply_policy→activate→heartbeat",
-    "ConnectionEvaluator::new(Arc<OutboundGrantRegistry>) — takes registry not controller",
-    "clippy::default_trait_access requires explicit type on Default::default() when type is unambiguous",
-    "clippy::used_underscore_binding: _prefixed bindings used in format!/println! are errors",
-    "clippy::unused_imports is a rustc lint not a clippy lint — use `unused_imports` not `clippy::unused_imports`",
-    "clippy::ip_constant: use Ipv4Addr::LOCALHOST instead of Ipv4Addr::new(127,0,0,1)"
+    "EvilMaidRecommendedAction has OperatorInvestigation not ContinueNormalOperation",
+    "RemovableDevicePolicy::DenyDefault not DenyAll",
+    "FirmwareScope::Gpu not GpuVbios",
+    "HardwareGraph field is `id: HardwareGraphId` not `graph_id`",
+    "DriftDetector::new takes Arc<PriorGraphStore>, uses `check(&graph)` not `compare_with_prior()`",
+    "PriorGraphStore uses `store(&graph).await` not `store_prior()`",
+    "GpuResourceRegistry uses `list_devices()` not `list_pending_devices()` - wait, it's `list_devices()` on GpuResourceRegistry but `list_pending_devices()` on HardwareManager trait"
   ],
   "discovered_dependencies": [
-    "aios_policy depends on aios-action + serde_json + chrono",
-    "aios_capability_runtime depends on aios-action",
-    "aios_apps depends on serde_json",
-    "aios_sandbox depends on aios-policy",
-    "aios_renderer_web has ExposureLevelLabel (6 variants) compatible with ExposureApprovalLabel (8 variants)"
+    "aios-hardware depends on aios-policy, aios-capability-runtime, aios-sandbox, aios-recovery, aios-network",
+    "GpuCapabilityClass (S8.2) differs from aios_sandbox::GpuCapabilityClass (S3.2) — bridge maps between vocabularies",
+    "HardwareError (19 variants) maps to PolicyDecision denial pathway"
   ],
   "last_errors": [
-    "6 clippy errors across policy_bridge.rs, renderer_web_bridge.rs, m16_closure.rs, m16_acceptance.rs — all resolved"
+    "skeleton.rs version string was 0.0.1-T163 — fixed to 0.1.0-T174",
+    "5 clippy errors in sandbox_bridge.rs + network_bridge.rs: unreadable_literal, struct_excessive_bools, doc_markdown, match_same_arms, missing_const_for_fn — all resolved",
+    "Duplicate #[must_use] on has_risk_signal — removed"
   ],
-  "last_verification_result": "All 4 gates PASS. 3345 workspace tests, 311 aios-network tests. M16 CLOSED."
+  "last_verification_result": "All 5 gates PASS. 306 aios-hardware tests, full workspace pass. M17 CLOSED."
 }

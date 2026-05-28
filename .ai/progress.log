@@ -747,3 +747,24 @@ Next: M15 (aios-renderer-web)
   - Commit: 3651fa6 T-162: aios-network — M16 closure
   STATUS: SUCCESS
   NEXT: M17 aios-hardware (S8.3, S8.2)
+
+## 2026-05-28 T-174 M17 CLOSER
+
+### Step: Fix remaining gate failures
+- Fixed skeleton.rs version string: 0.0.1-T163 → 0.1.0-T174
+- Fixed sandbox_bridge.rs: merged identical match arms, const fn map_capability_class, underscore literal 9_999_999_999
+- Fixed network_bridge.rs: #[allow(clippy::struct_excessive_bools)], `WiFi` backticks, const fn has_risk_signal, removed duplicate #[must_use]
+
+### Gates
+- cargo check --workspace: PASS
+- cargo fmt --all -- --check: PASS
+- cargo test -p aios-hardware: 306 tests PASS
+- cargo test --workspace: 0 FAILED, 239 test binaries PASS
+- cargo clippy --workspace --all-targets -- -D warnings: PASS
+
+### Commit
+208efa1 T-174: aios-hardware — M17 closer: cross-crate integration bridges + closure/acceptance tests
+13 files changed, 2050 insertions(+), 6 deletions(-)
+
+### Status
+M17 CLOSED. Next: M18 aios-distribution.

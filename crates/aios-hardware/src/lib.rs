@@ -7,9 +7,11 @@
 //! FSM, gRPC, evidence, cross-crate land in later tasks.
 
 pub mod bus;
+pub mod capability_lie;
 pub mod classifier;
 pub mod device;
 pub mod device_record;
+pub mod dmabuf;
 pub mod drift;
 pub mod driver;
 pub mod driver_binding;
@@ -26,9 +28,14 @@ pub mod removable;
 pub mod trust_class;
 
 pub use bus::BusKind;
+pub use capability_lie::{
+    AdvertisedCapability, CapabilityLieDetector, CapabilityLieOutcome, LieSeverity,
+    ObservedCapability,
+};
 pub use classifier::{classify_batch, classify_batch_into_records, DeviceClassifier};
 pub use device::DeviceClass;
 pub use device_record::HardwareDeviceRecord;
+pub use dmabuf::{DmabufBroker, DmabufHandle, DmabufPeer, DmabufPeerSet};
 pub use drift::{
     DriftDetector, DriftSignal, EvilMaidEvidenceMarker, EvilMaidRecommendedAction, GraphDiff,
     PriorGraphStore,

@@ -23,6 +23,8 @@ pub mod ids;
 pub mod lifecycle;
 /// Service composition orchestrator — typed scaffold for the boot sequence.
 pub mod orchestrator;
+/// gRPC IntegrationService surface — tonic server/client stubs, conversions, server adapter.
+pub mod service;
 /// Compliance standard taxonomy and subscription types.
 pub mod standard;
 /// Compliance standard subscription registry (S11.4 §2 I4).

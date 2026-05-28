@@ -1,0 +1,502 @@
+syntax = "proto3";
+
+package aios.integration;
+
+import "google/protobuf/timestamp.proto";
+
+// ── Vendor enums ────────────────────────────────────────────────────────────
+
+enum VendorKindProto {
+  VENDOR_KIND_UNSPECIFIED = 0;
+  PACKAGE_REPOSITORY = 1;
+  APPLICATION_STORE = 2;
+  OCI_REGISTRY = 3;
+  CVE_FEED = 4;
+  COMPLIANCE_PROVIDER = 5;
+  METRICS_EXPORTER = 6;
+  IDENTITY_PROVIDER = 7;
+  OTHER_CERTIFIED = 8;
+}
+
+enum VendorTrustClassProto {
+  TRUST_CLASS_UNSPECIFIED = 0;
+  AIOS_CERTIFIED_PARTNER = 1;
+  COMMUNITY_VERIFIED = 2;
+  OPERATOR_AUTHORISED = 3;
+  BLACKLISTED_DO_NOT_ADMIT = 4;
+}
+
+enum IntegrationLifecycleLabelProto {
+  LIFECYCLE_LABEL_UNSPECIFIED = 0;
+  PROPOSED = 1;
+  EVALUATED = 2;
+  PILOTED = 3;
+  PRODUCTION = 4;
+  DEPRECATED = 5;
+  RETIRED = 6;
+}
+
+// ── Standard enums ──────────────────────────────────────────────────────────
+
+enum StandardKindProto {
+  STANDARD_KIND_UNSPECIFIED = 0;
+  NIST_800_53_REV5 = 1;
+  NIST_SP_800_218_SSDF = 2;
+  NIST_SP_800_207_ZERO_TRUST = 3;
+  NIST_SP_800_193_FIRMWARE = 4;
+  DISA_STIG = 5;
+  CIS_CONTROLS_V8 = 6;
+  FIPS_140_3 = 7;
+  GDPR = 8;
+  HIPAA = 9;
+  ISO_27001 = 10;
+  SOC2 = 11;
+}
+
+enum SubscriptionStatusProto {
+  SUBSCRIPTION_STATUS_UNSPECIFIED = 0;
+  CURRENT = 1;
+  REVIEW_DUE = 2;
+  EXPIRED = 3;
+}
+
+// ── CVE enums ───────────────────────────────────────────────────────────────
+
+enum CveSeverityProto {
+  CVE_SEVERITY_UNSPECIFIED = 0;
+  NONE = 1;
+  LOW = 2;
+  MEDIUM = 3;
+  HIGH = 4;
+  CRITICAL = 5;
+}
+
+enum CveStatusProto {
+  CVE_STATUS_UNSPECIFIED = 0;
+  UNRESOLVED = 1;
+  RESOLVED = 2;
+  MITIGATED = 3;
+  FALSE_POSITIVE = 4;
+}
+
+enum CveEnforcementLevelProto {
+  ENFORCEMENT_UNSPECIFIED = 0;
+  MONITOR_ONLY = 1;
+  OPERATOR_NOTIFY = 2;
+  QUARANTINE_CANDIDATE = 3;
+  AUTO_QUARANTINE = 4;
+}
+
+// ── Bridge enums ────────────────────────────────────────────────────────────
+
+enum BridgeKindProto {
+  BRIDGE_KIND_UNSPECIFIED = 0;
+  FLATHUB = 1;
+  OCI_REGISTRY_BRIDGE = 2;
+  APT = 3;
+  DNF = 4;
+  PACMAN = 5;
+}
+
+enum CapabilityExtractorRuleProto {
+  EXTRACTOR_UNSPECIFIED = 0;
+  FLATPAK_FINISHES_SECTION = 1;
+  OCI_ANNOTATIONS = 2;
+  DEBIAN_CONTROL = 3;
+  RPM_SPEC = 4;
+  PKGBUILD_ARRAY = 5;
+  OPERATOR_AUTHORED = 6;
+}
+
+// ── Composition / orchestrator enums ────────────────────────────────────────
+
+enum ServiceScaffoldStatusProto {
+  SCAFFOLD_STATUS_UNSPECIFIED = 0;
+  SCAFFOLD_READY = 1;
+  NOT_IN_COMPOSITION = 2;
+  CONFIG_MISSING = 3;
+}
+
+// ═════════════════════════════════════════════════════════════════════════════
+// Vendor messages
+// ═════════════════════════════════════════════════════════════════════════════
+
+message VendorIntegrationContractProto {
+  string contract_id = 1;
+  string vendor_name = 2;
+  VendorKindProto vendor_kind = 3;
+  VendorTrustClassProto trust_class = 4;
+  string contact_canonical_id = 5;
+  uint32 rotation_cadence_days = 6;
+  string breach_playbook_url = 7;
+  string signer_fingerprint = 8;
+  bytes signature = 9;
+  google.protobuf.Timestamp admitted_at = 10;
+}
+
+message IntegrationLifecycleStateProto {
+  IntegrationLifecycleLabelProto label = 1;
+  // Payload fields vary by label; carried as a JSON blob for now.
+  string payload_json = 2;
+}
+
+// ── Vendor RPC request / response messages ──────────────────────────────────
+
+message AdmitContractRequest {
+  VendorIntegrationContractProto contract = 1;
+}
+
+message AdmitContractResponse {}
+
+message GetContractRequest {
+  string contract_id = 1;
+}
+
+message GetContractResponse {
+  VendorIntegrationContractProto contract = 1;
+}
+
+message ListContractsRequest {}
+
+message ListContractsResponse {
+  repeated VendorIntegrationContractProto contracts = 1;
+}
+
+message TransitionLifecycleRequest {
+  string contract_id = 1;
+  IntegrationLifecycleStateProto new_state = 2;
+}
+
+message TransitionLifecycleResponse {}
+
+message RevokeContractRequest {
+  string contract_id = 1;
+  string reason = 2;
+}
+
+message RevokeContractResponse {}
+
+// ═════════════════════════════════════════════════════════════════════════════
+// Standard messages
+// ═════════════════════════════════════════════════════════════════════════════
+
+message StandardSubscriptionProto {
+  string subscription_id = 1;
+  StandardKindProto standard = 2;
+  string catalog_url = 3;
+  string current_revision = 4;
+  google.protobuf.Timestamp last_reviewed_at = 5;
+  google.protobuf.Timestamp next_review_due_at = 6;
+  string responsible_canonical_id = 7;
+}
+
+message SubscribeRequest {
+  StandardSubscriptionProto subscription = 1;
+}
+
+message SubscribeResponse {}
+
+message GetSubscriptionStatusRequest {
+  string subscription_id = 1;
+}
+
+message GetSubscriptionStatusResponse {
+  string subscription_id = 1;
+  SubscriptionStatusProto status = 2;
+  // Present when status is CURRENT.
+  google.protobuf.Timestamp until = 3;
+  // Present when status is REVIEW_DUE.
+  google.protobuf.Timestamp since = 4;
+  // Present when status is EXPIRED.
+  google.protobuf.Timestamp expired_at = 5;
+}
+
+message ListSubscriptionsRequest {}
+
+message ListSubscriptionsResponse {
+  repeated StandardSubscriptionProto subscriptions = 1;
+}
+
+message UnsubscribeRequest {
+  string subscription_id = 1;
+}
+
+message UnsubscribeResponse {}
+
+// ═════════════════════════════════════════════════════════════════════════════
+// CVE messages
+// ═════════════════════════════════════════════════════════════════════════════
+
+message CveRecordProto {
+  string cve_id = 1;
+  google.protobuf.Timestamp published_at = 2;
+  google.protobuf.Timestamp last_modified_at = 3;
+  float cvss_v3_score = 4;
+  CveSeverityProto severity = 5;
+  string summary = 6;
+  repeated string affected_cpe_uris = 7;
+}
+
+message PackageCveBindingProto {
+  string binding_id = 1;
+  string cve_id = 2;
+  string package_id = 3;
+  CveStatusProto status = 4;
+  google.protobuf.Timestamp bound_at = 5;
+  string matched_via_cpe = 6;
+  string mitigated_by = 7;
+}
+
+message IngestCveRecordRequest {
+  CveRecordProto record = 1;
+}
+
+message IngestCveRecordResponse {}
+
+message GetCveRecordRequest {
+  string cve_id = 1;
+}
+
+message GetCveRecordResponse {
+  CveRecordProto record = 1;
+}
+
+message ListCveRecordsRequest {}
+
+message ListCveRecordsResponse {
+  repeated CveRecordProto records = 1;
+}
+
+message BindCveToPackageRequest {
+  PackageCveBindingProto binding = 1;
+}
+
+message BindCveToPackageResponse {}
+
+message ListCveBindingsRequest {}
+
+message ListCveBindingsResponse {
+  repeated PackageCveBindingProto bindings = 1;
+}
+
+message GetEnforcementLevelRequest {
+  string cve_id = 1;
+}
+
+message GetEnforcementLevelResponse {
+  CveEnforcementLevelProto level = 1;
+}
+
+// ═════════════════════════════════════════════════════════════════════════════
+// Bridge messages
+// ═════════════════════════════════════════════════════════════════════════════
+
+message ManifestTranslationRulesProto {
+  string source_manifest_format = 1;
+  CapabilityExtractorRuleProto capability_extractor = 2;
+  VendorTrustClassProto trust_floor = 3;
+}
+
+message BridgeContractProto {
+  string bridge_id = 1;
+  BridgeKindProto kind = 2;
+  VendorIntegrationContractProto vendor_contract = 3;
+  ManifestTranslationRulesProto translation_rules = 4;
+  google.protobuf.Timestamp admitted_at = 5;
+}
+
+message AdmitBridgeRequest {
+  BridgeContractProto bridge = 1;
+}
+
+message AdmitBridgeResponse {}
+
+message GetBridgeRequest {
+  string bridge_id = 1;
+}
+
+message GetBridgeResponse {
+  BridgeContractProto bridge = 1;
+}
+
+message ListBridgesRequest {}
+
+message ListBridgesResponse {
+  repeated BridgeContractProto bridges = 1;
+}
+
+message RevokeBridgeRequest {
+  string bridge_id = 1;
+  string reason = 2;
+}
+
+message RevokeBridgeResponse {}
+
+// ═════════════════════════════════════════════════════════════════════════════
+// Composition messages
+// ═════════════════════════════════════════════════════════════════════════════
+
+message ComposedServiceProto {
+  string service_id = 1;
+  string crate_name = 2;
+  string binding_endpoint = 3;
+  repeated string depends_on = 4;
+}
+
+message ServiceDependencyProto {
+  string from_service = 1;
+  string to_service = 2;
+  bool required = 3;
+}
+
+message ServiceCompositionProto {
+  string composition_id = 1;
+  repeated ComposedServiceProto services = 2;
+  repeated ServiceDependencyProto dependencies = 3;
+}
+
+message ServiceHealthSummaryProto {
+  string service_id = 1;
+  string crate_name = 2;
+  ServiceScaffoldStatusProto status = 3;
+  uint32 topological_index = 4;
+}
+
+message ValidateCompositionRequest {
+  ServiceCompositionProto composition = 1;
+}
+
+message ValidateCompositionResponse {
+  repeated string boot_order = 1;
+}
+
+message GetBootOrderRequest {}
+
+message GetBootOrderResponse {
+  repeated string boot_order = 1;
+}
+
+message HealthSummaryRequest {}
+
+message HealthSummaryResponse {
+  repeated ServiceHealthSummaryProto summaries = 1;
+}
+
+// ═════════════════════════════════════════════════════════════════════════════
+// Control Map messages
+// ═════════════════════════════════════════════════════════════════════════════
+
+message AiosInvariantProto {
+  string invariant_id = 1;
+  string name = 2;
+  string layer = 3;
+}
+
+message ControlFrameworkRefProto {
+  StandardKindProto framework = 1;
+  string control_family = 2;
+  string control_id = 3;
+}
+
+message ControlMappingProto {
+  string mapping_id = 1;
+  AiosInvariantProto invariant = 2;
+  repeated ControlFrameworkRefProto control_refs = 3;
+  string mapping_rationale = 4;
+  google.protobuf.Timestamp mapped_at = 5;
+}
+
+message ComplianceBaselineProto {
+  string baseline_id = 1;
+  string aios_version = 2;
+  repeated ControlMappingProto mappings = 3;
+  google.protobuf.Timestamp snapshot_at = 4;
+  string validator_canonical_id = 5;
+}
+
+message AddControlMappingRequest {
+  ControlMappingProto mapping = 1;
+}
+
+message AddControlMappingResponse {}
+
+message SnapshotBaselineRequest {
+  string baseline_id = 1;
+  string aios_version = 2;
+  string validator_canonical_id = 3;
+}
+
+message SnapshotBaselineResponse {
+  ComplianceBaselineProto baseline = 1;
+}
+
+message GetBaselineRequest {
+  string baseline_id = 1;
+}
+
+message GetBaselineResponse {
+  ComplianceBaselineProto baseline = 1;
+}
+
+// ═════════════════════════════════════════════════════════════════════════════
+// Integration info
+// ═════════════════════════════════════════════════════════════════════════════
+
+message GetIntegrationInfoRequest {}
+
+message GetIntegrationInfoResponse {
+  string code_version = 1;
+  string schema_version = 2;
+  uint32 vendor_contract_count = 3;
+  uint32 standard_subscription_count = 4;
+  uint32 cve_record_count = 5;
+  uint32 bridge_count = 6;
+  uint32 composition_service_count = 7;
+  uint32 control_mapping_count = 8;
+}
+
+// ═════════════════════════════════════════════════════════════════════════════
+// Service definition
+// ═════════════════════════════════════════════════════════════════════════════
+
+service IntegrationService {
+  // ── Vendor contract management ──────────────────────────────────────────
+  rpc AdmitContract(AdmitContractRequest) returns (AdmitContractResponse);
+  rpc GetContract(GetContractRequest) returns (GetContractResponse);
+  rpc ListContracts(ListContractsRequest) returns (ListContractsResponse);
+  rpc TransitionLifecycle(TransitionLifecycleRequest) returns (TransitionLifecycleResponse);
+  rpc RevokeContract(RevokeContractRequest) returns (RevokeContractResponse);
+
+  // ── Standards subscription management ───────────────────────────────────
+  rpc Subscribe(SubscribeRequest) returns (SubscribeResponse);
+  rpc GetSubscriptionStatus(GetSubscriptionStatusRequest) returns (GetSubscriptionStatusResponse);
+  rpc ListSubscriptions(ListSubscriptionsRequest) returns (ListSubscriptionsResponse);
+  rpc Unsubscribe(UnsubscribeRequest) returns (UnsubscribeResponse);
+
+  // ── CVE feed ────────────────────────────────────────────────────────────
+  rpc IngestCveRecord(IngestCveRecordRequest) returns (IngestCveRecordResponse);
+  rpc GetCveRecord(GetCveRecordRequest) returns (GetCveRecordResponse);
+  rpc ListCveRecords(ListCveRecordsRequest) returns (ListCveRecordsResponse);
+  rpc BindCveToPackage(BindCveToPackageRequest) returns (BindCveToPackageResponse);
+  rpc ListCveBindings(ListCveBindingsRequest) returns (ListCveBindingsResponse);
+  rpc GetEnforcementLevel(GetEnforcementLevelRequest) returns (GetEnforcementLevelResponse);
+
+  // ── External bridge management ──────────────────────────────────────────
+  rpc AdmitBridge(AdmitBridgeRequest) returns (AdmitBridgeResponse);
+  rpc GetBridge(GetBridgeRequest) returns (GetBridgeResponse);
+  rpc ListBridges(ListBridgesRequest) returns (ListBridgesResponse);
+  rpc RevokeBridge(RevokeBridgeRequest) returns (RevokeBridgeResponse);
+
+  // ── Service composition ─────────────────────────────────────────────────
+  rpc ValidateComposition(ValidateCompositionRequest) returns (ValidateCompositionResponse);
+  rpc GetBootOrder(GetBootOrderRequest) returns (GetBootOrderResponse);
+  rpc HealthSummary(HealthSummaryRequest) returns (HealthSummaryResponse);
+
+  // ── Control map ─────────────────────────────────────────────────────────
+  rpc AddControlMapping(AddControlMappingRequest) returns (AddControlMappingResponse);
+  rpc SnapshotBaseline(SnapshotBaselineRequest) returns (SnapshotBaselineResponse);
+  rpc GetBaseline(GetBaselineRequest) returns (GetBaselineResponse);
+
+  // ── Info ────────────────────────────────────────────────────────────────
+  rpc GetIntegrationInfo(GetIntegrationInfoRequest) returns (GetIntegrationInfoResponse);
+}

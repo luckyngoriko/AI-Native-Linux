@@ -1,0 +1,29 @@
+[package]
+name = "aios-integration"
+description = "AIOS L10 System Integration Layer typed core skeleton — closed vocabularies, error taxonomy, and identifier types for S11.4 (M18 open)."
+edition.workspace = true
+rust-version.workspace = true
+version = "0.0.1"
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+
+[dependencies]
+aios-action     = { path = "../aios-action" }
+aios-evidence   = { path = "../aios-evidence" }
+aios-policy     = { path = "../aios-policy" }
+serde           = { workspace = true }
+serde_json      = { workspace = true }
+thiserror       = { workspace = true }
+chrono          = { workspace = true }
+ulid            = { workspace = true }
+tokio           = { workspace = true, features = ["sync", "macros"] }
+async-trait     = { workspace = true }
+tracing         = { workspace = true }
+
+[dev-dependencies]
+tokio   = { workspace = true, features = ["rt-multi-thread", "macros", "test-util"] }
+chrono  = { workspace = true }
+
+[lints]
+workspace = true

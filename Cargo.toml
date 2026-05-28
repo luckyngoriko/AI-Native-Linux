@@ -16,6 +16,7 @@ members = [
     "crates/aios-policy",
     "crates/aios-apps",
     "crates/aios-hardware",
+    "crates/aios-integration",
     "crates/aios-network",
     "crates/aios-renderer-web",
 ]

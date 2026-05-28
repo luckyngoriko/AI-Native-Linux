@@ -7,6 +7,7 @@
 //! FSM, gRPC, evidence, cross-crate land in later tasks.
 
 pub mod bus;
+pub mod classifier;
 pub mod device;
 pub mod device_record;
 pub mod driver;
@@ -17,10 +18,12 @@ pub mod graph;
 pub mod ids;
 pub mod lifecycle;
 pub mod manager;
+pub mod observation;
 pub mod removable;
 pub mod trust_class;
 
 pub use bus::BusKind;
+pub use classifier::{classify_batch, classify_batch_into_records, DeviceClassifier};
 pub use device::DeviceClass;
 pub use device_record::HardwareDeviceRecord;
 pub use driver::DriverProvenance;
@@ -34,6 +37,7 @@ pub use graph::{HardwareGraph, HardwareGraphBuilder};
 pub use ids::{DeviceId, DriverBindingId, FirmwareBlobId, GpuId, HardwareGraphId};
 pub use lifecycle::DeviceLifecycleState;
 pub use manager::{HardwareManager, InMemoryHardwareManager};
+pub use observation::{EnumerationBatch, RawDeviceObservation};
 pub use removable::RemovableDevicePolicy;
 pub use trust_class::{DeviceQuarantineReason, DeviceTrustClass};
 

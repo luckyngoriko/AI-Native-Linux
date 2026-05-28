@@ -14,7 +14,7 @@ use aios_network::{
 
 #[test]
 fn default_code_version_constant_is_correct() {
-    assert_eq!(DEFAULT_CODE_VERSION, "aios-network/0.0.1-T151");
+    assert_eq!(DEFAULT_CODE_VERSION, "aios-network/0.1.0-T162");
 }
 
 #[test]

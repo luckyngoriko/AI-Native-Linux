@@ -197,11 +197,14 @@ dependencies = [
 
 [[package]]
 name = "aios-network"
-version = "0.0.1"
+version = "0.1.0"
 dependencies = [
  "aios-action",
+ "aios-apps",
  "aios-evidence",
  "aios-policy",
+ "aios-renderer-web",
+ "aios-sandbox",
  "async-trait",
  "chrono",
  "ed25519-dalek",

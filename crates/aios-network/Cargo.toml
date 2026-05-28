@@ -3,7 +3,7 @@ name = "aios-network"
 description = "AIOS L8 Network Policy typed core skeleton — closed vocabularies, error taxonomy, and identifier types for S8.1."
 edition.workspace = true
 rust-version.workspace = true
-version = "0.0.1"
+version = "0.1.0"
 license.workspace = true
 repository.workspace = true
 authors.workspace = true
@@ -24,9 +24,12 @@ strum_macros    = { workspace = true }
 ed25519-dalek   = { workspace = true }
 rand_core       = { workspace = true }
 tracing         = { workspace = true }
-tonic           = { workspace = true }
-prost           = { workspace = true }
-prost-types     = { workspace = true }
+tonic               = { workspace = true }
+prost               = { workspace = true }
+prost-types         = { workspace = true }
+aios-apps           = { path = "../aios-apps" }
+aios-sandbox        = { path = "../aios-sandbox" }
+aios-renderer-web   = { path = "../aios-renderer-web" }
 
 [build-dependencies]
 tonic-build          = { workspace = true }

@@ -34,6 +34,8 @@ pub mod grant_registry;
 pub mod ids;
 /// Inbound exposure + port policy.
 pub mod inbound;
+/// Cross-crate integration bridges (policy / capability-runtime / apps / sandbox / renderer-web).
+pub mod integration;
 /// mDNS / Avahi gating (S8.4 §7).
 pub mod mdns;
 /// Outbound directive vocabulary.
@@ -97,4 +99,4 @@ pub use evidence::{
 };
 
 /// Crate version marker used by closure-invariant tests in T-162.
-pub const DEFAULT_CODE_VERSION: &str = "aios-network/0.0.1-T151";
+pub const DEFAULT_CODE_VERSION: &str = "aios-network/0.1.0-T162";

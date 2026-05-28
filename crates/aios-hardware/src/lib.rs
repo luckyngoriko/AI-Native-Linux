@@ -10,6 +10,7 @@ pub mod bus;
 pub mod classifier;
 pub mod device;
 pub mod device_record;
+pub mod drift;
 pub mod driver;
 pub mod driver_binding;
 pub mod error;
@@ -27,6 +28,10 @@ pub use bus::BusKind;
 pub use classifier::{classify_batch, classify_batch_into_records, DeviceClassifier};
 pub use device::DeviceClass;
 pub use device_record::HardwareDeviceRecord;
+pub use drift::{
+    DriftDetector, DriftSignal, EvilMaidEvidenceMarker, EvilMaidRecommendedAction, GraphDiff,
+    PriorGraphStore,
+};
 pub use driver::DriverProvenance;
 pub use driver_binding::{DriverBinding, DriverBindingRegistry, DriverBlacklistEntry};
 pub use error::{HardwareError, HardwareErrorCode};

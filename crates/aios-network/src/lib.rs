@@ -10,6 +10,8 @@
 pub mod ai_cross_origin;
 /// Allowlist entry types.
 pub mod allowlist;
+/// Connection evaluator with cross-group check (INV I3+I9).
+pub mod connection_evaluator;
 /// Network policy controller trait and in-memory implementation.
 pub mod controller;
 /// Network policy error taxonomy.
@@ -33,6 +35,9 @@ pub mod protocol;
 
 pub use ai_cross_origin::AICrossOriginPosture;
 pub use allowlist::{AllowlistEntry, AllowlistEntryKind};
+pub use connection_evaluator::{
+    ConnectionDecisionV2, ConnectionEvaluator, EvaluateConnectionRequestV2, ResolvedFqdn,
+};
 pub use controller::{
     ConnectionDecision, EvaluateConnectionRequest, InMemoryNetworkPolicyController,
     NetworkPolicyController, PostureChangeReceipt,

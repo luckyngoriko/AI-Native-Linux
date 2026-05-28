@@ -17,6 +17,7 @@ pub mod driver;
 pub mod driver_binding;
 pub mod error;
 pub mod firmware;
+pub mod firmware_update;
 pub mod gpu;
 pub mod gpu_resource;
 pub mod graph;
@@ -46,6 +47,10 @@ pub use error::{HardwareError, HardwareErrorCode};
 pub use firmware::{
     FirmwareApplyStrategy, FirmwareDeferReason, FirmwareScope, FirmwareTrustResult,
     FirmwareUpdateClass, FirmwareUpdateState,
+};
+pub use firmware_update::{
+    FirmwareBlob, FirmwareSigningPath, FirmwareStageEntry, FirmwareUpdateOrchestrator,
+    FirmwareUpdatePlan,
 };
 pub use gpu::{GpuCapabilityClass, GpuVendorKind};
 pub use gpu_resource::{

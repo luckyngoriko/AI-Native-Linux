@@ -61,6 +61,51 @@ pub enum FirmwareApplyStrategy {
     Deferred,
 }
 
+impl FirmwareUpdateClass {
+    #[must_use]
+    pub const fn label(self) -> &'static str {
+        match self {
+            Self::CpuMicrocode => "cpu_microcode",
+            Self::GpuFirmware => "gpu_firmware",
+            Self::NetworkFirmware => "network_firmware",
+            Self::StorageFirmware => "storage_firmware",
+            Self::PeripheralFirmware => "peripheral_firmware",
+        }
+    }
+}
+
+impl FirmwareScope {
+    #[must_use]
+    pub const fn label(self) -> &'static str {
+        match self {
+            Self::BiosUefi => "bios_uefi",
+            Self::Cpu => "cpu",
+            Self::Gpu => "gpu",
+            Self::NetworkAdapter => "network_adapter",
+            Self::Storage => "storage",
+            Self::Thunderbolt => "thunderbolt",
+            Self::Tpm => "tpm",
+            Self::OtherPeripheral => "other_peripheral",
+        }
+    }
+}
+
+impl FirmwareUpdateState {
+    #[must_use]
+    pub const fn label(self) -> &'static str {
+        match self {
+            Self::Proposed => "proposed",
+            Self::Verified => "verified",
+            Self::Approved => "approved",
+            Self::Staged => "staged",
+            Self::Applying => "applying",
+            Self::Applied => "applied",
+            Self::Failed => "failed",
+            Self::Reverted => "reverted",
+        }
+    }
+}
+
 /// Closed vocabulary for firmware deferral reasons (S8.5 §3.6).
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, EnumCount)]
 pub enum FirmwareDeferReason {

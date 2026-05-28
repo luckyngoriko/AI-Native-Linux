@@ -11,6 +11,8 @@
     clippy::needless_collect,
     clippy::format_collect,
     clippy::missing_const_for_fn,
+    clippy::too_many_arguments,
+    clippy::float_cmp,
     missing_docs,
     reason = "test code; panic-on-failure is the idiomatic test signal"
 )]

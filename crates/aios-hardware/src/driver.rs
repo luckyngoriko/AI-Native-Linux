@@ -13,3 +13,18 @@ pub enum DriverProvenance {
     OutOfTreeBlacklisted,
     OperatorLocalSigned,
 }
+
+impl DriverProvenance {
+    /// Human-readable label used in canonical byte construction for Ed25519
+    /// signature verification (`DriverBindingRegistry::admit_binding`).
+    #[must_use]
+    pub const fn label(self) -> &'static str {
+        match self {
+            Self::AiosVerified => "aios-verified",
+            Self::SignedKernelModule => "signed-kernel-module",
+            Self::DistroProvided => "distro-provided",
+            Self::OutOfTreeBlacklisted => "out-of-tree-blacklisted",
+            Self::OperatorLocalSigned => "operator-local-signed",
+        }
+    }
+}

@@ -14,6 +14,8 @@ pub mod allowlist;
 pub mod controller;
 /// Network policy error taxonomy.
 pub mod error;
+/// Exposure approval state machine (S8.1 §5, INV I2+I10).
+pub mod exposure_fsm;
 /// Grant registry with Ed25519 signature verification (INV I7+I8).
 pub mod grant_registry;
 /// Subject and group identifier newtypes.
@@ -36,6 +38,10 @@ pub use controller::{
     NetworkPolicyController, PostureChangeReceipt,
 };
 pub use error::{NetworkPolicyError, NetworkPolicyErrorCode};
+pub use exposure_fsm::{
+    ExposureApprovalFsm, ExposureApprovalLabel, ExposureApprovalState, ExposureTransition,
+    ExposureTransitionReason,
+};
 pub use grant_registry::{
     fingerprint_from_vk, generate_keypair, sign_grant, OutboundGrantRegistry,
 };

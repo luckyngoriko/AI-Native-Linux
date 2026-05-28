@@ -3,7 +3,7 @@ name = "aios-hardware"
 description = "AIOS L8 Hardware Graph + GPU Resource Model + Firmware Trust typed core skeleton — closed vocabularies, error taxonomy, and identifier types for S8.3 + S8.2 + S8.5."
 edition.workspace = true
 rust-version.workspace = true
-version = "0.0.1"
+version = "0.1.0"
 license.workspace = true
 repository.workspace = true
 authors.workspace = true
@@ -12,6 +12,7 @@ authors.workspace = true
 aios-action     = { path = "../aios-action" }
 aios-evidence   = { path = "../aios-evidence" }
 aios-policy     = { path = "../aios-policy" }
+aios-sandbox    = { path = "../aios-sandbox" }
 serde           = { workspace = true }
 serde_json      = { workspace = true }
 thiserror       = { workspace = true }

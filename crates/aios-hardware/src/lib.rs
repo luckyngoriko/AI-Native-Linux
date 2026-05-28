@@ -23,6 +23,7 @@ pub mod gpu;
 pub mod gpu_resource;
 pub mod graph;
 pub mod ids;
+pub mod integration;
 pub mod iommu;
 pub mod lifecycle;
 pub mod manager;
@@ -77,4 +78,4 @@ pub use evidence::{
 };
 
 /// Crate version marker used by closure-invariant tests in T-174.
-pub const DEFAULT_CODE_VERSION: &str = "aios-hardware/0.0.1-T163";
+pub const DEFAULT_CODE_VERSION: &str = "aios-hardware/0.1.0-T174";

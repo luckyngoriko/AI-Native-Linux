@@ -18,7 +18,7 @@ use strum::IntoEnumIterator;
 
 #[test]
 fn default_code_version_constant_is_correct() {
-    assert_eq!(DEFAULT_CODE_VERSION, "aios-hardware/0.0.1-T163");
+    assert_eq!(DEFAULT_CODE_VERSION, "aios-hardware/0.1.0-T174");
 }
 
 #[test]

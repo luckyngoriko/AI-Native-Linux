@@ -11,6 +11,8 @@
     clippy::doc_markdown,
     clippy::significant_drop_tightening,
     clippy::wildcard_imports,
+    clippy::similar_names,
+    clippy::cast_possible_wrap,
     reason = "test code; panic-on-failure is the idiomatic test signal"
 )]
 

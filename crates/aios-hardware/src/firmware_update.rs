@@ -11,6 +11,7 @@
 
 use std::collections::HashMap;
 use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::Arc;
 
 use chrono::{DateTime, Utc};
 use ed25519_dalek::{Signature, VerifyingKey};
@@ -18,6 +19,7 @@ use serde::{Deserialize, Serialize};
 use tokio::sync::RwLock;
 
 use crate::error::HardwareError;
+use crate::evidence::{FirmwarePhaseRecord, HardwareEvidenceEmitter, WithEmitter};
 use crate::firmware::{
     FirmwareApplyStrategy, FirmwareScope, FirmwareTrustResult, FirmwareUpdateClass,
     FirmwareUpdateState,
@@ -87,6 +89,7 @@ pub struct FirmwareUpdateOrchestrator {
     operator_local_keys: HashMap<String, VerifyingKey>,
     installed_versions: RwLock<HashMap<DeviceId, String>>,
     recovery_mode_active: AtomicBool,
+    emitter: Option<Arc<dyn HardwareEvidenceEmitter>>,
 }
 
 impl FirmwareUpdateOrchestrator {
@@ -98,6 +101,7 @@ impl FirmwareUpdateOrchestrator {
             operator_local_keys: HashMap::new(),
             installed_versions: RwLock::new(HashMap::new()),
             recovery_mode_active: AtomicBool::new(false),
+            emitter: None,
         }
     }
 
@@ -151,6 +155,13 @@ impl FirmwareUpdateOrchestrator {
             installed_version_before: None,
         };
         plans.insert(blob.blob_id.clone(), plan.clone());
+        drop(plans);
+
+        if let Some(ref e) = self.emitter {
+            let _ = e
+                .emit_firmware_event(&plan, FirmwarePhaseRecord::Proposed)
+                .await;
+        }
         Ok(plan)
     }
 
@@ -202,6 +213,23 @@ impl FirmwareUpdateOrchestrator {
 
         match trust_result {
             FirmwareTrustResult::UnsignedRefused => {
+                // Emit BEFORE modifying plan state
+                if let Some(ref e) = self.emitter {
+                    let _ = e
+                        .emit_firmware_unsigned_refused(
+                            &plan.blob.blob_id,
+                            &plan.blob.signer_fingerprint,
+                        )
+                        .await;
+                    let _ = e
+                        .emit_firmware_event(
+                            plan,
+                            FirmwarePhaseRecord::Failed {
+                                reason: "unsigned blob — constitutional refusal".into(),
+                            },
+                        )
+                        .await;
+                }
                 plan.trust_result = Some(FirmwareTrustResult::UnsignedRefused);
                 plan.current_state = FirmwareUpdateState::Failed;
                 plan.history.push(FirmwareStageEntry {
@@ -212,8 +240,6 @@ impl FirmwareUpdateOrchestrator {
                 Err(HardwareError::FirmwareUnsigned(blob_id.clone()))
             }
             FirmwareTrustResult::RevokedKey => {
-                plan.trust_result = Some(FirmwareTrustResult::RevokedKey);
-                plan.current_state = FirmwareUpdateState::Failed;
                 let reason = if plan.blob.signature.is_empty() {
                     "unsigned blob"
                 } else if !self
@@ -230,6 +256,22 @@ impl FirmwareUpdateOrchestrator {
                 } else {
                     "ed25519 verify failed"
                 };
+                // Emit BEFORE modifying plan state
+                if let Some(ref e) = self.emitter {
+                    let _ = e
+                        .emit_firmware_signature_invalid(&plan.blob.blob_id, reason)
+                        .await;
+                    let _ = e
+                        .emit_firmware_event(
+                            plan,
+                            FirmwarePhaseRecord::Failed {
+                                reason: format!("signature verification failed: {reason}"),
+                            },
+                        )
+                        .await;
+                }
+                plan.trust_result = Some(FirmwareTrustResult::RevokedKey);
+                plan.current_state = FirmwareUpdateState::Failed;
                 plan.history.push(FirmwareStageEntry {
                     state: FirmwareUpdateState::Failed,
                     transitioned_at: Utc::now(),
@@ -246,6 +288,27 @@ impl FirmwareUpdateOrchestrator {
                     let installed = self.installed_versions.read().await;
                     if let Some(installed_ver) = installed.get(target) {
                         if plan.blob.version <= *installed_ver {
+                            // Emit BEFORE modifying plan state
+                            if let Some(ref e) = self.emitter {
+                                let _ = e
+                                    .emit_firmware_version_regression(
+                                        &plan.blob.blob_id,
+                                        &plan.blob.version,
+                                        installed_ver,
+                                    )
+                                    .await;
+                                let _ = e
+                                    .emit_firmware_event(
+                                        plan,
+                                        FirmwarePhaseRecord::Failed {
+                                            reason: format!(
+                                                "version regression: attempted {} <= installed {}",
+                                                plan.blob.version, installed_ver
+                                            ),
+                                        },
+                                    )
+                                    .await;
+                            }
                             plan.trust_result = Some(FirmwareTrustResult::VersionRegression);
                             plan.current_state = FirmwareUpdateState::Failed;
                             plan.history.push(FirmwareStageEntry {
@@ -274,6 +337,19 @@ impl FirmwareUpdateOrchestrator {
                     // pass — allowed under recovery override
                 }
 
+                // Emit operator-local-signed if applicable (BEFORE plan modification,
+                // but we need plan ref — use clone for the emit)
+                if trust_result == FirmwareTrustResult::OperatorLocalSigned {
+                    if let Some(ref e) = self.emitter {
+                        let _ = e
+                            .emit_firmware_operator_local_signed(
+                                &plan.blob.blob_id,
+                                &plan.blob.signer_fingerprint,
+                            )
+                            .await;
+                    }
+                }
+
                 plan.trust_result = Some(trust_result);
                 plan.current_state = FirmwareUpdateState::Verified;
                 plan.history.push(FirmwareStageEntry {
@@ -281,6 +357,12 @@ impl FirmwareUpdateOrchestrator {
                     transitioned_at: Utc::now(),
                     note: format!("verified as {trust_result:?}"),
                 });
+                // Emit verified phase
+                if let Some(ref e) = self.emitter {
+                    let _ = e
+                        .emit_firmware_event(plan, FirmwarePhaseRecord::Verified)
+                        .await;
+                }
                 Ok(trust_result)
             }
         }
@@ -301,6 +383,14 @@ impl FirmwareUpdateOrchestrator {
         }
 
         if plan.trust_result == Some(FirmwareTrustResult::ConstitutionalRefusal) {
+            if let Some(ref e) = self.emitter {
+                let _ = e
+                    .emit_firmware_constitutional_refusal(
+                        &plan.blob.blob_id,
+                        "constitutional refusal blocks approval",
+                    )
+                    .await;
+            }
             return Err(HardwareError::FirmwareRefusedConstitutional {
                 blob: blob_id.clone(),
                 reason: "constitutional refusal blocks approval".to_string(),
@@ -313,6 +403,11 @@ impl FirmwareUpdateOrchestrator {
             transitioned_at: Utc::now(),
             note: "approved by operator".to_string(),
         });
+        if let Some(ref e) = self.emitter {
+            let _ = e
+                .emit_firmware_event(plan, FirmwarePhaseRecord::Approved)
+                .await;
+        }
         Ok(())
     }
 
@@ -336,6 +431,11 @@ impl FirmwareUpdateOrchestrator {
             transitioned_at: Utc::now(),
             note: "staged for apply".to_string(),
         });
+        if let Some(ref e) = self.emitter {
+            let _ = e
+                .emit_firmware_event(plan, FirmwarePhaseRecord::Staged)
+                .await;
+        }
         Ok(())
     }
 
@@ -378,6 +478,11 @@ impl FirmwareUpdateOrchestrator {
                         .write()
                         .await
                         .insert(target.clone(), plan.blob.version.clone());
+                }
+                if let Some(ref e) = self.emitter {
+                    let _ = e
+                        .emit_firmware_event(plan, FirmwarePhaseRecord::Applied)
+                        .await;
                 }
                 Ok(())
             }
@@ -424,6 +529,11 @@ impl FirmwareUpdateOrchestrator {
                 .await
                 .insert(target.clone(), plan.blob.version.clone());
         }
+        if let Some(ref e) = self.emitter {
+            let _ = e
+                .emit_firmware_event(plan, FirmwarePhaseRecord::Applied)
+                .await;
+        }
         Ok(())
     }
 
@@ -444,6 +554,11 @@ impl FirmwareUpdateOrchestrator {
             transitioned_at: Utc::now(),
             note: reason.to_string(),
         });
+        if let Some(ref e) = self.emitter {
+            let _ = e
+                .emit_firmware_event(plan, FirmwarePhaseRecord::Reverted)
+                .await;
+        }
         Ok(())
     }
 
@@ -460,6 +575,16 @@ impl FirmwareUpdateOrchestrator {
             transitioned_at: Utc::now(),
             note: reason.to_string(),
         });
+        if let Some(ref e) = self.emitter {
+            let _ = e
+                .emit_firmware_event(
+                    plan,
+                    FirmwarePhaseRecord::Failed {
+                        reason: reason.to_string(),
+                    },
+                )
+                .await;
+        }
         Ok(())
     }
 
@@ -471,6 +596,13 @@ impl FirmwareUpdateOrchestrator {
     /// List all plans currently tracked by the orchestrator.
     pub async fn list_plans(&self) -> Vec<FirmwareUpdatePlan> {
         self.plans.read().await.values().cloned().collect()
+    }
+}
+
+impl WithEmitter for FirmwareUpdateOrchestrator {
+    fn with_emitter(mut self, emitter: Option<Arc<dyn HardwareEvidenceEmitter>>) -> Self {
+        self.emitter = emitter;
+        self
     }
 }
 

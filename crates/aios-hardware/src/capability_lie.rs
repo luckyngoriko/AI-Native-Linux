@@ -7,12 +7,14 @@
 )]
 
 use std::collections::HashMap;
+use std::sync::Arc;
 
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use tokio::sync::RwLock;
 
 use crate::error::HardwareError;
+use crate::evidence::{HardwareEvidenceEmitter, WithEmitter};
 use crate::ids::DeviceId;
 
 // ---------------------------------------------------------------------------
@@ -72,6 +74,7 @@ pub enum CapabilityLieOutcome {
 pub struct CapabilityLieDetector {
     catalogue: RwLock<HashMap<(DeviceId, String), AdvertisedCapability>>,
     severity_table: HashMap<String, LieSeverity>,
+    emitter: Option<Arc<dyn HardwareEvidenceEmitter>>,
 }
 
 impl CapabilityLieDetector {
@@ -86,6 +89,7 @@ impl CapabilityLieDetector {
         Self {
             catalogue: RwLock::new(HashMap::new()),
             severity_table,
+            emitter: None,
         }
     }
 
@@ -116,17 +120,44 @@ impl CapabilityLieDetector {
             .copied()
             .unwrap_or(LieSeverity::Hard);
 
-        Ok(CapabilityLieOutcome::Lie {
-            device: obs.device_id,
-            key: obs.key,
+        let outcome = CapabilityLieOutcome::Lie {
+            device: obs.device_id.clone(),
+            key: obs.key.clone(),
             advertised: advertised.advertised_value.clone(),
-            observed: obs.observed_value,
+            observed: obs.observed_value.clone(),
             severity,
-        })
+        };
+
+        // Emit on Hard/Constitutional lies only
+        if matches!(severity, LieSeverity::Hard | LieSeverity::Constitutional) {
+            if let Some(ref e) = self.emitter {
+                if let Err(emit_err) = e
+                    .emit_host_capability_lie(
+                        &obs.device_id,
+                        &obs.key,
+                        &advertised.advertised_value,
+                        &obs.observed_value,
+                        severity,
+                    )
+                    .await
+                {
+                    tracing::warn!(%emit_err, "Failed to emit host_capability_lie evidence");
+                }
+            }
+        }
+
+        Ok(outcome)
     }
 
     pub async fn list_advertised(&self) -> Vec<AdvertisedCapability> {
         self.catalogue.read().await.values().cloned().collect()
+    }
+}
+
+impl WithEmitter for CapabilityLieDetector {
+    fn with_emitter(mut self, emitter: Option<Arc<dyn HardwareEvidenceEmitter>>) -> Self {
+        self.emitter = emitter;
+        self
     }
 }
 

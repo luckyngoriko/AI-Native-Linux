@@ -16,6 +16,7 @@ pub mod drift;
 pub mod driver;
 pub mod driver_binding;
 pub mod error;
+pub mod evidence;
 pub mod firmware;
 pub mod firmware_update;
 pub mod gpu;
@@ -69,6 +70,11 @@ pub use observation::{EnumerationBatch, RawDeviceObservation};
 pub use removable::RemovableDevicePolicy;
 pub use removable_policy::{AiSubjectClassifier, RemovableDevicePolicyTable};
 pub use trust_class::{DeviceQuarantineReason, DeviceTrustClass};
+
+pub use evidence::{
+    EvidenceReceipt, FirmwarePhaseRecord, HardwareEvidenceEmitter, HardwareRecordType,
+    InMemoryHardwareEvidenceEmitter, WithEmitter,
+};
 
 /// Crate version marker used by closure-invariant tests in T-174.
 pub const DEFAULT_CODE_VERSION: &str = "aios-hardware/0.0.1-T163";

@@ -6,12 +6,14 @@
 )]
 
 use std::collections::HashMap;
+use std::sync::Arc;
 
 use chrono::{DateTime, Duration, Utc};
 use tokio::sync::RwLock;
 use ulid::Ulid;
 
 use crate::error::HardwareError;
+use crate::evidence::{HardwareEvidenceEmitter, WithEmitter};
 use crate::gpu::GpuCapabilityClass;
 use crate::gpu::GpuVendorKind;
 use crate::ids::GpuId;
@@ -128,6 +130,7 @@ pub struct GpuResourceRegistry {
     partitions: RwLock<HashMap<String, VkDevicePartition>>,
     bindings: RwLock<HashMap<String, GpuCapabilityBinding>>,
     accounting: RwLock<HashMap<(GpuId, String, String, GpuCapabilityClass), VramAccounting>>,
+    emitter: Option<Arc<dyn HardwareEvidenceEmitter>>,
 }
 
 impl GpuResourceRegistry {
@@ -137,6 +140,7 @@ impl GpuResourceRegistry {
             partitions: RwLock::new(HashMap::new()),
             bindings: RwLock::new(HashMap::new()),
             accounting: RwLock::new(HashMap::new()),
+            emitter: None,
         }
     }
 
@@ -147,7 +151,14 @@ impl GpuResourceRegistry {
         if devices.contains_key(&device.gpu_id) {
             return Err(HardwareError::Internal("duplicate gpu_id".into()));
         }
-        devices.insert(device.gpu_id.clone(), device);
+        devices.insert(device.gpu_id.clone(), device.clone());
+        drop(devices);
+
+        if let Some(ref e) = self.emitter {
+            if let Err(emit_err) = e.emit_gpu_device_registered(&device).await {
+                tracing::warn!(%emit_err, "Failed to emit gpu_device_registered evidence");
+            }
+        }
         Ok(())
     }
 
@@ -230,6 +241,14 @@ impl GpuResourceRegistry {
 
         if current_reserved + req.vram_bytes > device.vram_total_bytes {
             let available = device.vram_total_bytes.saturating_sub(current_reserved);
+            if let Some(ref e) = self.emitter {
+                if let Err(emit_err) = e
+                    .emit_gpu_vram_exhausted(&req.gpu_id, req.vram_bytes, available)
+                    .await
+                {
+                    tracing::warn!(%emit_err, "Failed to emit gpu_vram_exhausted evidence");
+                }
+            }
             return Err(HardwareError::GpuVramExhausted {
                 gpu: req.gpu_id,
                 requested: req.vram_bytes,
@@ -289,6 +308,12 @@ impl GpuResourceRegistry {
             bindings.insert(binding_id, binding.clone());
         }
 
+        if let Some(ref e) = self.emitter {
+            if let Err(emit_err) = e.emit_gpu_binding_granted(&binding).await {
+                tracing::warn!(%emit_err, "Failed to emit gpu_binding_granted evidence");
+            }
+        }
+
         Ok(binding)
     }
 
@@ -324,6 +349,12 @@ impl GpuResourceRegistry {
         {
             let mut bindings = self.bindings.write().await;
             bindings.remove(binding_id);
+        }
+
+        if let Some(ref e) = self.emitter {
+            if let Err(emit_err) = e.emit_gpu_binding_released(binding_id).await {
+                tracing::warn!(%emit_err, "Failed to emit gpu_binding_released evidence");
+            }
         }
 
         // Optionally remove subject from partition if no remaining binding
@@ -366,6 +397,13 @@ impl GpuResourceRegistry {
             .filter(|((g, _, _, _), _)| g == gpu_id)
             .map(|(_, v)| v.bytes_reserved)
             .sum()
+    }
+}
+
+impl WithEmitter for GpuResourceRegistry {
+    fn with_emitter(mut self, emitter: Option<Arc<dyn HardwareEvidenceEmitter>>) -> Self {
+        self.emitter = emitter;
+        self
     }
 }
 

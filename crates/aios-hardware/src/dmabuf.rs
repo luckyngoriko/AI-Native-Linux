@@ -7,11 +7,13 @@
 )]
 
 use std::collections::HashMap;
+use std::sync::Arc;
 
 use chrono::{DateTime, Utc};
 use tokio::sync::RwLock;
 
 use crate::error::HardwareError;
+use crate::evidence::{HardwareEvidenceEmitter, WithEmitter};
 use crate::ids::GpuId;
 
 // ---------------------------------------------------------------------------
@@ -58,6 +60,7 @@ pub struct DmabufPeerSet {
 pub struct DmabufBroker {
     handles: RwLock<HashMap<String, DmabufHandle>>,
     peer_sets: RwLock<HashMap<String, DmabufPeerSet>>,
+    emitter: Option<Arc<dyn HardwareEvidenceEmitter>>,
 }
 
 impl DmabufBroker {
@@ -65,6 +68,7 @@ impl DmabufBroker {
         Self {
             handles: RwLock::new(HashMap::new()),
             peer_sets: RwLock::new(HashMap::new()),
+            emitter: None,
         }
     }
 
@@ -122,6 +126,14 @@ impl DmabufBroker {
         if authorized {
             Ok(())
         } else {
+            if let Some(ref e) = self.emitter {
+                if let Err(emit_err) = e
+                    .emit_dmabuf_peer_unauthorized(handle_id, &source_gpu, target_gpu)
+                    .await
+                {
+                    tracing::warn!(%emit_err, "Failed to emit dmabuf_peer_unauthorized evidence");
+                }
+            }
             Err(HardwareError::DmabufPeerUnauthorized {
                 src: source_gpu,
                 target: target_gpu.clone(),
@@ -147,6 +159,13 @@ impl DmabufBroker {
 
     pub async fn list_peer_sets(&self) -> Vec<DmabufPeerSet> {
         self.peer_sets.read().await.values().cloned().collect()
+    }
+}
+
+impl WithEmitter for DmabufBroker {
+    fn with_emitter(mut self, emitter: Option<Arc<dyn HardwareEvidenceEmitter>>) -> Self {
+        self.emitter = emitter;
+        self
     }
 }
 

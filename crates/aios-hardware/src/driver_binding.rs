@@ -1,6 +1,7 @@
 #![allow(missing_docs)]
 
 use std::collections::HashMap;
+use std::sync::Arc;
 
 use chrono::{DateTime, Utc};
 use ed25519_dalek::{Signature, VerifyingKey};
@@ -9,6 +10,7 @@ use tokio::sync::RwLock;
 use crate::device_record::HardwareDeviceRecord;
 use crate::driver::DriverProvenance;
 use crate::error::HardwareError;
+use crate::evidence::{HardwareEvidenceEmitter, WithEmitter};
 use crate::ids::{DeviceId, DriverBindingId};
 use crate::trust_class::DeviceTrustClass;
 
@@ -69,6 +71,7 @@ pub struct DriverBindingRegistry {
     trusted_authorities: HashMap<String, VerifyingKey>,
     provenance_priority: Vec<DriverProvenance>,
     blacklist: RwLock<HashMap<String, DriverBlacklistEntry>>,
+    emitter: Option<Arc<dyn HardwareEvidenceEmitter>>,
 }
 
 impl DriverBindingRegistry {
@@ -86,6 +89,7 @@ impl DriverBindingRegistry {
                 DriverProvenance::OperatorLocalSigned,
             ],
             blacklist: RwLock::new(HashMap::new()),
+            emitter: None,
         }
     }
 
@@ -102,12 +106,26 @@ impl DriverBindingRegistry {
     /// Returns `DriverBindingFailed` if the provenance is blacklisted, the
     /// module is on the deny-list, the authority is unknown, the signature
     /// is invalid, or a higher-priority binding already exists for the device.
+    #[allow(clippy::too_many_lines)]
     pub async fn admit_binding(&self, binding: DriverBinding) -> Result<(), HardwareError> {
         // Reject OutOfTreeBlacklisted provenance unconditionally.
         if binding.provenance == DriverProvenance::OutOfTreeBlacklisted {
+            let reason = "blacklisted provenance cannot be admitted";
+            if let Some(ref e) = self.emitter {
+                if let Err(emit_err) = e
+                    .emit_driver_binding_rejected(
+                        &binding.device_id,
+                        reason,
+                        Some(binding.provenance),
+                    )
+                    .await
+                {
+                    tracing::warn!(%emit_err, "Failed to emit driver_binding_rejected evidence");
+                }
+            }
             return Err(HardwareError::DriverBindingFailed {
                 device: binding.device_id,
-                reason: "blacklisted provenance cannot be admitted".into(),
+                reason: reason.into(),
             });
         }
 
@@ -115,9 +133,22 @@ impl DriverBindingRegistry {
         {
             let blacklist = self.blacklist.read().await;
             if blacklist.contains_key(&binding.driver_module_name) {
+                let reason = "module on blacklist";
+                if let Some(ref e) = self.emitter {
+                    if let Err(emit_err) = e
+                        .emit_driver_binding_rejected(
+                            &binding.device_id,
+                            reason,
+                            Some(binding.provenance),
+                        )
+                        .await
+                    {
+                        tracing::warn!(%emit_err, "Failed to emit driver_binding_rejected evidence");
+                    }
+                }
                 return Err(HardwareError::DriverBindingFailed {
                     device: binding.device_id,
-                    reason: "module on blacklist".into(),
+                    reason: reason.into(),
                 });
             }
         }
@@ -140,11 +171,25 @@ impl DriverBindingRegistry {
         })?;
 
         let canonical = binding.canonical_bytes();
-        vk.verify_strict(&canonical, &sig)
-            .map_err(|_| HardwareError::DriverBindingFailed {
-                device: binding.device_id.clone(),
-                reason: "ed25519 verify failed".into(),
-            })?;
+        if vk.verify_strict(&canonical, &sig).is_err() {
+            let reason = "ed25519 verify failed";
+            if let Some(ref e) = self.emitter {
+                if let Err(emit_err) = e
+                    .emit_driver_binding_rejected(
+                        &binding.device_id,
+                        reason,
+                        Some(binding.provenance),
+                    )
+                    .await
+                {
+                    tracing::warn!(%emit_err, "Failed to emit driver_binding_rejected evidence");
+                }
+            }
+            return Err(HardwareError::DriverBindingFailed {
+                device: binding.device_id,
+                reason: reason.into(),
+            });
+        }
 
         let new_priority = self.priority_of(binding.provenance);
 
@@ -157,9 +202,25 @@ impl DriverBindingRegistry {
                 if let Some(existing) = bindings.get(existing_id) {
                     let existing_priority = self.priority_of(existing.provenance);
                     if new_priority > existing_priority {
+                        let reason = "lower-priority provenance cannot supersede";
+                        if let Some(ref e) = self.emitter {
+                            if let Err(emit_err) = e
+                                .emit_driver_binding_rejected(
+                                    &binding.device_id,
+                                    reason,
+                                    Some(binding.provenance),
+                                )
+                                .await
+                            {
+                                tracing::warn!(
+                                    %emit_err,
+                                    "Failed to emit driver_binding_rejected evidence"
+                                );
+                            }
+                        }
                         return Err(HardwareError::DriverBindingFailed {
                             device: binding.device_id,
-                            reason: "lower-priority provenance cannot supersede".into(),
+                            reason: reason.into(),
                         });
                     }
                 }
@@ -167,9 +228,16 @@ impl DriverBindingRegistry {
 
             let binding_id = binding.binding_id.clone();
             let device_id = binding.device_id.clone();
-            bindings.insert(binding_id.clone(), binding);
+            bindings.insert(binding_id.clone(), binding.clone());
             drop(bindings);
             by_device.insert(device_id, binding_id);
+            drop(by_device);
+
+            if let Some(ref e) = self.emitter {
+                if let Err(emit_err) = e.emit_driver_binding_admitted(&binding).await {
+                    tracing::warn!(%emit_err, "Failed to emit driver_binding_admitted evidence");
+                }
+            }
         }
 
         Ok(())
@@ -280,6 +348,13 @@ impl DriverBindingRegistry {
             record.trust_class = DeviceTrustClass::Untrusted;
         }
         Ok(())
+    }
+}
+
+impl WithEmitter for DriverBindingRegistry {
+    fn with_emitter(mut self, emitter: Option<Arc<dyn HardwareEvidenceEmitter>>) -> Self {
+        self.emitter = emitter;
+        self
     }
 }
 

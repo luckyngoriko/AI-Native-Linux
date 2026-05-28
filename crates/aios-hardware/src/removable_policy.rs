@@ -3,10 +3,12 @@
 use std::collections::HashMap;
 use std::sync::atomic::AtomicBool;
 use std::sync::atomic::Ordering;
+use std::sync::Arc;
 
 use tokio::sync::RwLock;
 
 use crate::error::HardwareError;
+use crate::evidence::{HardwareEvidenceEmitter, WithEmitter};
 use crate::ids::DeviceId;
 use crate::removable::RemovableDevicePolicy;
 
@@ -47,6 +49,7 @@ pub struct RemovableDevicePolicyTable {
     policies: RwLock<HashMap<DeviceId, RemovableDevicePolicy>>,
     ai_subject_classifier: AiSubjectClassifier,
     recovery_mode_active: AtomicBool,
+    emitter: Option<Arc<dyn HardwareEvidenceEmitter>>,
 }
 
 impl RemovableDevicePolicyTable {
@@ -56,6 +59,7 @@ impl RemovableDevicePolicyTable {
             policies: RwLock::new(HashMap::new()),
             ai_subject_classifier: AiSubjectClassifier::new(),
             recovery_mode_active: AtomicBool::new(false),
+            emitter: None,
         }
     }
 
@@ -65,6 +69,7 @@ impl RemovableDevicePolicyTable {
             policies: RwLock::new(HashMap::new()),
             ai_subject_classifier: AiSubjectClassifier::new(),
             recovery_mode_active: AtomicBool::new(active),
+            emitter: None,
         }
     }
 
@@ -110,6 +115,11 @@ impl RemovableDevicePolicyTable {
         // INV-013: AI subjects never mount removable directly
         if self.ai_subject_classifier.is_ai(requester) {
             let policy = self.get_policy(device).await;
+            if let Some(ref e) = self.emitter {
+                if let Err(emit_err) = e.emit_removable_ai_blocked(device, requester).await {
+                    tracing::warn!(%emit_err, "Failed to emit removable_ai_blocked evidence");
+                }
+            }
             return Err(HardwareError::RemovableDenied {
                 device: device.clone(),
                 policy,
@@ -119,6 +129,11 @@ impl RemovableDevicePolicyTable {
         let policy = self.get_policy(device).await;
         match policy {
             RemovableDevicePolicy::DenyDefault | RemovableDevicePolicy::RecoveryDenied => {
+                if let Some(ref e) = self.emitter {
+                    if let Err(emit_err) = e.emit_removable_admission_denied(device, policy).await {
+                        tracing::warn!(%emit_err, "Failed to emit removable_admission_denied evidence");
+                    }
+                }
                 Err(HardwareError::RemovableDenied {
                     device: device.clone(),
                     policy,
@@ -137,6 +152,13 @@ impl RemovableDevicePolicyTable {
     pub async fn list_policies(&self) -> Vec<(DeviceId, RemovableDevicePolicy)> {
         let guard = self.policies.read().await;
         guard.iter().map(|(id, pol)| (id.clone(), *pol)).collect()
+    }
+}
+
+impl WithEmitter for RemovableDevicePolicyTable {
+    fn with_emitter(mut self, emitter: Option<Arc<dyn HardwareEvidenceEmitter>>) -> Self {
+        self.emitter = emitter;
+        self
     }
 }
 

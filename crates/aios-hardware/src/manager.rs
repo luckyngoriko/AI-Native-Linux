@@ -1,6 +1,7 @@
 #![allow(missing_docs)]
 
 use std::collections::BTreeMap;
+use std::sync::Arc;
 
 use async_trait::async_trait;
 use ed25519_dalek::SigningKey;
@@ -8,6 +9,7 @@ use tokio::sync::RwLock;
 
 use crate::device_record::HardwareDeviceRecord;
 use crate::error::HardwareError;
+use crate::evidence::{HardwareEvidenceEmitter, WithEmitter};
 use crate::graph::{HardwareGraph, HardwareGraphBuilder};
 use crate::ids::DeviceId;
 use crate::lifecycle::DeviceLifecycleState;
@@ -61,6 +63,7 @@ struct HardwareManagerState {
 /// In-memory [`HardwareManager`] backed by a `RwLock`.
 pub struct InMemoryHardwareManager {
     state: RwLock<HardwareManagerState>,
+    emitter: Option<Arc<dyn HardwareEvidenceEmitter>>,
 }
 
 impl InMemoryHardwareManager {
@@ -71,6 +74,7 @@ impl InMemoryHardwareManager {
                 pending: BTreeMap::new(),
                 current_graph: None,
             }),
+            emitter: None,
         }
     }
 
@@ -81,7 +85,15 @@ impl InMemoryHardwareManager {
                 pending: BTreeMap::new(),
                 current_graph: Some(initial),
             }),
+            emitter: None,
         }
+    }
+}
+
+impl WithEmitter for InMemoryHardwareManager {
+    fn with_emitter(mut self, emitter: Option<Arc<dyn HardwareEvidenceEmitter>>) -> Self {
+        self.emitter = emitter;
+        self
     }
 }
 
@@ -114,6 +126,12 @@ impl HardwareManager for InMemoryHardwareManager {
         let mut w = self.state.write().await;
         w.current_graph = Some(graph.clone());
         drop(w);
+
+        if let Some(ref e) = self.emitter {
+            if let Err(emit_err) = e.emit_graph_built(&graph).await {
+                tracing::warn!(%emit_err, "Failed to emit graph_built evidence");
+            }
+        }
         Ok(graph)
     }
 
@@ -122,8 +140,16 @@ impl HardwareManager for InMemoryHardwareManager {
         if state.pending.contains_key(&record.device_id) {
             return Err(HardwareError::Internal("duplicate device_id".into()));
         }
-        state.pending.insert(record.device_id.clone(), record);
+        state
+            .pending
+            .insert(record.device_id.clone(), record.clone());
         drop(state);
+
+        if let Some(ref e) = self.emitter {
+            if let Err(emit_err) = e.emit_device_registered(&record).await {
+                tracing::warn!(%emit_err, "Failed to emit device_registered evidence");
+            }
+        }
         Ok(())
     }
 
@@ -133,7 +159,15 @@ impl HardwareManager for InMemoryHardwareManager {
             .pending
             .remove(device_id)
             .map(|_| ())
-            .ok_or_else(|| HardwareError::DeviceNotFound(device_id.clone()))
+            .ok_or_else(|| HardwareError::DeviceNotFound(device_id.clone()))?;
+        drop(state);
+
+        if let Some(ref e) = self.emitter {
+            if let Err(emit_err) = e.emit_device_deregistered(device_id).await {
+                tracing::warn!(%emit_err, "Failed to emit device_deregistered evidence");
+            }
+        }
+        Ok(())
     }
 
     async fn list_pending_devices(&self) -> Vec<HardwareDeviceRecord> {
@@ -163,8 +197,18 @@ impl HardwareManager for InMemoryHardwareManager {
             .pending
             .get_mut(device_id)
             .ok_or_else(|| HardwareError::DeviceNotFound(device_id.clone()))?;
+        let from = record.lifecycle;
         record.lifecycle = lifecycle_state;
         drop(w);
+
+        if let Some(ref e) = self.emitter {
+            if let Err(emit_err) = e
+                .emit_device_lifecycle_transitioned(device_id, from, lifecycle_state)
+                .await
+            {
+                tracing::warn!(%emit_err, "Failed to emit device_lifecycle_transitioned evidence");
+            }
+        }
         Ok(())
     }
 }

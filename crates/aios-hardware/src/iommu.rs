@@ -1,11 +1,13 @@
 #![allow(missing_docs, clippy::missing_errors_doc)]
 
 use std::collections::HashMap;
+use std::sync::Arc;
 
 use tokio::sync::RwLock;
 
 use crate::bus::BusKind;
 use crate::error::HardwareError;
+use crate::evidence::{HardwareEvidenceEmitter, WithEmitter};
 use crate::ids::DeviceId;
 use crate::removable_policy::RemovableDevicePolicyTable;
 
@@ -27,6 +29,7 @@ pub struct IommuRequirement {
 
 pub struct IommuFloorEnforcer {
     observations: RwLock<HashMap<DeviceId, IommuRequirement>>,
+    emitter: Option<Arc<dyn HardwareEvidenceEmitter>>,
 }
 
 impl IommuFloorEnforcer {
@@ -34,6 +37,7 @@ impl IommuFloorEnforcer {
     pub fn new() -> Self {
         Self {
             observations: RwLock::new(HashMap::new()),
+            emitter: None,
         }
     }
 
@@ -61,6 +65,11 @@ impl IommuFloorEnforcer {
             .insert(device.clone(), requirement);
 
         if required && !observed {
+            if let Some(ref e) = self.emitter {
+                if let Err(emit_err) = e.emit_iommu_missing(&device, bus).await {
+                    tracing::warn!(%emit_err, "Failed to emit iommu_missing evidence");
+                }
+            }
             Err(HardwareError::IommuMissing(device))
         } else {
             Ok(())
@@ -83,6 +92,13 @@ impl IommuFloorEnforcer {
             .filter(|(_, req)| req.iommu_required && !req.iommu_observed)
             .map(|(id, _)| id.clone())
             .collect()
+    }
+}
+
+impl WithEmitter for IommuFloorEnforcer {
+    fn with_emitter(mut self, emitter: Option<Arc<dyn HardwareEvidenceEmitter>>) -> Self {
+        self.emitter = emitter;
+        self
     }
 }
 

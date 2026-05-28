@@ -14,6 +14,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::device_record::HardwareDeviceRecord;
 use crate::error::HardwareError;
+use crate::evidence::{HardwareEvidenceEmitter, WithEmitter};
 use crate::graph::HardwareGraph;
 use crate::ids::{DeviceId, HardwareGraphId};
 
@@ -129,12 +130,16 @@ impl Default for PriorGraphStore {
 /// and produces a [`DriftSignal`].
 pub struct DriftDetector {
     prior_store: Arc<PriorGraphStore>,
+    emitter: Option<Arc<dyn HardwareEvidenceEmitter>>,
 }
 
 impl DriftDetector {
     #[must_use]
     pub fn new(prior_store: Arc<PriorGraphStore>) -> Self {
-        Self { prior_store }
+        Self {
+            prior_store,
+            emitter: None,
+        }
     }
 
     /// Check the current graph against the prior-boot store.
@@ -148,9 +153,17 @@ impl DriftDetector {
     pub async fn check(&self, current: &HardwareGraph) -> Result<DriftSignal, HardwareError> {
         let prior_id = self.prior_store.current().await;
         match prior_id {
-            None => Ok(DriftSignal::FirstBoot {
-                current: current.id.clone(),
-            }),
+            None => {
+                let signal = DriftSignal::FirstBoot {
+                    current: current.id.clone(),
+                };
+                if let Some(ref e) = self.emitter {
+                    if let Err(emit_err) = e.emit_graph_first_boot(&current.id).await {
+                        tracing::warn!(%emit_err, "Failed to emit graph_first_boot evidence");
+                    }
+                }
+                Ok(signal)
+            }
             Some(ref prior) if *prior == current.id => Ok(DriftSignal::NoDrift),
             Some(prior) => {
                 let change = self
@@ -171,13 +184,26 @@ impl DriftDetector {
                         },
                         |prior_devs| compute_graph_diff(prior_devs, &current.devices),
                     );
-                Ok(DriftSignal::DriftDetected {
+                let signal = DriftSignal::DriftDetected {
                     prior,
                     current: current.id.clone(),
                     change,
-                })
+                };
+                if let Some(ref e) = self.emitter {
+                    if let Err(emit_err) = e.emit_graph_drift_detected(&signal).await {
+                        tracing::warn!(%emit_err, "Failed to emit graph_drift_detected evidence");
+                    }
+                }
+                Ok(signal)
             }
         }
+    }
+}
+
+impl WithEmitter for DriftDetector {
+    fn with_emitter(mut self, emitter: Option<Arc<dyn HardwareEvidenceEmitter>>) -> Self {
+        self.emitter = emitter;
+        self
     }
 }
 

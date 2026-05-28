@@ -1,28 +1,36 @@
 {
   "project_goal": "AIOS — AI-native Linux distribution. Implement the spec contracts from rev.2 (53 sub-specs CONTRACT-grade) into working Rust + Python + KDE code, following §22 MVP golden path discipline.",
-  "current_milestone": "M15 — AIOS Web Renderer (aios-renderer-web S7.5; CLOSED at T-150)",
-  "current_task_id": "T-150",
-  "current_task_title": "T-150 completed — M15 closer (version 0.1.0, 22 closure invariants + 6 acceptance fixtures + MILESTONES update)",
-  "current_step": "T-150 committed and verified. All 5 gates green. M15 closed. Next: M16 (aios-network).",
+  "current_milestone": "M16 — AIOS Network Policy (aios-network; T-153 completed)",
+  "current_task_id": "T-153",
+  "current_task_title": "T-153 completed — OutboundGrant + per-app manifest (S8.1 §4, INV I7+I8)",
+  "current_step": "T-153 committed at 4d98365. All 5 gates green. +21 tests (97 total in aios-network). Workspace: 3131 tests.",
   "files_touched": [
+    "crates/aios-network/Cargo.toml",
+    "crates/aios-network/src/outbound_grant.rs",
+    "crates/aios-network/src/grant_registry.rs",
+    "crates/aios-network/src/lib.rs",
+    "crates/aios-network/tests/grant_registry.rs",
     "Cargo.lock",
-    "MILESTONES.md",
-    "crates/aios-renderer-web/Cargo.toml",
-    "crates/aios-renderer-web/src/lib.rs",
-    "crates/aios-renderer-web/tests/compilation.rs",
-    "crates/aios-renderer-web/tests/skeleton.rs",
-    "crates/aios-renderer-web/tests/m15_closure.rs",
-    "crates/aios-renderer-web/tests/m15_acceptance.rs"
+    ".ai/memory.json"
   ],
   "discovered_constraints": [
-    "OriginVerifier.register_binding only accepts AppOrigin (host=aios.localhost), not AiosLocalhost",
-    "VisualToken.canonical_value is a String, not a JSON value",
-    "Two pre-existing DEFAULT_CODE_VERSION tests (compilation.rs, skeleton.rs) needed updating to 0.1.0-T150",
-    "OriginScheme::parse maps https://<token>.aios.localhost → AiosLocalhost, not AppOrigin"
+    "Workspace missing_docs=warn requires module doc comments on every pub mod",
+    "ed25519-dalek 2.1 uses SigningKey::generate(&mut OsRng) and VerifyingKey::verify_strict()",
+    "rand_core workspace dep at version 0.6 with features [getrandom] required for OsRng",
+    "tokio::sync::RwLock returns guards directly without Result wrapping (no poisoning)",
+    "clippy::unused_async: all async fn must contain at least one .await",
+    "clippy::missing_errors_doc: fns returning Result need # Errors section",
+    "clippy::significant_drop_tightening: explicit drop(guard) after tokio RwLock ops",
+    "clippy::missing_const_for_fn: const-eligible fns need const keyword",
+    "clippy::missing_panics_doc: fns with assert!/panic! need # Panics section"
   ],
-  "discovered_dependencies": [],
+  "discovered_dependencies": [
+    "ed25519-dalek (workspace)",
+    "rand_core (workspace)",
+    "ed25519-dalek already in workspace Cargo.toml as workspace dependency"
+  ],
   "last_errors": [
-    "3 test failures fixed: origin verifier tests used AiosLocalhost instead of AppOrigin; VisualToken.payload → canonical_value"
+    "17 clippy errors (unused_async, missing_errors_doc, significant_drop_tightening, missing_const_for_fn, missing_panics_doc, missing_docs) — all resolved"
   ],
-  "last_verification_result": "All 5 gates PASS. 22 closure + 6 acceptance tests pass. Workspace: 0 failures."
+  "last_verification_result": "All 5 gates PASS. 97 aios-network tests (46 unit + 17 controller + 16 grant_registry + 18 skeleton). Workspace: 3131 total, 0 failures."
 }

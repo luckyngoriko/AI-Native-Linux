@@ -3,11 +3,15 @@
 //! Typed core skeleton: closed vocabulary + error enum + identifier types.
 //! Trait, controllers, grants, FSM, evaluator, AI discipline, DNS/VPN,
 //! firewall, gRPC, evidence, cross-crate land in later tasks.
+//!
+//! L8 Network Policy for AIOS (S8.1).
 
 #![forbid(unsafe_code)]
 
 /// AI cross-origin posture (INV I4).
 pub mod ai_cross_origin;
+/// AI cross-origin discipline gate (INV I4 + S8.1 §4.9).
+pub mod ai_discipline;
 /// Allowlist entry types.
 pub mod allowlist;
 /// Connection evaluator with cross-group check (INV I3+I9).
@@ -34,6 +38,10 @@ pub mod posture;
 pub mod protocol;
 
 pub use ai_cross_origin::AICrossOriginPosture;
+pub use ai_discipline::{
+    AiCrossOriginGate, AiExternalCallDecision, AiExternalCallRequest, AiSubjectClassifier,
+    AllowedVia,
+};
 pub use allowlist::{AllowlistEntry, AllowlistEntryKind};
 pub use connection_evaluator::{
     ConnectionDecisionV2, ConnectionEvaluator, EvaluateConnectionRequestV2, ResolvedFqdn,

@@ -691,6 +691,12 @@
       "title": "aios-apps — AppRuntime async trait + InMemoryAppRuntime (S12.1 §3-4)",
       "completed_at": "2026-05-26",
       "evidence": "Commit 812256b. 6 files, 965 LOC. SyscallClass 10-variant enum, ObservedBehavior 18-field struct, AppManifestProposal 12-field struct, AppRuntime async trait, InMemoryAppRuntime with honesty class mapping. 58 tests (36 round-trip + 22 runtime). All 4 gates green."
+    },
+    {
+      "id": "T-153",
+      "title": "aios-network — OutboundGrant + per-app manifest (S8.1 §4, INV I7+I8)",
+      "completed_at": "2026-05-28",
+      "evidence": "Commit 4d98365. 6 files changed, 902 insertions. ed25519-dalek + rand_core deps. 2 new modules (outbound_grant.rs 236 loc, grant_registry.rs ~280 loc). 5 unit + 16 integration tests. INV I7: Ed25519 signatures over canonical bytes. INV I8: append-only manifests with GrantTombstone reduction. All 5 gates green: 97 aios-network tests, 3131 workspace tests."
     }
   ],
   "blocked": [],
@@ -978,11 +984,14 @@
       "rationale": "Localhost-only by default per INV-021. LAN/remote exposure gated by explicit policy."
     },
     "M16": {
-      "status": "planned",
+      "status": "in_progress",
       "title": "Network Policy + DNS/VPN + Firmware Trust",
       "sub_specs": ["S8.1", "S8.4", "S8.5"],
       "layer": "L8",
       "target_crate": "aios-network",
+      "completed_tasks": ["T-151", "T-152", "T-153"],
+      "current_test_count": 97,
+      "workspace_test_count": 3131,
       "rationale": "AICrossOriginPosture enforcement, AI_DIRECT_INTERNET_DENIED record (referenced by M3 T-022)."
     },
     "M17": {

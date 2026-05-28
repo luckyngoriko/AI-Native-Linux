@@ -21,6 +21,9 @@ pub mod error;
 /// L10 Integration Evidence Emitter — typed lifecycle event emission into the
 /// append-only Evidence Log (S11.4 ↔ S3.1).
 pub mod evidence;
+/// System integration test harness (M18 T-185) — wires all 9 L10 subsystems
+/// behind a shared in-memory evidence emitter for acceptance-grade E2E tests.
+pub mod harness;
 /// Identifier newtypes for integration resources.
 pub mod ids;
 /// 6-state integration lifecycle FSM (S11.4 §2 I1).
@@ -64,6 +67,7 @@ pub use evidence::{
     EvidenceReceipt, InMemoryIntegrationEvidenceEmitter, IntegrationEvidenceEmitter,
     IntegrationRecordType, WithIntegrationEmitter,
 };
+pub use harness::SystemIntegrationHarness;
 pub use ids::{ComposedSystemId, IntegrationId, StandardSubscriptionId, VendorContractId};
 pub use lifecycle::{IntegrationLifecycleLabel, IntegrationLifecycleState};
 pub use orchestrator::{Orchestrator, ServiceHealthSummary, ServiceScaffoldStatus};

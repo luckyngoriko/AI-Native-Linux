@@ -916,3 +916,16 @@ T-186: M18 closer + acceptance test + v0.1.0 version bump + S11.4 sub-spec final
   result: T-199 committed b6223f6, pushed origin+personal. INV-002 preserved (typed never-executed proposal). No version bump.
   status: SUCCESS (cluster 1). M20 in progress.
   next: M20 cluster 2 — StateProbe trait + tier3::execute (22 primitives) + executor/engine wiring + flip tier3/acceptance/m8_closure/executor tests. No dependency cycle (verified). Design: workflow wf_7a8c4dc4-230.
+
+[2026-05-29T12:46:16Z] T-200 + M20 CLOSE — Tier-3 verification primitives made real; M20 complete
+  changes:
+    crates/aios-verification/src/primitives/mod.rs : StateProbe trait + StdStateProbe + MockStateProbe
+    crates/aios-verification/src/primitives/tier3.rs: execute() + Comparison table for 22 primitives (replaces deferred_result)
+    crates/aios-verification/src/{lib,executor,in_memory_engine}.rs : state_probe wiring + with_state_probe builder
+    tests/{primitives_tier3,acceptance_fixtures,m8_closure,executor}.rs : flipped from deferral to real verdicts
+    CLAUDE.md + MASTER_INDEX.md + MILESTONES.md : deferred caveats -> discharged; M20 marker; 4473->4475
+  verification: cargo test --workspace -> 4475 passed, 0 failed; clippy -p aios-verification --all-targets -D warnings clean; fmt clean
+  commits: T-200 1dae67c (cluster 2), b634509 (closure docs); cluster 1 was T-199 b6223f6
+  result: M20 CLOSED. Both Rev.2 deferred surfaces now REAL. No remaining deferred logic.
+  status: SUCCESS. Rev.2 FULL-REAL + M20 = complete implemented surface.
+  next: productization only (bootable ISO, CI pipeline, production StateProbe adapters to live L2/L4/L8/L9 state). Rev.3 still spec-only.

@@ -1,9 +1,9 @@
 {
   "project_goal": "AIOS — AI-native Linux distribution. Implement the spec contracts from rev.2 (53 sub-specs CONTRACT-grade) into working Rust code, following §22 MVP golden path discipline.",
-  "current_milestone": "M20 (discharge deferred surfaces) — IN PROGRESS. Cluster 1 (L5 cognitive 10 gRPC RPCs) DONE at T-199 (b6223f6). Cluster 2 (L9 22 Tier-3 verification primitives) designed (StateProbe approach; no dependency cycle) but NOT yet implemented. Rev.2 itself is FULL-REAL (19/19) at 6259a26.",
-  "current_task_id": "T-199",
-  "current_task_title": "T-199 COMMITTED — M20 cluster 1: aios-cognitive 10 L5 agent/plan/memory gRPC RPCs made real (in-memory stores on CognitiveCoreServiceImpl, proto types stored directly, no trait change). grpc_roundtrip tests 4-13 flipped to real behaviour; m11_closure invariant 3 strengthened (no Status::unimplemented). INV-002 preserved. Workspace 4473 passed/0 failed; clippy+fmt clean. No version bump.",
-  "current_step": "T-199 committed at b6223f6 (pushed origin+personal). NEXT: M20 cluster 2 — implement StateProbe trait + tier3::execute for 22 primitives + wire executor/engine + flip primitives_tier3/acceptance_fixtures/m8_closure/executor tests. Design in workflow wf_7a8c4dc4-230. See [[aios-deferred-surfaces]].",
+  "current_milestone": "M20 (discharge deferred surfaces) — CLOSED. Both clusters REAL: cluster 1 = L5 cognitive 10 gRPC RPCs (T-199 b6223f6); cluster 2 = L9 22 Tier-3 verification primitives via StateProbe (T-200 1dae67c). M20 docs closed at b634509. Rev.2 FULL-REAL (19/19) + M20 = no remaining deferred logic; 4475 workspace tests, 0 failed.",
+  "current_task_id": "T-200",
+  "current_task_title": "T-200 COMMITTED — M20 cluster 2: aios-verification 22 Tier-3 primitives made real via injected StateProbe (single observe(primitive,key) method; StdStateProbe=probe_error default, MockStateProbe in tests; tier3::execute Comparison table). Wired state_probe through executor + InMemoryVerificationEngine::with_state_probe. Flipped primitives_tier3/acceptance_fixtures/m8_closure/executor tests from deferral to real. No version bump. Workspace 4475 passed/0 failed; clippy+fmt clean.",
+  "current_step": "M20 CLOSED at b634509 (T-199 cognitive + T-200 verification + closure docs). All Rev.2 deferred surfaces are now REAL. Pending: push remaining commits. Remaining productization (NOT deferred logic): bootable ISO, CI pipeline, production StateProbe adapters to live L2/L4/L8/L9 state. See [[aios-deferred-surfaces]].",
   "files_touched": [
     "crates/aios-distribution/Cargo.toml",
     "crates/aios-distribution/tests/m19_closure.rs",

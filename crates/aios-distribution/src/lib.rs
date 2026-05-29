@@ -40,6 +40,7 @@
 
 #![forbid(unsafe_code)]
 
+pub mod catalog;
 pub mod error;
 pub mod ids;
 pub mod install_state;
@@ -48,7 +49,10 @@ pub mod package_kind;
 pub mod repository;
 pub mod takedown;
 pub mod trust;
+pub mod trust_chain;
+pub mod verifier;
 
+pub use catalog::{PublisherCatalog, SigningKeyCatalog};
 pub use error::{DistributionError, DistributionErrorCode};
 pub use ids::{
     ManifestId, PackageId, PackageSigningKeyId, PublisherId, PublisherRootId, RepositoryId,
@@ -59,10 +63,15 @@ pub use package_kind::{InstallScope, PackageKind};
 pub use repository::{RepositoryKind, UpdateChannel};
 pub use takedown::TakedownReason;
 pub use trust::PublisherTrustLevel;
+pub use trust_chain::{
+    canonical_depth, AiosRootKey, LinkSignature, PackageSigningKey, PublisherRoot, SignedPayload,
+    MAX_CHAIN_DEPTH,
+};
+pub use verifier::TrustChainVerifier;
 
 /// Code version marker for T-198 closure invariants.
 ///
 /// This constant anchors the crate's identity at compile time so that closure
 /// tests (T-198) can verify the distribution layer shipped with the correct
 /// typed contract before cross-crate wiring lands in T-197.
-pub const DEFAULT_CODE_VERSION: &str = "aios-distribution/0.0.1-T187b";
+pub const DEFAULT_CODE_VERSION: &str = "aios-distribution/0.0.1-T188";

@@ -47,12 +47,13 @@ fn closure_default_code_version_t105() {
 }
 
 // ---------------------------------------------------------------------------
-// Closure Invariant 3 — All unimplemented RPCs carry a documented deferred marker
+// Closure Invariant 3 — the gRPC service has NO unimplemented RPCs (M20)
 // ---------------------------------------------------------------------------
-// The gRPC surface includes 12 RPCs per S13.1 §19. 3 are fully implemented
-// (PerceiveIntent, GetCognitiveCoreInfo, GetSystemStatus); the remaining 9
-// return Status::unimplemented WITH an explicit "deferred to post-T-101" note.
-// This invariant ensures none are accidental/untracked stubs.
+// The gRPC surface is 12 RPCs per S13.1 §19. As of M20 ALL are implemented:
+// PerceiveIntent + GetCognitiveCoreInfo + the agent/plan/memory surface
+// (register/get/list/retire agent, get/list plan, get memory entry, draft plan,
+// draft action proposal, reason about verification). This invariant guards
+// against a Status::unimplemented stub regressing back into the service.
 
 #[test]
 fn closure_no_status_unimplemented_in_service() {
@@ -66,19 +67,10 @@ fn closure_no_status_unimplemented_in_service() {
         }
         let contents = fs::read_to_string(&path).expect("file readable");
         let fname = path.file_name().unwrap().to_string_lossy();
-        // Scan for Status::unimplemented and verify each occurrence is
-        // followed by a "deferred" note within the same expression block
-        // (the message is on the next line through the multi-line macro).
-        let lower = contents.to_lowercase();
-        for (idx, _) in contents.match_indices("Status::unimplemented") {
-            // Check next 200 chars for the word "deferred"
-            let end = (idx + 200).min(contents.len());
-            let context = &lower[idx..end];
-            assert!(
-                context.contains("deferred"),
-                "service/{fname}: Status::unimplemented at byte {idx} without 'deferred' marker in surrounding context — every unimplemented RPC must document its deferral target"
-            );
-        }
+        assert!(
+            !contents.contains("Status::unimplemented"),
+            "service/{fname}: found Status::unimplemented — all 12 CognitiveCore RPCs must be implemented (M20 discharged the L5 deferred surface; no stubs allowed)"
+        );
     }
 }
 

@@ -8,7 +8,7 @@
 //! - `PerceiveIntent` — happy path; invalid schema version; error code surfacing
 //! - `GetCognitiveCoreInfo` — returns expected schema and component info
 //!
-//! Unimplemented RPCs (return `Code::Unimplemented`):
+//! M20 — agent/plan/memory RPCs are now implemented over in-memory stores:
 //! - `RegisterAgent`, `GetAgent`, `ListAgents`, `RetireAgent`
 //! - `GetPlan`, `ListPlans`, `GetMemoryEntry`
 //! - `DraftPlan`, `DraftActionProposal`, `ReasonAboutVerification`
@@ -42,7 +42,7 @@ use aios_cognitive::service::proto::{
     GetPlanRequest, ListAgentsRequest, ListPlansRequest, PerceiveIntentRequest,
     ReasonAboutVerificationRequest, RegisterAgentRequest, RetireAgentRequest,
 };
-use aios_cognitive::service::{CognitiveCoreServiceImpl, SCHEMA_VERSION};
+use aios_cognitive::service::{proto, CognitiveCoreServiceImpl, SCHEMA_VERSION};
 use aios_cognitive::InMemoryCognitiveCore;
 
 /// Bind a TCP listener to `127.0.0.1:0` and return the bound address.
@@ -78,6 +78,36 @@ async fn spawn_server(
 fn default_service() -> CognitiveCoreServiceImpl {
     let core = Arc::new(InMemoryCognitiveCore::new());
     CognitiveCoreServiceImpl::new(core)
+}
+
+/// Build a valid `AgentBinding` for registration tests.
+fn test_binding(id: &str) -> proto::AgentBinding {
+    proto::AgentBinding {
+        agent_canonical_id: id.into(),
+        home_group_id: "group:default".into(),
+        bound_user_id: "human:lucky".into(),
+        identity_bundle_version: "1".into(),
+        agent_kind: proto::AgentKind::Assistant as i32,
+        registered_at: None,
+        registered_by: "human:lucky".into(),
+    }
+}
+
+/// Register a test agent on `client` so dependent RPCs have state to read.
+async fn register_test_agent(
+    client: &mut CognitiveCoreClient<tonic::transport::Channel>,
+    id: &str,
+) {
+    client
+        .register_agent(tonic::Request::new(RegisterAgentRequest {
+            schema_version: SCHEMA_VERSION.into(),
+            binding: Some(test_binding(id)),
+            manifest: None,
+            approver_canonical_id: "human:lucky".into(),
+            approver_signature: vec![],
+        }))
+        .await
+        .expect("register_test_agent");
 }
 
 // ────────────────────────────────────────────────────────────────────
@@ -222,11 +252,11 @@ async fn get_cognitive_core_info_returns_expected_fields() {
 }
 
 // ────────────────────────────────────────────────────────────────────
-// Test 4: RegisterAgent — returns Unimplemented
+// Test 4: RegisterAgent — creates an ACTIVE agent
 // ────────────────────────────────────────────────────────────────────
 
 #[tokio::test]
-async fn register_agent_returns_unimplemented() {
+async fn register_agent_creates_active_agent() {
     let service = default_service();
     let (addr, tx, handle) = spawn_server(service).await;
 
@@ -236,18 +266,45 @@ async fn register_agent_returns_unimplemented() {
 
     let request = tonic::Request::new(RegisterAgentRequest {
         schema_version: SCHEMA_VERSION.into(),
-        binding: None,
+        binding: Some(test_binding(
+            "agent:default:test:00000000000000000000000001",
+        )),
         manifest: None,
-        approver_canonical_id: String::new(),
+        approver_canonical_id: "human:lucky".into(),
         approver_signature: vec![],
     });
 
-    let result = client.register_agent(request).await;
-    assert!(result.is_err(), "must return Unimplemented");
+    let resp = client
+        .register_agent(request)
+        .await
+        .expect("register_agent RPC")
+        .into_inner();
+
+    assert!(
+        !resp.agent_canonical_id.is_empty(),
+        "agent_canonical_id must be populated"
+    );
     assert_eq!(
-        result.unwrap_err().code(),
-        tonic::Code::Unimplemented,
-        "RegisterAgent must return Unimplemented"
+        resp.state,
+        proto::AgentLifecycleState::Active as i32,
+        "registered agent must be ACTIVE"
+    );
+    assert!(resp.error_code.is_empty(), "no error_code on success");
+
+    // A missing binding must be rejected (fail-closed).
+    let bad = client
+        .register_agent(tonic::Request::new(RegisterAgentRequest {
+            schema_version: SCHEMA_VERSION.into(),
+            binding: None,
+            manifest: None,
+            approver_canonical_id: String::new(),
+            approver_signature: vec![],
+        }))
+        .await;
+    assert_eq!(
+        bad.unwrap_err().code(),
+        tonic::Code::InvalidArgument,
+        "missing binding must be InvalidArgument"
     );
 
     let _ = tx.send(());
@@ -255,11 +312,11 @@ async fn register_agent_returns_unimplemented() {
 }
 
 // ────────────────────────────────────────────────────────────────────
-// Test 5: GetAgent — returns Unimplemented
+// Test 5: GetAgent — returns the registered agent, else NotFound
 // ────────────────────────────────────────────────────────────────────
 
 #[tokio::test]
-async fn get_agent_returns_unimplemented() {
+async fn get_agent_returns_registered_agent_or_not_found() {
     let service = default_service();
     let (addr, tx, handle) = spawn_server(service).await;
 
@@ -267,16 +324,28 @@ async fn get_agent_returns_unimplemented() {
         .await
         .expect("connect");
 
-    let request = tonic::Request::new(GetAgentRequest {
-        agent_canonical_id: "agent:default:test:00000000000000000000000001".into(),
-    });
+    let id = "agent:default:test:00000000000000000000000001";
+    register_test_agent(&mut client, id).await;
 
-    let result = client.get_agent(request).await;
-    assert!(result.is_err(), "must return Unimplemented");
+    let agent = client
+        .get_agent(tonic::Request::new(GetAgentRequest {
+            agent_canonical_id: id.into(),
+        }))
+        .await
+        .expect("get_agent RPC")
+        .into_inner();
+    assert_eq!(agent.agent_canonical_id, id);
+    assert_eq!(agent.state, proto::AgentLifecycleState::Active as i32);
+
+    let missing = client
+        .get_agent(tonic::Request::new(GetAgentRequest {
+            agent_canonical_id: "agent:default:test:ffffffffffffffffffffffffff".into(),
+        }))
+        .await;
     assert_eq!(
-        result.unwrap_err().code(),
-        tonic::Code::Unimplemented,
-        "GetAgent must return Unimplemented"
+        missing.unwrap_err().code(),
+        tonic::Code::NotFound,
+        "unknown agent must be NotFound"
     );
 
     let _ = tx.send(());
@@ -284,11 +353,11 @@ async fn get_agent_returns_unimplemented() {
 }
 
 // ────────────────────────────────────────────────────────────────────
-// Test 6: ListAgents — returns Unimplemented
+// Test 6: ListAgents — returns the registered agents
 // ────────────────────────────────────────────────────────────────────
 
 #[tokio::test]
-async fn list_agents_returns_unimplemented() {
+async fn list_agents_returns_registered_agents() {
     let service = default_service();
     let (addr, tx, handle) = spawn_server(service).await;
 
@@ -296,18 +365,76 @@ async fn list_agents_returns_unimplemented() {
         .await
         .expect("connect");
 
-    let request = tonic::Request::new(ListAgentsRequest {
-        group_id: String::new(),
-        user_id: String::new(),
-        agent_kind_filter: 0,
-    });
+    let empty = client
+        .list_agents(tonic::Request::new(ListAgentsRequest {
+            group_id: String::new(),
+            user_id: String::new(),
+            agent_kind_filter: 0,
+        }))
+        .await
+        .expect("list_agents RPC")
+        .into_inner();
+    assert!(empty.agents.is_empty(), "no agents before registration");
 
-    let result = client.list_agents(request).await;
-    assert!(result.is_err(), "must return Unimplemented");
+    register_test_agent(&mut client, "agent:default:test:00000000000000000000000001").await;
+
+    let listed = client
+        .list_agents(tonic::Request::new(ListAgentsRequest {
+            group_id: "group:default".into(),
+            user_id: String::new(),
+            agent_kind_filter: 0,
+        }))
+        .await
+        .expect("list_agents RPC")
+        .into_inner();
+    assert_eq!(listed.agents.len(), 1, "registered agent must be listed");
+
+    let _ = tx.send(());
+    let _ = handle.await;
+}
+
+// ────────────────────────────────────────────────────────────────────
+// Test 7: RetireAgent — transitions to RETIRED, else NotFound
+// ────────────────────────────────────────────────────────────────────
+
+#[tokio::test]
+async fn retire_agent_transitions_to_retired() {
+    let service = default_service();
+    let (addr, tx, handle) = spawn_server(service).await;
+
+    let mut client = CognitiveCoreClient::connect(format!("http://{addr}"))
+        .await
+        .expect("connect");
+
+    let id = "agent:default:test:00000000000000000000000001";
+    register_test_agent(&mut client, id).await;
+
+    let resp = client
+        .retire_agent(tonic::Request::new(RetireAgentRequest {
+            agent_canonical_id: id.into(),
+            requester_canonical_id: "human:lucky".into(),
+            reason: "test".into(),
+        }))
+        .await
+        .expect("retire_agent RPC")
+        .into_inner();
     assert_eq!(
-        result.unwrap_err().code(),
-        tonic::Code::Unimplemented,
-        "ListAgents must return Unimplemented"
+        resp.terminal_state,
+        proto::AgentLifecycleState::Retired as i32,
+        "retired agent must reach RETIRED"
+    );
+
+    let missing = client
+        .retire_agent(tonic::Request::new(RetireAgentRequest {
+            agent_canonical_id: "agent:unknown".into(),
+            requester_canonical_id: "human:lucky".into(),
+            reason: "test".into(),
+        }))
+        .await;
+    assert_eq!(
+        missing.unwrap_err().code(),
+        tonic::Code::NotFound,
+        "retiring unknown agent must be NotFound"
     );
 
     let _ = tx.send(());
@@ -315,11 +442,11 @@ async fn list_agents_returns_unimplemented() {
 }
 
 // ────────────────────────────────────────────────────────────────────
-// Test 7: RetireAgent — returns Unimplemented
+// Test 8: GetPlan — returns a drafted plan, else NotFound
 // ────────────────────────────────────────────────────────────────────
 
 #[tokio::test]
-async fn retire_agent_returns_unimplemented() {
+async fn get_plan_returns_drafted_plan_or_not_found() {
     let service = default_service();
     let (addr, tx, handle) = spawn_server(service).await;
 
@@ -327,18 +454,180 @@ async fn retire_agent_returns_unimplemented() {
         .await
         .expect("connect");
 
-    let request = tonic::Request::new(RetireAgentRequest {
-        agent_canonical_id: "agent:default:test:00000000000000000000000001".into(),
-        requester_canonical_id: "human:lucky".into(),
-        reason: "test".into(),
-    });
-
-    let result = client.retire_agent(request).await;
-    assert!(result.is_err(), "must return Unimplemented");
+    let missing = client
+        .get_plan(tonic::Request::new(GetPlanRequest {
+            plan_id: "plan_does_not_exist".into(),
+        }))
+        .await;
     assert_eq!(
-        result.unwrap_err().code(),
-        tonic::Code::Unimplemented,
-        "RetireAgent must return Unimplemented"
+        missing.unwrap_err().code(),
+        tonic::Code::NotFound,
+        "unknown plan must be NotFound"
+    );
+
+    let drafted = client
+        .draft_plan(tonic::Request::new(DraftPlanRequest {
+            agent_canonical_id: "agent:default:test:00000000000000000000000001".into(),
+            intent_id: "cogi_00000000000000000000000001".into(),
+            preferred_granularity: proto::ApprovalGranularity::PerAction as i32,
+        }))
+        .await
+        .expect("draft_plan RPC")
+        .into_inner();
+
+    let plan = client
+        .get_plan(tonic::Request::new(GetPlanRequest {
+            plan_id: drafted.plan_id.clone(),
+        }))
+        .await
+        .expect("get_plan RPC")
+        .into_inner();
+    assert_eq!(plan.plan_id, drafted.plan_id);
+    assert_eq!(plan.state, proto::PlanState::Draft as i32);
+
+    let _ = tx.send(());
+    let _ = handle.await;
+}
+
+// ────────────────────────────────────────────────────────────────────
+// Test 9: ListPlans — returns drafted plans
+// ────────────────────────────────────────────────────────────────────
+
+#[tokio::test]
+async fn list_plans_returns_drafted_plans() {
+    let service = default_service();
+    let (addr, tx, handle) = spawn_server(service).await;
+
+    let mut client = CognitiveCoreClient::connect(format!("http://{addr}"))
+        .await
+        .expect("connect");
+
+    let empty = client
+        .list_plans(tonic::Request::new(ListPlansRequest {
+            agent_canonical_id: String::new(),
+            state_filter: 0,
+        }))
+        .await
+        .expect("list_plans RPC")
+        .into_inner();
+    assert!(empty.plans.is_empty(), "no plans before drafting");
+
+    client
+        .draft_plan(tonic::Request::new(DraftPlanRequest {
+            agent_canonical_id: "agent:a".into(),
+            intent_id: "cogi_1".into(),
+            preferred_granularity: 0,
+        }))
+        .await
+        .expect("draft_plan RPC");
+
+    let listed = client
+        .list_plans(tonic::Request::new(ListPlansRequest {
+            agent_canonical_id: String::new(),
+            state_filter: 0,
+        }))
+        .await
+        .expect("list_plans RPC")
+        .into_inner();
+    assert_eq!(listed.plans.len(), 1, "drafted plan must be listed");
+
+    let _ = tx.send(());
+    let _ = handle.await;
+}
+
+// ────────────────────────────────────────────────────────────────────
+// Test 10: GetMemoryEntry — returns a recorded entry, else NotFound
+// ────────────────────────────────────────────────────────────────────
+
+#[tokio::test]
+async fn get_memory_entry_returns_entry_or_not_found() {
+    let service = default_service();
+    let (addr, tx, handle) = spawn_server(service).await;
+
+    let mut client = CognitiveCoreClient::connect(format!("http://{addr}"))
+        .await
+        .expect("connect");
+
+    let missing = client
+        .get_memory_entry(tonic::Request::new(GetMemoryEntryRequest {
+            entry_id: "mem_missing".into(),
+        }))
+        .await;
+    assert_eq!(
+        missing.unwrap_err().code(),
+        tonic::Code::NotFound,
+        "unknown memory entry must be NotFound"
+    );
+
+    let reasoned = client
+        .reason_about_verification(tonic::Request::new(ReasonAboutVerificationRequest {
+            agent_canonical_id: "agent:a".into(),
+            action_id: "act_1".into(),
+            verification_result: None,
+        }))
+        .await
+        .expect("reason RPC")
+        .into_inner();
+
+    let entry = client
+        .get_memory_entry(tonic::Request::new(GetMemoryEntryRequest {
+            entry_id: reasoned.memory_entry_id.clone(),
+        }))
+        .await
+        .expect("get_memory_entry RPC")
+        .into_inner();
+    assert_eq!(entry.entry_id, reasoned.memory_entry_id);
+    assert_eq!(entry.memory_class, proto::MemoryClass::Episodic as i32);
+
+    let _ = tx.send(());
+    let _ = handle.await;
+}
+
+// ────────────────────────────────────────────────────────────────────
+// Test 11: DraftPlan — creates a DRAFT plan
+// ────────────────────────────────────────────────────────────────────
+
+#[tokio::test]
+async fn draft_plan_creates_draft_plan() {
+    let service = default_service();
+    let (addr, tx, handle) = spawn_server(service).await;
+
+    let mut client = CognitiveCoreClient::connect(format!("http://{addr}"))
+        .await
+        .expect("connect");
+
+    let resp = client
+        .draft_plan(tonic::Request::new(DraftPlanRequest {
+            agent_canonical_id: "agent:default:test:00000000000000000000000001".into(),
+            intent_id: "cogi_00000000000000000000000001".into(),
+            preferred_granularity: proto::ApprovalGranularity::Bundled as i32,
+        }))
+        .await
+        .expect("draft_plan RPC")
+        .into_inner();
+
+    assert!(
+        resp.plan_id.starts_with("plan_"),
+        "plan_id must start with plan_: {}",
+        resp.plan_id
+    );
+    assert_eq!(resp.plan_state, proto::PlanState::Draft as i32);
+    assert_eq!(resp.error_code, 0, "UNSPECIFIED error_code on success");
+
+    // Missing required fields fail soft via error_code (not a hard error).
+    let unfeasible = client
+        .draft_plan(tonic::Request::new(DraftPlanRequest {
+            agent_canonical_id: String::new(),
+            intent_id: String::new(),
+            preferred_granularity: 0,
+        }))
+        .await
+        .expect("draft_plan RPC")
+        .into_inner();
+    assert_eq!(
+        unfeasible.error_code,
+        proto::CognitiveErrorCode::PlanUnfeasible as i32,
+        "empty request must report PLAN_UNFEASIBLE"
     );
 
     let _ = tx.send(());
@@ -346,11 +635,11 @@ async fn retire_agent_returns_unimplemented() {
 }
 
 // ────────────────────────────────────────────────────────────────────
-// Test 8: GetPlan — returns Unimplemented
+// Test 12: DraftActionProposal — returns a typed proposal (INV-002)
 // ────────────────────────────────────────────────────────────────────
 
 #[tokio::test]
-async fn get_plan_returns_unimplemented() {
+async fn draft_action_proposal_returns_typed_proposal_inv002() {
     let service = default_service();
     let (addr, tx, handle) = spawn_server(service).await;
 
@@ -358,16 +647,56 @@ async fn get_plan_returns_unimplemented() {
         .await
         .expect("connect");
 
-    let request = tonic::Request::new(GetPlanRequest {
-        plan_id: "plan_00000000000000000000000000".into(),
-    });
+    let plan = client
+        .draft_plan(tonic::Request::new(DraftPlanRequest {
+            agent_canonical_id: "agent:default:test:00000000000000000000000001".into(),
+            intent_id: "cogi_00000000000000000000000001".into(),
+            preferred_granularity: 0,
+        }))
+        .await
+        .expect("draft_plan RPC")
+        .into_inner();
 
-    let result = client.get_plan(request).await;
-    assert!(result.is_err(), "must return Unimplemented");
+    let proposal = client
+        .draft_action_proposal(tonic::Request::new(DraftActionProposalRequest {
+            agent_canonical_id: "agent:default:test:00000000000000000000000001".into(),
+            plan_id: plan.plan_id.clone(),
+            plan_step_id: String::new(),
+        }))
+        .await
+        .expect("draft_action_proposal RPC")
+        .into_inner();
+
+    assert_eq!(proposal.error_code, 0, "no error on success");
+    assert!(
+        !proposal.envelope.is_empty(),
+        "envelope bytes must be populated"
+    );
+
+    // INV-002: the proposal is a typed, AI-authored envelope carrying the
+    // cognitive-provenance marker — it must NOT have been executed here.
+    let envelope: serde_json::Value =
+        serde_json::from_slice(&proposal.envelope).expect("envelope must be valid JSON");
+    assert!(envelope.is_object(), "envelope must be a JSON object");
+    let envelope_str = String::from_utf8_lossy(&proposal.envelope);
+    assert!(
+        envelope_str.contains("cognitive_provenance"),
+        "INV-002: proposal envelope must carry the cognitive_provenance marker"
+    );
+
+    // An unknown plan fails soft via error_code (PLAN_UNFEASIBLE), not a crash.
+    let unknown = client
+        .draft_action_proposal(tonic::Request::new(DraftActionProposalRequest {
+            agent_canonical_id: "agent:a".into(),
+            plan_id: "plan_unknown".into(),
+            plan_step_id: String::new(),
+        }))
+        .await
+        .expect("draft_action_proposal RPC")
+        .into_inner();
     assert_eq!(
-        result.unwrap_err().code(),
-        tonic::Code::Unimplemented,
-        "GetPlan must return Unimplemented"
+        unknown.error_code,
+        proto::CognitiveErrorCode::PlanUnfeasible as i32
     );
 
     let _ = tx.send(());
@@ -375,11 +704,11 @@ async fn get_plan_returns_unimplemented() {
 }
 
 // ────────────────────────────────────────────────────────────────────
-// Test 9: ListPlans — returns Unimplemented
+// Test 13: ReasonAboutVerification — records an episodic memory entry
 // ────────────────────────────────────────────────────────────────────
 
 #[tokio::test]
-async fn list_plans_returns_unimplemented() {
+async fn reason_about_verification_records_memory() {
     let service = default_service();
     let (addr, tx, handle) = spawn_server(service).await;
 
@@ -387,140 +716,36 @@ async fn list_plans_returns_unimplemented() {
         .await
         .expect("connect");
 
-    let request = tonic::Request::new(ListPlansRequest {
-        agent_canonical_id: String::new(),
-        state_filter: 0,
-    });
-
-    let result = client.list_plans(request).await;
-    assert!(result.is_err(), "must return Unimplemented");
-    assert_eq!(
-        result.unwrap_err().code(),
-        tonic::Code::Unimplemented,
-        "ListPlans must return Unimplemented"
-    );
-
-    let _ = tx.send(());
-    let _ = handle.await;
-}
-
-// ────────────────────────────────────────────────────────────────────
-// Test 10: GetMemoryEntry — returns Unimplemented
-// ────────────────────────────────────────────────────────────────────
-
-#[tokio::test]
-async fn get_memory_entry_returns_unimplemented() {
-    let service = default_service();
-    let (addr, tx, handle) = spawn_server(service).await;
-
-    let mut client = CognitiveCoreClient::connect(format!("http://{addr}"))
+    let resp = client
+        .reason_about_verification(tonic::Request::new(ReasonAboutVerificationRequest {
+            agent_canonical_id: "agent:default:test:00000000000000000000000001".into(),
+            action_id: "act_00000000000000000000000001".into(),
+            verification_result: None,
+        }))
         .await
-        .expect("connect");
+        .expect("reason_about_verification RPC")
+        .into_inner();
 
-    let request = tonic::Request::new(GetMemoryEntryRequest {
-        entry_id: "mem_00000000000000000000000000".into(),
-    });
-
-    let result = client.get_memory_entry(request).await;
-    assert!(result.is_err(), "must return Unimplemented");
-    assert_eq!(
-        result.unwrap_err().code(),
-        tonic::Code::Unimplemented,
-        "GetMemoryEntry must return Unimplemented"
+    assert!(
+        !resp.interpretation_summary.is_empty(),
+        "interpretation_summary must be populated"
     );
+    assert!(
+        resp.memory_entry_id.starts_with("mem_"),
+        "memory_entry_id must start with mem_: {}",
+        resp.memory_entry_id
+    );
+    assert_eq!(resp.error_code, 0);
 
-    let _ = tx.send(());
-    let _ = handle.await;
-}
-
-// ────────────────────────────────────────────────────────────────────
-// Test 11: DraftPlan — returns Unimplemented
-// ────────────────────────────────────────────────────────────────────
-
-#[tokio::test]
-async fn draft_plan_returns_unimplemented() {
-    let service = default_service();
-    let (addr, tx, handle) = spawn_server(service).await;
-
-    let mut client = CognitiveCoreClient::connect(format!("http://{addr}"))
+    // The recorded entry must be retrievable.
+    let entry = client
+        .get_memory_entry(tonic::Request::new(GetMemoryEntryRequest {
+            entry_id: resp.memory_entry_id.clone(),
+        }))
         .await
-        .expect("connect");
-
-    let request = tonic::Request::new(DraftPlanRequest {
-        agent_canonical_id: String::new(),
-        intent_id: String::new(),
-        preferred_granularity: 0,
-    });
-
-    let result = client.draft_plan(request).await;
-    assert!(result.is_err(), "must return Unimplemented");
-    assert_eq!(
-        result.unwrap_err().code(),
-        tonic::Code::Unimplemented,
-        "DraftPlan must return Unimplemented"
-    );
-
-    let _ = tx.send(());
-    let _ = handle.await;
-}
-
-// ────────────────────────────────────────────────────────────────────
-// Test 12: DraftActionProposal — returns Unimplemented
-// ────────────────────────────────────────────────────────────────────
-
-#[tokio::test]
-async fn draft_action_proposal_returns_unimplemented() {
-    let service = default_service();
-    let (addr, tx, handle) = spawn_server(service).await;
-
-    let mut client = CognitiveCoreClient::connect(format!("http://{addr}"))
-        .await
-        .expect("connect");
-
-    let request = tonic::Request::new(DraftActionProposalRequest {
-        agent_canonical_id: String::new(),
-        plan_id: String::new(),
-        plan_step_id: String::new(),
-    });
-
-    let result = client.draft_action_proposal(request).await;
-    assert!(result.is_err(), "must return Unimplemented");
-    assert_eq!(
-        result.unwrap_err().code(),
-        tonic::Code::Unimplemented,
-        "DraftActionProposal must return Unimplemented"
-    );
-
-    let _ = tx.send(());
-    let _ = handle.await;
-}
-
-// ────────────────────────────────────────────────────────────────────
-// Test 13: ReasonAboutVerification — returns Unimplemented
-// ────────────────────────────────────────────────────────────────────
-
-#[tokio::test]
-async fn reason_about_verification_returns_unimplemented() {
-    let service = default_service();
-    let (addr, tx, handle) = spawn_server(service).await;
-
-    let mut client = CognitiveCoreClient::connect(format!("http://{addr}"))
-        .await
-        .expect("connect");
-
-    let request = tonic::Request::new(ReasonAboutVerificationRequest {
-        agent_canonical_id: String::new(),
-        action_id: String::new(),
-        verification_result: None,
-    });
-
-    let result = client.reason_about_verification(request).await;
-    assert!(result.is_err(), "must return Unimplemented");
-    assert_eq!(
-        result.unwrap_err().code(),
-        tonic::Code::Unimplemented,
-        "ReasonAboutVerification must return Unimplemented"
-    );
+        .expect("get_memory_entry RPC")
+        .into_inner();
+    assert_eq!(entry.entry_id, resp.memory_entry_id);
 
     let _ = tx.send(());
     let _ = handle.await;

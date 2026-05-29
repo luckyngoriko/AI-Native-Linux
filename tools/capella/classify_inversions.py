@@ -111,7 +111,14 @@ def load_sub_spec_paths() -> dict[str, list[Path]]:
     out: dict[str, list[Path]] = {}
     with (MANIFESTS / "sub_specs.csv").open(encoding="utf-8") as fh:
         for row in csv.DictReader(fh):
-            out.setdefault(row["phase_tag"], []).append(SPEC_ROOT / row["path"])
+            raw_path = Path(row["path"])
+            if raw_path.is_absolute():
+                md_path = raw_path
+            elif (REPO_ROOT / raw_path).exists():
+                md_path = REPO_ROOT / raw_path
+            else:
+                md_path = SPEC_ROOT / raw_path
+            out.setdefault(row["phase_tag"], []).append(md_path)
     return out
 
 

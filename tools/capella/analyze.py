@@ -2,7 +2,7 @@
 """
 AIOS Capella model — gap analyzer.
 
-Walks the built Capella model at tools/capella/output/aios-rev2/ and
+Walks the built Capella model at tools/capella/output/aios-rev3/ and
 surfaces architectural gaps that single-spec markdown audits miss.
 
 Gap categories detected:
@@ -42,7 +42,7 @@ from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parent.parent.parent
 OUTPUT_DIR = Path(__file__).resolve().parent / "output"
-MODEL_AIRD = OUTPUT_DIR / "aios-rev2" / "aios-rev2.aird"
+MODEL_AIRD = OUTPUT_DIR / "aios-rev3" / "aios-rev3.aird"
 MANIFESTS_DIR = Path(__file__).resolve().parent / "manifests"
 REPORT_MD = OUTPUT_DIR / "gap_report.md"
 REPORT_JSON = OUTPUT_DIR / "gap_report.json"
@@ -316,7 +316,7 @@ def render_markdown(summary: dict) -> str:
     lines = [
         "# AIOS Capella model — gap report",
         "",
-        f"Source model: `tools/capella/output/aios-rev2/`",
+        f"Source model: `tools/capella/output/aios-rev3/`",
         "",
         "## Summary",
         "",

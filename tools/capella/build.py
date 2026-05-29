@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-AIOS Rev.2 → Eclipse Capella model builder.
+AIOS Rev.3 → Eclipse Capella model builder.
 
 Builds a populated Capella project from the CSV manifests produced by
 extract.py, using the empty Capella template at tools/capella/template/
@@ -33,7 +33,7 @@ is the system contract surface (system analysis).
 Run from repo root:
     tools/capella/.venv/bin/python tools/capella/build.py
 
-Output: tools/capella/output/aios-rev2/ (Capella project, openable in IDE)
+Output: tools/capella/output/aios-rev3/ (Capella project, openable in IDE)
 """
 
 from __future__ import annotations
@@ -49,11 +49,11 @@ from pathlib import Path
 REPO_ROOT = Path(__file__).resolve().parent.parent.parent
 TEMPLATE_DIR = Path(__file__).resolve().parent / "template"
 MANIFESTS_DIR = Path(__file__).resolve().parent / "manifests"
-OUTPUT_DIR = Path(__file__).resolve().parent / "output" / "aios-rev2"
+OUTPUT_DIR = Path(__file__).resolve().parent / "output" / "aios-rev3"
 REPORT_PATH = Path(__file__).resolve().parent / "output" / "build_report.json"
 
-MODEL_NAME = "aios-rev2"
-DISPLAY_NAME = "AIOS Rev.2 — AI-Native Linux Distribution"
+MODEL_NAME = "aios-rev3"
+DISPLAY_NAME = "AIOS Rev.3 — AI-Native Linux Distribution"
 UUID_NAMESPACE = uuid.UUID("aaa05000-1c4f-4f00-aa05-aaa000000000")
 
 # AIOS layer → ARCADIA layer mapping. See module docstring for rationale.
@@ -640,7 +640,7 @@ def import_sub_specs(model, sub_specs: list[dict]) -> tuple[list[dict], list[dic
 
 
 def main() -> int:
-    print(f"AIOS Rev.2 → Eclipse Capella model build")
+    print(f"AIOS Rev.3 → Eclipse Capella model build")
     print(f"  template:  {TEMPLATE_DIR.relative_to(REPO_ROOT)}")
     print(f"  manifests: {MANIFESTS_DIR.relative_to(REPO_ROOT)}")
     print(f"  output:    {OUTPUT_DIR.relative_to(REPO_ROOT)}")
@@ -658,7 +658,7 @@ def main() -> int:
           f"sa={type(model.sa).__name__}, la={type(model.la).__name__}, "
           f"pa={type(model.pa).__name__}")
 
-    print("[3/5] Renaming model roots → aios-rev2...")
+    print("[3/5] Renaming model roots → aios-rev3...")
     _rename_model_roots(model)
 
     print("[4/5] Importing invariants + sub-specs...")
@@ -738,7 +738,7 @@ def main() -> int:
 
     print()
     print(f"✓ Capella project built at {OUTPUT_DIR.relative_to(REPO_ROOT)}")
-    print(f"  Open in IDE: capella -data ~/.local/share/capella-workspaces/aios-rev2")
+    print(f"  Open in IDE: capella -data ~/.local/share/capella-workspaces/aios-rev3")
     print(f"  Then File > Import > General > Existing Projects into Workspace,")
     print(f"  pointing at {OUTPUT_DIR}")
     return 0

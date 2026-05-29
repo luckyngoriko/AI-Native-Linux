@@ -1,13 +1,13 @@
 # W11-A layer-inversion classification
 
 Source: `tools/capella/output/gap_report.json` (run `analyze.py` to refresh).
-Inversions classified: 65
+Inversions classified: 80
 
 ## Per-class totals
 
 | Classification | Count | W11-A verdict |
 | --- | ---: | --- |
-| vocabulary  | 63 | ALLOWED upward (DEC-049) |
+| vocabulary  | 78 | ALLOWED upward (DEC-049) |
 | exception   | 2 | ALLOWED — runtime dep with bounded waiver (e.g. recovery degraded subset) |
 | runtime     | 0 | FORBIDDEN upward (INV-007 violation) |
 | uncertain   | 0 | needs manual reviewer decision |
@@ -46,6 +46,21 @@ Inversions classified: 65
 | S15.3 | L3 | S2.3 | L4 | **vocabulary** | Ed25519 signature discipline); S2.4 Verification Engine; S2.3 Policy Kernel; L4.2 Vault Broker; L0 invariant catalog (INV-002, INV-008, INV-013, INV-014, INV-015, INV-017) | discipline |
 | S15.3 | L3 | S2.4 | L9 | **vocabulary** | Ed25519 signature discipline); S2.4 Verification Engine; S2.3 Policy Kernel; L4.2 Vault Broker; L0 invariant catalog (INV-002, INV-008, INV-013, INV-014, INV-015, INV-017) | discipline |
 | S15.3 | L3 | S3.2 | L6 | **vocabulary** | `ExecutionFailureReason`); S0.1 Action Envelope + Lifecycle; S3.2 Sandbox Composition (`SandboxProfile`, runtime safety floor); S11.1 Repository Model (publisher trust chain, `PackageKind = ADAPTER`, ... | discipline; trust chain |
+| S16.7 | L3 | S3.1 | L9 | **vocabulary** | S3.1 Evidence Log, S15.1 SGR Unit Manifest | manifest |
+| S16.7 | L3 | S3.2 | L6 | **vocabulary** | S3.2 Sandbox Composition, S16.1 Security Profile Matrix, S16.3 STIG/NIST Control Map + Scanner (control `AIOS-CM-0003`), S3.1 Evidence Log, S15.1 SGR Unit Manifest | manifest |
+| S17 | L6 | S3.1 | L9 | **vocabulary** | S3.1 Evidence Log (vocabulary only), S8.1 Network Policy (vocabulary only), S8.2 GPU/Video Policy (vocabulary only), S8.3 Hardware Graph (imports-vocabulary-from), S7.2 Shared UI Schema (imports-vocab... | vocabulary |
+| S17 | L6 | S7.2 | L7 | **vocabulary** | S7.2 Shared UI Schema (imports-vocabulary-from), S16.2 SELinux MAC Policy Plane, S18 Kernel Personality and Portability Plane (vocabulary only) | vocabulary |
+| S17 | L6 | S8.1 | L8 | **vocabulary** | S8.1 Network Policy (vocabulary only), S8.2 GPU/Video Policy (vocabulary only), S8.3 Hardware Graph (imports-vocabulary-from), S7.2 Shared UI Schema (imports-vocabulary-from), S16.2 SELinux MAC Policy... | vocabulary |
+| S17 | L6 | S8.2 | L8 | **vocabulary** | S8.2 GPU/Video Policy (vocabulary only), S8.3 Hardware Graph (imports-vocabulary-from), S7.2 Shared UI Schema (imports-vocabulary-from), S16.2 SELinux MAC Policy Plane, S18 Kernel Personality and Port... | vocabulary |
+| S17 | L6 | S8.3 | L8 | **vocabulary** | S8.3 Hardware Graph (imports-vocabulary-from), S7.2 Shared UI Schema (imports-vocabulary-from), S16.2 SELinux MAC Policy Plane, S18 Kernel Personality and Portability Plane (vocabulary only) | vocabulary |
+| S17.1 | L6 | S8.1 | L8 | **vocabulary** | S8.1 Network Policy, S8.2 GPU/Video Policy | bare-spec-ref-list |
+| S17.1 | L6 | S8.2 | L8 | **vocabulary** | S8.2 GPU/Video Policy | bare-spec-ref-list |
+| S17.2 | L6 | S8.1 | L8 | **vocabulary** | S8.1 Network Policy | bare-spec-ref-list |
+| S17.2 | L6 | S8.3 | L8 | **vocabulary** | S8.3 Hardware Graph, S8.1 Network Policy | bare-spec-ref-list |
+| S17.3 | L6 | S3.1 | L9 | **vocabulary** | S3.1 Evidence Log | bare-spec-ref-list |
+| S17.3 | L6 | S8.2 | L8 | **vocabulary** | S8.2 GPU/Video Policy, S8.3 Hardware Graph, S2.3 Policy Kernel, S3.1 Evidence Log | bare-spec-ref-list |
+| S17.3 | L6 | S8.3 | L8 | **vocabulary** | S8.3 Hardware Graph, S2.3 Policy Kernel, S3.1 Evidence Log | bare-spec-ref-list |
+| S17.5 | L7 | S3.1 | L9 | **vocabulary** | S3.1 Evidence Log, S2.3 Policy Kernel, S7.2 Shared UI Schema | bare-spec-ref-list |
 | S2.1 | L2 | S1.2 | L5 | **vocabulary** | S1.2 PrivacyClass enum |  enum |
 | S4.1 | L2 | S2.3 | L4 | **vocabulary** | S2.3 (policy condition predicates — type-level) | type-level |
 | S4.1 | L2 | S2.4 | L9 | **vocabulary** | S2.4 (verification path-property shape — type-level) |  shape; type-level |

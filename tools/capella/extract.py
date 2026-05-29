@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
 """
-AIOS Rev.2 spec → Capella import manifests (CSV).
+AIOS specs → Capella import manifests (CSV).
 
-Walks 002.AI-OS.NET--SPECREV.2/ and extracts:
+Walks 002.AI-OS.NET--SPECREV.2/ plus materialized Rev.3 contract directories
+under 003.AI-OS.NET--SPECREV.3/ and extracts:
   - 24 INVs (operational capabilities)
   - 53 sub-specs (system functions)
   - 11 layers (logical components)
@@ -22,7 +23,8 @@ The CSVs are designed to be imported into Capella IDE via:
 This is a one-shot snapshot — re-run after spec changes; diff the CSVs
 to find new/removed entities; reflect in the Capella model.
 
-Source-of-truth remains the markdown specs under 002.AI-OS.NET--SPECREV.2/.
+Source-of-truth remains the markdown specs under 002.AI-OS.NET--SPECREV.2/
+and 003.AI-OS.NET--SPECREV.3/.
 The Capella model is a derivable view, not a parallel source.
 """
 
@@ -35,6 +37,8 @@ from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parent.parent.parent
 SPEC_ROOT = REPO_ROOT / "002.AI-OS.NET--SPECREV.2"
+REV3_ROOT = REPO_ROOT / "003.AI-OS.NET--SPECREV.3"
+SPEC_ROOTS = (SPEC_ROOT, REV3_ROOT)
 OUT_DIR = Path(__file__).resolve().parent / "manifests"
 OUT_DIR.mkdir(exist_ok=True)
 
@@ -54,26 +58,38 @@ class Invariant:
 
 
 def extract_invariants() -> list[Invariant]:
-    text = (SPEC_ROOT / "L0_Governance_Evidence_Safety/04_invariants.md").read_text()
+    # Rev.2 catalog (INV-001..024) + Rev.3 extension (INV-025..034).
+    inv_files = [
+        SPEC_ROOT / "L0_Governance_Evidence_Safety/04_invariants.md",
+        REV3_ROOT / "04_invariants.md",
+    ]
     pattern = re.compile(
         r"### (INV-\d+) — (.+?)\n+(.*?)(?=\n### INV-\d+|\n## )", re.DOTALL
     )
     invs: list[Invariant] = []
-    for match in pattern.finditer(text):
-        inv_id, title, body = match.group(1), match.group(2).strip(), match.group(3)
-        invs.append(
-            Invariant(
-                id=inv_id,
-                title=title,
-                statement=_extract_field(body, r"\*\*Statement:\*\*"),
-                why=_extract_field(body, r"\*\*Why:\*\*"),
-                enforced_by=_extract_field(body, r"\*\*Enforced by:\*\*"),
-                verified_by=_extract_field(body, r"\*\*Verified by:\*\*"),
-                cannot_be_loosened_by=_extract_field(
-                    body, r"\*\*Cannot be loosened by:\*\*"
-                ),
+    seen: set[str] = set()
+    for inv_file in inv_files:
+        if not inv_file.exists():
+            continue
+        text = inv_file.read_text()
+        for match in pattern.finditer(text):
+            inv_id, title, body = match.group(1), match.group(2).strip(), match.group(3)
+            if inv_id in seen:
+                continue  # canonical definition wins; ignore restatements
+            seen.add(inv_id)
+            invs.append(
+                Invariant(
+                    id=inv_id,
+                    title=title,
+                    statement=_extract_field(body, r"\*\*Statement:\*\*"),
+                    why=_extract_field(body, r"\*\*Why:\*\*"),
+                    enforced_by=_extract_field(body, r"\*\*Enforced by:\*\*"),
+                    verified_by=_extract_field(body, r"\*\*Verified by:\*\*"),
+                    cannot_be_loosened_by=_extract_field(
+                        body, r"\*\*Cannot be loosened by:\*\*"
+                    ),
+                )
             )
-        )
     return invs
 
 
@@ -94,6 +110,7 @@ class SubSpec:
     layer: str  # "L4"
     layer_name: str  # "L4 Policy, Identity, Vault"
     relative_path: str  # "L4_Policy_Identity_Vault/01_policy_kernel.md"
+    source_root: Path
     status: str  # "CONTRACT"
     schema_package: str  # "aios.policy.v1alpha1" if present
     consumes_raw: str
@@ -104,39 +121,58 @@ class SubSpec:
 
 def extract_sub_specs() -> list[SubSpec]:
     specs: list[SubSpec] = []
-    for layer_dir in sorted(SPEC_ROOT.iterdir()):
-        if not layer_dir.is_dir() or not (
-            layer_dir.name.startswith("L") or layer_dir.name == "XX_Cross_Cutting"
-        ):
+    for root in SPEC_ROOTS:
+        if not root.exists():
             continue
-        layer_label = (
-            "XX" if layer_dir.name == "XX_Cross_Cutting" else layer_dir.name.split("_")[0]
-        )
-        layer_name = layer_dir.name.replace("_", " ", 1).replace("_", " ")
-        for md in sorted(layer_dir.glob("*.md")):
-            if md.name == "00_overview.md":
+        for layer_dir in sorted(root.iterdir()):
+            if not layer_dir.is_dir() or not _is_formal_spec_dir(root, layer_dir):
                 continue
-            text = md.read_text()
-            phase = _row_value(text, "Phase tag")
-            title = _first_h1(text)
-            if not phase:
-                continue  # only files with phase tag are formal sub-specs
-            specs.append(
-                SubSpec(
-                    phase_tag=phase,
-                    title=title,
-                    layer=layer_label,
-                    layer_name=layer_name,
-                    relative_path=str(md.relative_to(SPEC_ROOT)),
-                    status=_row_value(text, "Status"),
-                    schema_package=_row_value(text, "Schema package"),
-                    consumes_raw=_row_value(text, "Consumes"),
-                    produces_raw=_row_value(text, "Produces"),
-                    consumes_specs=_extract_consumes_specs(_row_value(text, "Consumes")),
-                    invariant_citations=sorted(set(re.findall(r"INV-\d+", text))),
+            for md in sorted(layer_dir.glob("*.md")):
+                text = md.read_text()
+                phase = _row_value(text, "Phase tag")
+                title = _first_h1(text)
+                if not phase:
+                    continue  # only files with phase tag are formal sub-specs
+                layer_label = _layer_label_for_file(root, layer_dir, text)
+                layer_name = _row_value(text, "Layer") or layer_dir.name.replace("_", " ", 1).replace("_", " ")
+                specs.append(
+                    SubSpec(
+                        phase_tag=phase,
+                        title=title,
+                        layer=layer_label,
+                        layer_name=layer_name,
+                        relative_path=str(md.relative_to(REPO_ROOT)),
+                        source_root=root,
+                        status=_row_value(text, "Status"),
+                        schema_package=_row_value(text, "Schema package"),
+                        consumes_raw=_row_value(text, "Consumes"),
+                        produces_raw=_row_value(text, "Produces"),
+                        consumes_specs=_extract_consumes_specs(_row_value(text, "Consumes")),
+                        invariant_citations=sorted(set(re.findall(r"INV-\d+", text))),
+                    )
                 )
-            )
     return specs
+
+
+def _is_formal_spec_dir(root: Path, layer_dir: Path) -> bool:
+    if root == SPEC_ROOT:
+        return layer_dir.name.startswith("L") or layer_dir.name == "XX_Cross_Cutting"
+    if root == REV3_ROOT:
+        return layer_dir.name.startswith("S")
+    return False
+
+
+def _layer_label_for_file(root: Path, layer_dir: Path, text: str) -> str:
+    if root == SPEC_ROOT:
+        return "XX" if layer_dir.name == "XX_Cross_Cutting" else layer_dir.name.split("_")[0]
+
+    layer_row = _row_value(text, "Layer")
+    if "cross-cutting" in layer_row.lower() or "cross cutting" in layer_row.lower():
+        return "XX"
+    match = re.search(r"\b(L\d+|XX)\b", layer_row)
+    if match:
+        return match.group(1)
+    return "XX"
 
 
 def _row_value(text: str, field_name: str) -> str:
@@ -177,7 +213,12 @@ def _extract_consumes_specs(consumes_text: str) -> list[str]:
         m = re.search(sentinel, import_portion)
         if m:
             import_portion = import_portion[: m.start()]
-    return sorted(set(re.findall(r"S\d+\.\d+\w*", import_portion)))
+    # Match both dotted sub-spec tags (S2.3, S16.4) and dotless top-level
+    # Rev.3 section tags (S18, S19, S20, S21..S28). The dotless form is how
+    # Rev.3 sibling vocabulary deps are written in Consumes headers
+    # (e.g. "S18 Kernel Personality (vocabulary only)"); without this they
+    # were silently dropped (gap report T1-9 / DEC-R3-009).
+    return sorted(set(re.findall(r"S\d+(?:\.\d+)?\w*", import_portion)))
 
 
 # ── Layers ────────────────────────────────────────────────────────────
@@ -248,7 +289,108 @@ def extract_record_types() -> list[tuple[int, str, str]]:
         retention_hint = (match.group(3) or "").strip()
         records.append((rec_id, wire, retention_hint))
     records.sort()
+    # Append Rev.3 evidence record types harvested from the materialized
+    # Rev.3 contracts' "Evidence records" sections (S3.1 is frozen, so Rev.3
+    # additions live in their owning sections, per DEC-R3-009).
+    next_id = (records[-1][0] if records else 0) + 1
+    existing_wires = {w for (_i, w, _h) in records}
+    for wire in _harvest_rev3_record_types(existing_wires):
+        records.append((next_id, wire, "Rev.3 evidence delta"))
+        next_id += 1
     return records
+
+
+# Event-suffixes that mark an evidence RECORD TYPE (an emitted event) versus an
+# enum *value* that may also appear inside an "Evidence records" section.
+_REV3_RECORD_SUFFIXES = (
+    "_COMPLETED", "_STARTED", "_FAILED", "_PASSED", "_VERIFIED", "_RECORDED",
+    "_BLOCKED", "_DETECTED", "_SELECTED", "_ENFORCED", "_ISSUED", "_DENIED",
+    "_GRANTED", "_REVOKED", "_REQUESTED", "_RESULT", "_EXPORTED", "_SCORED",
+    "_RENDERED", "_OBSERVED", "_PROPOSED", "_DECLARED", "_LOADED", "_UPDATED",
+    "_ACTIVATED", "_CHANGED", "_SYNCED", "_ROUTED", "_REPLICATED", "_RESOLVED",
+    "_ENROLLED", "_SUSPENDED", "_WITHDRAWN", "_ROTATED", "_SIGNED",
+    "_PROVISIONED", "_CLASSIFIED", "_REGISTERED", "_APPLIED", "_PROMOTED",
+    "_ROLLED_BACK", "_CREATED", "_ATTEMPT", "_DECISION", "_MATCH", "_FLAGGED",
+    "_TRIGGERED", "_BUILT", "_SPENT", "_RECONCILED", "_DISCOVERED", "_STAGED",
+    "_BOUND", "_PROBED", "_CHECK", "_RECEIPT", "_POSTURE", "_PREFLIGHT", "_QR",
+    "_SEALED", "_MEASURED", "_PUBLISHED", "_INTERPRETED", "_RECEIVED",
+    "_INSTALLED", "_REMOVED", "_QUARANTINED", "_GATED", "_ASSIGNED",
+    "_ACCEPTED", "_VIOLATION", "_CALL", "_EMITTED", "_EXPIRED", "_HOLD",
+    "_REAUTH_REQUIRED", "_DOWNGRADED", "_INGESTED", "_SHRED", "_BACK",
+)
+# Real record types whose name does not end in a generic event-suffix.
+_REV3_RECORD_INCLUDE = {
+    "CAPSULE_APPROVED", "CAPSULE_SOLVED", "ERASURE_APPROVED",
+    "ERASURE_BLOCKED_BY_HOLD", "ERASURE_DENIED_EXEMPTION",
+    "ERASURE_EXECUTED_CRYPTO_SHRED", "HARDENING_EXCEPTION_EXPIRED",
+    "SBOM_INGESTED", "SERVICE_PROMOTION_BLOCKED_LOW_SCORE",
+    "STEP_UP_REAUTH_REQUIRED", "SUPPLY_CHAIN_CLAIM_REJECTED",
+    "SUPPLY_CHAIN_VERDICT_EMITTED", "DEVICE_TRUST_DOWNGRADED",
+    # S17.4 §7 CapsuleEvidenceRecordType members whose names lack a generic
+    # event-suffix (kept in the canonical enum; registered explicitly).
+    "CAPSULE_MANIFEST_LOADED", "CAPSULE_LAYOUT_VALIDATED",
+    "CAPSULE_LAUNCH_STARTED", "CAPSULE_LAUNCH_COMPLETED",
+    "CAPSULE_SNAPSHOT_CREATED", "CAPSULE_REPAIR_PLAN_CREATED",
+    "CAPSULE_BLOCKED_WITH_REASON", "CAPSULE_UNQUARANTINE_REQUESTED",
+    "CAPSULE_BREAKOUT_ATTEMPT", "CAPSULE_POLICY_DECISION",
+    "WINDOWS_PREFIX_SNAPSHOT_CREATED", "WINDOWS_DEPENDENCY_RECIPE_APPLIED",
+    "WINDOWS_RUNNER_SWITCHED", "WINDOWS_ANTICHEAT_STATUS_RECORDED",
+    # S18 §15 kernel-backend records whose names lack a generic event-suffix.
+    "KERNEL_BACKEND_DEGRADED", "KERNEL_BACKEND_FALLBACK_TO_VM",
+    "KERNEL_BACKEND_SELECTED_FOR_CAPSULE", "KERNEL_CANDIDATE_CANARY_BOOTED",
+    "KERNEL_CANDIDATE_SIMULATED",
+    # S20 §16.
+    "AI_ACTION_APPROVAL_REQUIRED",
+}
+# Tokens that look like record types but are enum values / status literals
+# / house-style phrases appearing inside Evidence-records sections.
+_REV3_RECORD_EXCLUDE = {
+    "ECDSA_P256", "ECDSA_P384", "NOT_IMPLEMENTED", "POWER_ON_KAT",
+    "IMA_CRITICAL_FAIL", "POSTURE_HARD_FAIL", "QUOTE_FAILED", "FIRMWARE_DRIFT",
+    "TIME_POSTURE_TRANSITION", "UPPER_SNAKE_CASE", "VERITY_FAIL",
+}
+
+
+def _harvest_rev3_record_types(existing_wires: set[str] | None = None) -> list[str]:
+    """Harvest Rev.3 evidence record type wire names from the 'Evidence records'
+    sections of materialized Rev.3 contracts. Returns a sorted, de-duplicated
+    list excluding any name already in the Rev.2 catalog. Filters enum-value
+    noise via a suffix allow-list plus explicit include/exclude sets (see
+    DEC-R3-009)."""
+    if not REV3_ROOT.exists():
+        return []
+    existing_wires = existing_wires or set()
+    skip_names = {
+        "00_PLANNING_NOTES.md", "00_REV3_GAP_REPORT.md", "00_REV3_HOLISTIC_SPEC.md",
+        "00_MASTER_INDEX.md", "01_executive_summary.md", "02_design_decisions.md",
+        "03_architecture_overview.md", "04_invariants.md",
+    }
+    found: set[str] = set()
+    section_split = re.compile(r"^(#{2,3}\s+.*)$", re.MULTILINE)
+    token_re = re.compile(r"\b([A-Z][A-Z0-9]+(?:_[A-Z0-9]+){1,})\b")
+    for sub_dir in sorted(REV3_ROOT.iterdir()):
+        if not sub_dir.is_dir() or not sub_dir.name.startswith("S"):
+            continue
+        for md in sorted(sub_dir.glob("*.md")):
+            if md.name in skip_names:
+                continue
+            parts = section_split.split(md.read_text())
+            for i in range(1, len(parts), 2):
+                head = parts[i]
+                body = parts[i + 1] if i + 1 < len(parts) else ""
+                low_head = head.lower()
+                if "evidence record" not in low_head and "evidence vocabulary" not in low_head:
+                    continue
+                for tok in token_re.findall(body):
+                    if tok in _REV3_RECORD_EXCLUDE or tok.endswith("_UNSPECIFIED"):
+                        continue
+                    if tok in existing_wires:
+                        continue  # already in the Rev.2 catalog
+                    if tok in _REV3_RECORD_INCLUDE or any(
+                        tok.endswith(s) for s in _REV3_RECORD_SUFFIXES
+                    ):
+                        found.add(tok)
+    return sorted(found)
 
 
 # ── RecordType emitter mapping (iter 3d) ──────────────────────────────
@@ -278,14 +420,14 @@ def extract_record_type_emitters(
         practice they're emission declarations + cross-citations, so this
         is acceptable noise.
     """
-    s31_relative_path = "L9_Observability_Admin_Operations/01_evidence_log.md"
+    s31_relative_path = "002.AI-OS.NET--SPECREV.2/L9_Observability_Admin_Operations/01_evidence_log.md"
     wire_names = {wire for (_id, wire, _hint) in record_types}
 
     rows: list[tuple[str, str, int]] = []
     for spec in sub_specs:
         if spec.relative_path == s31_relative_path:
             continue  # S3.1 IS the catalog; its mentions aren't emissions
-        path = SPEC_ROOT / spec.relative_path
+        path = REPO_ROOT / spec.relative_path
         text = path.read_text()
         for wire in wire_names:
             count = sum(
@@ -332,7 +474,7 @@ def write_csv(path: Path, header: list[str], rows: list[tuple]) -> None:
 
 def main() -> None:
     print(f"AIOS spec extraction → Capella manifests")
-    print(f"  source: {SPEC_ROOT.relative_to(REPO_ROOT)}")
+    print(f"  source: {', '.join(str(root.relative_to(REPO_ROOT)) for root in SPEC_ROOTS if root.exists())}")
     print(f"  target: {OUT_DIR.relative_to(REPO_ROOT)}")
     print()
 

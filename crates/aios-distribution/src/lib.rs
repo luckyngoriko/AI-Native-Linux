@@ -18,16 +18,22 @@
 //! - [`TakedownReason`] closed enum — 7 reasons (S11.1 §3.10).
 //! - 6 identifier newtypes ([`PackageId`], [`PublisherId`], [`PublisherRootId`],
 //!   [`PackageSigningKeyId`], [`RepositoryId`], [`ManifestId`]).
-//! - [`DistributionError`] + [`DistributionErrorCode`] — 15-code error taxonomy.
+//! - [`DistributionError`] + [`DistributionErrorCode`] — 18-code error taxonomy.
+//! - Per-package monotonic downgrade protection ([`VersionMonotonicCounter`]) per
+//!   S11.1 §15.2.
+//! - [`UpdateChannel`] rollout discipline ([`auto_update_allowed`],
+//!   [`stable_auto_update_permitted`], [`channel_widening_requires_approval`],
+//!   [`requires_reissue_for_channel_change`], [`validate_channel_for_repo`],
+//!   [`recovery_critical_requires_recovery`]) per S11.1 §3.3.
+//! - Strict [`SemVer`] parser + precedence ordering (no external semver crate).
 //!
-//! ## Deferred to T-188+
+//! ## Deferred to T-194+
 //!
 //! - Trust chain logic (T-188).
 //! - Manifest verification (T-189).
 //! - Install FSM (T-190).
 //! - Mirror blacklisting (T-191).
 //! - Deplatform discipline (T-192).
-//! - Update channel enforcement (T-193).
 //! - Capability lie audit (T-194).
 //! - gRPC surface (T-195).
 //! - Evidence emission (T-196).
@@ -43,6 +49,7 @@
 pub mod canonical;
 pub mod catalog;
 pub mod deplatform;
+pub mod downgrade;
 pub mod error;
 pub mod ids;
 pub mod install_fsm;
@@ -56,11 +63,13 @@ pub mod mirror_fetch;
 pub mod mirror_policy;
 pub mod package_kind;
 pub mod repository;
+pub mod rollout;
 pub mod rotation;
 pub mod takedown;
 pub mod trust;
 pub mod trust_chain;
 pub mod verifier;
+pub mod version;
 
 pub use canonical::{content_hash, manifest_canonical_hash, signing_payload};
 pub use catalog::{PublisherCatalog, SigningKeyCatalog};
@@ -69,6 +78,7 @@ pub use deplatform::{
     returning_publisher_default_trust, verify_deplatform_event, InstalledPackageRecord,
     PublisherDeplatformEvent,
 };
+pub use downgrade::VersionMonotonicCounter;
 pub use error::{DistributionError, DistributionErrorCode};
 pub use ids::{
     ManifestId, PackageId, PackageSigningKeyId, PublisherId, PublisherRootId, RepositoryId,
@@ -87,6 +97,11 @@ pub use mirror_fetch::{resolve_and_verify, MirrorByteSource, ResolvedBytes};
 pub use mirror_policy::{detect_resign_attempt, fetch_order, verify_mirror_bytes, MirrorEndpoint};
 pub use package_kind::{InstallScope, PackageKind};
 pub use repository::{RepositoryKind, UpdateChannel};
+pub use rollout::{
+    auto_update_allowed, channel_widening_requires_approval, recovery_critical_requires_recovery,
+    requires_reissue_for_channel_change, stable_auto_update_permitted, validate_channel_for_repo,
+    UpdateWindow,
+};
 pub use rotation::{
     apply_publisher_rotation, verify_rotation_event, AiosRootRotationEvent, PublisherRotationEvent,
     RotationOutcome,
@@ -98,10 +113,11 @@ pub use trust_chain::{
     MAX_CHAIN_DEPTH,
 };
 pub use verifier::TrustChainVerifier;
+pub use version::{parse as parse_semver, SemVer};
 
 /// Code version marker for T-198 closure invariants.
 ///
 /// This constant anchors the crate's identity at compile time so that closure
 /// tests (T-198) can verify the distribution layer shipped with the correct
 /// typed contract before cross-crate wiring lands in T-197.
-pub const DEFAULT_CODE_VERSION: &str = "aios-distribution/0.0.1-T192";
+pub const DEFAULT_CODE_VERSION: &str = "aios-distribution/0.0.1-T193";

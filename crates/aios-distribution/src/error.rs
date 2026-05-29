@@ -7,11 +7,10 @@
 
 use serde::{Deserialize, Serialize};
 
-/// Closed error code catalogue — 17 codes.
+/// Closed error code catalogue — 18 codes.
 ///
 /// Every distribution operation that can fail returns one of these codes.
-/// The catalogue is exhaustive for T-187; additional codes (e.g. for
-/// bridge-admission failures) land in T-191+.
+/// The catalogue is exhaustive; additional codes land in follow-on tickets.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum DistributionErrorCode {
@@ -49,6 +48,8 @@ pub enum DistributionErrorCode {
     BundleTampered,
     /// Mirror has been auto-blacklisted — subsequent fetches pre-rejected (§3.8, §10).
     MirrorBlacklisted,
+    /// Downgrade blocked — attempted install of a strictly-older version per §15.2.
+    PackageDowngradeBlocked,
 }
 
 /// Distribution error enumeration with structured payloads.
@@ -125,6 +126,10 @@ pub enum DistributionError {
     /// Mirror has been auto-blacklisted — subsequent fetches pre-rejected.
     #[error("mirror blacklisted: {0}")]
     MirrorBlacklisted(String),
+
+    /// Downgrade blocked — attempted install of a strictly-older version per §15.2.
+    #[error("downgrade blocked: {0}")]
+    PackageDowngradeBlocked(String),
 }
 
 impl DistributionError {
@@ -153,6 +158,7 @@ impl DistributionError {
             Self::InstallScopeViolation(_) => DistributionErrorCode::InstallScopeViolation,
             Self::BundleTampered(_) => DistributionErrorCode::BundleTampered,
             Self::MirrorBlacklisted(_) => DistributionErrorCode::MirrorBlacklisted,
+            Self::PackageDowngradeBlocked(_) => DistributionErrorCode::PackageDowngradeBlocked,
         }
     }
 }

@@ -374,14 +374,14 @@ fn mirror_never_resign_tampered_content_fails_hash_check() {
 
 #[test]
 fn default_code_version_constant_is_correct() {
-    assert_eq!(DEFAULT_CODE_VERSION, "aios-distribution/0.0.1-T192");
+    assert_eq!(DEFAULT_CODE_VERSION, "aios-distribution/0.0.1-T193");
 }
 
 // ── 14. error code count ───────────────────────────────────────────────
 
 #[test]
-fn error_code_count_is_17() {
-    // T-191 added MirrorBlacklisted (17th code)
+fn error_code_count_is_18() {
+    // T-193 added PackageDowngradeBlocked (18th code)
     let codes: Vec<DistributionErrorCode> = vec![
         DistributionErrorCode::PackageNotFound,
         DistributionErrorCode::PublisherNotFound,
@@ -400,8 +400,9 @@ fn error_code_count_is_17() {
         DistributionErrorCode::InstallScopeViolation,
         DistributionErrorCode::BundleTampered,
         DistributionErrorCode::MirrorBlacklisted,
+        DistributionErrorCode::PackageDowngradeBlocked,
     ];
-    assert_eq!(codes.len(), 17);
+    assert_eq!(codes.len(), 18);
 }
 
 // ── 15. blacklist: different mirrors independent ───────────────────────

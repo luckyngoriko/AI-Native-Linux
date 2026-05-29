@@ -2,7 +2,7 @@
 
 [![License: Apache-2.0](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](LICENSE)
 [![Specification: Rev.2](https://img.shields.io/badge/specification-Rev.2-ce2867.svg)](002.AI-OS.NET--SPECREV.2/00_MASTER_INDEX.md)
-[![Status: Specification First](https://img.shields.io/badge/status-specification--first-111111.svg)](002.AI-OS.NET--SPECREV.2/00_MASTER_INDEX.md)
+[![Status: Rev.2 implemented](https://img.shields.io/badge/status-Rev.2_implemented_·_19_crates-ce2867.svg)](MILESTONES.md)
 [![Layers: 11](https://img.shields.io/badge/layers-11-111111.svg)](002.AI-OS.NET--SPECREV.2/00_MASTER_INDEX.md)
 [![Sub-specs: 52](https://img.shields.io/badge/sub--specs-52-111111.svg)](002.AI-OS.NET--SPECREV.2/00_MASTER_INDEX.md)
 [![Invariants: 24](https://img.shields.io/badge/invariants-24-ce2867.svg)](002.AI-OS.NET--SPECREV.2/L0_Governance_Evidence_Safety/04_invariants.md)
@@ -68,11 +68,11 @@ What is intentionally open at this stage: base distribution lineage (Debian / Ar
 
 ## Current Status
 
-This repository is currently specification-first.
+The Rev.2 contract pack is now backed by a working Rust implementation. The 11-layer L0–L10 model is implemented across **19 crates** under `crates/` (`aios-action` … `aios-distribution`), with **4473 workspace tests passing** and all four cargo gates green (check / test / clippy `-D warnings` / fmt). See [MILESTONES.md](MILESTONES.md) for the per-milestone evidence (M1–M19 closed).
 
-There is no production runtime yet. The active work is the Rev.2 contract pack, which defines the layers, boundaries, safety model, and first implementation targets for the AI-native Linux distribution.
+What does **not** yet exist: a bootable installer ISO, a released distribution, and a CI pipeline — these are the next phase. A few forward surfaces (some L5 cognitive RPCs and L9 cross-layer verification primitives) are tracked openly (see MILESTONES.md).
 
-The project is intentionally public early so security engineers, Linux operators, AI agent builders, and open-source maintainers can review the architecture before privileged distribution code exists.
+The project is intentionally public so security engineers, Linux operators, AI agent builders, and open-source maintainers can review both the architecture and the implementation. Rev.3 (`003.AI-OS.NET--SPECREV.3`, S16–S28) is the forward specification — contract-grade, not yet implemented.
 
 ## Core Architecture
 
@@ -202,7 +202,7 @@ Public grant application records are kept under [003.GRANT_APPLICATIONS](003.GRA
 
 ## Contributing
 
-Contributions are welcome, but the project is still in specification phase. Start with [CONTRIBUTING.md](CONTRIBUTING.md) before opening an issue or pull request.
+Contributions are welcome. The Rev.2 layer model is implemented across 19 Rust crates; Rev.3 and the distribution / installer-ISO work remain in specification phase. Start with [CONTRIBUTING.md](CONTRIBUTING.md) before opening an issue or pull request.
 
 Security-sensitive findings should follow [SECURITY.md](SECURITY.md).
 

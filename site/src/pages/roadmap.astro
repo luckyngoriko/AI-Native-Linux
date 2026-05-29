@@ -2,10 +2,35 @@
 import BaseLayout from '../layouts/BaseLayout.astro';
 import SectionDivider from '../components/SectionDivider.astro';
 
+// The ten-revision arc — Rev.1 origin vision through Rev.10 autonomous AI-OS.
+const revisions = [
+  { rev: 'Rev.1', name: 'Vision', status: 'Origin', done: true, what: 'The original architecture vision and canonical contract — typed actions, a policy kernel and an append-only evidence log on a Linux substrate.' },
+  { rev: 'Rev.2', name: 'Constitutional core', status: 'Implemented', done: true, what: 'The 11-layer L0-L10 model as working Rust — 19 crates, 4,475 tests, all gates green. The cognitive shell, policy kernel and evidence log exist in code.' },
+  { rev: 'Rev.3', name: 'Five governed planes', status: 'Spec complete', done: true, what: 'S16-S28: security hardening, app capsules, kernel portability, driver/firmware capsules and the native AI terminal — CONTRACT-grade, 644 records, 34 invariants.' },
+  { rev: 'Rev.4', name: 'Bootable distribution', status: 'Planned', done: false, what: 'It boots. A recovery-safe installer ISO, a dedicated kernel pipeline, and the §22 golden path on real hardware — the move from crates to a running OS.' },
+  { rev: 'Rev.5', name: 'Live cognition', status: 'Planned', done: false, what: 'It thinks. The cognitive core live with local models (Ollama / vLLM), external models only through the Vault Broker, a real intent → action → policy → verify → evidence loop on a live machine.' },
+  { rev: 'Rev.6', name: 'Daily-driver desktop', status: 'Planned', done: false, what: 'You can use it. KDE Plasma as the real desktop, Web / CLI / voice surfaces, governed app capsules running Linux, Windows (Wine/Proton) and Android apps day to day.' },
+  { rev: 'Rev.7', name: 'Fleet, cluster & cloud', status: 'Planned', done: false, what: 'It scales. Containers and Kubernetes as governed capsules, fleet and cluster remote execution, many machines under one policy and one evidence chain, cloud images.' },
+  { rev: 'Rev.8', name: 'Certified hardening', status: 'Planned', done: false, what: 'It is trusted. Measured boot, SELinux/STIG/NIST/CIS validated, FIPS, EU AI Act technical controls evidenced at E4/E5, and a real third-party security assessment.' },
+  { rev: 'Rev.9', name: 'Ecosystem & marketplace', status: 'Planned', done: false, what: 'It is an ecosystem. Public signed repositories, the publisher trust chain in production, a capsule marketplace, an app passport, and an SDK for third-party developers.' },
+  { rev: 'Rev.10', name: 'Autonomous AI-OS', status: 'Planned', done: false, what: 'It runs itself. Autonomous fleet operations, self-healing, cross-machine cognition and constitutional governance at scale — the AI-native OS vision fully realized.' },
+];
+
 const phases = [
   {
+    name: 'Rev.2 — Constitutional Core',
+    status: 'Implemented',
+    items: [
+      '11 layers L0-L10 as working Rust — 19 crates (aios-action … aios-distribution)',
+      '4,475 workspace tests, 0 failed; all four cargo gates green (check / test / clippy -D warnings / fmt)',
+      'Cognitive core, policy kernel, capability runtime, AIOS-FS, vault, renderers, network, hardware, distribution — all REAL (E2+)',
+      'M20 discharged the last deferred surfaces — L5 cognitive RPCs and 22 Tier-3 verification primitives are now real',
+      'Not yet a bootable ISO — that is Rev.4',
+    ],
+  },
+  {
     name: 'Rev.3 — Five Governed Planes',
-    status: 'Complete',
+    status: 'Spec complete',
     items: [
       'Explicit security posture — four profiles + FIPS_STRICT overlay, measured boot, SELinux MAC, STIG/NIST/CIS control map',
       'Governed app capsules — bounded, rollbackable, evidenced; Windows apps via per-app Wine/Proton capsules',
@@ -30,14 +55,16 @@ const phases = [
     items: ['427 RecordTypes (S3.1 master enum)', '32 PropertyTypes (S2.4 verification)', 'Pinned IDs, additive evolution only', 'Reject-on-unknown across IDL surface'],
   },
   {
-    name: 'Tier 5 Audit',
-    status: 'Converged',
-    items: ['9 read-only audit/simulation agents', 'SIM-D zero-findings on constitutional invariants', 'Clean Capella traceability across both revisions', 'No silent narrative-vs-IDL gaps'],
-  },
-  {
-    name: 'Implementation Phase',
-    status: 'Underway',
-    items: ['Rev.2 stack in implementation — L1 boot/recovery first', 'L2 AIOS-FS, L3 SGR, L4 Policy Kernel landing', 'Rev.3 waves R3-W1..R3-W8 queued behind core', 'Per-spec MVP gate (E2 build, E3 tests)'],
+    name: 'Rev.4 → Rev.10 — The Path to Ship',
+    status: 'Planned',
+    items: [
+      'Rev.4 bootable ISO + installer — it boots',
+      'Rev.5 live cognition + local models — it thinks',
+      'Rev.6 daily-driver desktop — it is usable',
+      'Rev.7 fleet / cluster / cloud — it scales',
+      'Rev.8 certified hardening + compliance — it is trusted',
+      'Rev.9 ecosystem + marketplace; Rev.10 autonomous AI-OS',
+    ],
   },
 ];
 
@@ -114,20 +141,44 @@ const waves = [
 
 <BaseLayout
   title="Roadmap - AI-OS.NET"
-  description="AI-OS.NET is an AI-native Linux distribution and governed OS platform. Rev.2 contract stack (11 layers, 24 invariants) is in implementation; Rev.3 adds 13 plane sections S16-S28 across five governed planes, 10 new invariants, 644 typed evidence records — all CONTRACT-grade with clean traceability."
+  description="AI-OS.NET is an AI-native Linux distribution and governed OS platform on a ten-revision arc. Rev.2 (11 layers, 19 crates, 4,475 tests) is implemented; Rev.3 (S16-S28, five governed planes, 644 typed records) is spec-complete; Rev.4-Rev.10 carry it from a bootable ISO and live cognition to a daily-driver desktop, fleet/cloud scale, certified hardening, an ecosystem, and an autonomous AI-OS."
 >
   <div class="mx-auto max-w-content px-8 py-16">
     <div class="text-center">
       <div class="animate inline-block rounded-badge bg-[rgba(206,40,103,0.08)] px-3 py-1.5">
-        <span class="font-body text-[11px] font-medium text-[#ce2867]">Revision 3 · Complete</span>
+        <span class="font-body text-[11px] font-medium text-[#ce2867]">Ten-revision arc · Rev.2 implemented</span>
       </div>
       <h1 class="animate mt-6 font-heading text-[40px] font-bold text-[var(--text)] md:text-[52px]" style="animation-delay:100ms">
-        From constitutional core<br />to governed platform.
+        From constitutional core<br />to autonomous AI-OS.
       </h1>
       <p class="animate mt-4 max-w-narrow mx-auto font-body text-[18px] leading-relaxed text-[var(--muted)]" style="animation-delay:200ms">
-        The Revision 2 contract pack is locked and in implementation — 11 layers, 24 invariants, the constitutional core. Revision 3 turns it into a governed, AI-native OS platform: 13 sections (S16-S28) across five governed planes, 10 new invariants, 644 typed evidence records — all CONTRACT-grade with clean traceability.
+        The Revision 2 constitutional core is no longer just a contract — it is implemented: 11 layers L0-L10 as 19 Rust crates, 4,475 tests, all gates green. Revision 3 specifies five governed planes (S16-S28). Revisions 4 through 10 are the path to ship: it boots, it thinks, it is usable, it scales, it is trusted, it is an ecosystem, and finally it runs itself.
       </p>
     </div>
+
+    <section class="mt-20">
+      <SectionDivider label="THE TEN-REVISION ARC" />
+      <p class="mt-4 max-w-narrow font-body text-[14px] leading-relaxed text-[var(--muted)]">
+        Ten revisions from the origin vision to an autonomous AI-native OS. Rev.1-Rev.3 are done — the vision, an implemented constitutional core, and a spec-complete plane set. Rev.4-Rev.10 build a real shipping distribution and ecosystem on top of it, never a rewrite of the core.
+      </p>
+      <div class="mt-8 overflow-hidden rounded-[8px] border border-[var(--border)] bg-[var(--surface-1)]">
+        <div class="grid grid-cols-[72px_1.3fr_2.6fr] gap-4 border-b border-[var(--border)] px-6 py-3">
+          <span class="font-mono text-[10px] uppercase tracking-[0.08em] text-[var(--muted)]">Rev</span>
+          <span class="font-mono text-[10px] uppercase tracking-[0.08em] text-[var(--muted)]">Epoch</span>
+          <span class="font-mono text-[10px] uppercase tracking-[0.08em] text-[var(--muted)]">What it delivers</span>
+        </div>
+        {revisions.map(r => (
+          <div class="grid grid-cols-[72px_1.3fr_2.6fr] gap-4 border-b border-[var(--border)] px-6 py-4 last:border-b-0">
+            <span class="font-mono text-[12px] text-[var(--accent)]">{r.rev}</span>
+            <div class="flex flex-col items-start gap-1.5">
+              <span class="font-body text-[13px] font-medium text-[var(--text)]">{r.name}</span>
+              <span class={`rounded-badge px-2 py-0.5 font-mono text-[10px] ${r.done ? 'bg-[rgba(206,40,103,0.08)] text-[var(--accent)]' : 'border border-[var(--border)] text-[var(--muted)]'}`}>{r.status}</span>
+            </div>
+            <span class="font-body text-[13px] leading-relaxed text-[var(--muted)]">{r.what}</span>
+          </div>
+        ))}
+      </div>
+    </section>
 
     <section class="mt-20">
       <SectionDivider label="REVISION STATUS" />
@@ -175,7 +226,7 @@ const waves = [
     <section class="mt-20">
       <SectionDivider label="IMPLEMENTATION WAVES" />
       <p class="mt-4 max-w-narrow font-body text-[14px] leading-relaxed text-[var(--muted)]">
-        The Rev.2 core is in implementation first. Rev.3 lands in eight waves R3-W1..R3-W8 — security and boot before anything trusts the machine, then capsules, the AI terminal, drivers, kernels, and the higher planes.
+        The Rev.2 core is implemented. Rev.3 lands in eight waves R3-W1..R3-W8 — security and boot before anything trusts the machine, then capsules, the AI terminal, drivers, kernels, and the higher planes — feeding the Rev.4+ shipping path above.
       </p>
       <div class="mt-8 overflow-hidden rounded-[8px] border border-[var(--border)] bg-[var(--surface-1)]">
         <div class="grid grid-cols-[110px_1fr_2fr] gap-4 border-b border-[var(--border)] px-6 py-3">

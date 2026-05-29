@@ -799,7 +799,7 @@ fn wrong_aios_root_key_returns_signature_failed() {
 
 #[test]
 fn default_code_version_constant_is_correct() {
-    assert_eq!(DEFAULT_CODE_VERSION, "aios-distribution/0.0.1-T188");
+    assert_eq!(DEFAULT_CODE_VERSION, "aios-distribution/0.0.1-T189");
 }
 
 // ---------------------------------------------------------------------------

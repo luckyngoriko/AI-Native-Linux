@@ -24,7 +24,7 @@ use aios_distribution::*;
 
 #[test]
 fn default_code_version_constant_is_correct() {
-    assert_eq!(DEFAULT_CODE_VERSION, "aios-distribution/0.0.1-T188");
+    assert_eq!(DEFAULT_CODE_VERSION, "aios-distribution/0.0.1-T189");
 }
 
 // ---------------------------------------------------------------------------
@@ -188,7 +188,7 @@ fn package_install_state_removed_and_install_failed_are_terminal() {
 // ---------------------------------------------------------------------------
 
 #[test]
-fn package_verification_result_has_10_variants_including_trust_chain_too_deep() {
+fn package_verification_result_has_11_variants_including_trust_chain_too_deep() {
     let results: Vec<PackageVerificationResult> = vec![
         PackageVerificationResult::VerifiedAiosRoot,
         PackageVerificationResult::VerifiedPublisher,
@@ -198,10 +198,11 @@ fn package_verification_result_has_10_variants_including_trust_chain_too_deep() 
         PackageVerificationResult::PublisherDeplatformed,
         PackageVerificationResult::HashMismatch,
         PackageVerificationResult::ManifestForged,
+        PackageVerificationResult::RepositoryKindMismatch,
         PackageVerificationResult::CapabilityLie,
         PackageVerificationResult::BundleTampered,
     ];
-    assert_eq!(results.len(), 10);
+    assert_eq!(results.len(), 11);
     assert!(results.contains(&PackageVerificationResult::TrustChainTooDeep));
 }
 

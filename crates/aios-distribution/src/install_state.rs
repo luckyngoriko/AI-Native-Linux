@@ -97,6 +97,7 @@ impl PackageInstallState {
 /// | `PublisherDeplatformed`| `PUBLISHER_DEPLATFORMED`| Publisher in `Deplatformed` state at fetch time.              |
 /// | `HashMismatch`         | `HASH_MISMATCH`        | `BLAKE3(content)` differs from `manifest.content_hash`.        |
 /// | `ManifestForged`       | `MANIFEST_FORGED`      | Manifest fields tampered post-sign.                            |
+/// | `RepositoryKindMismatch`| `REPOSITORY_KIND_MISMATCH` | Package kind not admissible from originating repository.   |
 /// | `CapabilityLie`        | `CAPABILITY_LIE`       | Declared capabilities differ from runtime-observed at audit.   |
 /// | `BundleTampered`       | `BUNDLE_TAMPERED`      | Executable bits in `THEME`, archive corruption, hook escape.   |
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
@@ -118,6 +119,8 @@ pub enum PackageVerificationResult {
     HashMismatch,
     /// Manifest fields tampered post-sign (trust level claim inconsistent with catalog, etc.).
     ManifestForged,
+    /// Package kind not admissible from the originating repository kind (§3.2, §5.1).
+    RepositoryKindMismatch,
     /// Declared capabilities differ from runtime-observed capabilities at first-run audit.
     CapabilityLie,
     /// Executable bits in a `THEME`, archive corruption, hook escape attempt, or similar tamper.
@@ -137,6 +140,7 @@ impl PackageVerificationResult {
             Self::PublisherDeplatformed => "PUBLISHER_DEPLATFORMED",
             Self::HashMismatch => "HASH_MISMATCH",
             Self::ManifestForged => "MANIFEST_FORGED",
+            Self::RepositoryKindMismatch => "REPOSITORY_KIND_MISMATCH",
             Self::CapabilityLie => "CAPABILITY_LIE",
             Self::BundleTampered => "BUNDLE_TAMPERED",
         }

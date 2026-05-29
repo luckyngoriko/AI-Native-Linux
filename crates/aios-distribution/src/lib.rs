@@ -40,10 +40,13 @@
 
 #![forbid(unsafe_code)]
 
+pub mod canonical;
 pub mod catalog;
 pub mod error;
 pub mod ids;
 pub mod install_state;
+pub mod manifest;
+pub mod manifest_pipeline;
 pub mod mirror;
 pub mod package_kind;
 pub mod repository;
@@ -52,12 +55,15 @@ pub mod trust;
 pub mod trust_chain;
 pub mod verifier;
 
+pub use canonical::{content_hash, manifest_canonical_hash, signing_payload};
 pub use catalog::{PublisherCatalog, SigningKeyCatalog};
 pub use error::{DistributionError, DistributionErrorCode};
 pub use ids::{
     ManifestId, PackageId, PackageSigningKeyId, PublisherId, PublisherRootId, RepositoryId,
 };
 pub use install_state::{PackageInstallState, PackageVerificationResult};
+pub use manifest::{NetworkManifestRef, PackageManifest, SandboxProfileRef};
+pub use manifest_pipeline::{is_eol, validate_fields, verify_manifest, ManifestField};
 pub use mirror::MirrorSemantic;
 pub use package_kind::{InstallScope, PackageKind};
 pub use repository::{RepositoryKind, UpdateChannel};
@@ -74,4 +80,4 @@ pub use verifier::TrustChainVerifier;
 /// This constant anchors the crate's identity at compile time so that closure
 /// tests (T-198) can verify the distribution layer shipped with the correct
 /// typed contract before cross-crate wiring lands in T-197.
-pub const DEFAULT_CODE_VERSION: &str = "aios-distribution/0.0.1-T188";
+pub const DEFAULT_CODE_VERSION: &str = "aios-distribution/0.0.1-T189";

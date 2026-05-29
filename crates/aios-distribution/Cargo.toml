@@ -21,6 +21,7 @@ ulid            = { workspace = true }
 tokio           = { workspace = true, features = ["sync", "macros"] }
 async-trait     = { workspace = true }
 ed25519-dalek   = { workspace = true }
+blake3          = { workspace = true }
 
 [dev-dependencies]
 tokio       = { workspace = true, features = ["rt-multi-thread", "macros", "test-util"] }

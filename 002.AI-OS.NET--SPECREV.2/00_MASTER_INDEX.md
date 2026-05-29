@@ -14,7 +14,7 @@ Layered rewrite of the AIOS specification. Each layer has its own folder followi
 
 Dependency rule: a layer may depend on its own layer and lower-numbered layers. A layer must not require a higher-numbered layer for correctness.
 
-> **Implementation status (Rev.2 FULL-REAL, 2026-05-29):** all 11 layers are implemented to `REAL` (E2+) across the 19-crate `crates/` workspace (4473 tests, 0 failed; see [`MILESTONES.md`](../MILESTONES.md)). The `REAL` statuses below reflect each layer's closed milestone scope. **Deferred surfaces** (tested as DEFERRED, not claimed REAL): the L5 Cognitive Core agent/plan/memory gRPC methods (`aios-cognitive`) and ~22 Tier-3 cross-layer verification primitives in the L9 verification grammar (`aios-verification/src/primitives/tier3.rs`).
+> **Implementation status (Rev.2 FULL-REAL, 2026-05-29):** all 11 layers are implemented to `REAL` (E2+) across the 19-crate `crates/` workspace (4475 tests, 0 failed; see [`MILESTONES.md`](../MILESTONES.md)). The `REAL` statuses below reflect each layer's closed milestone scope. **M20 discharged the formerly-deferred surfaces:** the L5 Cognitive Core agent/plan/memory gRPC methods (`aios-cognitive`) and the 22 Tier-3 cross-layer verification primitives (`aios-verification`) are now REAL and tested.
 
 | Layer | Folder                                                                            | Responsibility                                               | Status |
 | ----- | --------------------------------------------------------------------------------- | ------------------------------------------------------------ | ------ |

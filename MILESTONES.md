@@ -12,9 +12,9 @@ Source of truth: `.ai/tasks.json` (machine-readable). This document is the human
 
 ## Status snapshot — Rev.2 FULL-REAL (updated 2026-05-29)
 
-**All 19/19 milestones closed: 19 crates, 4473 workspace tests (0 failed), all four cargo gates green.** The table below is the MVP-era (M1–M12) per-crate breakdown; M13–M19 detail is in the closure markers and milestone tables further down.
+**All 19/19 milestones closed + M20 (deferred-surface discharge): 19 crates, 4475 workspace tests (0 failed), all four cargo gates green.** The table below is the MVP-era (M1–M12) per-crate breakdown; M13–M19 detail is in the closure markers and milestone tables further down.
 
-> **Deferred surfaces** — tested as DEFERRED, **not** claimed REAL. "FULL-REAL" means every milestone's _closed scope_ is REAL (E2+), not that every RPC/primitive is implemented. Known deferrals: the L5 Cognitive Core agent/plan/memory gRPC methods (`crates/aios-cognitive/src/service/server.rs`, deferred post-T-101, asserted in `m11_closure.rs`) and ~22 Tier-3 cross-layer verification primitives (`crates/aios-verification/src/primitives/tier3.rs` `DEFERRED_PRIMITIVES`, asserted in M8 acceptance tests). Their dependency layers (M16/M17) now exist, so discharging them is a viable future milestone.
+> **Deferred surfaces — DISCHARGED by M20 (2026-05-29).** The two formerly-deferred surfaces are now REAL and tested: the L5 Cognitive Core agent/plan/memory gRPC methods (`crates/aios-cognitive`, T-199) and the 22 Tier-3 cross-layer verification primitives (`crates/aios-verification`, T-200). "FULL-REAL" now holds without caveat for the implemented surface; remaining work is productization (bootable ISO, CI, production `StateProbe` adapters). See the **M20 marker** below.
 
 | Milestone         | Crate                   | Sub-specs                       | Layer              | Status      |    Tests |
 | ----------------- | ----------------------- | ------------------------------- | ------------------ | ----------- | -------: |
@@ -58,6 +58,8 @@ Source of truth: `.ai/tasks.json` (machine-readable). This document is the human
 **M19 closure marker:** `aios-distribution` is v0.1.0. S11.1 L10 distribution layer is closed: repository model + signed package install pipeline + mirror policy + publisher trust chain (max depth 3) with deplatform, CVE-aware install (critical CVSS → AutoQuarantine), gRPC RepositoryService + PublisherService surfaces, and 19 `DistributionRecordType` evidence variants (9 FOREVER / 4 EXTENDED_60M / 6 STANDARD_24M) with BLAKE3 hash-chain integrity. Cross-crate integration with M18 (`aios-integration`) proves the L10 layer composes the system-integration framework rather than re-implementing it: M18's `cve_feed::is_valid_cve_id` drives M19 CVE enforcement, and `IntegrationLifecycleState` (Piloted / Production) gates whether a publisher may distribute. 480 crate tests; 4 acceptance-fixture + 2 closure-invariant + 4 cross-crate integration tests.
 
 **Rev.2 FULL-REAL marker (2026-05-29):** with M19 closed, **all 19 implementation milestones are closed (19/19)**. The full L0–L10 layered architecture of Rev.2 — governance/evidence, kernel/recovery, AIOS-FS, SGR, policy/vault, cognitive core, apps/sandbox, renderers (CLI / KDE / Web), network, hardware, integration, distribution — is implemented to `REAL` status with E2+ evidence. Workspace: **4473 tests, 0 failed**; all four cargo gates green (`check + test + clippy -D warnings + fmt --check`).
+
+**M20 marker (2026-05-29) — deferred-surface discharge.** A post-FULL-REAL milestone that makes the two tested-as-DEFERRED surfaces REAL: the L5 Cognitive Core agent/plan/memory gRPC surface (`aios-cognitive`, T-199 `b6223f6` — 10 RPCs over in-memory stores, INV-002-preserving typed proposals) and the 22 Tier-3 cross-layer verification primitives (`aios-verification`, T-200 `1dae67c` — resolved through an injected `StateProbe`; `StdStateProbe` fails closed with `PROBE_ERROR`, `MockStateProbe` drives tests). No crate version bumps (in-place discharge). Workspace: **4475 tests, 0 failed**; clippy `-D warnings` + fmt clean. Remaining productization: bootable ISO, CI pipeline, and production `StateProbe` adapters wired to live L2/L4/L8/L9 state.
 
 ## §22 MVP Golden Path closure (M5 → M9)
 
@@ -120,4 +122,4 @@ Reused from M1–M6 closure pattern:
 # 5. Final T-task is the milestone closer: §22-style acceptance fixtures + version bump + closure-invariant tests
 ```
 
-Last update: 2026-05-29 (**M19 closed — aios-distribution v0.1.0; Rev.2 FULL-REAL: 19/19 milestones closed, 4473 workspace tests, 0 failed, all 4 cargo gates green**).
+Last update: 2026-05-29 (**M19 closed — aios-distribution v0.1.0; Rev.2 FULL-REAL: 19/19 milestones closed. Then M20 discharged the two deferred surfaces — cognitive RPCs (T-199) + Tier-3 verification primitives (T-200) now REAL. 4475 workspace tests, 0 failed, all 4 cargo gates green**).

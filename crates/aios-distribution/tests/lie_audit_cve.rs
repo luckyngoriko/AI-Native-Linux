@@ -456,5 +456,5 @@ fn cve_enforcement_level_label_non_empty_for_all_four() {
 
 #[test]
 fn default_code_version_constant_is_correct() {
-    assert_eq!(DEFAULT_CODE_VERSION, "aios-distribution/0.0.1-T195");
+    assert_eq!(DEFAULT_CODE_VERSION, "aios-distribution/0.0.1-T196");
 }

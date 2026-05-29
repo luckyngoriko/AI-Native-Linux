@@ -52,6 +52,7 @@ pub mod cve_binding;
 pub mod deplatform;
 pub mod downgrade;
 pub mod error;
+pub mod evidence;
 pub mod ids;
 pub mod install_fsm;
 pub mod install_pipeline;
@@ -84,6 +85,10 @@ pub use deplatform::{
 };
 pub use downgrade::VersionMonotonicCounter;
 pub use error::{DistributionError, DistributionErrorCode};
+pub use evidence::{
+    extended_60m_variants, forever_variants, record_type_for_failure, standard_24m_variants,
+    DistributionEvidenceEmitter, DistributionEvidenceReceipt, DistributionRecordType,
+};
 pub use ids::{
     ManifestId, PackageId, PackageSigningKeyId, PublisherId, PublisherRootId, RepositoryId,
 };
@@ -127,4 +132,4 @@ pub use version::{parse as parse_semver, SemVer};
 /// This constant anchors the crate's identity at compile time so that closure
 /// tests (T-198) can verify the distribution layer shipped with the correct
 /// typed contract before cross-crate wiring lands in T-197.
-pub const DEFAULT_CODE_VERSION: &str = "aios-distribution/0.0.1-T195";
+pub const DEFAULT_CODE_VERSION: &str = "aios-distribution/0.0.1-T196";

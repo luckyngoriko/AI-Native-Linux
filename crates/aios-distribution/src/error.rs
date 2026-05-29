@@ -7,7 +7,7 @@
 
 use serde::{Deserialize, Serialize};
 
-/// Closed error code catalogue — 16 codes.
+/// Closed error code catalogue — 17 codes.
 ///
 /// Every distribution operation that can fail returns one of these codes.
 /// The catalogue is exhaustive for T-187; additional codes (e.g. for
@@ -47,6 +47,8 @@ pub enum DistributionErrorCode {
     InstallScopeViolation,
     /// Content tamper beyond signature/chain/hash (executable bits in THEME, archive corruption, hook escape).
     BundleTampered,
+    /// Mirror has been auto-blacklisted — subsequent fetches pre-rejected (§3.8, §10).
+    MirrorBlacklisted,
 }
 
 /// Distribution error enumeration with structured payloads.
@@ -119,6 +121,10 @@ pub enum DistributionError {
     /// Content tamper detected (theme executables, archive corruption, hook escape).
     #[error("bundle tampered: {0}")]
     BundleTampered(String),
+
+    /// Mirror has been auto-blacklisted — subsequent fetches pre-rejected.
+    #[error("mirror blacklisted: {0}")]
+    MirrorBlacklisted(String),
 }
 
 impl DistributionError {
@@ -146,6 +152,7 @@ impl DistributionError {
             Self::Internal(_) => DistributionErrorCode::Internal,
             Self::InstallScopeViolation(_) => DistributionErrorCode::InstallScopeViolation,
             Self::BundleTampered(_) => DistributionErrorCode::BundleTampered,
+            Self::MirrorBlacklisted(_) => DistributionErrorCode::MirrorBlacklisted,
         }
     }
 }

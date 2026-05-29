@@ -24,7 +24,7 @@ use aios_distribution::*;
 
 #[test]
 fn default_code_version_constant_is_correct() {
-    assert_eq!(DEFAULT_CODE_VERSION, "aios-distribution/0.0.1-T190");
+    assert_eq!(DEFAULT_CODE_VERSION, "aios-distribution/0.0.1-T191");
 }
 
 // ---------------------------------------------------------------------------
@@ -321,8 +321,9 @@ fn distribution_error_code_has_at_least_15_variants() {
         DistributionErrorCode::Internal,
         DistributionErrorCode::InstallScopeViolation,
         DistributionErrorCode::BundleTampered,
+        DistributionErrorCode::MirrorBlacklisted,
     ];
-    assert_eq!(codes.len(), 16);
+    assert_eq!(codes.len(), 17);
 }
 
 #[test]

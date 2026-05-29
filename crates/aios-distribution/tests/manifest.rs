@@ -680,8 +680,8 @@ fn roundtrip_capability_flip_breaks_canonical_hash() {
 // ============================================================================
 
 #[test]
-fn default_code_version_is_t190() {
-    assert_eq!(DEFAULT_CODE_VERSION, "aios-distribution/0.0.1-T190");
+fn default_code_version_is_t191() {
+    assert_eq!(DEFAULT_CODE_VERSION, "aios-distribution/0.0.1-T191");
 }
 
 // ============================================================================

@@ -50,6 +50,9 @@ pub mod install_state;
 pub mod manifest;
 pub mod manifest_pipeline;
 pub mod mirror;
+pub mod mirror_blacklist;
+pub mod mirror_fetch;
+pub mod mirror_policy;
 pub mod package_kind;
 pub mod repository;
 pub mod takedown;
@@ -72,6 +75,9 @@ pub use install_state::{PackageInstallState, PackageVerificationResult};
 pub use manifest::{NetworkManifestRef, PackageManifest, SandboxProfileRef};
 pub use manifest_pipeline::{is_eol, validate_fields, verify_manifest, ManifestField};
 pub use mirror::MirrorSemantic;
+pub use mirror_blacklist::MirrorBlacklist;
+pub use mirror_fetch::{resolve_and_verify, MirrorByteSource, ResolvedBytes};
+pub use mirror_policy::{detect_resign_attempt, fetch_order, verify_mirror_bytes, MirrorEndpoint};
 pub use package_kind::{InstallScope, PackageKind};
 pub use repository::{RepositoryKind, UpdateChannel};
 pub use takedown::TakedownReason;
@@ -87,4 +93,4 @@ pub use verifier::TrustChainVerifier;
 /// This constant anchors the crate's identity at compile time so that closure
 /// tests (T-198) can verify the distribution layer shipped with the correct
 /// typed contract before cross-crate wiring lands in T-197.
-pub const DEFAULT_CODE_VERSION: &str = "aios-distribution/0.0.1-T190";
+pub const DEFAULT_CODE_VERSION: &str = "aios-distribution/0.0.1-T191";

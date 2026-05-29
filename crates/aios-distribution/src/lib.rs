@@ -44,6 +44,8 @@ pub mod canonical;
 pub mod catalog;
 pub mod error;
 pub mod ids;
+pub mod install_fsm;
+pub mod install_pipeline;
 pub mod install_state;
 pub mod manifest;
 pub mod manifest_pipeline;
@@ -60,6 +62,11 @@ pub use catalog::{PublisherCatalog, SigningKeyCatalog};
 pub use error::{DistributionError, DistributionErrorCode};
 pub use ids::{
     ManifestId, PackageId, PackageSigningKeyId, PublisherId, PublisherRootId, RepositoryId,
+};
+pub use install_fsm::{apply as apply_install_state, can_transition};
+pub use install_pipeline::{
+    run_install, ApprovalOutcome, FetchedBytesMeta, InMemoryPipelineDeps, InstallOutcome,
+    InstallPipelineDeps, PipelineStep, PolicyOutcome, StepFailure,
 };
 pub use install_state::{PackageInstallState, PackageVerificationResult};
 pub use manifest::{NetworkManifestRef, PackageManifest, SandboxProfileRef};
@@ -80,4 +87,4 @@ pub use verifier::TrustChainVerifier;
 /// This constant anchors the crate's identity at compile time so that closure
 /// tests (T-198) can verify the distribution layer shipped with the correct
 /// typed contract before cross-crate wiring lands in T-197.
-pub const DEFAULT_CODE_VERSION: &str = "aios-distribution/0.0.1-T189";
+pub const DEFAULT_CODE_VERSION: &str = "aios-distribution/0.0.1-T190";

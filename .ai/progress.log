@@ -904,3 +904,15 @@ T-186: M18 closer + acceptance test + v0.1.0 version bump + S11.4 sub-spec final
   result: T-198 committed at 6259a26. M19 CLOSED. ALL 19/19 implementation milestones closed.
   status: SUCCESS — Rev.2 FULL-REAL (L0-L10 all REAL at E2+).
   next: Rev.2 implementation is complete. No further implementation milestone. Optional follow-ups: GitNexus reindex, NLnet Rev.2 proposal (deadline 2026-06-01 12:00 CEST), Rev.3 (S16-S28) is spec-stage only.
+
+[2026-05-29T12:18:18Z] T-199 — M20 cluster 1: aios-cognitive L5 agent/plan/memory gRPC made real
+  context: "оправи всичко" audit found 2 deferred surfaces over-claimed as REAL. User chose: implement M20 now.
+           M20 discharges both; cluster 1 = cognitive (this), cluster 2 = Tier-3 verification primitives (next).
+  changes:
+    crates/aios-cognitive/src/service/server.rs   : 10 RPCs implemented over Arc<RwLock<HashMap>> stores; live info counts; interpret_verification helper
+    crates/aios-cognitive/tests/grpc_roundtrip.rs : tests 4-13 flipped from Code::Unimplemented to real-behaviour assertions
+    crates/aios-cognitive/tests/m11_closure.rs    : invariant 3 strengthened — zero Status::unimplemented in src/service
+  verification: cargo test --workspace -> 4473 passed, 0 failed; clippy -p aios-cognitive --all-targets -D warnings clean; fmt clean
+  result: T-199 committed b6223f6, pushed origin+personal. INV-002 preserved (typed never-executed proposal). No version bump.
+  status: SUCCESS (cluster 1). M20 in progress.
+  next: M20 cluster 2 — StateProbe trait + tier3::execute (22 primitives) + executor/engine wiring + flip tier3/acceptance/m8_closure/executor tests. No dependency cycle (verified). Design: workflow wf_7a8c4dc4-230.

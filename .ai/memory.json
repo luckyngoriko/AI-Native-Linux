@@ -1,9 +1,9 @@
 {
   "project_goal": "AIOS — AI-native Linux distribution. Implement the spec contracts from rev.2 (53 sub-specs CONTRACT-grade) into working Rust code, following §22 MVP golden path discipline.",
-  "current_milestone": "M19 aios-distribution — CLOSED at T-198 (6259a26). Rev.2 FULL-REAL: ALL 19/19 implementation milestones closed. 480 crate / 4473 workspace tests. L0-L10 fully REAL (E2+).",
-  "current_task_id": "T-198",
-  "current_task_title": "T-198 COMMITTED — M19 closer: aios-distribution version 0.0.1->0.1.0, m19_closure.rs version marker reconciled to 0.1.0 (fn version_marker_is_0_1_0), m19_acceptance.rs 4 S11.1 fixtures (19-record vocab / critical-CVE auto-quarantine / verification-failure->record mapping / append-only verifiable evidence chain), MILESTONES.md M17+M18+M19 closure markers + Rev.2 FULL-REAL banner. 4473 workspace tests, clippy -D warnings clean, fmt clean.",
-  "current_step": "T-198 committed at 6259a26. M19 CLOSED — 19/19 milestones complete. REV.2 FULL-REAL. No next implementation milestone; Rev.2 is done.",
+  "current_milestone": "M20 (discharge deferred surfaces) — IN PROGRESS. Cluster 1 (L5 cognitive 10 gRPC RPCs) DONE at T-199 (b6223f6). Cluster 2 (L9 22 Tier-3 verification primitives) designed (StateProbe approach; no dependency cycle) but NOT yet implemented. Rev.2 itself is FULL-REAL (19/19) at 6259a26.",
+  "current_task_id": "T-199",
+  "current_task_title": "T-199 COMMITTED — M20 cluster 1: aios-cognitive 10 L5 agent/plan/memory gRPC RPCs made real (in-memory stores on CognitiveCoreServiceImpl, proto types stored directly, no trait change). grpc_roundtrip tests 4-13 flipped to real behaviour; m11_closure invariant 3 strengthened (no Status::unimplemented). INV-002 preserved. Workspace 4473 passed/0 failed; clippy+fmt clean. No version bump.",
+  "current_step": "T-199 committed at b6223f6 (pushed origin+personal). NEXT: M20 cluster 2 — implement StateProbe trait + tier3::execute for 22 primitives + wire executor/engine + flip primitives_tier3/acceptance_fixtures/m8_closure/executor tests. Design in workflow wf_7a8c4dc4-230. See [[aios-deferred-surfaces]].",
   "files_touched": [
     "crates/aios-distribution/Cargo.toml",
     "crates/aios-distribution/tests/m19_closure.rs",

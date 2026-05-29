@@ -1,4 +1,4 @@
-//! M19 closure invariants — `aios-distribution` v0.0.1 (S11.1).
+//! M19 closure invariants — `aios-distribution` v0.1.0 (S11.1).
 //!
 //! Closure-criteria checks (MILESTONES §"Closure criteria" #5/#6): the crate
 //! version marker is correct and the headline closed vocabularies are complete.
@@ -16,13 +16,15 @@ use aios_distribution::{
     extended_60m_variants, forever_variants, standard_24m_variants, DistributionRecordType,
 };
 
-/// #5 — M19 closes `aios-distribution` at version `0.0.1`.
+/// #5 — M19 closes `aios-distribution` at version `0.1.0` (MILESTONES closure
+/// criterion #5: every milestone bumps its crate `0.0.1` → `0.1.0`). Closing M19
+/// marks **Rev.2 FULL-REAL** — 19/19 implementation milestones.
 #[test]
-fn version_marker_is_0_0_1() {
+fn version_marker_is_0_1_0() {
     assert_eq!(
         env!("CARGO_PKG_VERSION"),
-        "0.0.1",
-        "M19 closes aios-distribution at v0.0.1"
+        "0.1.0",
+        "M19 closes aios-distribution at v0.1.0"
     );
 }
 

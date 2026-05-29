@@ -144,6 +144,23 @@ dependencies = [
 ]
 
 [[package]]
+name = "aios-distribution"
+version = "0.0.1"
+dependencies = [
+ "aios-action",
+ "aios-evidence",
+ "aios-policy",
+ "async-trait",
+ "chrono",
+ "serde",
+ "serde_json",
+ "thiserror 2.0.18",
+ "tokio",
+ "tracing",
+ "ulid",
+]
+
+[[package]]
 name = "aios-evidence"
 version = "0.1.0"
 dependencies = [

@@ -1,0 +1,304 @@
+syntax = "proto3";
+
+package aios.distribution.v1alpha1;
+
+// ═════════════════════════════════════════════════════════════════════════════
+// Distribution enums — mirror the Rust closed enums (S11.1)
+// ═════════════════════════════════════════════════════════════════════════════
+
+enum PublisherTrustLevel {
+  PUBLISHER_TRUST_UNSPECIFIED = 0;
+  AIOS_ROOT = 1;
+  VERIFIED = 2;
+  COMMUNITY = 3;
+  DEPRECATED = 4;
+  DEPLATFORMED = 5;
+}
+
+enum RepositoryKind {
+  REPOSITORY_KIND_UNSPECIFIED = 0;
+  AIOS_ROOT_REPO = 1;
+  AIOS_VERIFIED_REPO = 2;
+  AIOS_COMMUNITY_REPO = 3;
+  AIOS_RECOVERY_REPO = 4;
+  EXTERNAL_BRIDGE = 5;
+}
+
+enum UpdateChannel {
+  UPDATE_CHANNEL_UNSPECIFIED = 0;
+  STABLE = 1;
+  BETA = 2;
+  RECOVERY_CRITICAL = 3;
+  DEPRECATED_RETENTION = 4;
+}
+
+enum PackageKind {
+  PACKAGE_KIND_UNSPECIFIED = 0;
+  APP = 1;
+  AGENT = 2;
+  THEME = 3;
+  INVARIANT_BUNDLE = 4;
+  POLICY_BUNDLE = 5;
+  IDENTITY_BUNDLE = 6;
+  KERNEL_CANDIDATE = 7;
+  ADAPTER = 8;
+  CAPABILITY_CATALOG_DELTA = 9;
+}
+
+enum InstallScope {
+  INSTALL_SCOPE_UNSPECIFIED = 0;
+  SYSTEM_ONLY = 1;
+  GROUP_SCOPED = 2;
+  USER_SCOPED = 3;
+  EITHER = 4;
+}
+
+enum PackageInstallState {
+  PACKAGE_INSTALL_STATE_UNSPECIFIED = 0;
+  DRAFT = 1;
+  VALIDATING = 2;
+  AWAITING_APPROVAL = 3;
+  APPROVED = 4;
+  INSTALLING = 5;
+  ACTIVE = 6;
+  QUARANTINED = 7;
+  UNINSTALLING = 8;
+  REMOVED = 9;
+  INSTALL_FAILED = 10;
+}
+
+enum PackageVerificationResult {
+  PACKAGE_VERIFICATION_UNSPECIFIED = 0;
+  VERIFIED_AIOS_ROOT = 1;
+  VERIFIED_PUBLISHER = 2;
+  SIGNATURE_FAILED = 3;
+  TRUST_CHAIN_BROKEN = 4;
+  TRUST_CHAIN_TOO_DEEP = 5;
+  PUBLISHER_DEPLATFORMED = 6;
+  HASH_MISMATCH = 7;
+  MANIFEST_FORGED = 8;
+  REPOSITORY_KIND_MISMATCH = 9;
+  CAPABILITY_LIE = 10;
+  BUNDLE_TAMPERED = 11;
+}
+
+enum MirrorSemantic {
+  MIRROR_SEMANTIC_UNSPECIFIED = 0;
+  ORIGIN = 1;
+  CACHED = 2;
+  LOCAL = 3;
+}
+
+enum TakedownReason {
+  TAKEDOWN_REASON_UNSPECIFIED = 0;
+  MALICIOUS_BEHAVIOR_DETECTED = 1;
+  SUPPLY_CHAIN_COMPROMISE = 2;
+  CAPABILITY_LIE_DETECTED = 3;
+  LEGAL_REQUIREMENT = 4;
+  PUBLISHER_REQUEST = 5;
+  KEY_COMPROMISE = 6;
+  ABANDONED_AFTER_INACTIVE_TTL = 7;
+}
+
+enum CveEnforcementLevel {
+  CVE_ENFORCEMENT_UNSPECIFIED = 0;
+  MONITOR = 1;
+  NOTIFY = 2;
+  QUARANTINE_CANDIDATE = 3;
+  AUTO_QUARANTINE = 4;
+}
+
+// ═════════════════════════════════════════════════════════════════════════════
+// RepositoryService — verify, install, mirror, CVE, downgrade
+// ═════════════════════════════════════════════════════════════════════════════
+
+// ── VerifyTrustChain ─────────────────────────────────────────────────────────
+
+message VerifyTrustChainRequest {
+  string publisher_root_id = 1;
+  string package_signing_key_id = 2;
+  bytes payload = 3;
+  bytes payload_signature = 4;
+  bytes publisher_root_link_sig = 5;
+  bytes signing_key_link_sig = 6;
+}
+
+message VerificationReply {
+  PackageVerificationResult result = 1;
+}
+
+// ── VerifyManifest ───────────────────────────────────────────────────────────
+
+message VerifyManifestRequest {
+  string package_id = 1;
+  string version = 2;
+  PackageKind kind = 3;
+  PublisherTrustLevel publisher_trust = 4;
+  string publisher_root_id = 5;
+  string package_signing_key_id = 6;
+  string content_hash = 7;
+  string manifest_canonical_hash = 8;
+  bytes ed25519_signature = 9;
+  InstallScope installable_scope = 10;
+  string required_sandbox = 11;
+  repeated string declared_capabilities = 12;
+  string network_manifest = 13;
+  string issued_at_rfc3339 = 14;
+  UpdateChannel channel = 15;
+  RepositoryKind originating_repository = 16;
+  string mirror_url = 17;
+  MirrorSemantic mirror_semantic = 18;
+  bytes publisher_root_link_sig = 19;
+  bytes signing_key_link_sig = 20;
+  PublisherTrustLevel publisher_trust_as_catalog = 21;
+}
+
+// ── RunInstall ───────────────────────────────────────────────────────────────
+
+message RunInstallRequest {
+  VerifyManifestRequest manifest = 1;
+  bool fetch_success = 2;
+  string fetched_content_hash = 3;
+  MirrorSemantic fetched_mirror_semantic = 4;
+}
+
+message InstallOutcomeReply {
+  PackageInstallState final_state = 1;
+  PackageVerificationResult result = 2;
+  string failed_step = 3;
+}
+
+// ── CheckDowngrade ───────────────────────────────────────────────────────────
+
+message CheckDowngradeRequest {
+  string package_id = 1;
+  string version = 2;
+}
+
+message DowngradeReply {
+  bool allowed = 1;
+  string code = 2;
+}
+
+// ── ResolveMirror ────────────────────────────────────────────────────────────
+
+message ResolveMirrorRequest {
+  string manifest_content_hash = 1;
+  string mirror_url = 2;
+  MirrorSemantic mirror_semantic = 3;
+}
+
+message MirrorReply {
+  string endpoint_url = 1;
+  MirrorSemantic semantic = 2;
+}
+
+// ── EvaluateCve ──────────────────────────────────────────────────────────────
+
+message EvaluateCveRequest {
+  string package_id = 1;
+  string cve_id = 2;
+  float cvss = 3;
+}
+
+message CveReply {
+  string action = 1;
+}
+
+// ═════════════════════════════════════════════════════════════════════════════
+// PublisherService — catalog, rotation, deplatform, health check
+// ═════════════════════════════════════════════════════════════════════════════
+
+message GetPublisherRequest {
+  string publisher_root_id = 1;
+}
+
+message PublisherEntry {
+  string publisher_root_id = 1;
+  PublisherTrustLevel trust_level = 2;
+  bool retired = 3;
+}
+
+message PublisherReply {
+  PublisherTrustLevel trust_level = 1;
+  bool retired = 2;
+}
+
+message ListPublishersRequest {}
+
+message ListPublishersReply {
+  repeated PublisherEntry publishers = 1;
+}
+
+// ── RotatePublisherKey ───────────────────────────────────────────────────────
+
+message RotateRequest {
+  string publisher_root_id = 1;
+  bytes old_public_key = 2;
+  bytes new_public_key = 3;
+  bytes old_root_signature_over_new = 4;
+  bytes aios_root_signature = 5;
+  string rotated_at_rfc3339 = 6;
+  TakedownReason reason = 7;
+  string compromise_window_start_rfc3339 = 8;
+}
+
+message RotateReply {
+  bool ok = 1;
+  repeated string revoked_signing_key_ids = 2;
+  bool reactive = 3;
+}
+
+// ── DeplatformPublisher ──────────────────────────────────────────────────────
+
+message DeplatformRequest {
+  string publisher_root_id = 1;
+  TakedownReason reason = 2;
+  string deplatformed_at_rfc3339 = 3;
+  string grace_period_ends_at_rfc3339 = 4;
+  string evidence_pointer = 5;
+  bytes aios_root_signature = 6;
+}
+
+message DeplatformReply {
+  bool ok = 1;
+}
+
+// ── HealthCheckQuarantine ────────────────────────────────────────────────────
+
+message HealthCheckRequest {
+  repeated InstalledPackage installed = 1;
+  repeated string revoked_signing_key_ids = 2;
+}
+
+message InstalledPackage {
+  string package_id = 1;
+  string publisher_root_id = 2;
+  string signing_key_id = 3;
+  PackageInstallState state = 4;
+}
+
+message HealthCheckReply {
+  repeated string quarantined_package_ids = 1;
+}
+
+// ═════════════════════════════════════════════════════════════════════════════
+// Service definitions
+// ═════════════════════════════════════════════════════════════════════════════
+
+service RepositoryService {
+  rpc VerifyTrustChain(VerifyTrustChainRequest) returns (VerificationReply);
+  rpc VerifyManifest(VerifyManifestRequest) returns (VerificationReply);
+  rpc RunInstall(RunInstallRequest) returns (InstallOutcomeReply);
+  rpc CheckDowngrade(CheckDowngradeRequest) returns (DowngradeReply);
+  rpc ResolveMirror(ResolveMirrorRequest) returns (MirrorReply);
+  rpc EvaluateCve(EvaluateCveRequest) returns (CveReply);
+}
+
+service PublisherService {
+  rpc GetPublisher(GetPublisherRequest) returns (PublisherReply);
+  rpc ListPublishers(ListPublishersRequest) returns (ListPublishersReply);
+  rpc RotatePublisherKey(RotateRequest) returns (RotateReply);
+  rpc DeplatformPublisher(DeplatformRequest) returns (DeplatformReply);
+  rpc HealthCheckQuarantine(HealthCheckRequest) returns (HealthCheckReply);
+}

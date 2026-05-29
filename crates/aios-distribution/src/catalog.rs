@@ -77,6 +77,12 @@ impl PublisherCatalog {
     pub fn get_mut(&mut self, id: &PublisherRootId) -> Option<&mut PublisherRoot> {
         self.entries.iter_mut().find(|e| e.publisher_root_id == *id)
     }
+
+    /// Returns all entries in the catalog (for enumeration / listing).
+    #[must_use]
+    pub fn entries(&self) -> &[PublisherRoot] {
+        &self.entries
+    }
 }
 
 impl Default for PublisherCatalog {

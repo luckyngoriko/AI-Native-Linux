@@ -755,10 +755,10 @@ fn pipeline_step_label_all_non_empty() {
 }
 
 // ============================================================================
-// 24 — DEFAULT_CODE_VERSION → aios-distribution/0.0.1-T194
+// 24 — DEFAULT_CODE_VERSION → aios-distribution/0.0.1-T195
 // ============================================================================
 
 #[test]
 fn default_code_version_constant_is_t194() {
-    assert_eq!(DEFAULT_CODE_VERSION, "aios-distribution/0.0.1-T194");
+    assert_eq!(DEFAULT_CODE_VERSION, "aios-distribution/0.0.1-T195");
 }

@@ -48,6 +48,7 @@
 
 pub mod canonical;
 pub mod catalog;
+pub mod cve_binding;
 pub mod deplatform;
 pub mod downgrade;
 pub mod error;
@@ -55,6 +56,7 @@ pub mod ids;
 pub mod install_fsm;
 pub mod install_pipeline;
 pub mod install_state;
+pub mod lie_audit;
 pub mod manifest;
 pub mod manifest_pipeline;
 pub mod mirror;
@@ -73,6 +75,7 @@ pub mod version;
 
 pub use canonical::{content_hash, manifest_canonical_hash, signing_payload};
 pub use catalog::{PublisherCatalog, SigningKeyCatalog};
+pub use cve_binding::{apply_cve_binding, CveAction, CveEnforcementLevel, PackageCveBinding};
 pub use deplatform::{
     apply_deplatform, default_grace_end, extend_grace, grace_expired, health_check_quarantine,
     returning_publisher_default_trust, verify_deplatform_event, InstalledPackageRecord,
@@ -85,10 +88,13 @@ pub use ids::{
 };
 pub use install_fsm::{apply as apply_install_state, can_transition};
 pub use install_pipeline::{
-    run_install, ApprovalOutcome, FetchedBytesMeta, InMemoryPipelineDeps, InstallOutcome,
-    InstallPipelineDeps, PipelineStep, PolicyOutcome, StepFailure,
+    run_first_run_audit, run_install, ApprovalOutcome, FetchedBytesMeta, InMemoryPipelineDeps,
+    InstallOutcome, InstallPipelineDeps, PipelineStep, PolicyOutcome, StepFailure,
 };
 pub use install_state::{PackageInstallState, PackageVerificationResult};
+pub use lie_audit::{
+    apply_audit_outcome, AuditOutcome, CapabilityObservation, FirstRunAudit, ObservationSource,
+};
 pub use manifest::{NetworkManifestRef, PackageManifest, SandboxProfileRef};
 pub use manifest_pipeline::{is_eol, validate_fields, verify_manifest, ManifestField};
 pub use mirror::MirrorSemantic;
@@ -120,4 +126,4 @@ pub use version::{parse as parse_semver, SemVer};
 /// This constant anchors the crate's identity at compile time so that closure
 /// tests (T-198) can verify the distribution layer shipped with the correct
 /// typed contract before cross-crate wiring lands in T-197.
-pub const DEFAULT_CODE_VERSION: &str = "aios-distribution/0.0.1-T193";
+pub const DEFAULT_CODE_VERSION: &str = "aios-distribution/0.0.1-T194";

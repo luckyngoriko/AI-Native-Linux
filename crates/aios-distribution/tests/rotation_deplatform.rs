@@ -796,12 +796,12 @@ fn deplatform_is_not_reversible_by_publisher_action() {
 }
 
 // ============================================================================
-// 21 — DEFAULT_CODE_VERSION constant is "aios-distribution/0.0.1-T193"
+// 21 — DEFAULT_CODE_VERSION constant is "aios-distribution/0.0.1-T194"
 // ============================================================================
 
 #[test]
 fn default_code_version_constant_is_correct() {
-    assert_eq!(DEFAULT_CODE_VERSION, "aios-distribution/0.0.1-T193");
+    assert_eq!(DEFAULT_CODE_VERSION, "aios-distribution/0.0.1-T194");
 }
 
 // ============================================================================

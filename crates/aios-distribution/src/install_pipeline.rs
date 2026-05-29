@@ -27,6 +27,7 @@ use chrono::Utc;
 
 use crate::install_fsm;
 use crate::install_state::{PackageInstallState, PackageVerificationResult};
+use crate::lie_audit::{self, AuditOutcome, FirstRunAudit};
 use crate::manifest::PackageManifest;
 use crate::manifest_pipeline::verify_manifest;
 use crate::mirror::MirrorSemantic;
@@ -777,19 +778,16 @@ pub fn run_install(
     }
 
     // ── Step 17: First-run capability-lie audit ─────────────────────────
-    // T-194: NOT executed here. The pipeline STOPS at Active.
-    // When T-194 lands, a 60-second observation window will compare
-    // declared vs. observed capabilities and transition Active → Quarantined
-    // on drift, emitting FOREVER CAPABILITY_LIE_DETECTED evidence.
+    // T-194: Implemented in [`crate::lie_audit`]. The pipeline STOPS at
+    // Active (step 16). The audit is a SEPARATE post-activation call via
+    // [`run_first_run_audit`] so it stays deterministic and test-injectable
+    // (no wall-clock dependency).
     //
-    // Hook signature (T-194):
-    //   fn run_first_run_capability_lie_audit(
-    //       manifest: &PackageManifest,
-    //       capability_observer: &dyn CapabilityObserver,
-    //   ) -> Result<(), CapabilityLieDetected>;
+    // Call after step 16:
+    //   let outcome = run_first_run_audit(&audit, &mut state, now);
     //
-    // Integration point: call this function from the runtime monitor after
-    // step 16 completes, within the 60-second window per §9.
+    // On drift, the state transitions Active → Quarantined and the outcome
+    // is CapabilityLie. Evidence emission (CAPABILITY_LIE_DETECTED) is T-196.
 
     InstallOutcome {
         final_state: PackageInstallState::Active,
@@ -819,6 +817,43 @@ const fn install_failed_outcome(
         result,
         failed_step,
     }
+}
+
+// ============================================================================
+// run_first_run_audit — step-17 post-activation convenience (§6.17)
+// ============================================================================
+
+/// Runs the first-run capability-lie audit (pipeline step 17, §6.17).
+///
+/// This is a **separate post-activation call** — [`run_install`] stops at
+/// `Active` (step 16). The runtime monitor calls this function after the
+/// 60-second observation window closes.
+///
+/// # What it does
+///
+/// 1. Calls [`FirstRunAudit::evaluate`] to compare `observed ⊆ declared`.
+/// 2. Calls [`lie_audit::apply_audit_outcome`] to transition the FSM state.
+///
+/// # Returns
+///
+/// The [`AuditOutcome`]:
+/// - [`AuditOutcome::Passed`] — all observed capabilities are declared; state
+///   stays `Active`.
+/// - [`AuditOutcome::Failed`] — under-declaration detected; state transitions
+///   `Active → Quarantined`; the `drift` field contains the undeclared
+///   capability IDs (sorted, deterministic).
+///
+/// See [`crate::lie_audit`] for the full audit type, `§9` semantics, and the
+/// `§9.4` no-re-audit-release rule.
+#[must_use]
+pub fn run_first_run_audit(
+    audit: &FirstRunAudit,
+    state: &mut PackageInstallState,
+    now: DateTime<Utc>,
+) -> AuditOutcome {
+    let outcome = audit.evaluate(now);
+    let _ = lie_audit::apply_audit_outcome(state, &outcome);
+    outcome
 }
 
 // ============================================================================

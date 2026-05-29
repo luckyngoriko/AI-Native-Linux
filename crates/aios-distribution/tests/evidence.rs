@@ -255,7 +255,10 @@ fn wire_name_for_all_19_variants_matches_spec() {
             "PACKAGE_APPROVAL_REQUESTED",
             DistributionRecordType::PackageApprovalRequested,
         ),
-        ("PACKAGE_INSTALLED", DistributionRecordType::PackageInstalled),
+        (
+            "PACKAGE_INSTALLED",
+            DistributionRecordType::PackageInstalled,
+        ),
         (
             "PACKAGE_INSTALL_FAILED",
             DistributionRecordType::PackageInstallFailed,
@@ -487,10 +490,7 @@ async fn emitter_inserts_evidence_receipt() {
     let emitter = DistributionEvidenceEmitter::new("test:distribution");
     let pkg = PackageId("pkg:test:lib".into());
 
-    emitter
-        .emit_package_installed(&pkg)
-        .await
-        .expect("emit");
+    emitter.emit_package_installed(&pkg).await.expect("emit");
     emitter
         .emit_package_quarantined(&pkg, "test")
         .await

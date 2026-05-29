@@ -31,7 +31,7 @@ use chrono::Utc;
 
 /// Integration contract (M19 ↔ M18): a publisher may distribute packages only once
 /// its M18 integration lifecycle has reached a deployable state.
-fn publisher_may_distribute(state: &IntegrationLifecycleState) -> bool {
+const fn publisher_may_distribute(state: &IntegrationLifecycleState) -> bool {
     matches!(
         state,
         IntegrationLifecycleState::Piloted { .. } | IntegrationLifecycleState::Production { .. }

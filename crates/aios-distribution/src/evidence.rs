@@ -215,7 +215,9 @@ pub fn record_type_for_failure(result: PackageVerificationResult) -> Distributio
         // ── Failure → specific §17 evidence types ──
         PackageVerificationResult::SignatureFailed
         | PackageVerificationResult::RepositoryKindMismatch
-        | PackageVerificationResult::BundleTampered => DistributionRecordType::PackageVerificationFailed,
+        | PackageVerificationResult::BundleTampered => {
+            DistributionRecordType::PackageVerificationFailed
+        }
         PackageVerificationResult::TrustChainBroken => DistributionRecordType::TrustChainBroken,
         PackageVerificationResult::TrustChainTooDeep => DistributionRecordType::TrustChainTooDeep,
         PackageVerificationResult::PublisherDeplatformed => {
@@ -227,10 +229,9 @@ pub fn record_type_for_failure(result: PackageVerificationResult) -> Distributio
         PackageVerificationResult::ManifestForged => DistributionRecordType::ManifestForged,
         PackageVerificationResult::CapabilityLie => DistributionRecordType::CapabilityLieDetected,
         // ── Success variants: caller must not pass these ──
-        PackageVerificationResult::VerifiedAiosRoot | PackageVerificationResult::VerifiedPublisher => {
-            unreachable!(
-                "record_type_for_failure called with success variant: {result:?}"
-            )
+        PackageVerificationResult::VerifiedAiosRoot
+        | PackageVerificationResult::VerifiedPublisher => {
+            unreachable!("record_type_for_failure called with success variant: {result:?}")
         }
     }
 }
@@ -302,14 +303,20 @@ impl DistributionEvidenceEmitter {
     #[must_use]
     pub async fn get_record_type(&self, index: usize) -> Option<RecordType> {
         let chain = self.chain.read().await;
-        chain.receipts().get(index).map(|r| r.record_type())
+        chain
+            .receipts()
+            .get(index)
+            .map(aios_evidence::EvidenceReceipt::record_type)
     }
 
     /// Return the retention class at the given 0-based index (test seam).
     #[must_use]
     pub async fn get_retention_class(&self, index: usize) -> Option<RetentionClass> {
         let chain = self.chain.read().await;
-        chain.receipts().get(index).map(|r| r.retention_class())
+        chain
+            .receipts()
+            .get(index)
+            .map(aios_evidence::EvidenceReceipt::retention_class)
     }
 
     /// Verify the full hash-chain integrity (test seam).
@@ -486,7 +493,7 @@ impl DistributionEvidenceEmitter {
         .await
     }
 
-    /// Emit a `PACKAGE_DOWNGRADE_BLOCKED` evidence record (EXTENDED_60M).
+    /// Emit a `PACKAGE_DOWNGRADE_BLOCKED` evidence record (`EXTENDED_60M`).
     ///
     /// # Errors
     ///
@@ -598,7 +605,10 @@ mod tests {
     #[test]
     fn wire_name_matches_spec_for_all_19() {
         let expected: [(&str, DistributionRecordType); 19] = [
-            ("PACKAGE_FETCH_STARTED", DistributionRecordType::PackageFetchStarted),
+            (
+                "PACKAGE_FETCH_STARTED",
+                DistributionRecordType::PackageFetchStarted,
+            ),
             ("PACKAGE_VERIFIED", DistributionRecordType::PackageVerified),
             (
                 "PACKAGE_VERIFICATION_FAILED",
@@ -608,7 +618,10 @@ mod tests {
                 "PACKAGE_APPROVAL_REQUESTED",
                 DistributionRecordType::PackageApprovalRequested,
             ),
-            ("PACKAGE_INSTALLED", DistributionRecordType::PackageInstalled),
+            (
+                "PACKAGE_INSTALLED",
+                DistributionRecordType::PackageInstalled,
+            ),
             (
                 "PACKAGE_INSTALL_FAILED",
                 DistributionRecordType::PackageInstallFailed,
@@ -629,7 +642,10 @@ mod tests {
                 "CAPABILITY_LIE_DETECTED",
                 DistributionRecordType::CapabilityLieDetected,
             ),
-            ("TRUST_CHAIN_BROKEN", DistributionRecordType::TrustChainBroken),
+            (
+                "TRUST_CHAIN_BROKEN",
+                DistributionRecordType::TrustChainBroken,
+            ),
             (
                 "TRUST_CHAIN_TOO_DEEP",
                 DistributionRecordType::TrustChainTooDeep,
@@ -671,8 +687,10 @@ mod tests {
 
     #[test]
     fn wire_names_distinct_count_is_19() {
-        let names: std::collections::BTreeSet<&str> =
-            DistributionRecordType::all().iter().map(|v| v.wire_name()).collect();
+        let names: std::collections::BTreeSet<&str> = DistributionRecordType::all()
+            .iter()
+            .map(|v| v.wire_name())
+            .collect();
         assert_eq!(names.len(), 19, "all 19 wire_names must be distinct");
     }
 
@@ -738,10 +756,7 @@ mod tests {
             (DistributionRecordType::PackageInstallFailed, Extended60M),
             (DistributionRecordType::PackageQuarantined, Forever),
             (DistributionRecordType::PackageUninstalled, Standard24M),
-            (
-                DistributionRecordType::PackageDowngradeBlocked,
-                Extended60M,
-            ),
+            (DistributionRecordType::PackageDowngradeBlocked, Extended60M),
             (DistributionRecordType::CapabilityLieDetected, Forever),
             (DistributionRecordType::TrustChainBroken, Forever),
             (DistributionRecordType::TrustChainTooDeep, Forever),
@@ -894,10 +909,7 @@ mod tests {
 
         let payload = emitter.get_payload(0).await.expect("payload");
         assert_eq!(payload["package_id"], "pkg:evil:tool");
-        assert_eq!(
-            payload["reason"],
-            "capability-lie detected at audit"
-        );
+        assert_eq!(payload["reason"], "capability-lie detected at audit");
     }
 
     #[tokio::test]
@@ -983,11 +995,7 @@ mod tests {
         let pkg = PackageId("pkg:acme:app".into());
 
         emitter
-            .emit_mirror_hash_mismatch_blacklisted(
-                &pkg,
-                "abc123def456...",
-                "999999badbad...",
-            )
+            .emit_mirror_hash_mismatch_blacklisted(&pkg, "abc123def456...", "999999badbad...")
             .await
             .expect("emit_mirror_hash_mismatch_blacklisted");
 
@@ -1049,10 +1057,7 @@ mod tests {
             )
             .await
             .expect("2");
-        emitter
-            .emit_package_installed(&pkg)
-            .await
-            .expect("3");
+        emitter.emit_package_installed(&pkg).await.expect("3");
 
         assert_eq!(emitter.receipt_count().await, 3);
         emitter.verify_chain().await.expect("chain must verify");

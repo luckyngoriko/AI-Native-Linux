@@ -149,6 +149,7 @@ version = "0.0.1"
 dependencies = [
  "aios-action",
  "aios-evidence",
+ "aios-integration",
  "aios-policy",
  "async-trait",
  "blake3",

@@ -1,16 +1,13 @@
 {
   "project_goal": "AIOS — AI-native Linux distribution. Implement the spec contracts from rev.2 (53 sub-specs CONTRACT-grade) into working Rust code, following §22 MVP golden path discipline.",
-  "current_milestone": "M18 aios-integration — CLOSED at T-186 (ef05903). 31 closure + 6 acceptance tests. 339 crate / 3993 workspace. Next: M19 aios-distribution (T-187..T-198).",
-  "current_task_id": "T-186",
-  "current_task_title": "T-186 COMMITTED — M18 closer: S11.4 spec finalised (REAL), version 0.0.1→0.1.0, 31 closure-invariant tests (m18_closure.rs, 937 lines), 6 acceptance tests (m18_acceptance.rs, 442 lines), skeleton.rs version assert fix, MILESTONES.md M18 row ✓ closed, all 5 gates green (3993 workspace tests)",
-  "current_step": "T-186 committed at ef05903. M18 CLOSED — 15/19 milestones complete. M19 next.",
+  "current_milestone": "M19 aios-distribution — CLOSED at T-198 (6259a26). Rev.2 FULL-REAL: ALL 19/19 implementation milestones closed. 480 crate / 4473 workspace tests. L0-L10 fully REAL (E2+).",
+  "current_task_id": "T-198",
+  "current_task_title": "T-198 COMMITTED — M19 closer: aios-distribution version 0.0.1->0.1.0, m19_closure.rs version marker reconciled to 0.1.0 (fn version_marker_is_0_1_0), m19_acceptance.rs 4 S11.1 fixtures (19-record vocab / critical-CVE auto-quarantine / verification-failure->record mapping / append-only verifiable evidence chain), MILESTONES.md M17+M18+M19 closure markers + Rev.2 FULL-REAL banner. 4473 workspace tests, clippy -D warnings clean, fmt clean.",
+  "current_step": "T-198 committed at 6259a26. M19 CLOSED — 19/19 milestones complete. REV.2 FULL-REAL. No next implementation milestone; Rev.2 is done.",
   "files_touched": [
-    "crates/aios-integration/Cargo.toml",
-    "crates/aios-integration/src/lib.rs",
-    "crates/aios-integration/tests/skeleton.rs",
-    "crates/aios-integration/tests/m18_closure.rs",
-    "crates/aios-integration/tests/m18_acceptance.rs",
-    "002.AI-OS.NET--SPECREV.2/L10_Distribution_Ecosystem_Marketplace/04_integration_process.md",
+    "crates/aios-distribution/Cargo.toml",
+    "crates/aios-distribution/tests/m19_closure.rs",
+    "crates/aios-distribution/tests/m19_acceptance.rs",
     "MILESTONES.md",
     "Cargo.lock"
   ],
@@ -43,11 +40,8 @@
     "UnifiedRecordCatalogue is pre-populated via default_index_entries() which returns 64 CatalogueEntry values"
   ],
   "last_errors": [
-    "CveStatus::Active does not exist — renamed to CveStatus::Open in tests 4, 7, 8",
-    "Orphan rule violation — moved evidence_emitter() accessor from test file into harness.rs",
-    "CVE IDs with non-numeric suffixes rejected — changed E2E01/CONCC to 99998/77777",
-    "clippy::items_after_statements on use IRT inside fn body — moved use to top of fn",
-    "clippy::redundant_closure_for_method_calls (3 occurrences) — replaced .map(|x| x.m()) with .map(Type::m)"
+    "M19 parallel-factory race: a claude-ds T-196 worker (brief /tmp/t196-claudeds-brief.md) ran concurrently with the main session, both editing crates/aios-distribution. Factory committed its own T-196 (317f466) reverting my premature version bump to 0.0.1 and writing m19_closure.rs asserting 0.0.1. RESOLUTION: per user decision, let the factory finish T-196; then T-198 (the closer, my task) bumped 0.0.1->0.1.0 and reconciled m19_closure.rs to assert 0.1.0. History has duplicate T-196 (b72c224 mine + 317f466 factory) — harmless; 317f466 is the final state. LESSON: a milestone-closer task (version bump + version marker) must NOT run in parallel with a scope-limited evidence task on the same crate; the closer owns the version.",
+    "Version-marker authority: MILESTONES closure criterion #5 mandates 0.0.1->0.1.0 on the closing crate. A scoped worker that only adds evidence will leave version at 0.0.1 and may write a closure test asserting 0.0.1 — the closer must override both."
   ],
-  "last_verification_result": "All 5 gates PASS. 3993 workspace tests. 339 aios-integration tests. M18 CLOSED. T-186 COMMITTED at ef05903."
+  "last_verification_result": "All 4 gates PASS. 4473 workspace tests / 0 failed. 480 aios-distribution crate tests. clippy -D warnings clean, fmt clean. M19 CLOSED. T-198 COMMITTED at 6259a26. REV.2 FULL-REAL — 19/19 milestones."
 }

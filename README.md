@@ -112,6 +112,7 @@ AI -> sudo bash
 .
 ├── 001.AI-OS.NET--SPECREV.1/      # Frozen Rev.1 vision and specification
 ├── 002.AI-OS.NET--SPECREV.2/      # Active Rev.2 layered contract pack
+├── 003.AI-OS.NET--SPECREV.3/      # Rev.3 forward spec pack (S16–S28, CONTRACT)
 ├── 003.GRANT_APPLICATIONS/         # Public grant application records
 ├── site/                           # Public Astro site for ai-os.net
 ├── CODE_OF_CONDUCT.md              # Community standards
@@ -128,6 +129,7 @@ AI -> sudo bash
 
 - [Rev.1 frozen](001.AI-OS.NET--SPECREV.1/00_MASTER_INDEX.md) — initial architecture vision (do not edit).
 - [Rev.2 active](002.AI-OS.NET--SPECREV.2/00_MASTER_INDEX.md) — layered, agent-readable distribution contract.
+- [Rev.3 forward](003.AI-OS.NET--SPECREV.3/00_MASTER_INDEX.md) — forward sub-specs S16–S28, CONTRACT-grade (not implemented).
 
 Rev.2 is organized as L0–L10. A layer may depend on its own layer and lower-numbered layers; it must not require a higher-numbered layer for correctness.
 

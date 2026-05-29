@@ -886,3 +886,21 @@ T-186: M18 closer + acceptance test + v0.1.0 version bump + S11.4 sub-spec final
   Status: SUCCESS (spec CONTRACT-complete; REAL still needs implementation milestones)
   Next: implementation waves R3-W1.. (per 00_MASTER_INDEX §5) OR git commit on user request
 ────────────────────────────────────────────────────────────
+
+[2026-05-29T11:13:09Z] T-198 — M19 closer (aios-distribution) → REV.2 FULL-REAL
+  context: parallel claude-ds T-196 worker (brief /tmp/t196-claudeds-brief.md) ran concurrently on the same crate.
+           User decision: let factory finish T-196 (committed 317f466 at version 0.0.1); main session does T-198 (the closer).
+  commands:
+    cargo test --workspace            -> 4473 passed, 0 failed (exit 0)
+    cargo test -p aios-distribution   -> 480 passed, 0 failed
+    cargo fmt --check                 -> clean
+    cargo clippy -p aios-distribution --all-targets -- -D warnings -> exit 0 (1 benign pre-existing manifest-key warning in aios-integration)
+  changes:
+    crates/aios-distribution/Cargo.toml            : version 0.0.1 -> 0.1.0 (closure criterion #5)
+    crates/aios-distribution/tests/m19_closure.rs  : version marker reconciled 0.0.1 -> 0.1.0 (fn version_marker_is_0_1_0)
+    crates/aios-distribution/tests/m19_acceptance.rs: NEW — 4 S11.1 acceptance fixtures
+    MILESTONES.md                                  : M17+M18+M19 closure markers + Rev.2 FULL-REAL banner; M19 row -> closed; last-update line
+    Cargo.lock                                     : aios-distribution 0.0.1 -> 0.1.0
+  result: T-198 committed at 6259a26. M19 CLOSED. ALL 19/19 implementation milestones closed.
+  status: SUCCESS — Rev.2 FULL-REAL (L0-L10 all REAL at E2+).
+  next: Rev.2 implementation is complete. No further implementation milestone. Optional follow-ups: GitNexus reindex, NLnet Rev.2 proposal (deadline 2026-06-01 12:00 CEST), Rev.3 (S16-S28) is spec-stage only.

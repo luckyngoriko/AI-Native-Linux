@@ -13,6 +13,10 @@ firebase-debug.log
 # Site-ready public assets live under site/public/.
 logo/
 
+# Private funding / grant research — must NOT be committed to the public repo.
+# (Public grant records live under 003.GRANT_APPLICATIONS/.)
+docs/
+
 # OS / editor noise
 .DS_Store
 Thumbs.db
@@ -31,6 +35,7 @@ __pycache__/
 
 # Capella tooling
 tools/capella/.venv/
+tools/capella/.capella-venv/
 tools/capella/output/build_report.json
 tools/capella/output/gap_report.json
 

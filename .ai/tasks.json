@@ -3,6 +3,12 @@
   "in_progress": [],
   "completed": [
     {
+      "id": "T-198",
+      "title": "aios-distribution — M19 closer (v0.1.0) -> Rev.2 FULL-REAL (19/19)",
+      "completed_at": "2026-05-29",
+      "evidence": "Commit 6259a26. aios-distribution 0.0.1->0.1.0, m19_closure.rs version marker 0.1.0, m19_acceptance.rs 4 S11.1 fixtures, MILESTONES.md M17/M18/M19 markers + FULL-REAL banner. 4473 workspace tests / 0 failed; 480 crate tests; clippy -D warnings + fmt clean. Closes M19 -> all 19 milestones closed. NOTE: this 'completed' array is a partial historical log (last fully maintained at T-180); the authoritative closed-state is the 'milestones' object above (all M1-M19 status=closed) + MILESTONES.md. Deferred surfaces (cognitive RPCs, Tier-3 verification primitives) remain a future milestone."
+    },
+    {
       "id": "T-180",
       "title": "aios-integration — Compliance baseline snapshot + control map",
       "completed_at": "2026-05-28",
@@ -966,7 +972,7 @@
       "rationale": "SandboxProfile + GpuPolicy + SandboxComposer + ResourceLimitEnforcer — 6-source merge + resource enforcement + syscall allowlist per S3.2."
     },
     "M13": {
-      "status": "planned",
+      "status": "closed",
       "title": "Apps + Packages + Compatibility + Session Container",
       "sub_specs": ["S12.1", "S12.2", "S12.3", "S12.4", "S6.5"],
       "layer": "L6",
@@ -974,65 +980,55 @@
       "rationale": "Cross-ecosystem runtimes (Linux/Windows/Android via sandboxed adapters). DEC-056 session container."
     },
     "M14": {
-      "status": "planned",
+      "status": "closed",
       "title": "KDE Plasma Renderer + Surface + Shared UI Schema",
       "sub_specs": ["S7.1", "S7.2", "S7.4"],
       "layer": "L7",
       "target_crate": "aios-renderer-kde",
-      "rationale": "S7.1↔S8.2 vocabulary relocation (W12+ scheduled in Capella iter 5 finding) may land here."
+      "rationale": "Surface composition + 19-variant NodeKind UI schema + KDE Plasma renderer; cxx-qt bridge behind qt-bridge feature."
     },
     "M15": {
-      "status": "planned",
+      "status": "closed",
       "title": "Web Renderer",
       "sub_specs": ["S7.5"],
       "layer": "L7",
       "target_crate": "aios-renderer-web",
-      "rationale": "Localhost-only by default per INV-021. LAN/remote exposure gated by explicit policy."
+      "rationale": "Localhost-only by default per INV-021. LAN/remote exposure gated by explicit policy (ExposureFsm INV I3)."
     },
     "M16": {
-      "status": "in_progress",
-      "title": "Network Policy + DNS/VPN + Firmware Trust",
+      "status": "closed",
+      "title": "Network Policy + DNS/VPN + Firewall",
       "sub_specs": ["S8.1", "S8.4", "S8.5"],
       "layer": "L8",
       "target_crate": "aios-network",
-      "completed_tasks": ["T-151", "T-152", "T-153"],
-      "current_test_count": 97,
-      "workspace_test_count": 3131,
       "rationale": "AICrossOriginPosture enforcement, AI_DIRECT_INTERNET_DENIED record (referenced by M3 T-022)."
     },
     "M17": {
-      "status": "planned",
-      "title": "Hardware Graph + GPU Resource Model",
+      "status": "closed",
+      "title": "Hardware Graph + GPU Resource Model + Firmware Trust",
       "sub_specs": ["S8.3", "S8.2"],
       "layer": "L8",
       "target_crate": "aios-hardware",
-      "rationale": "GpuCapabilityClass + GpuCapabilityBinding (referenced by M3 T-018 hard-deny + M3 T-020 constraints)."
+      "rationale": "GpuCapabilityClass + GpuCapabilityBinding + firmware trust (referenced by M3 T-018 hard-deny + M3 T-020 constraints)."
     },
     "M18": {
-      "status": "planned",
+      "status": "closed",
+      "title": "System Integration Layer",
+      "sub_specs": ["S11.4"],
+      "layer": "L10",
+      "target_crate": "aios-integration",
+      "rationale": "Typed IntegrationLifecycleState FSM + Ed25519-signed VendorIntegrationContract registry + ExternalStandardSubscription + ServiceComposition topological order + aios-system orchestrator. Renumbered 2026-05-28 to land BEFORE distribution so M19 consumes it."
+    },
+    "M19": {
+      "status": "closed",
       "title": "Repository Model + Distribution + Marketplace",
       "sub_specs": ["S11.1"],
       "layer": "L10",
       "target_crate": "aios-distribution",
-      "rationale": "Signed package distribution, publisher trust chain (referenced by M3 T-022 + M4 T-028 manifest discipline)."
+      "rationale": "Signed package distribution, publisher trust chain, CVE-aware install. Consumes M18 integration framework. Closed at T-198 (6259a26) -> Rev.2 FULL-REAL (19/19). Deferred surfaces (cognitive RPCs, Tier-3 verification primitives) tracked as a future milestone."
     }
   },
-  "roadmap_version": "2026-05-24-M5_M18-recorded",
-  "roadmap_total_milestones": 18,
-  "roadmap_remaining_after_M4": [
-    "M5",
-    "M6",
-    "M7",
-    "M8",
-    "M9",
-    "M10",
-    "M11",
-    "M12",
-    "M13",
-    "M14",
-    "M15",
-    "M16",
-    "M17",
-    "M18"
-  ]
+  "roadmap_version": "2026-05-29-M19-closed-FULL-REAL",
+  "roadmap_total_milestones": 19,
+  "roadmap_remaining_after_M4": []
 }

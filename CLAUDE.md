@@ -4,9 +4,9 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## What this repository is
 
-**AIOS — AI-Native Linux Distribution.** A specification-stage project for a real Linux distribution whose distinguishing layer is a Unified Cognitive Shell: a cognitive core, policy kernel, and append-only evidence log on top of a standard Linux substrate. Human goals become typed, policy-checked, verified system actions.
+**AIOS — AI-Native Linux Distribution.** A real Linux distribution whose distinguishing layer is a Unified Cognitive Shell: a cognitive core, policy kernel, and append-only evidence log on top of a standard Linux substrate. Human goals become typed, policy-checked, verified system actions.
 
-The repository is currently in **specification-only phase** — no source code, no build system, no test suite. Active work is the rev.2 layered specification.
+The Rev.2 L0–L10 layer model is now **implemented** (Rev.2 FULL-REAL): 19 Rust crates under `crates/` (a Cargo workspace), 4473 workspace tests passing (0 failed), all four cargo gates green (check / test / clippy `-D warnings` / fmt). It is **not** yet a bootable ISO or released distribution and has no CI workflow. **Known deferred surfaces** — tested as DEFERRED, not claimed REAL: the L5 Cognitive Core agent/plan/memory gRPC methods (`aios-cognitive`, deferred post-T-101) and ~22 Tier-3 cross-layer verification primitives (`aios-verification/src/primitives/tier3.rs`). Active spec work is the Rev.3 forward pack (`003.AI-OS.NET--SPECREV.3/`, S16–S28, CONTRACT-grade).
 
 ## Repository layout
 
@@ -35,18 +35,26 @@ The repository is currently in **specification-only phase** — no source code, 
 │   ├── L10_Distribution_Ecosystem_Marketplace/
 │   └── XX_Cross_Cutting/               # contracts shared by multiple layers
 │
+├── 003.AI-OS.NET--SPECREV.3/           # Rev.3 forward spec (S16–S28, CONTRACT-grade)
+├── Cargo.toml                          # Rust workspace root (19 member crates)
+├── crates/                             # Rev.2 implementation — 19 crates (aios-action … aios-distribution)
+├── tools/                              # tooling incl. Capella traceability
+├── site/                               # public Astro site for ai-os.net
+├── docs/                               # private working docs (gitignored — funding/grant research)
+├── logo/                               # brand source assets (gitignored)
+├── MILESTONES.md                        # milestone log (M1–M19 closed)
 ├── README.md                            # top-level navigation
 ├── CLAUDE.md                            # this file
 ├── ai-os-logo-home.png
 └── .gitignore
 ```
 
-Each layer folder starts with `00_overview.md` (responsibility, invariants, dependencies, planned sub-specs) and grows numbered sub-spec files (`01_<topic>.md`, `02_<topic>.md`, ...) as work progresses.
+Each layer folder starts with `00_overview.md` (responsibility, invariants, dependencies, sub-specs) and numbered sub-spec files (`01_<topic>.md`, `02_<topic>.md`, ...). All 52 Rev.2 sub-specs are contract-grade and implemented across the `crates/` workspace (see `MILESTONES.md`).
 
 ## Authoritative source of truth
 
 - **Rev.1** (`001.AI-OS.NET--SPECREV.1/02_SPECIFICATION.md`) is the **frozen** engineering contract. Do not modify; corrections go into rev.2.
-- **Rev.2** (`002.AI-OS.NET--SPECREV.2/`) is the **active** specification. Each sub-spec under a layer folder is contract-grade for that topic when its status reaches `REAL`.
+- **Rev.2** (`002.AI-OS.NET--SPECREV.2/`) is the canonical specification, now implemented in `crates/` — L0–L10 reached `REAL` (E2+) across the milestone scopes (see `MILESTONES.md`). Each sub-spec under a layer folder is contract-grade for its topic.
 - **Rev.2 master index** (`002.AI-OS.NET--SPECREV.2/00_MASTER_INDEX.md`) is the navigation entry point and the sub-spec roadmap.
 
 When the user gives a high-level objective, map it to:
@@ -122,21 +130,24 @@ record the full evidence chain → show the result in a renderer.
 
 Acceptance criteria for the prototype are enumerated in §22 — use them as the test plan, not as suggestions.
 
-## What this repo currently lacks (and how to handle it)
+## Implementation state (Rev.2 FULL-REAL)
 
-- **No `git init` yet.** Before any commits, confirm with the user, then initialize. Do not silently create a repo as a side effect of unrelated work.
-- **No build files** (`Cargo.toml`, `pyproject.toml`, `package.json`, etc.). When adding the first one, place it according to the layer it implements (e.g. an L3 SGR service in `crates/aios-sgr/`, a renderer in `apps/web/`). Confirm the workspace layout with the user before scattering files.
-- **No tests, no CI.** First implementation work should bring up the verification harness alongside the code, since the spec requires evidence (E2+) for `REAL` status.
-- **No `.gitignore`.** `firebase-debug.log` and `.playwright-mcp/` snapshots should not be committed when the repo is initialized.
+- **Git initialized.** Branch `main` at HEAD `6259a26`, pushed to `origin` (`ai-os-dot-net/AI-Native-Linux`); a `personal` mirror also exists.
+- **Cargo workspace exists.** Root `Cargo.toml` defines 19 member crates under `crates/` (`aios-action` … `aios-distribution`); 18 at v0.1.0, `aios-action` at v0.0.1 (workspace default). Place new crates under `crates/` per the layer they implement.
+- **Tests + gates green.** 4473 workspace tests pass (0 failed); all four cargo gates pass (check / test / clippy `-D warnings` / fmt). There is **no CI workflow yet** (`.github/workflows` absent) — gates run locally.
+- **`.gitignore` present.** `target/`, build artefacts, snapshot dirs, `logo/`, and `docs/` (private funding research) are ignored.
+- **Known deferred surfaces** (tested as DEFERRED, **not** claimed REAL — do not assert these are REAL without an evidence chain): the L5 Cognitive Core agent/plan/memory gRPC methods (`crates/aios-cognitive/src/service/server.rs`, deferred post-T-101) and ~22 Tier-3 cross-layer verification primitives (`crates/aios-verification/src/primitives/tier3.rs`, `DEFERRED_PRIMITIVES`). Their dependency layers (M16/M17) now exist, so making them REAL is a viable future milestone.
+- **Still missing for a real distro:** a bootable installer ISO / released distribution, and a CI pipeline. Rev.3 (`003.AI-OS.NET--SPECREV.3`, S16–S28) is specification-stage CONTRACT only.
 
 ## Communication
 
 The user is a Bulgarian non-programmer infrastructure operator (see `~/CLAUDE.md`). Reply in Bulgarian unless asked otherwise, explain in operational terms (what changed, what works, what is blocked, what comes next), and never claim completion without evidence — this is enforced by the global operating mode.
 
 <!-- gitnexus:start -->
+
 # GitNexus — Code Intelligence
 
-This project is indexed by GitNexus as **055.AI-OS.NET--LINUX-AI** (19999 symbols, 48724 relationships, 300 execution flows). Use the GitNexus MCP tools to understand code, assess impact, and navigate safely.
+This project is indexed by GitNexus as **055.AI-OS.NET--LINUX-AI** (21487 symbols, 52400 relationships, 300 execution flows). Use the GitNexus MCP tools to understand code, assess impact, and navigate safely.
 
 > If any GitNexus tool warns the index is stale, run `npx gitnexus analyze` in terminal first.
 
@@ -170,35 +181,36 @@ This project is indexed by GitNexus as **055.AI-OS.NET--LINUX-AI** (19999 symbol
 
 ## Tools Quick Reference
 
-| Tool | When to use | Command |
-|------|-------------|---------|
-| `query` | Find code by concept | `gitnexus_query({query: "auth validation"})` |
-| `context` | 360-degree view of one symbol | `gitnexus_context({name: "validateUser"})` |
-| `impact` | Blast radius before editing | `gitnexus_impact({target: "X", direction: "upstream"})` |
-| `detect_changes` | Pre-commit scope check | `gitnexus_detect_changes({scope: "staged"})` |
-| `rename` | Safe multi-file rename | `gitnexus_rename({symbol_name: "old", new_name: "new", dry_run: true})` |
-| `cypher` | Custom graph queries | `gitnexus_cypher({query: "MATCH ..."})` |
+| Tool             | When to use                   | Command                                                                 |
+| ---------------- | ----------------------------- | ----------------------------------------------------------------------- |
+| `query`          | Find code by concept          | `gitnexus_query({query: "auth validation"})`                            |
+| `context`        | 360-degree view of one symbol | `gitnexus_context({name: "validateUser"})`                              |
+| `impact`         | Blast radius before editing   | `gitnexus_impact({target: "X", direction: "upstream"})`                 |
+| `detect_changes` | Pre-commit scope check        | `gitnexus_detect_changes({scope: "staged"})`                            |
+| `rename`         | Safe multi-file rename        | `gitnexus_rename({symbol_name: "old", new_name: "new", dry_run: true})` |
+| `cypher`         | Custom graph queries          | `gitnexus_cypher({query: "MATCH ..."})`                                 |
 
 ## Impact Risk Levels
 
-| Depth | Meaning | Action |
-|-------|---------|--------|
-| d=1 | WILL BREAK — direct callers/importers | MUST update these |
-| d=2 | LIKELY AFFECTED — indirect deps | Should test |
-| d=3 | MAY NEED TESTING — transitive | Test if critical path |
+| Depth | Meaning                               | Action                |
+| ----- | ------------------------------------- | --------------------- |
+| d=1   | WILL BREAK — direct callers/importers | MUST update these     |
+| d=2   | LIKELY AFFECTED — indirect deps       | Should test           |
+| d=3   | MAY NEED TESTING — transitive         | Test if critical path |
 
 ## Resources
 
-| Resource | Use for |
-|----------|---------|
-| `gitnexus://repo/055.AI-OS.NET--LINUX-AI/context` | Codebase overview, check index freshness |
-| `gitnexus://repo/055.AI-OS.NET--LINUX-AI/clusters` | All functional areas |
-| `gitnexus://repo/055.AI-OS.NET--LINUX-AI/processes` | All execution flows |
-| `gitnexus://repo/055.AI-OS.NET--LINUX-AI/process/{name}` | Step-by-step execution trace |
+| Resource                                                 | Use for                                  |
+| -------------------------------------------------------- | ---------------------------------------- |
+| `gitnexus://repo/055.AI-OS.NET--LINUX-AI/context`        | Codebase overview, check index freshness |
+| `gitnexus://repo/055.AI-OS.NET--LINUX-AI/clusters`       | All functional areas                     |
+| `gitnexus://repo/055.AI-OS.NET--LINUX-AI/processes`      | All execution flows                      |
+| `gitnexus://repo/055.AI-OS.NET--LINUX-AI/process/{name}` | Step-by-step execution trace             |
 
 ## Self-Check Before Finishing
 
 Before completing any code modification task, verify:
+
 1. `gitnexus_impact` was run for all modified symbols
 2. No HIGH/CRITICAL risk warnings were ignored
 3. `gitnexus_detect_changes()` confirms changes match expected scope
@@ -224,13 +236,13 @@ To check whether embeddings exist, inspect `.gitnexus/meta.json` — the `stats.
 
 ## CLI
 
-| Task | Read this skill file |
-|------|---------------------|
-| Understand architecture / "How does X work?" | `.claude/skills/gitnexus/gitnexus-exploring/SKILL.md` |
-| Blast radius / "What breaks if I change X?" | `.claude/skills/gitnexus/gitnexus-impact-analysis/SKILL.md` |
-| Trace bugs / "Why is X failing?" | `.claude/skills/gitnexus/gitnexus-debugging/SKILL.md` |
-| Rename / extract / split / refactor | `.claude/skills/gitnexus/gitnexus-refactoring/SKILL.md` |
-| Tools, resources, schema reference | `.claude/skills/gitnexus/gitnexus-guide/SKILL.md` |
-| Index, status, clean, wiki CLI commands | `.claude/skills/gitnexus/gitnexus-cli/SKILL.md` |
+| Task                                         | Read this skill file                                        |
+| -------------------------------------------- | ----------------------------------------------------------- |
+| Understand architecture / "How does X work?" | `.claude/skills/gitnexus/gitnexus-exploring/SKILL.md`       |
+| Blast radius / "What breaks if I change X?"  | `.claude/skills/gitnexus/gitnexus-impact-analysis/SKILL.md` |
+| Trace bugs / "Why is X failing?"             | `.claude/skills/gitnexus/gitnexus-debugging/SKILL.md`       |
+| Rename / extract / split / refactor          | `.claude/skills/gitnexus/gitnexus-refactoring/SKILL.md`     |
+| Tools, resources, schema reference           | `.claude/skills/gitnexus/gitnexus-guide/SKILL.md`           |
+| Index, status, clean, wiki CLI commands      | `.claude/skills/gitnexus/gitnexus-cli/SKILL.md`             |
 
 <!-- gitnexus:end -->

@@ -10,23 +10,28 @@ Source of truth: `.ai/tasks.json` (machine-readable). This document is the human
 - Tasks within a milestone are labeled `T-NNN`, sequential across milestones (T-001 .. T-035 are M1..M4; T-036+ continue into M5+).
 - Cross-milestone debt is forbidden by the global `feedback_no_technical_debt.md` rule.
 
-## Status snapshot (2026-05-25)
+## Status snapshot — Rev.2 FULL-REAL (updated 2026-05-29)
 
-| Milestone      | Crate                   | Sub-specs                       | Layer              | Status   |    Tests |
-| -------------- | ----------------------- | ------------------------------- | ------------------ | -------- | -------: |
-| M1             | aios-action             | S0.1                            | XX (cross-cutting) | ✓ closed |      102 |
-| M2             | aios-evidence           | S3.1                            | L9                 | ✓ closed |      262 |
-| M3             | aios-policy             | S2.3                            | L4                 | ✓ closed |      235 |
-| M4             | aios-capability-runtime | S10.1                           | L3                 | ✓ closed |      222 |
-| M5             | aios-fs                 | S1.3, S2.1, S2.2, S4.1          | L2                 | ✓ closed |      176 |
-| M6             | aios-vault              | S5.1, S5.2, S5.4                | L4                 | ✓ closed |      163 |
-| M7             | aios-renderer-cli       | S7.6                            | L7                 | ✓ closed |      121 |
-| M8             | aios-verification       | S2.4                            | L9                 | ✓ closed |      141 |
-| M9             | aios-recovery           | S9.1, S9.2, S9.3                | L1                 | ✓ closed |      137 |
-| M10            | aios-sgr                | S15.1, S15.2, S15.3             | L3                 | ✓ closed |      169 |
-| M11            | aios-cognitive          | S1.1, S1.2, S13.1, S13.2, S14.1 | L5                 | ✓ closed |      174 |
-| M12            | aios-sandbox            | S3.2                            | L6                 | ✓ closed |      230 |
-| **Total done** | **14 crates**           | **24 / 53 sub-specs**           | —                  | —        | **3345** |
+**All 19/19 milestones closed: 19 crates, 4473 workspace tests (0 failed), all four cargo gates green.** The table below is the MVP-era (M1–M12) per-crate breakdown; M13–M19 detail is in the closure markers and milestone tables further down.
+
+> **Deferred surfaces** — tested as DEFERRED, **not** claimed REAL. "FULL-REAL" means every milestone's _closed scope_ is REAL (E2+), not that every RPC/primitive is implemented. Known deferrals: the L5 Cognitive Core agent/plan/memory gRPC methods (`crates/aios-cognitive/src/service/server.rs`, deferred post-T-101, asserted in `m11_closure.rs`) and ~22 Tier-3 cross-layer verification primitives (`crates/aios-verification/src/primitives/tier3.rs` `DEFERRED_PRIMITIVES`, asserted in M8 acceptance tests). Their dependency layers (M16/M17) now exist, so discharging them is a viable future milestone.
+
+| Milestone         | Crate                   | Sub-specs                       | Layer              | Status      |    Tests |
+| ----------------- | ----------------------- | ------------------------------- | ------------------ | ----------- | -------: |
+| M1                | aios-action             | S0.1                            | XX (cross-cutting) | ✓ closed    |      102 |
+| M2                | aios-evidence           | S3.1                            | L9                 | ✓ closed    |      262 |
+| M3                | aios-policy             | S2.3                            | L4                 | ✓ closed    |      235 |
+| M4                | aios-capability-runtime | S10.1                           | L3                 | ✓ closed    |      222 |
+| M5                | aios-fs                 | S1.3, S2.1, S2.2, S4.1          | L2                 | ✓ closed    |      176 |
+| M6                | aios-vault              | S5.1, S5.2, S5.4                | L4                 | ✓ closed    |      163 |
+| M7                | aios-renderer-cli       | S7.6                            | L7                 | ✓ closed    |      121 |
+| M8                | aios-verification       | S2.4                            | L9                 | ✓ closed    |      141 |
+| M9                | aios-recovery           | S9.1, S9.2, S9.3                | L1                 | ✓ closed    |      137 |
+| M10               | aios-sgr                | S15.1, S15.2, S15.3             | L3                 | ✓ closed    |      169 |
+| M11               | aios-cognitive          | S1.1, S1.2, S13.1, S13.2, S14.1 | L5                 | ✓ closed    |      174 |
+| M12               | aios-sandbox            | S3.2                            | L6                 | ✓ closed    |      230 |
+| _M1–M12 subtotal_ | _12 crates_             | _24 / 53 sub-specs_             | —                  | —           |   _2132_ |
+| **Project total** | **19 crates**           | **see tables below**            | L0–L10             | ✓ **19/19** | **4473** |
 
 **§22 FULL-REAL MVP marker:** the golden path has no stubs. Boot is real via `InMemoryRecoveryBoundary` + `FirstBootDriver` + `KernelPipelineDriver`; mount/object/view are real through `InMemoryAiosFs`; action/policy/adapter/verification/evidence are real through runtime, policy, adapter registry, `VerificationEngine`, and signed evidence; render is real through `aios-renderer-cli`.
 

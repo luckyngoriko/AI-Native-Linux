@@ -151,7 +151,7 @@ async fn fixture_13_2_http_probe_error_is_distinct_from_failed_verdict() -> Test
     assert!(result.per_primitive[0]
         .error
         .as_deref()
-        .is_some_and(|error| error.contains("deferred to M16")));
+        .is_some_and(|error| error.contains("state source unavailable")));
     Ok(())
 }
 
@@ -255,7 +255,7 @@ async fn fixture_13_7_property_append_only_maps_to_current_deferred_evidence_pro
     assert!(result.per_primitive[0]
         .error
         .as_deref()
-        .is_some_and(|error| error.contains("deferred to M16")));
+        .is_some_and(|error| error.contains("state source unavailable")));
     Ok(())
 }
 
@@ -276,7 +276,7 @@ async fn fixture_13_8_property_tamper_detected_maps_to_current_deferred_chain_pr
     assert!(result.per_primitive[0]
         .error
         .as_deref()
-        .is_some_and(|error| error.contains("deferred to M16")));
+        .is_some_and(|error| error.contains("state source unavailable")));
     Ok(())
 }
 

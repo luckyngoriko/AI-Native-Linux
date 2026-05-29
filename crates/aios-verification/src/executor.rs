@@ -17,7 +17,7 @@ use ulid::Ulid;
 
 use crate::engine::VerificationContext;
 use crate::in_memory_engine::InMemoryVerificationEngine;
-use crate::primitives::{self, LocalProbe, PrimitiveTier};
+use crate::primitives::{self, LocalProbe, PrimitiveTier, StateProbe};
 use crate::{
     IntentId, PrimitiveInvocation, PrimitiveResult, VerificationDuration, VerificationDurationUnit,
     VerificationGrammar, VerificationResult, VerificationStatus,
@@ -30,6 +30,7 @@ type EvalFuture<'a> = Pin<Box<dyn Future<Output = NodeOutcome> + Send + 'a>>;
 pub struct VerificationExecutor {
     engine: Arc<InMemoryVerificationEngine>,
     local_probe: Arc<dyn LocalProbe>,
+    state_probe: Arc<dyn StateProbe>,
     default_timeout_ms: u64,
 }
 
@@ -39,11 +40,13 @@ impl VerificationExecutor {
     pub const fn new(
         engine: Arc<InMemoryVerificationEngine>,
         local_probe: Arc<dyn LocalProbe>,
+        state_probe: Arc<dyn StateProbe>,
         default_timeout_ms: u64,
     ) -> Self {
         Self {
             engine,
             local_probe,
+            state_probe,
             default_timeout_ms,
         }
     }
@@ -337,7 +340,12 @@ impl VerificationExecutor {
                     .await
                 }
                 PrimitiveTier::Tier3 => {
-                    primitives::tier3::deferred_result(invocation.kind, &invocation.args)
+                    primitives::tier3::execute(
+                        invocation.kind,
+                        &invocation.args,
+                        self.state_probe.as_ref(),
+                    )
+                    .await
                 }
             }
         };

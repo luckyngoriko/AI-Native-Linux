@@ -21,7 +21,9 @@ use aios_verification::{
 
 type TestResult<T = ()> = Result<T, Box<dyn Error + Send + Sync>>;
 
-const M16_DEFERRED_NETWORK_PRIMITIVES: [VerificationPrimitive; 6] = [
+// M20 made these network/DNS/mDNS Tier-3 primitives REAL (resolved through a
+// StateProbe). This list keeps them covered by tests as a regression guard.
+const NETWORK_TIER3_PRIMITIVES: [VerificationPrimitive; 6] = [
     VerificationPrimitive::HttpOk,
     VerificationPrimitive::NetworkSubjectOutboundClass,
     VerificationPrimitive::NetworkActiveExposureClass,
@@ -70,7 +72,7 @@ const M8_PRIMITIVE_TEST_PATHS: [VerificationPrimitive; 36] = [
 ];
 
 const DEFERRED_SURFACE_NOTES: [&str; 3] = [
-    "Tier-3 network/control-plane probes (HTTP_OK, NETWORK_* and DNS/MDNS/VPN family) return ProbeError in M8 and are documented as M16 aios-network/control-plane integration work.",
+    "Tier-3 cross-layer probes (HTTP_OK, NETWORK_*, DNS/MDNS/VPN, AIOS-FS, policy, evidence, renderer, GPU, approval) are REAL as of M20: they resolve through an injected StateProbe and produce real Passed/Failed verdicts, returning ProbeError only when no state source is configured (StdStateProbe default).",
     "S3.1 currently exposes VERIFICATION_RESULT but no VERIFICATION_STARTED or PRIMITIVE_EXECUTED RecordType; M8 folds start/result/primitive payloads into VERIFICATION_RESULT.",
     "VerificationFailed maps to ExecutionFailureReason::AdapterRefused because the M4 runtime failure enum is frozen and has no dedicated verification-failed variant.",
 ];
@@ -197,11 +199,11 @@ fn at_least_thirty_verification_primitives_have_test_paths() -> TestResult {
         "expected at least 30 primitive variants with a test path, got {}: {covered:?}",
         covered.len()
     );
-    for primitive in M16_DEFERRED_NETWORK_PRIMITIVES {
+    for primitive in NETWORK_TIER3_PRIMITIVES {
         assert!(
             tests.contains(primitive.as_wire_str())
                 || tests.contains(&format!("VerificationPrimitive::{primitive:?}")),
-            "M16-deferred primitive must still be named by tests: {primitive:?}"
+            "network Tier-3 primitive must be covered by tests: {primitive:?}"
         );
     }
     Ok(())
@@ -217,7 +219,7 @@ fn runtime_verification_adapter_implements_cross_crate_trait() {
 #[test]
 fn deferred_surfaces_are_documented_without_new_m8_debt() {
     assert!(DEFERRED_SURFACE_NOTES.iter().any(|note| {
-        note.contains("Tier-3") && note.contains("M16") && note.contains("ProbeError")
+        note.contains("Tier-3") && note.contains("StateProbe") && note.contains("ProbeError")
     }));
     assert!(DEFERRED_SURFACE_NOTES
         .iter()

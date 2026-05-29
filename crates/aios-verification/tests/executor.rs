@@ -14,9 +14,9 @@ use std::time::Duration;
 
 use aios_action::ActionId;
 use aios_verification::{
-    InMemoryVerificationEngine, LocalProbe, PrimitiveInvocation, VerificationContext,
-    VerificationDuration, VerificationDurationUnit, VerificationExecutor, VerificationGrammar,
-    VerificationPrimitive, VerificationStatus,
+    InMemoryVerificationEngine, LocalProbe, PrimitiveInvocation, StdStateProbe,
+    VerificationContext, VerificationDuration, VerificationDurationUnit, VerificationExecutor,
+    VerificationGrammar, VerificationPrimitive, VerificationStatus,
 };
 use async_trait::async_trait;
 use chrono::Utc;
@@ -38,6 +38,7 @@ fn executor(probe: Arc<dyn LocalProbe>, default_timeout_ms: u64) -> Verification
     VerificationExecutor::new(
         Arc::new(InMemoryVerificationEngine::new()),
         probe,
+        Arc::new(StdStateProbe),
         default_timeout_ms,
     )
 }

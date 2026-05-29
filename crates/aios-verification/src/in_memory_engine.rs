@@ -18,7 +18,7 @@ use crate::engine::{VerificationContext, VerificationEngine};
 use crate::evidence_emit::VerificationEvidenceEmitter;
 use crate::executor::{per_primitive_timeout_ms, primitive_count, VerificationExecutor};
 use crate::grammar_parser;
-use crate::primitives::{LocalProbe, StdLocalProbe};
+use crate::primitives::{LocalProbe, StateProbe, StdLocalProbe, StdStateProbe};
 use crate::{
     IntentId, PrimitiveInvocation, VerificationError, VerificationGrammar, VerificationIntent,
     VerificationPrimitive, VerificationResult,
@@ -29,6 +29,7 @@ use crate::{
 pub struct InMemoryVerificationEngine {
     completed: Arc<RwLock<HashMap<IntentId, VerificationResult>>>,
     local_probe: Arc<dyn LocalProbe>,
+    state_probe: Arc<dyn StateProbe>,
     evidence_emitter: Option<Arc<VerificationEvidenceEmitter>>,
 }
 
@@ -37,6 +38,7 @@ impl fmt::Debug for InMemoryVerificationEngine {
         f.debug_struct("InMemoryVerificationEngine")
             .field("completed", &self.completed)
             .field("local_probe", &"<dyn LocalProbe>")
+            .field("state_probe", &"<dyn StateProbe>")
             .field("evidence_emitter", &self.evidence_emitter)
             .finish()
     }
@@ -47,6 +49,7 @@ impl Default for InMemoryVerificationEngine {
         Self {
             completed: Arc::new(RwLock::new(HashMap::new())),
             local_probe: Arc::new(StdLocalProbe),
+            state_probe: Arc::new(StdStateProbe),
             evidence_emitter: None,
         }
     }
@@ -63,6 +66,16 @@ impl InMemoryVerificationEngine {
     #[must_use]
     pub fn with_local_probe(mut self, probe: Arc<dyn LocalProbe>) -> Self {
         self.local_probe = probe;
+        self
+    }
+
+    /// Replace the Tier-3 cross-layer state probe. Without one, Tier-3
+    /// primitives fail closed with a `PROBE_ERROR`. A real deployment injects a
+    /// probe backed by the live L2/L4/L8/L9 state holders; tests inject a
+    /// [`crate::MockStateProbe`].
+    #[must_use]
+    pub fn with_state_probe(mut self, probe: Arc<dyn StateProbe>) -> Self {
+        self.state_probe = probe;
         self
     }
 
@@ -100,6 +113,7 @@ impl VerificationEngine for InMemoryVerificationEngine {
         let executor = VerificationExecutor::new(
             Arc::new(self.clone()),
             Arc::clone(&self.local_probe),
+            Arc::clone(&self.state_probe),
             default_timeout_ms,
         );
         let mut result = executor

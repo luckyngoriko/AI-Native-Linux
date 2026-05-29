@@ -366,6 +366,66 @@ impl LocalProbe for MockLocalProbe {
     }
 }
 
+/// Read-only cross-layer state provider for Tier-3 primitives (M20).
+///
+/// Tier-3 primitives verify state owned by OTHER layers (the evidence log,
+/// policy decision log, AIOS-FS namespace, renderer surfaces, GPU bindings,
+/// network/DNS/VPN/mDNS posture, approval bindings). The actual observed state
+/// MUST come from here — never from the caller's `expected` payload — so a
+/// caller cannot fabricate a verdict. This mirrors the Tier-2 [`LocalProbe`]
+/// injection. `observe` returns the observed-state shape for `(primitive, key)`
+/// or `None` when the source is unavailable / the id is not found (→ a
+/// `PROBE_ERROR` verdict, kept distinct from a `failed` verdict).
+#[async_trait]
+pub trait StateProbe: Send + Sync {
+    /// Return the observed state for `primitive` keyed by `key`, or `None`.
+    async fn observe(&self, primitive: VerificationPrimitive, key: &str) -> Option<Value>;
+}
+
+/// Production state probe with no configured source.
+///
+/// Every Tier-3 observation returns `None`, so primitives fail closed with a
+/// `PROBE_ERROR` ("state source not configured") rather than a misleading pass.
+/// A real deployment injects a probe backed by the live L2/L4/L8/L9 state
+/// holders.
+#[derive(Debug, Clone, Copy, Default)]
+pub struct StdStateProbe;
+
+#[async_trait]
+impl StateProbe for StdStateProbe {
+    async fn observe(&self, _primitive: VerificationPrimitive, _key: &str) -> Option<Value> {
+        None
+    }
+}
+
+/// Deterministic Tier-3 state fixture for integration tests.
+#[derive(Debug, Clone, Default)]
+pub struct MockStateProbe {
+    /// Canned observed state keyed by `(primitive, key)`.
+    pub observed: HashMap<(VerificationPrimitive, String), Value>,
+}
+
+impl MockStateProbe {
+    /// Seed an observed-state response for `(primitive, key)`.
+    #[must_use]
+    pub fn with_observed(
+        mut self,
+        primitive: VerificationPrimitive,
+        key: impl Into<String>,
+        observed: Value,
+    ) -> Self {
+        self.observed.insert((primitive, key.into()), observed);
+        self
+    }
+}
+
+#[async_trait]
+impl StateProbe for MockStateProbe {
+    async fn observe(&self, primitive: VerificationPrimitive, key: &str) -> Option<Value> {
+        self.observed.get(&(primitive, key.to_owned())).cloned()
+    }
+}
+
 pub(crate) fn required_str<'a>(payload: &'a Value, field: &str) -> Result<&'a str, ProbeVerdict> {
     payload.get(field).and_then(Value::as_str).ok_or_else(|| {
         ProbeVerdict::probe_error(format!("missing required string field `{field}`"))

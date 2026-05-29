@@ -38,7 +38,9 @@ pub use grammar::{
 pub use in_memory_engine::{compile_intent, InMemoryVerificationEngine};
 pub use intent::{IntentId, VerificationIntent};
 pub use primitive::VerificationPrimitive;
-pub use primitives::{LocalProbe, MockLocalProbe, StdLocalProbe};
+pub use primitives::{
+    LocalProbe, MockLocalProbe, MockStateProbe, StateProbe, StdLocalProbe, StdStateProbe,
+};
 pub use result::{PrimitiveResult, VerificationResult, VerificationStatus};
 pub use runtime_adapter::VerificationRuntimeAdapter;
 pub use service::{

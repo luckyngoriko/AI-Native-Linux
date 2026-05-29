@@ -74,6 +74,13 @@ const rev3Planes = [
   },
 ];
 
+const rev2Real = [
+  'The §22 golden path runs end-to-end with no stubs: recovery-safe boot, mount /aios, a versioned AIOS-FS object, a semantic view, one verified typed action, an append-only evidence chain, and a rendered result.',
+  'Every layer is REAL with E2+ evidence: cognitive core, policy kernel, capability runtime, AIOS-FS, vault broker, renderers (CLI / KDE / Web), network, hardware, and distribution.',
+  'The constitution is enforced in code, not prose — AI proposes-never-executes (INV-002 at six sites), recovery without cognition, secrets-as-capabilities, append-only evidence.',
+  'M20 discharged the last deferred surfaces: the L5 cognitive agent / plan / memory RPCs and the 22 Tier-3 verification primitives are now real and tested.',
+];
+
 const rev2Contracts = [
   { label: 'L0', title: 'Constitutional Core', desc: '24 invariants, evidence grades E0–E5, status taxonomy, signed bundle loaded at boot.' },
   { label: 'L1', title: 'Boot & Recovery', desc: 'First-boot stages, recovery boundary, dedicated kernel pipeline, fail-closed installer.' },
@@ -119,27 +126,27 @@ const proxguardAlignment = [
 
 <BaseLayout
   title="AI-OS.NET - AI-Native Linux Distribution"
-  description="AI-OS.NET is an AI-native Linux distribution and a governed operating-system platform: goals become typed, policy-checked, verified system actions on top of a standard Linux substrate. Rev.2 is the constitutional core; Rev.3 adds five governed planes."
+  description="AI-OS.NET is an AI-native Linux distribution and a governed operating-system platform: goals become typed, policy-checked, verified system actions on top of a standard Linux substrate. Rev.2 — the constitutional core — is implemented as 19 Rust crates with 4,475 tests passing; Rev.3 adds five governed planes; a ten-revision roadmap leads to an autonomous AI-OS."
 >
   <section class="relative overflow-hidden py-28 md:py-32">
     <div class="hero-glow"></div>
     <div class="mx-auto grid max-w-content items-center gap-12 px-8 lg:grid-cols-[1.05fr_0.95fr]">
       <div>
         <div class="animate inline-block rounded-badge bg-[rgba(206,40,103,0.08)] px-3 py-1.5">
-          <span class="font-body text-[11px] font-medium text-[#ce2867]">Revision 3 · Governed AI-native OS platform</span>
+          <span class="font-body text-[11px] font-medium text-[#ce2867]">Rev.2 implemented · 19 crates · 4,475 tests</span>
         </div>
         <h1 class="animate mt-6 font-heading text-[44px] font-bold leading-tight text-[var(--text)] md:text-[64px]" style="animation-delay:100ms">
           AI-Native Linux.<br />A governed OS platform.
         </h1>
         <p class="animate mt-6 max-w-[680px] font-body text-[18px] leading-relaxed text-[var(--muted)]" style="animation-delay:200ms">
-          Revision 2 locked the constitutional core — 11 architectural layers of typed actions, policy decisions, AIOS-FS objects, verification, and append-only evidence — now a complete contract-grade stack with implementation underway. Revision 3 turns that core into a governed, AI-native operating-system platform through five governed planes: explicit security posture, governed app capsules, kernel portability, driver capsules, and a native AI control plane. The constitutional rule, "AI proposes, never executes," still leads.
+          Revision 2 locked the constitutional core — 11 architectural layers of typed actions, policy decisions, AIOS-FS objects, verification, and append-only evidence — and it is now implemented: 19 Rust crates, 4,475 tests passing, all cargo gates green. Revision 3 turns that core into a governed, AI-native operating-system platform through five governed planes: explicit security posture, governed app capsules, kernel portability, driver capsules, and a native AI control plane. The constitutional rule, "AI proposes, never executes," still leads.
         </p>
         <p class="animate mt-4 font-body text-[13px] text-[var(--muted)]" style="animation-delay:250ms">
           An <a href="https://iconys.bg/products/ai-os" target="_blank" rel="noopener" class="text-[var(--text)] hover:text-[var(--accent)] transition-colors">iconys Engineering Intelligence</a> Linux distribution project.
         </p>
         <div class="animate mt-10 flex flex-col gap-4 sm:flex-row" style="animation-delay:300ms">
           <a href="/features" class="btn btn-hero btn-primary no-underline">Explore the platform</a>
-          <a href="/roadmap" class="btn btn-hero no-underline border border-[var(--border)]">Read the Rev.3 architecture</a>
+          <a href="/roadmap" class="btn btn-hero no-underline border border-[var(--border)]">View the roadmap</a>
         </div>
       </div>
 
@@ -174,16 +181,49 @@ const proxguardAlignment = [
   <section class="bg-[var(--surface-1)] py-16">
     <div class="mx-auto grid max-w-content grid-cols-2 gap-8 px-8 lg:grid-cols-4">
       <div class="animate stagger-1">
-        <StatCard number="11" label="Architectural Layers" description="Rev.2 core — L0 governance through L10 distribution" />
+        <StatCard number="19" label="Rust Crates" description="Rev.2 L0–L10 implemented — aios-action … aios-distribution" />
       </div>
       <div class="animate stagger-2">
-        <StatCard number="13" label="Rev.3 Plane Sections" description="S16–S28, five governed planes at contract grade" />
+        <StatCard number="4,475" label="Tests Passing" description="0 failed; all four cargo gates green" />
       </div>
       <div class="animate stagger-3">
-        <StatCard number="34" label="Constitutional Invariants" description="24 inherited + 10 new INV-025..034" />
+        <StatCard number="11" label="Layers REAL (E2+)" description="Every layer backed by evidence, not just spec" />
       </div>
       <div class="animate stagger-4">
-        <StatCard number="644" label="Typed Evidence Records" description="Closed enum, 427 Rev.2 + Rev.3 delta" />
+        <StatCard number="0" label="Deferred Surfaces" description="M20 discharged the last — cognition + verification" />
+      </div>
+    </div>
+  </section>
+
+  <section class="mx-auto max-w-content px-8 py-16">
+    <SectionDivider label="REVISION 2 — WHAT'S REAL TODAY" />
+    <div class="mt-8 grid grid-cols-1 gap-10 lg:grid-cols-[0.9fr_1.1fr]">
+      <div>
+        <h2 class="font-heading text-[28px] font-bold text-[var(--text)]">
+          Not a promise.<br />Working code.
+        </h2>
+        <p class="mt-4 font-body text-[15px] leading-[1.7] text-[var(--muted)]">
+          Revision 2 is implemented. The eleven-layer L0–L10 model exists as 19 Rust crates with 4,475 tests passing and all four cargo gates green — the cognitive shell, policy kernel, and append-only evidence log are running code, not a specification.
+        </p>
+        <div class="mt-6 rounded-[8px] border border-[var(--border)] bg-[var(--surface-1)] p-5">
+          <span class="font-mono text-[10px] uppercase tracking-[0.08em] text-[var(--accent)]">§22 golden path — FULL-REAL</span>
+          <pre class="mt-3 whitespace-pre-wrap font-mono text-[12px] leading-relaxed text-[var(--muted)]">recovery-safe boot
+  -&gt; mount /aios
+  -&gt; versioned AIOS-FS object
+  -&gt; semantic view
+  -&gt; verified typed action
+  -&gt; append-only evidence chain
+  -&gt; rendered result</pre>
+        </div>
+        <a href="/roadmap" class="mt-6 inline-block btn no-underline border border-[var(--border)]">View the full roadmap →</a>
+      </div>
+      <div class="grid grid-cols-1 gap-4">
+        {rev2Real.map((item, i) => (
+          <div class={`card animate stagger-${(i % 6) + 1}`}>
+            <div class="mb-3 h-2 w-2 rounded-full bg-[var(--accent)]"></div>
+            <p class="font-body text-[13px] leading-relaxed text-[var(--muted)]">{item}</p>
+          </div>
+        ))}
       </div>
     </div>
   </section>
@@ -408,7 +448,7 @@ const proxguardAlignment = [
     </p>
     <div class="animate mt-8 flex flex-col items-center justify-center gap-4 sm:flex-row" style="animation-delay:400ms">
       <a href="/features" class="btn btn-hero btn-primary no-underline">Explore the platform</a>
-      <a href="/roadmap" class="btn btn-hero no-underline border border-[var(--border)]">Read the Rev.3 architecture</a>
+      <a href="/roadmap" class="btn btn-hero no-underline border border-[var(--border)]">View the roadmap</a>
     </div>
   </section>
 </BaseLayout>

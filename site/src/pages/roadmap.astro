@@ -1,6 +1,7 @@
 ---
 import BaseLayout from '../layouts/BaseLayout.astro';
 import SectionDivider from '../components/SectionDivider.astro';
+import StatCard from '../components/StatCard.astro';
 
 // The ten-revision arc — Rev.1 origin vision through Rev.10 autonomous AI-OS.
 const revisions = [
@@ -155,6 +156,15 @@ const waves = [
         The Revision 2 constitutional core is no longer just a contract — it is implemented: 11 layers L0-L10 as 19 Rust crates, 4,475 tests, all gates green. Revision 3 specifies five governed planes (S16-S28). Revisions 4 through 10 are the path to ship: it boots, it thinks, it is usable, it scales, it is trusted, it is an ecosystem, and finally it runs itself.
       </p>
     </div>
+
+    <section class="mt-16">
+      <div class="grid grid-cols-2 gap-6 md:grid-cols-4">
+        <div class="animate stagger-1"><StatCard number="19" label="Rust Crates" description="Rev.2 L0–L10 implemented" /></div>
+        <div class="animate stagger-2"><StatCard number="4,475" label="Tests Passing" description="0 failed; all cargo gates green" /></div>
+        <div class="animate stagger-3"><StatCard number="11" label="Layers REAL (E2+)" description="Evidence-backed, not just spec" /></div>
+        <div class="animate stagger-4"><StatCard number="0" label="Deferred Surfaces" description="M20 discharged the last" /></div>
+      </div>
+    </section>
 
     <section class="mt-20">
       <SectionDivider label="THE TEN-REVISION ARC" />

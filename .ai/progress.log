@@ -864,3 +864,25 @@ T-186: M18 closer + acceptance test + v0.1.0 version bump + S11.4 sub-spec final
   Result: ef05903 — T-186: aios-integration — M18 closer
   Status: SUCCESS — M18 CLOSED
   Next: M19 aios-distribution (T-187)
+
+────────────────────────────────────────────────────────────
+2026-05-29 — Rev.3 SPECIFICATION COMPLETION (CONTRACT-grade)
+  Task: завърши SPECREV.3 на 100% и направи я изпълнима
+  Method: gap analysis (63 findings) → 5-phase multi-agent build-out
+  Phase 0: 02_design_decisions.md (DEC-R3-001..011, resolves 6 open Qs)
+  Phase 1: authored 14 new contracts (S16.4-.9 + S21-S28), 10 CONTRACT immediately
+  Phase 1b: fixed 3 + verified S27; resolved INV-028 collision (→INV-029..034)
+  Phase 2: fixed 8 existing files (AIOSAppObject, WASI, HARDENING_CHECK_RESULT dup,
+           G2→E3, capsule evidence enum, KernelBuildCandidate, RTWorkloadManifest,
+           AIComplianceRegistry/ProhibitedPatternGate, FirmwareMinimum, CanaryBootEvidence)
+  Phase 3: 00_MASTER_INDEX, 01_executive_summary, 03_architecture_overview, 04_invariants (INV-025..034)
+  Phase 4: extended tools/capella/extract.py (Rev.3 invariants + 196 record-type harvest);
+           installed capellambse 0.8.1 in tools/capella/.capella-venv;
+           rebuilt model: 623 RecordTypes, 34 INVs, 80 inversions
+  Verify: analyze.py + classify_inversions.py → 0 orphan INVs, 0 cycles,
+          0 runtime/uncertain inversions, 0 orphan records, 416/416 consumes wired.
+          §16.7 acceptance criterion now passes over FULL graph (was XX-exempt false-clean).
+  Files: 35 md in 003.AI-OS.NET--SPECREV.3/ ; all sections CONTRACT grade.
+  Status: SUCCESS (spec CONTRACT-complete; REAL still needs implementation milestones)
+  Next: implementation waves R3-W1.. (per 00_MASTER_INDEX §5) OR git commit on user request
+────────────────────────────────────────────────────────────

@@ -65,4 +65,4 @@ pub use trust::PublisherTrustLevel;
 /// This constant anchors the crate's identity at compile time so that closure
 /// tests (T-198) can verify the distribution layer shipped with the correct
 /// typed contract before cross-crate wiring lands in T-197.
-pub const DEFAULT_CODE_VERSION: &str = "aios-distribution/0.0.1-T187";
+pub const DEFAULT_CODE_VERSION: &str = "aios-distribution/0.0.1-T187b";

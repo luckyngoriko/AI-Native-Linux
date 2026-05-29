@@ -1,13 +1,13 @@
 //! Distribution error taxonomy per S11.1 error catalogue.
 //!
-//! `DistributionErrorCode` is the closed 15-code catalogue that every
+//! `DistributionErrorCode` is the closed 16-code catalogue that every
 //! distribution operation returns.  `DistributionError` pairs each code
 //! with a structured `thiserror` payload so callers can match on the
 //! code or inspect the human-readable message.
 
 use serde::{Deserialize, Serialize};
 
-/// Closed error code catalogue — 15 codes.
+/// Closed error code catalogue — 16 codes.
 ///
 /// Every distribution operation that can fail returns one of these codes.
 /// The catalogue is exhaustive for T-187; additional codes (e.g. for
@@ -20,19 +20,17 @@ pub enum DistributionErrorCode {
     /// Publisher ID absent from the active publisher catalog.
     PublisherNotFound,
     /// Ed25519 signature verification failed at any chain hop.
-    SignatureInvalid,
+    SignatureFailed,
     /// Trust chain depth exceeds 3 hops from AIOS root.
     TrustChainTooDeep,
     /// Publisher is in `Deplatformed` state — all new installs rejected.
     PublisherDeplatformed,
     /// `BLAKE3(content)` does not match the signed `content_hash`.
-    ContentHashMismatch,
-    /// Manifest fields are structurally invalid or inconsistent.
-    ManifestMalformed,
+    HashMismatch,
+    /// Manifest fields tampered post-sign (canonical hash mismatch, trust-level mismatch).
+    ManifestForged,
     /// Package origin repository does not match the kind admitted for its trust level.
     RepositoryKindMismatch,
-    /// Version downgrade detected — blocked by monotonic version counter.
-    DowngradeAttempt,
     /// Package signing key has been revoked (`revoked_at ≤ issued_at`).
     RevokedKey,
     /// Install state transition is not permitted by the FSM.
@@ -45,6 +43,10 @@ pub enum DistributionErrorCode {
     TakedownActive,
     /// Unclassified internal error — should not leak to callers.
     Internal,
+    /// Install scope in manifest does not match the requested scope (§3.5).
+    InstallScopeViolation,
+    /// Content tamper beyond signature/chain/hash (executable bits in THEME, archive corruption, hook escape).
+    BundleTampered,
 }
 
 /// Distribution error enumeration with structured payloads.
@@ -63,8 +65,8 @@ pub enum DistributionError {
     PublisherNotFound(String),
 
     /// Ed25519 signature verification failed.
-    #[error("signature invalid: {0}")]
-    SignatureInvalid(String),
+    #[error("signature failed: {0}")]
+    SignatureFailed(String),
 
     /// Trust chain depth exceeds 3 hops.
     #[error("trust chain too deep: {0}")]
@@ -75,20 +77,16 @@ pub enum DistributionError {
     PublisherDeplatformed(String),
 
     /// Content hash does not match the signed manifest hash.
-    #[error("content hash mismatch: {0}")]
-    ContentHashMismatch(String),
+    #[error("hash mismatch: {0}")]
+    HashMismatch(String),
 
-    /// Manifest fields are structurally invalid.
-    #[error("manifest malformed: {0}")]
-    ManifestMalformed(String),
+    /// Manifest fields tampered post-sign.
+    #[error("manifest forged: {0}")]
+    ManifestForged(String),
 
     /// Repository kind does not match the trust-level admission rules.
     #[error("repository kind mismatch: {0}")]
     RepositoryKindMismatch(String),
-
-    /// Version downgrade blocked by monotonic counter.
-    #[error("downgrade attempt: {0}")]
-    DowngradeAttempt(String),
 
     /// Package signing key revoked.
     #[error("revoked key: {0}")]
@@ -113,6 +111,14 @@ pub enum DistributionError {
     /// Unclassified internal error.
     #[error("internal error: {0}")]
     Internal(String),
+
+    /// Install scope violation — manifest scope mismatch vs requested scope.
+    #[error("install scope violation: {0}")]
+    InstallScopeViolation(String),
+
+    /// Content tamper detected (theme executables, archive corruption, hook escape).
+    #[error("bundle tampered: {0}")]
+    BundleTampered(String),
 }
 
 impl DistributionError {
@@ -124,13 +130,12 @@ impl DistributionError {
         match self {
             Self::PackageNotFound(_) => DistributionErrorCode::PackageNotFound,
             Self::PublisherNotFound(_) => DistributionErrorCode::PublisherNotFound,
-            Self::SignatureInvalid(_) => DistributionErrorCode::SignatureInvalid,
+            Self::SignatureFailed(_) => DistributionErrorCode::SignatureFailed,
             Self::TrustChainTooDeep(_) => DistributionErrorCode::TrustChainTooDeep,
             Self::PublisherDeplatformed(_) => DistributionErrorCode::PublisherDeplatformed,
-            Self::ContentHashMismatch(_) => DistributionErrorCode::ContentHashMismatch,
-            Self::ManifestMalformed(_) => DistributionErrorCode::ManifestMalformed,
+            Self::HashMismatch(_) => DistributionErrorCode::HashMismatch,
+            Self::ManifestForged(_) => DistributionErrorCode::ManifestForged,
             Self::RepositoryKindMismatch(_) => DistributionErrorCode::RepositoryKindMismatch,
-            Self::DowngradeAttempt(_) => DistributionErrorCode::DowngradeAttempt,
             Self::RevokedKey(_) => DistributionErrorCode::RevokedKey,
             Self::InstallStateInvalidTransition(_) => {
                 DistributionErrorCode::InstallStateInvalidTransition
@@ -139,6 +144,8 @@ impl DistributionError {
             Self::CapabilityLieDetected(_) => DistributionErrorCode::CapabilityLieDetected,
             Self::TakedownActive(_) => DistributionErrorCode::TakedownActive,
             Self::Internal(_) => DistributionErrorCode::Internal,
+            Self::InstallScopeViolation(_) => DistributionErrorCode::InstallScopeViolation,
+            Self::BundleTampered(_) => DistributionErrorCode::BundleTampered,
         }
     }
 }

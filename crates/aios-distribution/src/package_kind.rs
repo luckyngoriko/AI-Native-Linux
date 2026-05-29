@@ -31,11 +31,11 @@ pub enum PackageKind {
     Agent,
     /// Visual theme bundle — declarative only (no executables permitted).
     Theme,
-    /// L0 invariant signed bundle — `AiosOfficialRepo` only, recovery-only.
+    /// L0 invariant signed bundle — `AiosRootRepo` only, recovery-only.
     InvariantBundle,
     /// S2.3 policy bundle — requires policy-authorship grant.
     PolicyBundle,
-    /// L4.3 identity bundle — `AiosOfficialRepo` only, recovery-only.
+    /// L4.3 identity bundle — `AiosRootRepo` only, recovery-only.
     IdentityBundle,
     /// Dedicated kernel image — recovery-only install with A/B promotion.
     KernelCandidate,
@@ -47,18 +47,21 @@ pub enum PackageKind {
 
 /// Closed enum — 4 scopes per S11.1 §3.5.
 ///
-/// Deviation: spec §3.5 uses `SYSTEM_ONLY`, `GROUP_SCOPED`, `USER_SCOPED`,
-/// `EITHER`.  T-187 uses task-authorised names that align with the operating
-/// semantics rather than raw scope labels.
+/// | Variant       | S11.1 label   | Semantics                                                                                        |
+/// |---------------|---------------|--------------------------------------------------------------------------------------------------|
+/// | `SystemOnly`  | `SYSTEM_ONLY` | Writes to `/aios/system/...` — recovery operator approval required; binds INV-012.               |
+/// | `GroupScoped` | `GROUP_SCOPED`| Writes to `/aios/groups/<group_id>/system/...` — group operator approval.                       |
+/// | `UserScoped`  | `USER_SCOPED` | Writes to `/aios/groups/<group_id>/users/<user_id>/...` — user approval.                        |
+/// | `Either`      | `EITHER`      | Auto-determined by `manifest.installable_scope`; resolved at install time against S4.1 namespace.|
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum InstallScope {
     /// Writes to `/aios/system/...` — recovery operator approval required.
-    SystemWide,
+    SystemOnly,
     /// Writes to `/aios/groups/<group_id>/system/...` — group operator approval.
-    PerGroup,
+    GroupScoped,
     /// Writes to `/aios/groups/<group_id>/users/<user_id>/...` — user approval.
-    PerSubject,
-    /// Recovery-only install — binds INV-012, S9.1 `RecoveryMutableScope`.
-    RecoveryOnly,
+    UserScoped,
+    /// Auto-determined by `manifest.installable_scope`; resolved at install time.
+    Either,
 }

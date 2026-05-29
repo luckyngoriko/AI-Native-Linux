@@ -71,23 +71,57 @@ const renderers = [
   { title: 'KDE Renderer', desc: 'Qt/QML Plasma shell, panels, widgets, KRunner, system tray, Wayland control, and desktop-native workflows.' },
   { title: 'Web Renderer', desc: 'Next.js/WebAssembly surface for remote operation, tablet access, workstation mirroring, and future collaboration.' },
 ];
+
+const rev3Features = [
+  { id: 'S16', title: 'Security posture & measured boot', desc: 'Four profiles (DEV_RELAXED, SECURE_DEFAULT, STIG_ALIGNED, AIRGAP_HIGH) plus a FIPS_STRICT overlay, measured boot over TPM and firmware dual chain, IMA/EVM, dm-verity, and a SELinux MAC plane.' },
+  { id: 'S16', title: 'Control map & supply chain', desc: 'STIG / NIST / CIS control map with a built-in scanner, plus SBOM, provenance, VEX, and GDPR right-to-erasure by crypto-shred.' },
+  { id: 'S17 / S21', title: 'App capsules & Package Rosetta', desc: 'Every app a bounded capsule with rollback and evidence; package-agnostic intake with shadow install and package passport across deb, rpm, flatpak, snap, appimage, nix, oci, and source.' },
+  { id: 'S18', title: 'Kernel personality & portability', desc: 'Linux is the gold path. BSD, RTOS, microVM, WASI, and unikernel are admitted through a signed KernelCapabilityMatrix and need-driven adaptive forge with canary boot, never by pretending all kernels are equal.' },
+  { id: 'S19', title: 'Driver & firmware capsules', desc: 'Drivers are high-risk capsules: solved, lab-tested, signed, canary-booted, and rollbackable, never a vendor script run as root.' },
+  { id: 'S20', title: 'Native AI terminal & typed actions', desc: 'Three terminal modes (LX, MIX, AI) over a typed-action fabric. AI proposes, never executes: never root, never self-approves, never mutates evidence.' },
+  { id: 'S27', title: 'AI evaluation & model governance', desc: 'Model governance with evaluation gates and EU AI Act technical controls aligning AI behaviour to the policy kernel before it ever touches the system.' },
+  { id: 'S24', title: 'Containers & Kubernetes plane', desc: 'Governed container and Kubernetes workloads brought under the same capsule, policy, and evidence discipline as native apps.' },
+  { id: 'S25', title: 'Fleet & federated identity', desc: 'Fleet operation across many machines with federated identity, so policy and evidence hold consistently at scale.' },
+  { id: 'S26', title: 'Backup / DR & capsule mobility', desc: 'Backup and disaster recovery with capsule mobility, so workloads move between machines with their state, policy, and rollback intact.' },
+  { id: 'S28', title: 'Constitutional time plane', desc: 'A trusted time plane so evidence ordering, approvals, and rollback windows stay anchored and tamper-evident.' },
+  { id: 'S22', title: 'Workstation / Gaming / Video', desc: 'A workstation profile for gaming and video work, including Windows apps and games through per-app Wine / Proton capsules.' },
+  { id: 'S23', title: 'Mobile + Voice renderers', desc: 'Mobile and voice render targets over the shared UI schema, extending the cognitive surface beyond the desktop.' },
+];
 ---
 
 <BaseLayout
   title="Architecture - AI-OS.NET"
-  description="AI-OS.NET is an AI-native Linux distribution. Architecture: semantic runtime, policy kernel, capability runtime, AIOS-FS, KDE/Web renderers, and AI-native system layers."
+  description="AI-OS.NET is an AI-native Linux distribution and a governed operating-system platform. Architecture: eleven layers (L0-L10) of the Rev.2 constitutional core plus five Rev.3 governed planes - security posture, app capsules, kernel portability, driver capsules, and a native AI control plane."
 >
   <div class="mx-auto max-w-content px-8 py-16">
     <div class="text-center">
       <div class="animate inline-block rounded-badge bg-[rgba(206,40,103,0.08)] px-3 py-1.5">
-        <span class="font-body text-[11px] font-medium text-[#ce2867]">System Architecture</span>
+        <span class="font-body text-[11px] font-medium text-[#ce2867]">AI-Native Linux &middot; Rev.2 + Rev.3</span>
       </div>
       <h1 class="animate mt-6 font-heading text-[40px] font-bold text-[var(--text)] md:text-[52px]" style="animation-delay:100ms">
-        A distribution, not an assistant.<br />A kernel-down architecture.
+        AI-Native Linux.<br />A governed operating-system platform.
       </h1>
       <p class="animate mt-4 max-w-narrow mx-auto font-body text-[18px] leading-relaxed text-[var(--muted)]" style="animation-delay:200ms">
-        AIOS is an AI-native Linux distribution. Revision 2 defines the contracts between cognition, policy, execution, storage, verification, evidence, sandboxing, and the Linux substrate that the distribution rides on.
+        Revision 2 is the constitutional core: a complete contract-grade stack across eleven layers (L0&ndash;L10), with implementation underway. Revision 3 builds on that proven foundation, turning AIOS from a constitutional Linux distro into a governed, AI-native OS platform through five planes (sections S16&ndash;S28).
       </p>
+      <div class="mt-10 grid grid-cols-2 gap-4 md:grid-cols-4">
+        <div class="animate stagger-1">
+          <div class="font-mono text-[32px] font-bold text-[var(--text)] md:text-[40px]">11</div>
+          <div class="mt-1 font-body text-[12px] leading-relaxed text-[var(--muted)]">Architectural layers (L0&ndash;L10)</div>
+        </div>
+        <div class="animate stagger-2">
+          <div class="font-mono text-[32px] font-bold text-[var(--text)] md:text-[40px]">13</div>
+          <div class="mt-1 font-body text-[12px] leading-relaxed text-[var(--muted)]">Rev.3 plane sections (S16&ndash;S28)</div>
+        </div>
+        <div class="animate stagger-3">
+          <div class="font-mono text-[32px] font-bold text-[var(--text)] md:text-[40px]">34</div>
+          <div class="mt-1 font-body text-[12px] leading-relaxed text-[var(--muted)]">Constitutional invariants (24 + 10 new)</div>
+        </div>
+        <div class="animate stagger-4">
+          <div class="font-mono text-[32px] font-bold text-[var(--text)] md:text-[40px]">644</div>
+          <div class="mt-1 font-body text-[12px] leading-relaxed text-[var(--muted)]">Typed evidence records (closed enum)</div>
+        </div>
+      </div>
     </div>
 
     <section class="mt-20">
@@ -100,6 +134,26 @@ const renderers = [
               <div>
                 <h2 class="font-heading text-[16px] font-semibold text-[var(--text)]">{layer.title}</h2>
                 <p class="mt-2 font-body text-[13px] leading-relaxed text-[var(--muted)]">{layer.desc}</p>
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
+    </section>
+
+    <section class="mt-20">
+      <SectionDivider label="REVISION 3 CAPABILITIES" />
+      <p class="mt-6 mx-auto max-w-narrow text-center font-body text-[15px] leading-[1.7] text-[var(--muted)]">
+        Five governed planes, just completed at contract grade, extend the Rev.2 core into a full AI-native OS platform: explicit security posture, governed app capsules, kernel personality and portability, driver and firmware capsules, and a native AI control plane.
+      </p>
+      <div class="mt-8 grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
+        {rev3Features.map((feature, i) => (
+          <div class={`card animate stagger-${(i % 6) + 1}`}>
+            <div class="flex items-start gap-4">
+              <span class="font-mono text-[13px] text-[var(--accent)]">{feature.id}</span>
+              <div>
+                <h2 class="font-heading text-[16px] font-semibold text-[var(--text)]">{feature.title}</h2>
+                <p class="mt-2 font-body text-[13px] leading-relaxed text-[var(--muted)]">{feature.desc}</p>
               </div>
             </div>
           </div>
@@ -200,10 +254,10 @@ const renderers = [
     <section class="mt-20 -mx-8 bg-[var(--surface-1)] py-16 px-8 text-center">
       <h2 class="animate font-heading text-[28px] font-bold text-[var(--text)]">Architecture is the product.</h2>
       <p class="animate mt-4 mx-auto max-w-narrow font-body text-[15px] leading-relaxed text-[var(--muted)]" style="animation-delay:200ms">
-        Revision 2 is now the agent-readable contract pack: typed actions, capability translation, latency tiers, AIOS-FS, policy, verification, evidence, and sandbox composition.
+        Revision 2 is the agent-readable contract core: typed actions, capability translation, latency tiers, AIOS-FS, policy, verification, evidence, and sandbox composition. Revision 3 builds on it with five governed planes that make AIOS a full AI-native OS platform. AI proposes, never executes.
       </p>
       <div class="animate mt-8" style="animation-delay:400ms">
-        <a href="/roadmap" class="btn btn-hero btn-primary no-underline">Revision 2 Spec</a>
+        <a href="/roadmap" class="btn btn-hero btn-primary no-underline">Rev.2 + Rev.3 Spec</a>
       </div>
     </section>
   </div>

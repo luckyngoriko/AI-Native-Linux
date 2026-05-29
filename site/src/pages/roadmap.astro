@@ -4,111 +4,136 @@ import SectionDivider from '../components/SectionDivider.astro';
 
 const phases = [
   {
-    name: 'Revision 2 Contract Pack',
-    status: 'Current',
+    name: 'Rev.3 — Five Governed Planes',
+    status: 'Complete',
+    items: [
+      'Explicit security posture — four profiles + FIPS_STRICT overlay, measured boot, SELinux MAC, STIG/NIST/CIS control map',
+      'Governed app capsules — bounded, rollbackable, evidenced; Windows apps via per-app Wine/Proton capsules',
+      'Kernel personality & portability — Linux gold path; BSD/RTOS/microVM/WASI/unikernel via signed KernelCapabilityMatrix',
+      'Driver & firmware capsules — drivers as high-risk capsules: solved, lab-tested, signed, canary-booted, rollbackable',
+      'Native AI control plane — three terminal modes LX / MIX / AI, typed-action fabric, EU AI Act technical controls',
+    ],
+  },
+  {
+    name: 'Rev.3 Closed Vocabulary',
+    status: 'Locked',
+    items: ['644 typed evidence records (closed enum)', '34 constitutional invariants (24 + 10 new)', '13 plane sections S16-S28', '0 orphan records, 0 consumes cycles, 0 layer inversions'],
+  },
+  {
+    name: 'Rev.2 Contract Pack',
+    status: 'Locked',
     items: ['11 layers L0-L10 + XX cross-cutting', '52 contract-grade sub-specs', '24 constitutional invariants', '52,000+ specification lines', 'INV-002 enforced at 6 mechanical sites'],
   },
   {
-    name: 'Closed Vocabularies',
+    name: 'Rev.2 Closed Vocabularies',
     status: 'Locked',
     items: ['427 RecordTypes (S3.1 master enum)', '32 PropertyTypes (S2.4 verification)', 'Pinned IDs, additive evolution only', 'Reject-on-unknown across IDL surface'],
   },
   {
-    name: 'Wave Consolidations',
-    status: 'Closed',
-    items: ['W1-W4 contract drafting', 'W5/W6/W7/W8 cross-layer reconciliation', 'W10/W13 IDL roll-up sweeps', 'W13: 22 → 428 RecordType entries'],
-  },
-  {
     name: 'Tier 5 Audit',
-    status: 'Near-converged',
-    items: ['9 read-only audit/simulation agents', 'SIM-D zero-findings on constitutional invariants', 'Mechanical drift map maintained', 'No silent narrative-vs-IDL gaps'],
-  },
-  {
-    name: 'Reference System App',
-    status: 'Validated',
-    items: ['ProxGuard convergence reviewed', '6 alignment matches confirmed', 'AI-optional, advisory-only', 'Append-only sim.evidence_pack + prod.audit_event'],
+    status: 'Converged',
+    items: ['9 read-only audit/simulation agents', 'SIM-D zero-findings on constitutional invariants', 'Clean Capella traceability across both revisions', 'No silent narrative-vs-IDL gaps'],
   },
   {
     name: 'Implementation Phase',
-    status: 'Next',
-    items: ['L1 boot-recovery substrate first', 'L2 AIOS-FS userspace store', 'L3 SGR + L4 Policy Kernel', 'Per-spec MVP gate (E2 build, E3 tests)'],
+    status: 'Underway',
+    items: ['Rev.2 stack in implementation — L1 boot/recovery first', 'L2 AIOS-FS, L3 SGR, L4 Policy Kernel landing', 'Rev.3 waves R3-W1..R3-W8 queued behind core', 'Per-spec MVP gate (E2 build, E3 tests)'],
   },
 ];
 
+const sections = [
+  { id: 'S16', name: 'Security Hardening & Compliance', what: 'Four posture profiles + FIPS_STRICT overlay, measured boot, SELinux MAC, STIG/NIST/CIS control map, SBOM/VEX, GDPR crypto-shred.' },
+  { id: 'S17', name: 'App Capsule Runtime', what: 'Every app a bounded capsule with rollback and evidence — install, run, and remove without leaking state.' },
+  { id: 'S18', name: 'Kernel Personality & Portability', what: 'Linux gold path; alternate kernels admitted only through a signed KernelCapabilityMatrix with canary boot.' },
+  { id: 'S19', name: 'Driver & Firmware Capsule Plane', what: 'Drivers as high-risk capsules: solved, lab-tested, signed, canary-booted, rollbackable — never a raw vendor script.' },
+  { id: 'S20', name: 'Native AI Control Plane Terminal', what: 'Three terminal modes LX / MIX / AI over a typed-action fabric. AI proposes, never executes.' },
+  { id: 'S21', name: 'Package Rosetta — Universal App Lab', what: 'Package-agnostic intake with shadow install and package passport across deb/rpm/flatpak/snap/appimage/nix/oci/source.' },
+  { id: 'S22', name: 'Workstation / Gaming / Video Profile', what: 'Windows apps and games via per-app Wine/Proton capsules; creator and gaming workloads as governed profiles.' },
+  { id: 'S23', name: 'Mobile Renderer & Touch Shell', what: 'Mobile and voice surfaces over the shared UI schema, same policy and evidence as the desktop.' },
+  { id: 'S24', name: 'Container & Kubernetes-Native Plane', what: 'Containers and Kubernetes workloads as first-class governed capsules under the same typed-action fabric.' },
+  { id: 'S25', name: 'Fleet / Cluster Remote Execution', what: 'Cluster and fleet operations with the same policy, approval, and append-only evidence as a single host.' },
+  { id: 'S26', name: 'Backup / DR Capsule Mobility', what: 'Backup, disaster recovery, and capsule mobility — recovery never depends on cognition being available.' },
+  { id: 'S27', name: 'AI Evaluation & Model Governance', what: 'AI evaluation harness and model governance; EU AI Act technical controls expressed as typed, evidenced gates.' },
+  { id: 'S28', name: 'Constitutional Time Plane', what: 'Time as a governed, evidenced dimension across the planes — append-only, tamper-evident temporal record.' },
+];
+
 const decisions = [
+  { title: 'Constitutional core, then platform', desc: 'Rev.2 locks the constitutional Linux distro. Rev.3 builds a governed, AI-native OS platform on top of it — five planes, never a rewrite of the core.' },
+  { title: 'Kernels are not equal', desc: 'Linux is the gold path. BSD, RTOS, microVM, WASI, and unikernel are admitted through a signed KernelCapabilityMatrix, never by pretending all kernels behave the same.' },
+  { title: 'Drivers are high-risk capsules', desc: 'A driver is solved, lab-tested, signed, canary-booted, and rollbackable. The system never just runs the vendor install script as root.' },
   { title: 'Catalog-bound cognition', desc: 'The Capability Translator is a compiler over known capability manifests, not a prompt-to-shell system.' },
-  { title: 'Fast path is still safe', desc: 'Latency tiers can bypass large models, but they cannot bypass typed actions, policy, verification, or evidence.' },
-  { title: 'Userspace-first AIOS-FS', desc: 'AIOS-FS starts as an authoritative userspace object store with FUSE and portal projections; kernel work is deferred.' },
   { title: 'Default-deny policy', desc: 'The Policy Kernel uses hard denies, exact request approvals, simulation, and evidence-linked decisions.' },
-  { title: 'Verification as grammar', desc: 'Success is typed and checked through 32 typed PropertyTypes such as service.active, package.installed, http.ok, and evidence.exists.' },
-  { title: 'Most-restrictive sandbox', desc: 'Sandbox composition merges adapter defaults, app manifests, user hints, policy, and runtime floors toward stricter profiles.' },
-  { title: 'INV-002 has six sites', desc: 'AI proposes, never executes is mechanically enforced across six concrete code sites, not stated as a single principle.' },
-  { title: 'Evidence is append-only', desc: 'AI agents cannot modify evidence logs. Closed enums reject unknown values across the entire IDL surface.' },
+  { title: 'Verification as grammar', desc: 'Success is typed and checked through typed PropertyTypes such as service.active, package.installed, http.ok, and evidence.exists.' },
+  { title: 'Package-agnostic intake', desc: 'Package Rosetta does shadow install and issues a package passport across deb, rpm, flatpak, snap, appimage, nix, oci, and source.' },
+  { title: 'INV-002 has six sites', desc: 'AI proposes, never executes is mechanically enforced across six concrete code sites — never root, never self-approving, never mutating evidence.' },
   { title: 'Recovery without cognition', desc: 'L1 boot and recovery never depend on L5 LLM availability. The machine recovers offline, then layers cognition on top.' },
 ];
 
 const deferred = [
   'A new kernel from scratch.',
   'A full RTOS replacement for the desktop.',
-  'Unverified 100/100 security claims.',
+  'Certification claims without a real assessment — no "STIG certified", no "FIPS validated", no "EU AI Act compliant".',
+  'Pretending every kernel personality is equivalent to the Linux gold path.',
   'AI modifying low-level infrastructure without evidence and rollback.',
   'A separate web admin panel that diverges from KDE state.',
   'Open-vocabulary fields in the IDL — every typed surface stays closed-enum.',
 ];
 
 const files = [
+  '003.AI-OS.NET--SPECREV.3/00_MASTER_INDEX.md',
+  '003.AI-OS.NET--SPECREV.3/04_invariants.md',
+  '003.AI-OS.NET--SPECREV.3/S16_Security_Hardening_Compliance/00_overview.md',
+  '003.AI-OS.NET--SPECREV.3/S17_App_Capsule_Runtime/00_overview.md',
+  '003.AI-OS.NET--SPECREV.3/S18_Kernel_Personality_Portability/00_overview.md',
+  '003.AI-OS.NET--SPECREV.3/S19_Driver_Firmware_Capsule_Plane/00_overview.md',
+  '003.AI-OS.NET--SPECREV.3/S20_Native_AI_Control_Plane_Terminal/00_overview.md',
+  '003.AI-OS.NET--SPECREV.3/S21_Package_Rosetta_Universal_App_Lab/00_overview.md',
   'L0_Governance_Evidence_Safety/01_status_evidence_taxonomy.md',
   'XX_Cross_Cutting/01_action_envelope_lifecycle.md',
   'L5_Cognitive_Core/02_capability_translator.md',
-  'L5_Cognitive_Core/03_latency_tiering.md',
   'L2_AIOS_FS/01_object_model.md',
-  'L2_AIOS_FS/02_query_view_language.md',
-  'L2_AIOS_FS/03_conflict_resolution.md',
-  'L2_AIOS_FS/04_implementation_space.md',
-  'L2_AIOS_FS/05_namespace_layout.md',
   'L3_AIOS_SGR_Service_Graph_Runtime/03_capability_runtime_grpc.md',
-  'L3_AIOS_SGR_Service_Graph_Runtime/04_adapter_model.md',
   'L4_Policy_Identity_Vault/01_policy_kernel.md',
   'L4_Policy_Identity_Vault/02_vault_broker.md',
   'L9_Observability_Admin_Operations/01_evidence_log.md',
   'L9_Observability_Admin_Operations/02_verification_grammar.md',
-  'L6_Apps_Packages_Compatibility/04_sandbox_composition.md',
   'XX_Cross_Cutting/02_proxguard_reference_model.md',
 ];
 
 const waves = [
-  { wave: 'W1-W4', title: 'Contract drafting', what: 'Initial sub-specs per layer, ADR-style decision log, agent-readable boundaries.' },
-  { wave: 'W5', title: 'Lifecycle reconciliation', what: 'Action envelope flow harmonized across L3, L4, L9 — single canonical lifecycle.' },
-  { wave: 'W6', title: 'Vault & secrets', what: 'Secrets-as-capabilities locked. Raw secret read by AI agents is a hard deny.' },
-  { wave: 'W7', title: 'Sandbox composition', what: 'Most-restrictive merge across adapter / manifest / user / policy / runtime floors.' },
-  { wave: 'W8', title: 'Verification grammar', what: '32 PropertyTypes promoted to closed enum. service.active, http.ok, evidence.exists.' },
-  { wave: 'W10', title: 'IDL roll-up I', what: 'Cross-layer enum alignment. Identifier discipline. Stable IDs preserved.' },
-  { wave: 'W13', title: 'IDL roll-up II', what: '427 RecordType entries promoted. Documented narrative drift in §29.5.' },
+  { wave: 'R3-W1', title: 'Security & measured boot', what: 'Posture profiles, TPM + firmware dual chain, IMA/EVM, dm-verity, SELinux MAC plane land first (S16).' },
+  { wave: 'R3-W2', title: 'App capsules', what: 'Bounded app capsules with rollback and evidence; capsule lifecycle and state isolation (S17).' },
+  { wave: 'R3-W3', title: 'Native AI terminal', what: 'Three terminal modes LX / MIX / AI over the typed-action fabric. AI proposes, never executes (S20).' },
+  { wave: 'R3-W4', title: 'Driver & firmware plane', what: 'Drivers as high-risk capsules — solved, lab-tested, signed, canary-booted, rollbackable (S19).' },
+  { wave: 'R3-W5', title: 'Kernel portability', what: 'Signed KernelCapabilityMatrix, adaptive kernel forge, canary boot for alternate personalities (S18).' },
+  { wave: 'R3-W6', title: 'Package Rosetta', what: 'Package-agnostic intake, shadow install, package passport, Wine/Proton capsules (S21, S22).' },
+  { wave: 'R3-W7', title: 'Form factors', what: 'Mobile renderer, touch and voice shells over the shared UI schema (S23).' },
+  { wave: 'R3-W8', title: 'Cluster, DR, evaluation, time', what: 'Containers/Kubernetes, fleet/cluster, backup/DR, AI evaluation, constitutional time (S24-S28).' },
 ];
 ---
 
 <BaseLayout
   title="Roadmap - AI-OS.NET"
-  description="AI-OS.NET is an AI-native Linux distribution. Rev.2 specification: 52 contract-grade sub-specs across 11 layers, 24 invariants, 427 closed-enum record types, INV-002 enforced at 6 mechanical sites."
+  description="AI-OS.NET is an AI-native Linux distribution and governed OS platform. Rev.2 contract stack (11 layers, 24 invariants) is in implementation; Rev.3 adds 13 plane sections S16-S28 across five governed planes, 10 new invariants, 644 typed evidence records — all CONTRACT-grade with clean traceability."
 >
   <div class="mx-auto max-w-content px-8 py-16">
     <div class="text-center">
       <div class="animate inline-block rounded-badge bg-[rgba(206,40,103,0.08)] px-3 py-1.5">
-        <span class="font-body text-[11px] font-medium text-[#ce2867]">Specification Revision 2</span>
+        <span class="font-body text-[11px] font-medium text-[#ce2867]">Revision 3 · Complete</span>
       </div>
       <h1 class="animate mt-6 font-heading text-[40px] font-bold text-[var(--text)] md:text-[52px]" style="animation-delay:100ms">
-        Distribution logic, locked<br />before the first line of code.
+        From constitutional core<br />to governed platform.
       </h1>
       <p class="animate mt-4 max-w-narrow mx-auto font-body text-[18px] leading-relaxed text-[var(--muted)]" style="animation-delay:200ms">
-        AIOS is an AI-native Linux distribution. Revision 2 closes its architectural logic as an agent-readable contract pack: 52 sub-specs, 24 invariants, 427 closed-enum record types, and 32 typed verification properties — locked before the first line of distribution code is written.
+        The Revision 2 contract pack is locked and in implementation — 11 layers, 24 invariants, the constitutional core. Revision 3 turns it into a governed, AI-native OS platform: 13 sections (S16-S28) across five governed planes, 10 new invariants, 644 typed evidence records — all CONTRACT-grade with clean traceability.
       </p>
     </div>
 
     <section class="mt-20">
-      <SectionDivider label="REVISION 2 STRUCTURE" />
+      <SectionDivider label="REVISION STATUS" />
       <div class="mt-8 grid grid-cols-1 gap-6 md:grid-cols-2">
         {phases.map((phase, i) => (
-          <div class={`card card-lg animate stagger-${i + 1}`}>
+          <div class={`card card-lg animate stagger-${(i % 6) + 1}`}>
             <div class="flex items-start justify-between gap-4">
               <h2 class="font-heading text-[20px] font-semibold text-[var(--text)]">{phase.name}</h2>
               <span class="rounded-badge bg-[rgba(206,40,103,0.08)] px-2 py-1 font-mono text-[11px] text-[var(--accent)]">{phase.status}</span>
@@ -127,9 +152,30 @@ const waves = [
     </section>
 
     <section class="mt-20">
-      <SectionDivider label="WAVE CONSOLIDATIONS" />
+      <SectionDivider label="REVISION 3 SECTIONS" />
       <p class="mt-4 max-w-narrow font-body text-[14px] leading-relaxed text-[var(--muted)]">
-        Each wave reconciled the spec across multiple layers in a single deliberate pass. Drift is closed mechanically, not narratively.
+        Thirteen plane sections, S16 through S28, each CONTRACT-grade and traceable. They group into five governed planes: security posture, governed app capsules, kernel portability, driver and firmware capsules, and the native AI control plane.
+      </p>
+      <div class="mt-8 overflow-hidden rounded-[8px] border border-[var(--border)] bg-[var(--surface-1)]">
+        <div class="grid grid-cols-[70px_1fr_2fr] gap-4 border-b border-[var(--border)] px-6 py-3">
+          <span class="font-mono text-[10px] uppercase tracking-[0.08em] text-[var(--muted)]">Section</span>
+          <span class="font-mono text-[10px] uppercase tracking-[0.08em] text-[var(--muted)]">Plane</span>
+          <span class="font-mono text-[10px] uppercase tracking-[0.08em] text-[var(--muted)]">Scope</span>
+        </div>
+        {sections.map(s => (
+          <div class="grid grid-cols-[70px_1fr_2fr] gap-4 border-b border-[var(--border)] px-6 py-3 last:border-b-0">
+            <span class="font-mono text-[12px] text-[var(--accent)]">{s.id}</span>
+            <span class="font-body text-[13px] font-medium text-[var(--text)]">{s.name}</span>
+            <span class="font-body text-[13px] leading-relaxed text-[var(--muted)]">{s.what}</span>
+          </div>
+        ))}
+      </div>
+    </section>
+
+    <section class="mt-20">
+      <SectionDivider label="IMPLEMENTATION WAVES" />
+      <p class="mt-4 max-w-narrow font-body text-[14px] leading-relaxed text-[var(--muted)]">
+        The Rev.2 core is in implementation first. Rev.3 lands in eight waves R3-W1..R3-W8 — security and boot before anything trusts the machine, then capsules, the AI terminal, drivers, kernels, and the higher planes.
       </p>
       <div class="mt-8 overflow-hidden rounded-[8px] border border-[var(--border)] bg-[var(--surface-1)]">
         <div class="grid grid-cols-[110px_1fr_2fr] gap-4 border-b border-[var(--border)] px-6 py-3">
@@ -148,7 +194,7 @@ const waves = [
     </section>
 
     <section class="mt-20">
-      <SectionDivider label="DECISIONS LOCKED IN REVISION 2" />
+      <SectionDivider label="DECISIONS LOCKED ACROSS REV.2 AND REV.3" />
       <div class="mt-8 grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
         {decisions.map((decision, i) => (
           <div class={`card animate stagger-${(i % 6) + 1}`}>
@@ -210,7 +256,7 @@ Capability Runtime:
       <SectionDivider label="DEFERRED BY DESIGN" />
       <div class="mt-8 grid grid-cols-1 gap-3 md:grid-cols-2">
         {deferred.map((item, i) => (
-          <div class={`animate stagger-${i + 1} rounded-[8px] border border-[var(--border)] bg-[var(--surface-1)] p-4`}>
+          <div class={`animate stagger-${(i % 6) + 1} rounded-[8px] border border-[var(--border)] bg-[var(--surface-1)] p-4`}>
             <p class="font-body text-[13px] leading-relaxed text-[var(--muted)]">{item}</p>
           </div>
         ))}

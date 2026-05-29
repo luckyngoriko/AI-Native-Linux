@@ -51,6 +51,29 @@ const fsCells = [
   { label: 'Read-only base', value: 'System image is immutable by default. Changes are layered, audited, and reversible.' },
 ];
 
+const rev3Planes = [
+  {
+    title: 'Explicit Security Posture',
+    desc: 'Four profiles — DEV_RELAXED, SECURE_DEFAULT, STIG_ALIGNED, AIRGAP_HIGH — plus a FIPS_STRICT overlay. Measured boot (TPM + firmware dual chain, IMA/EVM, dm-verity), a SELinux MAC plane, a STIG/NIST/CIS control map with scanner, SBOM/provenance/VEX, and GDPR right-to-erasure by crypto-shred.',
+  },
+  {
+    title: 'Governed App Capsules',
+    desc: 'Every app is a bounded capsule with rollback and evidence. Windows apps and games run through per-app Wine/Proton capsules. Package-agnostic intake (Package Rosetta) does shadow install with a package passport across deb, rpm, flatpak, snap, appimage, nix, oci, and source.',
+  },
+  {
+    title: 'Kernel Personality & Portability',
+    desc: 'Linux is the gold path. BSD, RTOS, microVM, WASI, and unikernel personalities are admitted only through a signed KernelCapabilityMatrix — never by pretending all kernels are equal. A need-driven adaptive kernel forge builds with canary boot.',
+  },
+  {
+    title: 'Driver & Firmware Capsules',
+    desc: 'Drivers are high-risk capsules: solved, lab-tested, signed, canary-booted, and rollbackable. Never "run the vendor script as root." Firmware moves through the same disciplined capsule plane.',
+  },
+  {
+    title: 'Native AI Control Plane',
+    desc: 'Three terminal modes — LX, MIX, AI — over a typed-action fabric, with EU AI Act technical controls and AI evaluation & model governance. "AI proposes, never executes": never root, never self-approves, never mutates evidence.',
+  },
+];
+
 const rev2Contracts = [
   { label: 'L0', title: 'Constitutional Core', desc: '24 invariants, evidence grades E0–E5, status taxonomy, signed bundle loaded at boot.' },
   { label: 'L1', title: 'Boot & Recovery', desc: 'First-boot stages, recovery boundary, dedicated kernel pipeline, fail-closed installer.' },
@@ -96,27 +119,27 @@ const proxguardAlignment = [
 
 <BaseLayout
   title="AI-OS.NET - AI-Native Linux Distribution"
-  description="AI-OS.NET is an AI-native Linux distribution: goals become typed, policy-checked, verified system actions on top of a standard Linux substrate."
+  description="AI-OS.NET is an AI-native Linux distribution and a governed operating-system platform: goals become typed, policy-checked, verified system actions on top of a standard Linux substrate. Rev.2 is the constitutional core; Rev.3 adds five governed planes."
 >
   <section class="relative overflow-hidden py-28 md:py-32">
     <div class="hero-glow"></div>
     <div class="mx-auto grid max-w-content items-center gap-12 px-8 lg:grid-cols-[1.05fr_0.95fr]">
       <div>
         <div class="animate inline-block rounded-badge bg-[rgba(206,40,103,0.08)] px-3 py-1.5">
-          <span class="font-body text-[11px] font-medium text-[#ce2867]">Specification Revision 2</span>
+          <span class="font-body text-[11px] font-medium text-[#ce2867]">Revision 3 · Governed AI-native OS platform</span>
         </div>
         <h1 class="animate mt-6 font-heading text-[44px] font-bold leading-tight text-[var(--text)] md:text-[64px]" style="animation-delay:100ms">
-          AI-Native Linux.<br />A real Linux distribution.
+          AI-Native Linux.<br />A governed OS platform.
         </h1>
         <p class="animate mt-6 max-w-[680px] font-body text-[18px] leading-relaxed text-[var(--muted)]" style="animation-delay:200ms">
-          AI-OS.NET is an AI-native Linux distribution. Revision 2 is its contract-grade specification stack across 11 architectural layers — typed actions, policy decisions, AIOS-FS objects, verification, evidence, and sandboxed execution. The constitutional core, "AI proposes, never executes," is mechanically enforced at six distinct sites with closed-vocabulary reject codes and permanent forensic evidence on bypass.
+          Revision 2 locked the constitutional core — 11 architectural layers of typed actions, policy decisions, AIOS-FS objects, verification, and append-only evidence — now a complete contract-grade stack with implementation underway. Revision 3 turns that core into a governed, AI-native operating-system platform through five governed planes: explicit security posture, governed app capsules, kernel portability, driver capsules, and a native AI control plane. The constitutional rule, "AI proposes, never executes," still leads.
         </p>
         <p class="animate mt-4 font-body text-[13px] text-[var(--muted)]" style="animation-delay:250ms">
           An <a href="https://iconys.bg/products/ai-os" target="_blank" rel="noopener" class="text-[var(--text)] hover:text-[var(--accent)] transition-colors">iconys Engineering Intelligence</a> Linux distribution project.
         </p>
         <div class="animate mt-10 flex flex-col gap-4 sm:flex-row" style="animation-delay:300ms">
-          <a href="/features" class="btn btn-hero btn-primary no-underline">Explore Architecture</a>
-          <a href="/roadmap" class="btn btn-hero no-underline border border-[var(--border)]">Read Revision 2 Contracts</a>
+          <a href="/features" class="btn btn-hero btn-primary no-underline">Explore the platform</a>
+          <a href="/roadmap" class="btn btn-hero no-underline border border-[var(--border)]">Read the Rev.3 architecture</a>
         </div>
       </div>
 
@@ -154,16 +177,42 @@ const proxguardAlignment = [
   <section class="bg-[var(--surface-1)] py-16">
     <div class="mx-auto grid max-w-content grid-cols-2 gap-8 px-8 lg:grid-cols-4">
       <div class="animate stagger-1">
-        <StatCard number="11" label="Architectural Layers" description="L0 governance through L10 distribution" />
+        <StatCard number="11" label="Architectural Layers" description="Rev.2 core — L0 governance through L10 distribution" />
       </div>
       <div class="animate stagger-2">
-        <StatCard number="52" label="Contract Sub-specs" description="All layers PARTIAL or contract-grade" />
+        <StatCard number="13" label="Rev.3 Plane Sections" description="S16–S28, five governed planes at contract grade" />
       </div>
       <div class="animate stagger-3">
-        <StatCard number="24" label="Constitutional Invariants" description="Signed bundle, recovery-mutable only" />
+        <StatCard number="34" label="Constitutional Invariants" description="24 inherited + 10 new INV-025..034" />
       </div>
       <div class="animate stagger-4">
-        <StatCard number="427" label="Typed Evidence Records" description="Closed enum, FOREVER hash chain" />
+        <StatCard number="644" label="Typed Evidence Records" description="Closed enum, 427 Rev.2 + Rev.3 delta" />
+      </div>
+    </div>
+  </section>
+
+  <section class="mx-auto max-w-content px-8 py-16">
+    <SectionDivider label="REVISION 3 — FIVE GOVERNED PLANES" />
+    <div class="mt-8 grid grid-cols-1 gap-10 lg:grid-cols-[0.85fr_1.15fr]">
+      <div>
+        <h2 class="font-heading text-[28px] font-bold text-[var(--text)]">
+          From constitution<br />to platform.
+        </h2>
+        <p class="mt-4 font-body text-[15px] leading-[1.7] text-[var(--muted)]">
+          Rev.2 is the proven foundation. Rev.3 turns that constitutional core into a governed, AI-native operating-system platform — adding five planes that each stay inside the same discipline: typed, policy-checked, evidenced, rollbackable. This is contract-grade specification; the planes are pinned at CONTRACT grade with clean Capella traceability.
+        </p>
+        <p class="mt-4 font-body text-[13px] leading-relaxed text-[var(--muted)]">
+          Zero forbidden layer inversions, zero consumes cycles, append-only evidence. Ten new invariants (INV-025..034) extend the constitution to cover the platform layer.
+        </p>
+      </div>
+      <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
+        {rev3Planes.map((plane, i) => (
+          <div class={`card animate stagger-${(i % 6) + 1}`}>
+            <span class="font-mono text-[12px] text-[var(--accent)]">0{i + 1}</span>
+            <h3 class="mt-3 font-heading text-[17px] font-semibold text-[var(--text)]">{plane.title}</h3>
+            <p class="mt-2 font-body text-[13px] leading-relaxed text-[var(--muted)]">{plane.desc}</p>
+          </div>
+        ))}
       </div>
     </div>
   </section>
@@ -176,7 +225,7 @@ const proxguardAlignment = [
           A distribution,<br />not an assistant.
         </h2>
         <p class="mt-4 font-body text-[15px] leading-[1.7] text-[var(--muted)]">
-          AIOS is a real Linux distribution. Linux stays the execution substrate — kernel, drivers, scheduler, syscalls — and AIOS adds a typed distribution layer on top: capability translation, latency routing, AIOS-FS object truth, policy decisions, verification, evidence, and sandbox composition. Rev.2 is the system contract that pins the layer.
+          AIOS is a real Linux distribution. Linux stays the execution substrate — kernel, drivers, scheduler, syscalls — and AIOS adds a typed distribution layer on top: capability translation, latency routing, AIOS-FS object truth, policy decisions, verification, evidence, and sandbox composition. Rev.2 is the foundation that pins the layer; Rev.3 is the platform layer built on it.
         </p>
       </div>
       <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
@@ -243,6 +292,9 @@ const proxguardAlignment = [
 
   <section class="mx-auto max-w-content px-8 py-16">
     <SectionDivider label="REVISION 2 CONTRACTS BY LAYER" />
+    <p class="mx-auto mt-6 max-w-narrow text-center font-body text-[14px] leading-[1.7] text-[var(--muted)]">
+      The proven foundation. Eleven layers pinned at contract grade — the constitutional core that Rev.3's five governed planes build on.
+    </p>
     <div class="mt-8 grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
       {rev2Contracts.map((contract, i) => (
         <div class={`card animate stagger-${(i % 6) + 1}`}>
@@ -353,13 +405,13 @@ const proxguardAlignment = [
   </section>
 
   <section class="bg-[var(--surface-1)] py-16 text-center">
-    <h2 class="animate font-heading text-[32px] font-bold text-[var(--text)]">Not commands.<br />Operational cognition.</h2>
+    <h2 class="animate font-heading text-[32px] font-bold text-[var(--text)]">Not commands.<br />A governed platform.</h2>
     <p class="animate mx-auto mt-4 max-w-narrow font-body text-[15px] leading-relaxed text-[var(--muted)]" style="animation-delay:200ms">
-          Revision 2 is the first coherent contract pack: action envelopes, capability translation, latency tiers, AIOS-FS, policy, verification, evidence, and sandbox composition.
+          Revision 2 is the proven constitutional core: action envelopes, capability translation, latency tiers, AIOS-FS, policy, verification, evidence, and sandbox composition. Revision 3 builds on it with five governed planes — security posture, app capsules, kernel portability, driver capsules, and a native AI control plane.
     </p>
     <div class="animate mt-8 flex flex-col items-center justify-center gap-4 sm:flex-row" style="animation-delay:400ms">
-      <a href="/features" class="btn btn-hero btn-primary no-underline">Architecture Layers</a>
-      <a href="/roadmap" class="btn btn-hero no-underline border border-[var(--border)]">Revision 2</a>
+      <a href="/features" class="btn btn-hero btn-primary no-underline">Explore the platform</a>
+      <a href="/roadmap" class="btn btn-hero no-underline border border-[var(--border)]">Read the Rev.3 architecture</a>
     </div>
   </section>
 </BaseLayout>

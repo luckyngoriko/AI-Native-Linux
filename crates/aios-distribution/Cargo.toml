@@ -36,6 +36,8 @@ protoc-bin-vendored = { workspace = true }
 tokio       = { workspace = true, features = ["rt-multi-thread", "macros", "test-util"] }
 rand_core   = { workspace = true }
 ed25519-dalek = { workspace = true }
+aios-integration = { path = "../aios-integration" }
+chrono      = { workspace = true }
 
 [lints]
 workspace = true

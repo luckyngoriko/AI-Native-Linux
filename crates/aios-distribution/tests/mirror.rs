@@ -374,7 +374,7 @@ fn mirror_never_resign_tampered_content_fails_hash_check() {
 
 #[test]
 fn default_code_version_constant_is_correct() {
-    assert_eq!(DEFAULT_CODE_VERSION, "aios-distribution/0.0.1-T191");
+    assert_eq!(DEFAULT_CODE_VERSION, "aios-distribution/0.0.1-T192");
 }
 
 // ── 14. error code count ───────────────────────────────────────────────

@@ -69,6 +69,14 @@ impl PublisherCatalog {
         self.lookup(id)
             .is_some_and(|entry| entry.retired_at.is_none_or(|retired| retired > *now))
     }
+
+    /// Returns a mutable reference to a publisher root entry by ID.
+    ///
+    /// Returns `None` if no entry with the given `PublisherRootId` exists.
+    #[must_use]
+    pub fn get_mut(&mut self, id: &PublisherRootId) -> Option<&mut PublisherRoot> {
+        self.entries.iter_mut().find(|e| e.publisher_root_id == *id)
+    }
 }
 
 impl Default for PublisherCatalog {
@@ -136,5 +144,31 @@ impl SigningKeyCatalog {
                 .revoked_at
                 .is_some_and(|revoked| revoked <= *issued_at)
         })
+    }
+
+    /// Returns a mutable reference to a signing key entry by ID.
+    ///
+    /// Returns `None` if no entry with the given `PackageSigningKeyId` exists.
+    #[must_use]
+    pub fn get_mut(&mut self, id: &PackageSigningKeyId) -> Option<&mut PackageSigningKey> {
+        self.entries
+            .iter_mut()
+            .find(|e| e.package_signing_key_id == *id)
+    }
+
+    /// Revokes all active (non-revoked) signing keys in this catalog and returns
+    /// the IDs of the revoked keys.
+    ///
+    /// Used by reactive `KeyCompromise` rotation per S11.1 §11.
+    #[must_use]
+    pub fn revoke_all_active(&mut self, revoked_at: DateTime<Utc>) -> Vec<PackageSigningKeyId> {
+        let mut revoked = Vec::new();
+        for entry in &mut self.entries {
+            if entry.revoked_at.is_none() {
+                entry.revoked_at = Some(revoked_at);
+                revoked.push(entry.package_signing_key_id.clone());
+            }
+        }
+        revoked
     }
 }

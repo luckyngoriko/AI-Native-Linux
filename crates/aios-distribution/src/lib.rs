@@ -42,6 +42,7 @@
 
 pub mod canonical;
 pub mod catalog;
+pub mod deplatform;
 pub mod error;
 pub mod ids;
 pub mod install_fsm;
@@ -55,6 +56,7 @@ pub mod mirror_fetch;
 pub mod mirror_policy;
 pub mod package_kind;
 pub mod repository;
+pub mod rotation;
 pub mod takedown;
 pub mod trust;
 pub mod trust_chain;
@@ -62,6 +64,11 @@ pub mod verifier;
 
 pub use canonical::{content_hash, manifest_canonical_hash, signing_payload};
 pub use catalog::{PublisherCatalog, SigningKeyCatalog};
+pub use deplatform::{
+    apply_deplatform, default_grace_end, extend_grace, grace_expired, health_check_quarantine,
+    returning_publisher_default_trust, verify_deplatform_event, InstalledPackageRecord,
+    PublisherDeplatformEvent,
+};
 pub use error::{DistributionError, DistributionErrorCode};
 pub use ids::{
     ManifestId, PackageId, PackageSigningKeyId, PublisherId, PublisherRootId, RepositoryId,
@@ -80,6 +87,10 @@ pub use mirror_fetch::{resolve_and_verify, MirrorByteSource, ResolvedBytes};
 pub use mirror_policy::{detect_resign_attempt, fetch_order, verify_mirror_bytes, MirrorEndpoint};
 pub use package_kind::{InstallScope, PackageKind};
 pub use repository::{RepositoryKind, UpdateChannel};
+pub use rotation::{
+    apply_publisher_rotation, verify_rotation_event, AiosRootRotationEvent, PublisherRotationEvent,
+    RotationOutcome,
+};
 pub use takedown::TakedownReason;
 pub use trust::PublisherTrustLevel;
 pub use trust_chain::{
@@ -93,4 +104,4 @@ pub use verifier::TrustChainVerifier;
 /// This constant anchors the crate's identity at compile time so that closure
 /// tests (T-198) can verify the distribution layer shipped with the correct
 /// typed contract before cross-crate wiring lands in T-197.
-pub const DEFAULT_CODE_VERSION: &str = "aios-distribution/0.0.1-T191";
+pub const DEFAULT_CODE_VERSION: &str = "aios-distribution/0.0.1-T192";

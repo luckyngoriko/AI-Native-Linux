@@ -14,54 +14,8 @@ use std::collections::HashMap;
 
 use serde::{Deserialize, Serialize};
 
+pub use crate::self_healing::ComponentIsolationLevel;
 use crate::self_healing::ComponentHealthState;
-
-// ---------------------------------------------------------------------------
-// Isolation level
-// ---------------------------------------------------------------------------
-
-/// How isolated a component is from the rest of the system.
-///
-/// Determines what the self-healing driver is allowed to do when the component
-/// becomes unhealthy:
-///
-/// * [`ComponentIsolationLevel::Critical`] — **never stop or restart**; the
-///   driver MUST escalate immediately.
-/// * [`ComponentIsolationLevel::Important`] — **can restart** but not kill
-///   permanently; the driver may attempt a bounded number of restarts.
-/// * [`ComponentIsolationLevel::Replaceable`] — **can kill and replace**;
-///   the driver may restart aggressively, including hot-swap to a standby.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, Default)]
-#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
-pub enum ComponentIsolationLevel {
-    /// Cannot stop, cannot restart — escalation is the only option.
-    Critical,
-    /// May restart within policy limits, but must not be killed permanently.
-    Important,
-    /// May be killed and replaced (hot-swap to standby instance).
-    #[default]
-    Replaceable,
-}
-
-impl ComponentIsolationLevel {
-    /// Returns `true` when the driver may attempt a restart for this level.
-    #[must_use]
-    pub const fn may_restart(self) -> bool {
-        !matches!(self, Self::Critical)
-    }
-
-    /// Returns `true` when the driver may kill and replace this component.
-    #[must_use]
-    pub const fn may_kill_and_replace(self) -> bool {
-        matches!(self, Self::Replaceable)
-    }
-
-    /// Returns `true` when escalation is **mandatory** (Critical = never touch).
-    #[must_use]
-    pub const fn requires_escalation(self) -> bool {
-        matches!(self, Self::Critical)
-    }
-}
 
 // ---------------------------------------------------------------------------
 // Registry entry

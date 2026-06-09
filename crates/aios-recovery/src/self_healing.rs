@@ -38,6 +38,97 @@ use serde::{Deserialize, Serialize};
 use crate::mode::RecoveryMode;
 use crate::{RecoveryError, RecoveryMutableScope};
 
+// ---------------------------------------------------------------------------
+// Isolation level (MINIX-inspired driver server model)
+// ---------------------------------------------------------------------------
+
+/// How isolated a component is from the rest of the system.
+///
+/// Determines what the self-healing driver is allowed to do when the component
+/// becomes unhealthy:
+///
+/// * [`ComponentIsolationLevel::Critical`] — **never stop or restart**; the
+///   driver MUST escalate immediately.
+/// * [`ComponentIsolationLevel::Important`] — **can restart** but not kill
+///   permanently; the driver may attempt a bounded number of restarts.
+/// * [`ComponentIsolationLevel::Replaceable`] — **can kill and replace**;
+///   the driver may restart aggressively, including hot-swap to a standby.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, Default)]
+#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
+pub enum ComponentIsolationLevel {
+    /// Cannot stop, cannot restart — escalation is the only option.
+    Critical,
+    /// May restart within policy limits, but must not be killed permanently.
+    Important,
+    /// May be killed and replaced (hot-swap to standby instance).
+    #[default]
+    Replaceable,
+}
+
+impl ComponentIsolationLevel {
+    /// Numeric rank for ordering — higher = more restrictive.
+    ///
+    /// `Replaceable` (0) < `Important` (1) < `Critical` (2).
+    #[must_use]
+    pub const fn rank(self) -> u8 {
+        match self {
+            Self::Replaceable => 0,
+            Self::Important => 1,
+            Self::Critical => 2,
+        }
+    }
+
+    /// Returns `true` when the driver may attempt a restart for this level.
+    #[must_use]
+    pub const fn may_restart(self) -> bool {
+        !matches!(self, Self::Critical)
+    }
+
+    /// Returns `true` when the driver may kill and replace this component.
+    #[must_use]
+    pub const fn may_kill_and_replace(self) -> bool {
+        matches!(self, Self::Replaceable)
+    }
+
+    /// Returns `true` when escalation is **mandatory** (Critical = never touch).
+    #[must_use]
+    pub const fn requires_escalation(self) -> bool {
+        matches!(self, Self::Critical)
+    }
+}
+
+impl PartialOrd for ComponentIsolationLevel {
+    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+        Some(self.cmp(other))
+    }
+}
+
+impl Ord for ComponentIsolationLevel {
+    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+        self.rank().cmp(&other.rank())
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Restart boundary — how far a restart action propagates
+// ---------------------------------------------------------------------------
+
+/// Declares the propagation scope of a component restart.
+///
+/// Inspired by the MINIX driver-server model where some servers can restart
+/// locally while others require a full system reincarnation cycle.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, Default)]
+#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
+pub enum RestartBoundary {
+    /// Restart only the component process; no wider effect.
+    #[default]
+    ProcessLocal,
+    /// Restart and notify mesh peers so they can refresh routing / connections.
+    MeshLocal,
+    /// Requires a full recovery-mode cycle — affects the whole system.
+    SystemWide,
+}
+
 /// Canonical pre-authorised subject id for self-healing evidence emissions.
 ///
 /// This subject is granted scoped [`RecoveryMutableScope`] authorisations at
@@ -140,6 +231,12 @@ pub struct RestartPolicy {
     pub backoff_cap_seconds: f64,
     /// Whether to reset the retry counter after `Healthy` observation.
     pub reset_on_healthy: bool,
+    /// Escalation threshold by isolation level.
+    ///
+    /// When set, any component at this isolation level or higher is escalated
+    /// immediately instead of following the normal restart / failover flow.
+    #[serde(default)]
+    pub escalate_after: Option<ComponentIsolationLevel>,
 }
 
 impl Default for RestartPolicy {
@@ -149,6 +246,7 @@ impl Default for RestartPolicy {
             backoff_seconds_base: 1.0,
             backoff_cap_seconds: 60.0,
             reset_on_healthy: true,
+            escalate_after: None,
         }
     }
 }
@@ -162,6 +260,7 @@ impl RestartPolicy {
             backoff_seconds_base: 0.0,
             backoff_cap_seconds: 0.0,
             reset_on_healthy: true,
+            escalate_after: None,
         }
     }
 
@@ -173,6 +272,7 @@ impl RestartPolicy {
             backoff_seconds_base: 2.0,
             backoff_cap_seconds: 300.0,
             reset_on_healthy: true,
+            escalate_after: None,
         }
     }
 
@@ -227,6 +327,21 @@ pub struct ComponentHealingConfig {
     /// Must be a subset of the subject's pre-authorised grant set; the runtime
     /// adapter will reject out-of-scope actions.
     pub allowed_scopes: Vec<RecoveryMutableScope>,
+    /// Isolation level for this component (Critical / Important / Replaceable).
+    ///
+    /// When the driver decides an action for this component, the isolation
+    /// level gates what the driver is allowed to do: Critical components are
+    /// immediately escalated, Important may restart but cannot be killed, and
+    /// Replaceable may be hot-swapped without ceremony.
+    #[serde(default)]
+    pub isolation_level: ComponentIsolationLevel,
+    /// Declared restart propagation boundary for this component.
+    ///
+    /// [`RestartBoundary::ProcessLocal`] restarts only the component process;
+    /// [`RestartBoundary::MeshLocal`] also notifies mesh peers to refresh;
+    /// [`RestartBoundary::SystemWide`] requires a full recovery cycle.
+    #[serde(default)]
+    pub restart_boundary: RestartBoundary,
     /// Optional component type tag used for grouping and routing.
     #[serde(default)]
     pub component_type: Option<String>,
@@ -259,6 +374,12 @@ impl SelfHealingPolicy {
             .get(component_id)
             .map(|c| c.allowed_scopes.clone())
             .unwrap_or_default()
+    }
+
+    /// Return the full [`ComponentHealingConfig`] for the given component, if registered.
+    #[must_use]
+    pub fn config_for_component(&self, component_id: &str) -> Option<&ComponentHealingConfig> {
+        self.component_policies.get(component_id)
     }
 
     /// Validate that the policy does not permit normal-mode healing (INV-012 guard).

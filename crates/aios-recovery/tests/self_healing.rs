@@ -16,8 +16,8 @@ use aios_recovery::{
     ComponentSnapshot, HealAction, HealActionKind, HealCommand, HealCommandChannel,
     HealCommandResponse, InMemoryRecoveryBoundary, InMemorySelfHealingDriver, PanicSeverity,
     RecoveryBoundary, RecoveryEvidenceEmitter, RecoveryMode, RecoveryMutableScope,
-    RecoverySubjectRef, RegistryEntry, RestartPolicy, SelfHealingDriver, SelfHealingPolicy,
-    WatchdogPolicy,
+    RecoverySubjectRef, RegistryEntry, RestartBoundary, RestartPolicy, SelfHealingDriver,
+    SelfHealingPolicy, WatchdogPolicy,
 };
 
 // ---------------------------------------------------------------------------
@@ -49,6 +49,8 @@ fn minix_policy() -> SelfHealingPolicy {
                 RecoveryMutableScope::ProcessLifecycle,
                 RecoveryMutableScope::NetworkReconfig,
             ],
+            isolation_level: ComponentIsolationLevel::Replaceable,
+            restart_boundary: RestartBoundary::ProcessLocal,
             component_type: Some("infrastructure".to_owned()),
         },
     );
@@ -58,6 +60,8 @@ fn minix_policy() -> SelfHealingPolicy {
             display_name: "DNS Resolver".to_owned(),
             restart_policy: RestartPolicy::conservative(5),
             allowed_scopes: vec![RecoveryMutableScope::ProcessLifecycle],
+            isolation_level: ComponentIsolationLevel::Replaceable,
+            restart_boundary: RestartBoundary::ProcessLocal,
             component_type: Some("infrastructure".to_owned()),
         },
     );
@@ -89,6 +93,8 @@ async fn policy_normal_mode_with_components_is_invalid() {
             display_name: "Test".to_owned(),
             restart_policy: RestartPolicy::default(),
             allowed_scopes: vec![],
+            isolation_level: ComponentIsolationLevel::Replaceable,
+            restart_boundary: RestartBoundary::ProcessLocal,
             component_type: None,
         },
     );
@@ -1224,6 +1230,8 @@ async fn critical_component_forces_escalation_not_restart() {
             display_name: "Kernel".to_owned(),
             restart_policy: RestartPolicy::minix_style(5),
             allowed_scopes: vec![RecoveryMutableScope::ProcessLifecycle],
+            isolation_level: ComponentIsolationLevel::Critical,
+            restart_boundary: RestartBoundary::SystemWide,
             component_type: Some("infrastructure".to_owned()),
         },
     );
@@ -1661,4 +1669,277 @@ async fn close_channel_stops_send_and_receive() {
     let s2 = ch2.sender();
     drop(ch2); // drops original tx/rx, but s2 clone keeps it alive
     drop(s2);  // now fully closed
+}
+
+// ---------------------------------------------------------------------------
+// RestartBoundary tests
+// ---------------------------------------------------------------------------
+
+#[test]
+fn restart_boundary_default_is_process_local() {
+    assert_eq!(
+        RestartBoundary::default(),
+        RestartBoundary::ProcessLocal,
+        "RestartBoundary must default to ProcessLocal"
+    );
+}
+
+#[test]
+fn restart_boundary_serde_round_trip() {
+    let boundaries = vec![
+        RestartBoundary::ProcessLocal,
+        RestartBoundary::MeshLocal,
+        RestartBoundary::SystemWide,
+    ];
+
+    for boundary in &boundaries {
+        let json = serde_json::to_value(boundary).expect("serialize");
+        let rt: RestartBoundary = serde_json::from_value(json).expect("deserialize");
+        assert_eq!(&rt, boundary, "RestartBoundary {boundary:?} must round-trip");
+    }
+}
+
+#[test]
+fn restart_boundary_serde_is_screaming_snake_case() {
+    let local = serde_json::to_value(RestartBoundary::ProcessLocal).expect("serialize");
+    assert_eq!(
+        local,
+        serde_json::Value::String("PROCESS_LOCAL".to_owned()),
+        "ProcessLocal → PROCESS_LOCAL"
+    );
+
+    let mesh = serde_json::to_value(RestartBoundary::MeshLocal).expect("serialize");
+    assert_eq!(
+        mesh,
+        serde_json::Value::String("MESH_LOCAL".to_owned()),
+        "MeshLocal → MESH_LOCAL"
+    );
+
+    let system = serde_json::to_value(RestartBoundary::SystemWide).expect("serialize");
+    assert_eq!(
+        system,
+        serde_json::Value::String("SYSTEM_WIDE".to_owned()),
+        "SystemWide → SYSTEM_WIDE"
+    );
+}
+
+// ---------------------------------------------------------------------------
+// Driver: Important component can be restarted (not escalated)
+// ---------------------------------------------------------------------------
+
+#[tokio::test]
+async fn important_component_can_be_restarted() {
+    let mut registry = ComponentRegistry::new();
+    registry.register(
+        RegistryEntry::new("aios-dns-resolver", "DNS Resolver")
+            .with_isolation_level(ComponentIsolationLevel::Important),
+    );
+
+    let boundary = Arc::new(InMemoryRecoveryBoundary::new());
+    let log = Arc::new(aios_recovery::InMemoryRecoveryEvidenceLog::new());
+    let emitter = Arc::new(make_emitter(log.clone()));
+    let driver = InMemorySelfHealingDriver::new(boundary.clone())
+        .with_registry(Arc::new(registry))
+        .with_evidence_emitter(emitter);
+
+    let mut policy = minix_policy();
+    policy.component_policies.insert(
+        "aios-dns-resolver".to_owned(),
+        ComponentHealingConfig {
+            display_name: "DNS Resolver".to_owned(),
+            restart_policy: RestartPolicy::minix_style(3),
+            allowed_scopes: vec![RecoveryMutableScope::ProcessLifecycle],
+            isolation_level: ComponentIsolationLevel::Important,
+            restart_boundary: RestartBoundary::ProcessLocal,
+            component_type: Some("infrastructure".to_owned()),
+        },
+    );
+    driver.set_policy(policy).await.expect("valid policy");
+
+    boundary
+        .enter_recovery(aios_recovery::EnterRecoveryRequest {
+            reason: "BOOT_FAILURE_AUTO".to_owned(),
+            operator_grant: Some("self-healing-bootstrap".to_owned()),
+            expected_phases: vec![aios_recovery::BootPhase::Recovery],
+            bundle: None,
+        })
+        .await
+        .expect("enter recovery");
+
+    // Observe Important component as Degraded — should get Restart, not Escalate
+    driver
+        .observe_health("aios-dns-resolver", ComponentHealthState::Degraded)
+        .await
+        .expect("observe dns");
+
+    let actions = driver.evaluate().await.expect("evaluate");
+    assert_eq!(actions.len(), 1, "one action for Important dns-resolver");
+
+    let action = &actions[0];
+    assert_eq!(
+        action.action_kind,
+        HealActionKind::Restart,
+        "Important component must be restarted, not escalated"
+    );
+    assert!(
+        action.reason.contains("isolation_level=Important"),
+        "reason must mention isolation_level=Important"
+    );
+    assert!(
+        action.reason.contains("restart_boundary=ProcessLocal"),
+        "reason must contain restart_boundary"
+    );
+}
+
+// ---------------------------------------------------------------------------
+// Driver: escalate_after on RestartPolicy works correctly
+// ---------------------------------------------------------------------------
+
+#[tokio::test]
+async fn escalate_after_important_escalates_important_and_critical() {
+    let mut registry = ComponentRegistry::new();
+    registry.register(
+        RegistryEntry::new("aios-dns-resolver", "DNS Resolver")
+            .with_isolation_level(ComponentIsolationLevel::Important),
+    );
+
+    let boundary = Arc::new(InMemoryRecoveryBoundary::new());
+    let log = Arc::new(aios_recovery::InMemoryRecoveryEvidenceLog::new());
+    let emitter = Arc::new(make_emitter(log.clone()));
+    let driver = InMemorySelfHealingDriver::new(boundary.clone())
+        .with_registry(Arc::new(registry))
+        .with_evidence_emitter(emitter);
+
+    // escalate_after = Important means Important AND Critical components escalate
+    let escalate_policy = RestartPolicy {
+        max_retries: 5,
+        backoff_seconds_base: 0.0,
+        backoff_cap_seconds: 0.0,
+        reset_on_healthy: true,
+        escalate_after: Some(ComponentIsolationLevel::Important),
+    };
+
+    let mut policy = minix_policy();
+    policy.component_policies.insert(
+        "aios-dns-resolver".to_owned(),
+        ComponentHealingConfig {
+            display_name: "DNS Resolver".to_owned(),
+            restart_policy: escalate_policy,
+            allowed_scopes: vec![RecoveryMutableScope::ProcessLifecycle],
+            isolation_level: ComponentIsolationLevel::Important,
+            restart_boundary: RestartBoundary::ProcessLocal,
+            component_type: Some("infrastructure".to_owned()),
+        },
+    );
+    driver.set_policy(policy).await.expect("valid policy");
+
+    boundary
+        .enter_recovery(aios_recovery::EnterRecoveryRequest {
+            reason: "BOOT_FAILURE_AUTO".to_owned(),
+            operator_grant: Some("self-healing-bootstrap".to_owned()),
+            expected_phases: vec![aios_recovery::BootPhase::Recovery],
+            bundle: None,
+        })
+        .await
+        .expect("enter recovery");
+
+    driver
+        .observe_health("aios-dns-resolver", ComponentHealthState::Failed)
+        .await
+        .expect("observe dns");
+
+    let actions = driver.evaluate().await.expect("evaluate");
+    assert_eq!(actions.len(), 1);
+
+    let action = &actions[0];
+    assert_eq!(
+        action.action_kind,
+        HealActionKind::Escalate,
+        "escalate_after=Important must escalate an Important component"
+    );
+}
+
+#[tokio::test]
+async fn escalate_after_not_triggered_for_lower_isolation() {
+    let mut registry = ComponentRegistry::new();
+    registry.register(
+        RegistryEntry::new("aios-log-collector", "Log Collector")
+            .with_isolation_level(ComponentIsolationLevel::Replaceable),
+    );
+
+    let boundary = Arc::new(InMemoryRecoveryBoundary::new());
+    let log = Arc::new(aios_recovery::InMemoryRecoveryEvidenceLog::new());
+    let emitter = Arc::new(make_emitter(log.clone()));
+    let driver = InMemorySelfHealingDriver::new(boundary.clone())
+        .with_registry(Arc::new(registry))
+        .with_evidence_emitter(emitter);
+
+    // escalate_after = Important — Replaceable is BELOW this threshold
+    let escalate_policy = RestartPolicy {
+        max_retries: 5,
+        backoff_seconds_base: 0.0,
+        backoff_cap_seconds: 0.0,
+        reset_on_healthy: true,
+        escalate_after: Some(ComponentIsolationLevel::Important),
+    };
+
+    let mut policy = minix_policy();
+    policy.component_policies.insert(
+        "aios-log-collector".to_owned(),
+        ComponentHealingConfig {
+            display_name: "Log Collector".to_owned(),
+            restart_policy: escalate_policy,
+            allowed_scopes: vec![RecoveryMutableScope::ProcessLifecycle],
+            isolation_level: ComponentIsolationLevel::Replaceable,
+            restart_boundary: RestartBoundary::ProcessLocal,
+            component_type: Some("utility".to_owned()),
+        },
+    );
+    driver.set_policy(policy).await.expect("valid policy");
+
+    boundary
+        .enter_recovery(aios_recovery::EnterRecoveryRequest {
+            reason: "BOOT_FAILURE_AUTO".to_owned(),
+            operator_grant: Some("self-healing-bootstrap".to_owned()),
+            expected_phases: vec![aios_recovery::BootPhase::Recovery],
+            bundle: None,
+        })
+        .await
+        .expect("enter recovery");
+
+    driver
+        .observe_health("aios-log-collector", ComponentHealthState::Failed)
+        .await
+        .expect("observe collector");
+
+    let actions = driver.evaluate().await.expect("evaluate");
+    assert_eq!(actions.len(), 1);
+
+    let action = &actions[0];
+    assert_eq!(
+        action.action_kind,
+        HealActionKind::Restart,
+        "escalate_after=Important must NOT escalate a Replaceable component"
+    );
+}
+
+// ---------------------------------------------------------------------------
+// ComponentIsolationLevel rank and ordering
+// ---------------------------------------------------------------------------
+
+#[test]
+fn isolation_level_rank_values() {
+    assert_eq!(ComponentIsolationLevel::Replaceable.rank(), 0);
+    assert_eq!(ComponentIsolationLevel::Important.rank(), 1);
+    assert_eq!(ComponentIsolationLevel::Critical.rank(), 2);
+}
+
+#[test]
+fn isolation_level_ordering() {
+    assert!(ComponentIsolationLevel::Critical > ComponentIsolationLevel::Important);
+    assert!(ComponentIsolationLevel::Important > ComponentIsolationLevel::Replaceable);
+    assert!(ComponentIsolationLevel::Critical >= ComponentIsolationLevel::Important);
+    assert!(ComponentIsolationLevel::Important >= ComponentIsolationLevel::Important);
+    assert!(ComponentIsolationLevel::Replaceable >= ComponentIsolationLevel::Replaceable);
+    assert!(!(ComponentIsolationLevel::Replaceable >= ComponentIsolationLevel::Important));
 }

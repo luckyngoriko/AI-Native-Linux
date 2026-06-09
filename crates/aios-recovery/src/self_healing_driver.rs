@@ -22,8 +22,9 @@ use crate::ipc::{HealCommand, HealCommandResponse};
 use crate::mode::RecoveryMode;
 use crate::registry::ComponentRegistry;
 use crate::self_healing::{
-    ComponentHealingTracker, ComponentHealthState, ComponentSnapshot, HealAction,
-    HealActionKind, PanicContext, SelfHealingPolicy,
+    ComponentHealingTracker, ComponentHealthState, ComponentIsolationLevel,
+    ComponentSnapshot, HealAction, HealActionKind, PanicContext, RestartBoundary,
+    SelfHealingPolicy,
 };
 use crate::watchdog::{WatchdogPolicy, WatchdogTimer};
 use crate::{RecoveryError, RecoveryMutableScope};
@@ -380,29 +381,33 @@ impl InMemorySelfHealingDriver {
 
         let restart_policy = policy.policy_for_component(component_id);
         let allowed_scopes = policy.scopes_for_component(component_id);
+        let config = policy.config_for_component(component_id);
+        let restart_boundary = config.map_or_else(RestartBoundary::default, |c| c.restart_boundary);
 
-        // Consult the registry: Critical components MUST escalate immediately —
-        // the driver is never allowed to restart or kill them.
-        if let Some(registry) = &self.registry {
-            let isolation = registry.isolation_level_of(component_id);
-            if isolation.requires_escalation() {
-                let sequence = {
-                    let mut seq = self.global_sequence.write().await;
-                    *seq += 1;
-                    *seq
-                };
-                return Some(HealAction {
-                    component_id: component_id.to_owned(),
-                    observed_state: state,
-                    action_kind: HealActionKind::Escalate,
-                    required_scope: RecoveryMutableScope::ProcessLifecycle,
-                    reason: format!(
-                        "component={component_id} isolation_level=Critical — escalation required"
-                    ),
-                    decided_at: Utc::now(),
-                    sequence,
-                });
-            }
+        let isolation = self.registry.as_ref().map_or_else(
+            || config.map_or_else(ComponentIsolationLevel::default, |c| c.isolation_level),
+            |registry| registry.isolation_level_of(component_id),
+        );
+
+        // Critical components MUST escalate immediately — the driver is never
+        // allowed to restart or kill them.
+        if isolation.requires_escalation() {
+            let sequence = {
+                let mut seq = self.global_sequence.write().await;
+                *seq += 1;
+                *seq
+            };
+            return Some(HealAction {
+                component_id: component_id.to_owned(),
+                observed_state: state,
+                action_kind: HealActionKind::Escalate,
+                required_scope: RecoveryMutableScope::ProcessLifecycle,
+                reason: format!(
+                    "component={component_id} isolation_level=Critical restart_boundary={restart_boundary:?} — escalation required"
+                ),
+                decided_at: Utc::now(),
+                sequence,
+            });
         }
 
         // Pick the best available scope for this action
@@ -412,7 +417,7 @@ impl InMemorySelfHealingDriver {
             .unwrap_or(RecoveryMutableScope::ProcessLifecycle);
 
         let attempt = tracker.consecutive_failures.saturating_add(1);
-        let action_kind = if attempt > restart_policy.max_retries {
+        let mut action_kind = if attempt > restart_policy.max_retries {
             HealActionKind::Escalate
         } else if state.is_terminal() && attempt > restart_policy.max_retries / 2 {
             // After half max retries with terminal failure, try failover first
@@ -424,6 +429,20 @@ impl InMemorySelfHealingDriver {
         } else {
             HealActionKind::Restart
         };
+
+        // Belt-and-suspenders: if the action was decided as Restart but the
+        // component is Critical, escalate instead (should already be caught above).
+        if action_kind == HealActionKind::Restart && isolation.requires_escalation() {
+            action_kind = HealActionKind::Escalate;
+        }
+
+        // Check escalate_after threshold on the restart policy: when set,
+        // escalate immediately for any component at or above the threshold.
+        if let Some(threshold) = restart_policy.escalate_after {
+            if isolation >= threshold {
+                action_kind = HealActionKind::Escalate;
+            }
+        }
 
         let sequence = {
             let mut seq = self.global_sequence.write().await;
@@ -437,7 +456,7 @@ impl InMemorySelfHealingDriver {
             action_kind,
             required_scope,
             reason: format!(
-                "component={component_id} state={state:?} consecutive_failures={} attempt={}/{}",
+                "component={component_id} state={state:?} consecutive_failures={} attempt={}/{} isolation_level={isolation:?} restart_boundary={restart_boundary:?}",
                 tracker.consecutive_failures,
                 attempt,
                 restart_policy.max_retries,

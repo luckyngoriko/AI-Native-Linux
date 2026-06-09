@@ -53,7 +53,8 @@ pub use registry::{ComponentIsolationLevel, ComponentRegistry, RegistryEntry};
 pub use runtime_adapter::RecoveryRuntimeAdapter;
 pub use self_healing::{
     ComponentHealingConfig, ComponentHealingTracker, ComponentHealthState,
-    ComponentSnapshot, HealAction, HealActionKind, PanicContext, PanicSeverity,
+    ComponentSnapshot, HealAction, HealActionKind,
+    PanicContext, PanicSeverity, RestartBoundary,
     RestartPolicy, SelfHealingPolicy, SELF_HEALING_SUBJECT,
 };
 pub use self_healing_driver::{

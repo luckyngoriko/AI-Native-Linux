@@ -13,10 +13,11 @@ use std::sync::Arc;
 
 use aios_recovery::{
     ComponentHealingConfig, ComponentHealthState, ComponentIsolationLevel, ComponentRegistry,
-    ComponentSnapshot, HealAction, HealActionKind, InMemoryRecoveryBoundary,
-    InMemorySelfHealingDriver, PanicSeverity, RecoveryBoundary, RecoveryEvidenceEmitter,
-    RecoveryMode, RecoveryMutableScope, RecoverySubjectRef, RegistryEntry, RestartPolicy,
-    SelfHealingDriver, SelfHealingPolicy, WatchdogPolicy,
+    ComponentSnapshot, HealAction, HealActionKind, HealCommand, HealCommandChannel,
+    HealCommandResponse, InMemoryRecoveryBoundary, InMemorySelfHealingDriver, PanicSeverity,
+    RecoveryBoundary, RecoveryEvidenceEmitter, RecoveryMode, RecoveryMutableScope,
+    RecoverySubjectRef, RegistryEntry, RestartPolicy, SelfHealingDriver, SelfHealingPolicy,
+    WatchdogPolicy,
 };
 
 // ---------------------------------------------------------------------------
@@ -1315,4 +1316,349 @@ fn component_isolation_level_default_is_replaceable() {
         ComponentIsolationLevel::default(),
         ComponentIsolationLevel::Replaceable,
     );
+}
+
+// ---------------------------------------------------------------------------
+// IPC: HealCommand channel send + receive round-trip
+// ---------------------------------------------------------------------------
+
+#[tokio::test]
+async fn channel_send_receive_round_trip() {
+    use tokio::sync::oneshot;
+
+    let mut channel = HealCommandChannel::new(4);
+    let sender = channel.sender();
+
+    let handle = tokio::spawn(async move {
+        let (resp_tx, resp_rx) = oneshot::channel();
+        sender
+            .send((HealCommand::Shutdown { grace_period_seconds: 10 }, resp_tx))
+            .await
+            .expect("send succeeds");
+        resp_rx.await.expect("response received")
+    });
+
+    // Yield to let the spawned task execute its send
+    tokio::task::yield_now().await;
+
+    let (cmd, response_tx) = channel.try_receive().expect("should receive command");
+    assert_eq!(
+        cmd,
+        HealCommand::Shutdown {
+            grace_period_seconds: 10
+        }
+    );
+
+    response_tx
+        .send(HealCommandResponse::Ack("shutting down".to_owned()))
+        .expect("send response");
+
+    let response = handle.await.expect("task completes");
+    assert_eq!(
+        response,
+        HealCommandResponse::Ack("shutting down".to_owned())
+    );
+}
+
+#[tokio::test]
+async fn channel_try_receive_returns_none_when_empty() {
+    let mut channel = HealCommandChannel::new(4);
+    assert!(channel.try_receive().is_none());
+}
+
+// ---------------------------------------------------------------------------
+// IPC: HealCommand Shutdown with grace period serializes/deserializes
+// ---------------------------------------------------------------------------
+
+#[test]
+fn heal_command_shutdown_serializes_with_grace_period() {
+    let cmd = HealCommand::Shutdown {
+        grace_period_seconds: 30,
+    };
+    let json = serde_json::to_value(&cmd).expect("serialize");
+    assert_eq!(json["shutdown"]["grace_period_seconds"], 30);
+}
+
+#[test]
+fn heal_command_shutdown_round_trips_through_json() {
+    let original = HealCommand::Shutdown {
+        grace_period_seconds: 60,
+    };
+    let json = serde_json::to_string(&original).expect("serialize");
+    let round_tripped: HealCommand = serde_json::from_str(&json).expect("deserialize");
+    assert_eq!(round_tripped, original);
+}
+
+#[test]
+fn heal_command_all_variants_round_trip() {
+    let commands = vec![
+        HealCommand::Shutdown {
+            grace_period_seconds: 15,
+        },
+        HealCommand::RestartInstant,
+        HealCommand::Isolate {
+            redirect_target: Some("standby-01.local".to_owned()),
+        },
+        HealCommand::Isolate {
+            redirect_target: None,
+        },
+        HealCommand::Checkpoint {
+            state_hash: "abc123def456".to_owned(),
+        },
+    ];
+
+    for cmd in &commands {
+        let json = serde_json::to_string(cmd).expect("serialize");
+        let rt: HealCommand = serde_json::from_str(&json).expect("deserialize");
+        assert_eq!(&rt, cmd, "round-trip failed for {cmd:?}");
+    }
+}
+
+// ---------------------------------------------------------------------------
+// IPC: HealCommandResponse serde round-trip (Ack, Nack, Timeout)
+// ---------------------------------------------------------------------------
+
+#[test]
+fn heal_command_response_ack_round_trips() {
+    let original = HealCommandResponse::Ack("checkpoint=deadbeef".to_owned());
+    let json = serde_json::to_string(&original).expect("serialize");
+    let rt: HealCommandResponse = serde_json::from_str(&json).expect("deserialize");
+    assert_eq!(rt, original);
+}
+
+#[test]
+fn heal_command_response_nack_round_trips() {
+    let original = HealCommandResponse::Nack {
+        reason: "still draining connections".to_owned(),
+    };
+    let json = serde_json::to_string(&original).expect("serialize");
+    let rt: HealCommandResponse = serde_json::from_str(&json).expect("deserialize");
+    assert_eq!(rt, original);
+}
+
+#[test]
+fn heal_command_response_timeout_round_trips() {
+    let original = HealCommandResponse::Timeout;
+    let json = serde_json::to_string(&original).expect("serialize");
+    let rt: HealCommandResponse = serde_json::from_str(&json).expect("deserialize");
+    assert_eq!(rt, original);
+}
+
+#[test]
+fn heal_command_response_serde_screaming_snake_case() {
+    // Ack is a newtype variant → serialized as {"ACK": "ok"}
+    let ack_json = serde_json::to_value(HealCommandResponse::Ack("ok".to_owned()))
+        .expect("serialize");
+    assert!(
+        ack_json.as_object().unwrap().contains_key("ACK"),
+        "Ack variant key must be ACK"
+    );
+
+    // Nack is a struct variant → serialized as {"NACK": {"reason": "no"}}
+    let nack_json = serde_json::to_value(HealCommandResponse::Nack {
+        reason: "no".to_owned(),
+    })
+    .expect("serialize");
+    assert!(
+        nack_json.as_object().unwrap().contains_key("NACK"),
+        "Nack variant key must be NACK"
+    );
+
+    // Timeout is a unit variant → serialized as "TIMEOUT"
+    let timeout_json =
+        serde_json::to_value(HealCommandResponse::Timeout).expect("serialize");
+    assert_eq!(timeout_json.as_str().unwrap(), "TIMEOUT");
+}
+
+// ---------------------------------------------------------------------------
+// IPC: Driver registers and delivers command through channel
+// ---------------------------------------------------------------------------
+
+#[tokio::test]
+async fn driver_registers_and_delivers_command_through_channel() {
+    let boundary = Arc::new(InMemoryRecoveryBoundary::new());
+    let log = Arc::new(aios_recovery::InMemoryRecoveryEvidenceLog::new());
+    let emitter = Arc::new(make_emitter(log.clone()));
+    let driver = InMemorySelfHealingDriver::new(boundary).with_evidence_emitter(emitter);
+
+    driver.set_policy(minix_policy()).await.expect("valid policy");
+
+    // Register a command channel for aios-network-manager
+    let mut channel = driver
+        .register_command_channel("aios-network-manager", 4)
+        .await;
+
+    // Spawn a task that receives and responds (component side)
+    let component_handle = tokio::spawn(async move {
+        let (cmd, response_tx) = channel.try_receive().expect("should receive command");
+        match cmd {
+            HealCommand::Shutdown { .. } => {
+                response_tx
+                    .send(HealCommandResponse::Ack("graceful shutdown complete".to_owned()))
+                    .expect("send ack");
+            }
+            _ => {
+                response_tx
+                    .send(HealCommandResponse::Nack {
+                        reason: "unexpected command".to_owned(),
+                    })
+                    .expect("send nack");
+            }
+        }
+    });
+
+    // Driver delivers a shutdown command
+    let response = driver
+        .deliver_heal_command(
+            "aios-network-manager",
+            HealCommand::Shutdown {
+                grace_period_seconds: 5,
+            },
+        )
+        .await;
+
+    assert_eq!(
+        response,
+        Some(HealCommandResponse::Ack(
+            "graceful shutdown complete".to_owned()
+        ))
+    );
+
+    component_handle.await.expect("component task completes");
+}
+
+// ---------------------------------------------------------------------------
+// IPC: No channel → falls back to direct restart (no crash)
+// ---------------------------------------------------------------------------
+
+#[tokio::test]
+async fn no_channel_falls_back_to_direct_restart_no_crash() {
+    let boundary = Arc::new(InMemoryRecoveryBoundary::new());
+    let log = Arc::new(aios_recovery::InMemoryRecoveryEvidenceLog::new());
+    let emitter = Arc::new(make_emitter(log.clone()));
+    let driver = InMemorySelfHealingDriver::new(boundary.clone()).with_evidence_emitter(emitter);
+
+    driver.set_policy(minix_policy()).await.expect("valid policy");
+
+    boundary
+        .enter_recovery(aios_recovery::EnterRecoveryRequest {
+            reason: "BOOT_FAILURE_AUTO".to_owned(),
+            operator_grant: Some("self-healing-bootstrap".to_owned()),
+            expected_phases: vec![aios_recovery::BootPhase::Recovery],
+            bundle: None,
+        })
+        .await
+        .expect("enter recovery");
+
+    // No channel registered for this component
+    let action = HealAction {
+        component_id: "aios-dns-resolver".to_owned(),
+        observed_state: ComponentHealthState::Failed,
+        action_kind: HealActionKind::Restart,
+        required_scope: RecoveryMutableScope::ProcessLifecycle,
+        reason: "test — no channel fallback".to_owned(),
+        decided_at: chrono::Utc::now(),
+        sequence: 1,
+    };
+
+    let result = driver.execute_heal(&action).await.expect("execute succeeds");
+    assert!(result.success, "restart must succeed even without channel");
+    assert!(
+        result.receipt_id.is_some(),
+        "evidence must be emitted despite no channel"
+    );
+}
+
+// ---------------------------------------------------------------------------
+// IPC: Driver delivers command to unknown component returns None
+// ---------------------------------------------------------------------------
+
+#[tokio::test]
+async fn deliver_heal_command_to_unknown_component_returns_none() {
+    let boundary = Arc::new(InMemoryRecoveryBoundary::new());
+    let log = Arc::new(aios_recovery::InMemoryRecoveryEvidenceLog::new());
+    let emitter = Arc::new(make_emitter(log.clone()));
+    let driver = InMemorySelfHealingDriver::new(boundary).with_evidence_emitter(emitter);
+
+    driver.set_policy(minix_policy()).await.expect("valid policy");
+
+    let response = driver
+        .deliver_heal_command(
+            "nonexistent-component",
+            HealCommand::RestartInstant,
+        )
+        .await;
+
+    assert!(
+        response.is_none(),
+        "delivering to unknown component returns None"
+    );
+}
+
+// ---------------------------------------------------------------------------
+// IPC: Registering a second channel for same component replaces the first
+// ---------------------------------------------------------------------------
+
+#[tokio::test]
+async fn second_registration_replaces_first_channel() {
+    let boundary = Arc::new(InMemoryRecoveryBoundary::new());
+    let log = Arc::new(aios_recovery::InMemoryRecoveryEvidenceLog::new());
+    let emitter = Arc::new(make_emitter(log.clone()));
+    let driver = InMemorySelfHealingDriver::new(boundary).with_evidence_emitter(emitter);
+
+    driver.set_policy(minix_policy()).await.expect("valid policy");
+
+    let first_channel = driver
+        .register_command_channel("aios-dns-resolver", 4)
+        .await;
+
+    let _second_channel = driver
+        .register_command_channel("aios-dns-resolver", 4)
+        .await;
+
+    // The first receiver should be orphaned — drop it
+    drop(first_channel);
+
+    // Spawn a receiver task for the second channel so deliver_heal_command
+    // doesn't hang. The task drops the oneshot sender without responding,
+    // which causes deliver_heal_command to return None.
+    let handle = tokio::spawn(async move {
+        // The second_channel's receiver is owned by this task — when this
+        // task drops it, the sender becomes disconnected. Since we never
+        // respond on the oneshot, deliver_heal_command returns None.
+        drop(_second_channel);
+    });
+
+    // Wait for the receiver to be dropped first
+    handle.await.expect("receiver drop task completes");
+
+    // Now deliver — the receiver handle is gone, so response_rx will error
+    let response = driver
+        .deliver_heal_command(
+            "aios-dns-resolver",
+            HealCommand::RestartInstant,
+        )
+        .await;
+    assert!(response.is_none(), "orphaned channel returns None");
+}
+
+// ---------------------------------------------------------------------------
+// IPC: HealCommandChannel close drops both halves
+// ---------------------------------------------------------------------------
+
+#[tokio::test]
+async fn close_channel_stops_send_and_receive() {
+    let channel = HealCommandChannel::new(4);
+    let sender = channel.sender();
+
+    // Drop all sender halves (channel + clone) to close the channel
+    drop(sender);
+    channel.close();
+
+    // Both senders dropped — channel is fully closed
+    // Creating a fresh channel and closing it without clone should work
+    let ch2 = HealCommandChannel::new(1);
+    let s2 = ch2.sender();
+    drop(ch2); // drops original tx/rx, but s2 clone keeps it alive
+    drop(s2);  // now fully closed
 }

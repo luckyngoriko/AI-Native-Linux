@@ -18,6 +18,7 @@ use tokio::sync::RwLock;
 
 use crate::boundary::RecoveryBoundary;
 use crate::evidence_emit::RecoveryEvidenceEmitter;
+use crate::ipc::{HealCommand, HealCommandResponse};
 use crate::mode::RecoveryMode;
 use crate::registry::ComponentRegistry;
 use crate::self_healing::{
@@ -114,11 +115,15 @@ pub struct HealCycleResult {
 // In-memory implementation
 // ---------------------------------------------------------------------------
 
+/// Internal envelope alias used by the command-channel machinery.
+type CommandEnvelope = (HealCommand, tokio::sync::oneshot::Sender<HealCommandResponse>);
+
 /// In-process self-healing driver backed by `HashMap`s and an optional emitter.
 pub struct InMemorySelfHealingDriver {
     policy: RwLock<SelfHealingPolicy>,
     health_registry: RwLock<HashMap<String, ComponentHealthState>>,
     trackers: RwLock<HashMap<String, ComponentHealingTracker>>,
+    command_channels: RwLock<HashMap<String, tokio::sync::mpsc::Sender<CommandEnvelope>>>,
     registry: Option<Arc<ComponentRegistry>>,
     watchdog: WatchdogTimer,
     boundary: Arc<dyn RecoveryBoundary>,
@@ -132,6 +137,7 @@ impl Default for InMemorySelfHealingDriver {
             policy: RwLock::new(SelfHealingPolicy::default()),
             health_registry: RwLock::new(HashMap::new()),
             trackers: RwLock::new(HashMap::new()),
+            command_channels: RwLock::new(HashMap::new()),
             registry: None,
             watchdog: WatchdogTimer::default(),
             boundary: Arc::new(crate::InMemoryRecoveryBoundary::new()),
@@ -307,6 +313,55 @@ impl InMemorySelfHealingDriver {
             trackers.insert(snapshot.component_id.clone(), tracker);
             false
         }
+    }
+
+    /// Register a command channel for a component.
+    ///
+    /// Creates a new `mpsc` channel pair, stores the sender in the driver's
+    /// per-component map, and returns the receiver half. The caller (typically
+    /// the component's runtime) should hold the receiver and call
+    /// [`HealCommandChannel::try_receive`] in its main loop.
+    ///
+    /// After registration, the driver can deliver [`HealCommand`] messages to
+    /// this component via [`SelfHealingDriver::deliver_heal_command`].
+    ///
+    /// If a channel already exists for this component, the old sender is
+    /// replaced and the old receiver will receive no more commands.
+    #[must_use]
+    pub async fn register_command_channel(
+        &self,
+        component_id: &str,
+        capacity: usize,
+    ) -> crate::ipc::HealCommandChannel {
+        let (tx, rx) = tokio::sync::mpsc::channel(capacity);
+        {
+            let mut channels = self.command_channels.write().await;
+            channels.insert(component_id.to_owned(), tx.clone());
+        }
+        crate::ipc::HealCommandChannel::from_raw(tx, rx)
+    }
+
+    /// Deliver a healing command to a registered component and wait for its
+    /// response.
+    ///
+    /// Looks up the component's command channel sender, sends the command
+    /// together with a oneshot response channel, and awaits the component's
+    /// [`HealCommandResponse`].
+    ///
+    /// Returns `None` when no channel has been registered for this component
+    /// (graceful fallback — the caller should proceed with direct action).
+    pub async fn deliver_heal_command(
+        &self,
+        component_id: &str,
+        command: HealCommand,
+    ) -> Option<HealCommandResponse> {
+        let tx = {
+            let channels = self.command_channels.read().await;
+            channels.get(component_id)?.clone()
+        };
+        let (response_tx, response_rx) = tokio::sync::oneshot::channel();
+        tx.send((command, response_tx)).await.ok()?;
+        response_rx.await.ok()
     }
 
     // --- internal decision logic ---
@@ -513,6 +568,32 @@ impl SelfHealingDriver for InMemorySelfHealingDriver {
                     receipt_id: None,
                     detail: "recovery mode not active — healing denied (INV-012)".to_owned(),
                 });
+            }
+        }
+
+        // MINIX-style: for Restart actions, attempt graceful shutdown through
+        // the command channel before force-terminating.  The component gets a
+        // chance to flush buffers, close connections, and checkpoint state.
+        // If no channel is registered or the component refuses/times out, we
+        // fall back to direct restart (no crash — graceful degradation).
+        if action.action_kind == HealActionKind::Restart {
+            let shutdown_cmd = HealCommand::Shutdown {
+                grace_period_seconds: 5,
+            };
+            match self
+                .deliver_heal_command(&action.component_id, shutdown_cmd)
+                .await
+            {
+                Some(HealCommandResponse::Ack(ref msg)) => {
+                    // Component acknowledged — graceful shutdown succeeded.
+                    // Proceed with the normal healing flow below.
+                    let _ = msg;
+                }
+                Some(HealCommandResponse::Nack { .. } | HealCommandResponse::Timeout) | None => {
+                    // No channel, refused, or timed out — fall through to direct restart.
+                    // This is not an error; it's graceful degradation (MINIX-style
+                    // "driver unresponsive → PM force-restarts it").
+                }
             }
         }
 

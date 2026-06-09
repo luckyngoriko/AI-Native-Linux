@@ -11,7 +11,10 @@ use tokio::sync::RwLock;
 use ulid::Ulid;
 
 use crate::boundary::{EnterRecoveryRequest, RecoveryBoundary};
-use crate::{RecoveryBundle, RecoveryError, RecoveryEvidenceEmitter, RecoveryMode, RecoveryState};
+use crate::{
+    RecoveryBundle, RecoveryError, RecoveryEvidenceEmitter, RecoveryMode, RecoveryState,
+    RecoverySubBoundary,
+};
 
 const BUNDLE_SIGNATURE_PREFIX: &str = "ed25519:";
 
@@ -103,6 +106,7 @@ impl RecoveryBoundary for InMemoryRecoveryBoundary {
             exit_planned_at: None,
             reason: Some(request.reason),
             operator_grant: request.operator_grant,
+            active_sub_boundaries: vec![RecoverySubBoundary::SystemFull],
         };
         *state = next_state.clone();
         drop(state);
@@ -148,6 +152,74 @@ impl RecoveryBoundary for InMemoryRecoveryBoundary {
     async fn is_recovery_active(&self) -> bool {
         self.state.read().await.mode == RecoveryMode::Recovery
     }
+
+    async fn enter_sub_boundary(
+        &self,
+        sub: RecoverySubBoundary,
+    ) -> Result<RecoveryState, RecoveryError> {
+        let mut state = self.state.write().await;
+        if sub == RecoverySubBoundary::SystemFull {
+            if !state.active_sub_boundaries.is_empty() {
+                return Err(RecoveryError::AlreadyInRecovery);
+            }
+            state.active_sub_boundaries = vec![RecoverySubBoundary::SystemFull];
+            return Ok(state.clone());
+        }
+        if state
+            .active_sub_boundaries
+            .contains(&RecoverySubBoundary::SystemFull)
+        {
+            return Err(RecoveryError::RecoveryAuthorizationInvalid(
+                "cannot activate sub-boundary when SystemFull is active".to_owned(),
+            ));
+        }
+        if state.active_sub_boundaries.contains(&sub) {
+            return Err(RecoveryError::RecoveryAuthorizationInvalid(format!(
+                "sub-boundary {sub:?} is already active"
+            )));
+        }
+        state.active_sub_boundaries.push(sub);
+        Ok(state.clone())
+    }
+
+    async fn exit_sub_boundary(
+        &self,
+        sub: RecoverySubBoundary,
+    ) -> Result<RecoveryState, RecoveryError> {
+        let mut state = self.state.write().await;
+        if sub == RecoverySubBoundary::SystemFull {
+            state.active_sub_boundaries.clear();
+            return Ok(state.clone());
+        }
+        if state
+            .active_sub_boundaries
+            .contains(&RecoverySubBoundary::SystemFull)
+        {
+            return Err(RecoveryError::RecoveryAuthorizationInvalid(
+                "cannot exit individual sub-boundary when SystemFull is active — exit SystemFull first"
+                    .to_owned(),
+            ));
+        }
+        let pos = state
+            .active_sub_boundaries
+            .iter()
+            .position(|s| *s == sub)
+            .ok_or_else(|| {
+                RecoveryError::RecoveryAuthorizationInvalid(format!(
+                    "sub-boundary {sub:?} is not active"
+                ))
+            })?;
+        state.active_sub_boundaries.swap_remove(pos);
+        Ok(state.clone())
+    }
+
+    async fn is_sub_recovery_active(&self, sub: RecoverySubBoundary) -> Result<bool, RecoveryError> {
+        let state = self.state.read().await;
+        let active = state.active_sub_boundaries.contains(&RecoverySubBoundary::SystemFull)
+            || state.active_sub_boundaries.contains(&sub);
+        drop(state);
+        Ok(active)
+    }
 }
 
 const fn normal_state() -> RecoveryState {
@@ -157,6 +229,7 @@ const fn normal_state() -> RecoveryState {
         exit_planned_at: None,
         reason: None,
         operator_grant: None,
+        active_sub_boundaries: Vec::new(),
     }
 }
 

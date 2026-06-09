@@ -24,6 +24,7 @@ fn recovery_state() -> TestResult<RecoveryState> {
         exit_planned_at: None,
         reason: Some("operator selected recovery".to_owned()),
         operator_grant: Some("ovr_01HXY8K2JPQ7N3M4R5S6T7V8W9".to_owned()),
+        active_sub_boundaries: Vec::new(),
     })
 }
 

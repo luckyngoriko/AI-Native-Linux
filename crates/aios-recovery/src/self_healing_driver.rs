@@ -27,7 +27,7 @@ use crate::self_healing::{
     SelfHealingPolicy,
 };
 use crate::watchdog::{WatchdogPolicy, WatchdogTimer};
-use crate::{RecoveryError, RecoveryMutableScope};
+use crate::{RecoveryError, RecoveryMutableScope, RecoverySubBoundary};
 
 // ---------------------------------------------------------------------------
 // Trait
@@ -531,19 +531,49 @@ impl SelfHealingDriver for InMemorySelfHealingDriver {
             return Ok(Vec::new());
         }
 
-        // Check minimum mode requirement via the boundary
-        let current_state = self.boundary.current_state().await;
-        let mode_satisfied = match minimum_mode {
-            RecoveryMode::Normal => true,
-            RecoveryMode::Recovery => current_state.mode == RecoveryMode::Recovery,
-            RecoveryMode::Degraded => matches!(
-                current_state.mode,
-                RecoveryMode::Degraded | RecoveryMode::Recovery
-            ),
-            RecoveryMode::FirstBoot => current_state.mode == RecoveryMode::FirstBoot,
-        };
-        if !mode_satisfied {
-            return Ok(Vec::new());
+        // Normal minimum_mode: no recovery gate needed
+        if minimum_mode != RecoveryMode::Normal {
+            // Check minimum mode requirement via boundary for system-level modes
+            let current_state = self.boundary.current_state().await;
+            let full_recovery_active = current_state.mode == RecoveryMode::Recovery;
+            let mode_satisfied = match minimum_mode {
+                RecoveryMode::Normal => true, // unreachable
+                RecoveryMode::Recovery => full_recovery_active,
+                RecoveryMode::Degraded => matches!(
+                    current_state.mode,
+                    RecoveryMode::Degraded | RecoveryMode::Recovery
+                ),
+                RecoveryMode::FirstBoot => current_state.mode == RecoveryMode::FirstBoot,
+            };
+            // If the mode gate is NOT satisfied, fall through to sub-boundary
+            // check.  Mode gate failing does not block evaluation when the
+            // component's sub-boundary is independently active.
+            if !mode_satisfied {
+                // Check whether any sub-boundary (individual or SystemFull) is active
+                let any_sub_active = self
+                    .boundary
+                    .is_sub_recovery_active(RecoverySubBoundary::Network)
+                    .await
+                    .unwrap_or(false)
+                    || self
+                        .boundary
+                        .is_sub_recovery_active(RecoverySubBoundary::Storage)
+                        .await
+                        .unwrap_or(false)
+                    || self
+                        .boundary
+                        .is_sub_recovery_active(RecoverySubBoundary::Compute)
+                        .await
+                        .unwrap_or(false)
+                    || self
+                        .boundary
+                        .is_sub_recovery_active(RecoverySubBoundary::SystemFull)
+                        .await
+                        .unwrap_or(false);
+                if !any_sub_active {
+                    return Ok(Vec::new());
+                }
+            }
         }
 
         // Snapshot registries under separate read locks, then release
@@ -565,6 +595,30 @@ impl SelfHealingDriver for InMemorySelfHealingDriver {
             let tracker = trackers_snapshot
                 .get(component_id)
                 .unwrap_or(&default_tracker);
+
+            // Per-component sub-boundary gate: at least one of this
+            // component's allowed scopes must map to an active sub-boundary.
+            if minimum_mode != RecoveryMode::Normal {
+                let allowed_scopes = policy.scopes_for_component(component_id);
+                let mut scope_granted = allowed_scopes.is_empty(); // empty list = default granted
+                for scope in &allowed_scopes {
+                    if let Some(sub) = RecoverySubBoundary::from_mutable_scope(*scope) {
+                        if self
+                            .boundary
+                            .is_sub_recovery_active(sub)
+                            .await
+                            .unwrap_or(false)
+                        {
+                            scope_granted = true;
+                            break;
+                        }
+                    }
+                }
+                if !scope_granted {
+                    continue;
+                }
+            }
+
             if let Some(action) = self
                 .decide_for_component(component_id, *state, &policy, tracker)
                 .await
@@ -572,12 +626,26 @@ impl SelfHealingDriver for InMemorySelfHealingDriver {
                 actions.push(action);
             }
         }
+        drop(policy);
         Ok(actions)
     }
 
     async fn execute_heal(&self, action: &HealAction) -> Result<HealExecutionResult, RecoveryError> {
-        // INV-012 guard: must be in recovery (or policy's minimum_mode)
-        if !self.boundary.is_recovery_active().await {
+        // INV-012 guard: map the action's required scope to its narrowest
+        // sub-boundary and verify it is active.  Falls back to the traditional
+        // is_recovery_active() check for backward compatibility when no
+        // sub-boundary mapping exists.
+        let required_sub = RecoverySubBoundary::from_mutable_scope(action.required_scope)
+            .unwrap_or(RecoverySubBoundary::SystemFull);
+        let sub_active = self
+            .boundary
+            .is_sub_recovery_active(required_sub)
+            .await
+            .unwrap_or(false);
+
+        let full_recovery_active = self.boundary.is_recovery_active().await;
+
+        if !sub_active && !full_recovery_active {
             let policy = self.policy.read().await;
             if policy.minimum_mode == RecoveryMode::Recovery {
                 return Ok(HealExecutionResult {
@@ -585,7 +653,9 @@ impl SelfHealingDriver for InMemorySelfHealingDriver {
                     action_kind: action.action_kind,
                     success: false,
                     receipt_id: None,
-                    detail: "recovery mode not active — healing denied (INV-012)".to_owned(),
+                    detail: format!(
+                        "sub-boundary {required_sub:?} not active — healing denied (INV-012)"
+                    ),
                 });
             }
         }

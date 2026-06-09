@@ -518,6 +518,7 @@ fn rust_proto_conversions_roundtrip() -> TestResult {
         exit_planned_at: None,
         reason: Some("BOOT_FAILURE_AUTO".to_owned()),
         operator_grant: Some("ovr_01HXY8K2JPQ7N3M4R5S6T7V8W9".to_owned()),
+        active_sub_boundaries: Vec::new(),
     };
     assert_eq!(
         recovery_state_from_proto(recovery_state_to_proto(&state))?,

@@ -4,6 +4,60 @@ use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use strum_macros::{EnumCount, EnumIter};
 
+/// MINIX-inspired recovery sub-boundary classification.
+///
+/// Each variant represents an independently-managed recovery zone (network,
+/// storage, compute).  A component in one sub-boundary can be healed without
+/// entering full system recovery.  [`RecoverySubBoundary::SystemFull`] is the
+/// default and implies full recovery authority over all sub-boundaries.
+#[derive(
+    Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, EnumIter, EnumCount, Default,
+)]
+#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
+pub enum RecoverySubBoundary {
+    /// Network-layer recovery (DNS, routes, interfaces, mesh routing).
+    Network,
+    /// Storage-layer recovery (filesystem mounts, snapshot state).
+    Storage,
+    /// Compute-layer recovery (process lifecycle, sysctl tuning).
+    Compute,
+    /// Full system recovery — all sub-boundaries are implicitly active.
+    #[default]
+    SystemFull,
+}
+
+impl RecoverySubBoundary {
+    /// Map a [`RecoveryMutableScope`] to the narrowest sub-boundary that
+    /// covers it.  Returns `None` when no direct mapping exists (should not
+    /// happen for any valid scope variant).
+    #[must_use]
+    pub const fn from_mutable_scope(scope: RecoveryMutableScope) -> Option<Self> {
+        match scope {
+            RecoveryMutableScope::ProcessLifecycle | RecoveryMutableScope::SysctlTuning => {
+                Some(Self::Compute)
+            }
+            RecoveryMutableScope::NetworkReconfig | RecoveryMutableScope::MeshRouting => {
+                Some(Self::Network)
+            }
+            RecoveryMutableScope::FilesystemMutation => Some(Self::Storage),
+        }
+    }
+
+    /// Returns `true` when `self` subsumes `other`.
+    ///
+    /// [`RecoverySubBoundary::SystemFull`] contains every other sub-boundary.
+    #[must_use]
+    pub const fn contains(self, other: Self) -> bool {
+        matches!(
+            (self, other),
+            (Self::SystemFull, _)
+                | (Self::Network, Self::Network)
+                | (Self::Storage, Self::Storage)
+                | (Self::Compute, Self::Compute)
+        )
+    }
+}
+
 /// Closed S9.1 boot-time mode classification.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, EnumIter, EnumCount)]
 #[serde(rename_all = "SCREAMING_SNAKE_CASE")]
@@ -114,4 +168,12 @@ pub struct RecoveryState {
     pub reason: Option<String>,
     /// Optional S5.4 override binding id authorising this recovery context.
     pub operator_grant: Option<String>,
+    /// Individually-active recovery sub-boundaries (MINIX-inspired).
+    ///
+    /// When empty or containing only [`RecoverySubBoundary::SystemFull`],
+    /// the system is in full recovery mode.  Individual sub-boundaries can be
+    /// activated independently to heal components within a specific recovery
+    /// zone (network, storage, compute) without entering full system recovery.
+    #[serde(default)]
+    pub active_sub_boundaries: Vec<RecoverySubBoundary>,
 }

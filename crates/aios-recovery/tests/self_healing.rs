@@ -2171,3 +2171,542 @@ fn component_config_without_capabilities_field_defaults_to_empty() {
 
     assert!(config.allowed_capabilities.is_empty());
 }
+
+// ---------------------------------------------------------------------------
+// RecoverySubBoundary — MINIX-inspired multi-level recovery boundaries
+// ---------------------------------------------------------------------------
+
+#[test]
+fn recovery_sub_boundary_from_mutable_scope_maps_correctly() {
+    use aios_recovery::RecoverySubBoundary;
+
+    // NetworkReconfig → Network
+    assert_eq!(
+        RecoverySubBoundary::from_mutable_scope(RecoveryMutableScope::NetworkReconfig),
+        Some(RecoverySubBoundary::Network),
+    );
+
+    // FilesystemMutation → Storage
+    assert_eq!(
+        RecoverySubBoundary::from_mutable_scope(RecoveryMutableScope::FilesystemMutation),
+        Some(RecoverySubBoundary::Storage),
+    );
+
+    // ProcessLifecycle → Compute
+    assert_eq!(
+        RecoverySubBoundary::from_mutable_scope(RecoveryMutableScope::ProcessLifecycle),
+        Some(RecoverySubBoundary::Compute),
+    );
+
+    // SysctlTuning → Compute
+    assert_eq!(
+        RecoverySubBoundary::from_mutable_scope(RecoveryMutableScope::SysctlTuning),
+        Some(RecoverySubBoundary::Compute),
+    );
+
+    // MeshRouting → Network
+    assert_eq!(
+        RecoverySubBoundary::from_mutable_scope(RecoveryMutableScope::MeshRouting),
+        Some(RecoverySubBoundary::Network),
+    );
+}
+
+#[test]
+fn recovery_sub_boundary_contains_is_reflexive() {
+    use aios_recovery::RecoverySubBoundary;
+
+    assert!(RecoverySubBoundary::Network.contains(RecoverySubBoundary::Network));
+    assert!(RecoverySubBoundary::Storage.contains(RecoverySubBoundary::Storage));
+    assert!(RecoverySubBoundary::Compute.contains(RecoverySubBoundary::Compute));
+}
+
+#[test]
+fn system_full_contains_every_sub_boundary() {
+    use aios_recovery::RecoverySubBoundary;
+
+    assert!(RecoverySubBoundary::SystemFull.contains(RecoverySubBoundary::Network));
+    assert!(RecoverySubBoundary::SystemFull.contains(RecoverySubBoundary::Storage));
+    assert!(RecoverySubBoundary::SystemFull.contains(RecoverySubBoundary::Compute));
+    assert!(RecoverySubBoundary::SystemFull.contains(RecoverySubBoundary::SystemFull));
+}
+
+#[test]
+fn sub_boundaries_do_not_cross_contain() {
+    use aios_recovery::RecoverySubBoundary;
+
+    assert!(!RecoverySubBoundary::Network.contains(RecoverySubBoundary::Storage));
+    assert!(!RecoverySubBoundary::Network.contains(RecoverySubBoundary::Compute));
+    assert!(!RecoverySubBoundary::Storage.contains(RecoverySubBoundary::Network));
+    assert!(!RecoverySubBoundary::Storage.contains(RecoverySubBoundary::Compute));
+    assert!(!RecoverySubBoundary::Compute.contains(RecoverySubBoundary::Network));
+    assert!(!RecoverySubBoundary::Compute.contains(RecoverySubBoundary::Storage));
+}
+
+#[test]
+fn recovery_sub_boundary_default_is_system_full() {
+    use aios_recovery::RecoverySubBoundary;
+
+    assert_eq!(
+        RecoverySubBoundary::default(),
+        RecoverySubBoundary::SystemFull,
+    );
+}
+
+#[test]
+fn recovery_sub_boundary_serde_round_trip() {
+    use aios_recovery::RecoverySubBoundary;
+
+    let boundaries = vec![
+        RecoverySubBoundary::Network,
+        RecoverySubBoundary::Storage,
+        RecoverySubBoundary::Compute,
+        RecoverySubBoundary::SystemFull,
+    ];
+
+    for b in &boundaries {
+        let json = serde_json::to_value(b).expect("serialize");
+        let rt: RecoverySubBoundary = serde_json::from_value(json).expect("deserialize");
+        assert_eq!(&rt, b, "RecoverySubBoundary {b:?} must round-trip through serde");
+    }
+}
+
+#[test]
+fn recovery_sub_boundary_serde_is_screaming_snake_case() {
+    use aios_recovery::RecoverySubBoundary;
+
+    let json = serde_json::to_value(RecoverySubBoundary::Network).expect("serialize");
+    assert_eq!(
+        json,
+        serde_json::Value::String("NETWORK".to_owned()),
+        "Network → NETWORK"
+    );
+
+    let json = serde_json::to_value(RecoverySubBoundary::Storage).expect("serialize");
+    assert_eq!(
+        json,
+        serde_json::Value::String("STORAGE".to_owned()),
+        "Storage → STORAGE"
+    );
+
+    let json = serde_json::to_value(RecoverySubBoundary::Compute).expect("serialize");
+    assert_eq!(
+        json,
+        serde_json::Value::String("COMPUTE".to_owned()),
+        "Compute → COMPUTE"
+    );
+
+    let json = serde_json::to_value(RecoverySubBoundary::SystemFull).expect("serialize");
+    assert_eq!(
+        json,
+        serde_json::Value::String("SYSTEM_FULL".to_owned()),
+        "SystemFull → SYSTEM_FULL"
+    );
+}
+
+#[test]
+fn recovery_state_deserializes_without_active_sub_boundaries_field() {
+    // Backward-compatible: missing field defaults to empty vec
+    let json = serde_json::json!({
+        "mode": "RECOVERY",
+        "entered_at": null,
+        "exit_planned_at": null,
+        "reason": "BOOT_FAILURE_AUTO",
+        "operator_grant": null
+    });
+    let state: aios_recovery::RecoveryState =
+        serde_json::from_value(json).expect("deserialize without active_sub_boundaries");
+    assert!(state.active_sub_boundaries.is_empty());
+}
+
+// ---------------------------------------------------------------------------
+// InMemoryBoundary sub-boundary tracking
+// ---------------------------------------------------------------------------
+
+#[tokio::test]
+async fn in_memory_boundary_enter_sub_boundary_activates_network() {
+    let boundary = Arc::new(InMemoryRecoveryBoundary::new());
+
+    let state = boundary
+        .enter_sub_boundary(aios_recovery::RecoverySubBoundary::Network)
+        .await
+        .expect("enter network sub-boundary");
+    assert!(state
+        .active_sub_boundaries
+        .contains(&aios_recovery::RecoverySubBoundary::Network));
+
+    let active = boundary
+        .is_sub_recovery_active(aios_recovery::RecoverySubBoundary::Network)
+        .await
+        .expect("check");
+    assert!(active, "Network sub-boundary must be active");
+}
+
+#[tokio::test]
+async fn in_memory_boundary_exit_sub_boundary_deactivates_it() {
+    let boundary = Arc::new(InMemoryRecoveryBoundary::new());
+
+    boundary
+        .enter_sub_boundary(aios_recovery::RecoverySubBoundary::Storage)
+        .await
+        .expect("enter storage");
+
+    assert!(
+        boundary
+            .is_sub_recovery_active(aios_recovery::RecoverySubBoundary::Storage)
+            .await
+            .expect("check"),
+        "Storage must be active before exit"
+    );
+
+    boundary
+        .exit_sub_boundary(aios_recovery::RecoverySubBoundary::Storage)
+        .await
+        .expect("exit storage");
+
+    assert!(
+        !boundary
+            .is_sub_recovery_active(aios_recovery::RecoverySubBoundary::Storage)
+            .await
+            .expect("check"),
+        "Storage must NOT be active after exit"
+    );
+}
+
+#[tokio::test]
+async fn in_memory_boundary_exit_non_active_sub_boundary_errors() {
+    let boundary = Arc::new(InMemoryRecoveryBoundary::new());
+
+    let result = boundary
+        .exit_sub_boundary(aios_recovery::RecoverySubBoundary::Compute)
+        .await;
+    assert!(result.is_err(), "exiting non-active sub-boundary must error");
+}
+
+#[tokio::test]
+async fn in_memory_boundary_enter_duplicate_sub_boundary_errors() {
+    let boundary = Arc::new(InMemoryRecoveryBoundary::new());
+
+    boundary
+        .enter_sub_boundary(aios_recovery::RecoverySubBoundary::Compute)
+        .await
+        .expect("first enter");
+    let result = boundary
+        .enter_sub_boundary(aios_recovery::RecoverySubBoundary::Compute)
+        .await;
+    assert!(result.is_err(), "duplicate enter must error");
+}
+
+#[tokio::test]
+async fn in_memory_boundary_multiple_sub_boundaries_can_be_active() {
+    let boundary = Arc::new(InMemoryRecoveryBoundary::new());
+
+    boundary
+        .enter_sub_boundary(aios_recovery::RecoverySubBoundary::Network)
+        .await
+        .expect("enter network");
+    boundary
+        .enter_sub_boundary(aios_recovery::RecoverySubBoundary::Storage)
+        .await
+        .expect("enter storage");
+
+    assert!(
+        boundary
+            .is_sub_recovery_active(aios_recovery::RecoverySubBoundary::Network)
+            .await
+            .expect("check network"),
+        "Network must be active"
+    );
+    assert!(
+        boundary
+            .is_sub_recovery_active(aios_recovery::RecoverySubBoundary::Storage)
+            .await
+            .expect("check storage"),
+        "Storage must be active"
+    );
+    assert!(
+        !boundary
+            .is_sub_recovery_active(aios_recovery::RecoverySubBoundary::Compute)
+            .await
+            .expect("check compute"),
+        "Compute must NOT be active"
+    );
+
+    let state = boundary.current_state().await;
+    assert_eq!(state.active_sub_boundaries.len(), 2);
+    assert!(state
+        .active_sub_boundaries
+        .contains(&aios_recovery::RecoverySubBoundary::Network));
+    assert!(state
+        .active_sub_boundaries
+        .contains(&aios_recovery::RecoverySubBoundary::Storage));
+}
+
+#[tokio::test]
+async fn full_recovery_entry_adds_system_full_to_active_sub_boundaries() {
+    let boundary = Arc::new(InMemoryRecoveryBoundary::new());
+
+    let state = boundary
+        .enter_recovery(aios_recovery::EnterRecoveryRequest {
+            reason: "BOOT_FAILURE_AUTO".to_owned(),
+            operator_grant: Some("self-healing-bootstrap".to_owned()),
+            expected_phases: vec![aios_recovery::BootPhase::Recovery],
+            bundle: None,
+        })
+        .await
+        .expect("enter recovery");
+
+    assert_eq!(state.active_sub_boundaries.len(), 1);
+    assert!(state
+        .active_sub_boundaries
+        .contains(&aios_recovery::RecoverySubBoundary::SystemFull));
+
+    // SystemFull implies all sub-boundaries are active
+    assert!(
+        boundary
+            .is_sub_recovery_active(aios_recovery::RecoverySubBoundary::Network)
+            .await
+            .expect("check"),
+        "Network must be active when SystemFull is active"
+    );
+    assert!(
+        boundary
+            .is_sub_recovery_active(aios_recovery::RecoverySubBoundary::Compute)
+            .await
+            .expect("check"),
+        "Compute must be active when SystemFull is active"
+    );
+}
+
+// ---------------------------------------------------------------------------
+// Driver: healing in sub-boundary (no full recovery)
+// ---------------------------------------------------------------------------
+
+#[tokio::test]
+async fn heal_allowed_in_network_sub_boundary_without_full_recovery() {
+    let boundary = Arc::new(InMemoryRecoveryBoundary::new());
+    let log = Arc::new(aios_recovery::InMemoryRecoveryEvidenceLog::new());
+    let emitter = Arc::new(make_emitter(log.clone()));
+    let driver = InMemorySelfHealingDriver::new(boundary.clone()).with_evidence_emitter(emitter);
+
+    // Policy where the component's scope maps purely to Network
+    let mut component_policies = std::collections::HashMap::new();
+    component_policies.insert(
+        "aios-network-manager".to_owned(),
+        ComponentHealingConfig {
+            display_name: "Network Manager".to_owned(),
+            restart_policy: RestartPolicy::minix_style(3),
+            allowed_scopes: vec![RecoveryMutableScope::NetworkReconfig],
+            allowed_capabilities: vec![],
+            isolation_level: ComponentIsolationLevel::Replaceable,
+            restart_boundary: RestartBoundary::ProcessLocal,
+            component_type: Some("infrastructure".to_owned()),
+        },
+    );
+    let network_policy = SelfHealingPolicy {
+        enabled: true,
+        minimum_mode: RecoveryMode::Recovery,
+        component_policies,
+        default_policy: RestartPolicy::conservative(2),
+    };
+    driver.set_policy(network_policy).await.expect("valid policy");
+
+    // Activate only the Network sub-boundary (no full recovery)
+    boundary
+        .enter_sub_boundary(aios_recovery::RecoverySubBoundary::Network)
+        .await
+        .expect("enter network sub-boundary");
+
+    // Observe a network-scoped component
+    driver
+        .observe_health("aios-network-manager", ComponentHealthState::Failed)
+        .await
+        .expect("observe nm");
+
+    // Evaluate must produce actions for the Network-scoped component
+    let actions = driver.evaluate().await.expect("evaluate");
+    assert_eq!(actions.len(), 1, "network-only component must be evaluated");
+
+    let action = &actions[0];
+    let result = driver
+        .execute_heal(action)
+        .await
+        .expect("execute heal");
+    assert!(
+        result.success,
+        "healing must succeed when Network sub-boundary is active: {}",
+        result.detail
+    );
+}
+
+#[tokio::test]
+async fn heal_denied_when_sub_boundary_not_active() {
+    let boundary = Arc::new(InMemoryRecoveryBoundary::new());
+    let log = Arc::new(aios_recovery::InMemoryRecoveryEvidenceLog::new());
+    let emitter = Arc::new(make_emitter(log.clone()));
+    let driver = InMemorySelfHealingDriver::new(boundary.clone()).with_evidence_emitter(emitter);
+
+    // Create a policy where the component's ONLY scope is NetworkReconfig
+    // (not ProcessLifecycle), so Compute being active does NOT grant access.
+    let mut component_policies = std::collections::HashMap::new();
+    component_policies.insert(
+        "aios-network-manager".to_owned(),
+        ComponentHealingConfig {
+            display_name: "Network Manager".to_owned(),
+            restart_policy: RestartPolicy::minix_style(3),
+            allowed_scopes: vec![
+                RecoveryMutableScope::NetworkReconfig,
+            ],
+            allowed_capabilities: vec![],
+            isolation_level: ComponentIsolationLevel::Replaceable,
+            restart_boundary: RestartBoundary::ProcessLocal,
+            component_type: Some("infrastructure".to_owned()),
+        },
+    );
+    let network_only_policy = SelfHealingPolicy {
+        enabled: true,
+        minimum_mode: RecoveryMode::Recovery,
+        component_policies,
+        default_policy: RestartPolicy::conservative(2),
+    };
+    driver.set_policy(network_only_policy).await.expect("valid policy");
+
+    // Only Compute sub-boundary is active — Network is NOT
+    boundary
+        .enter_sub_boundary(aios_recovery::RecoverySubBoundary::Compute)
+        .await
+        .expect("enter compute sub-boundary");
+
+    // Observe network-manager (needs Network sub-boundary, only NetworkReconfig scope)
+    driver
+        .observe_health("aios-network-manager", ComponentHealthState::Failed)
+        .await
+        .expect("observe nm");
+
+    // Evaluate should skip network-only components since Network sub-boundary is not active
+    let actions = driver.evaluate().await.expect("evaluate");
+    assert!(
+        actions.is_empty(),
+        "network-only component must be skipped when Network sub-boundary is not active"
+    );
+
+    // Direct execute_heal with NetworkReconfig scope must also be denied
+    let action = HealAction {
+        component_id: "aios-network-manager".to_owned(),
+        observed_state: ComponentHealthState::Failed,
+        action_kind: HealActionKind::Restart,
+        required_scope: RecoveryMutableScope::NetworkReconfig,
+        reason: "test".to_owned(),
+        decided_at: chrono::Utc::now(),
+        sequence: 1,
+    };
+    let result = driver.execute_heal(&action).await.expect("execute heal");
+    assert!(!result.success, "must fail when Network sub-boundary not active");
+    assert!(
+        result.detail.contains("INV-012"),
+        "detail should mention INV-012"
+    );
+}
+
+#[tokio::test]
+async fn compute_sub_boundary_allows_process_healing() {
+    let boundary = Arc::new(InMemoryRecoveryBoundary::new());
+    let log = Arc::new(aios_recovery::InMemoryRecoveryEvidenceLog::new());
+    let emitter = Arc::new(make_emitter(log.clone()));
+    let driver = InMemorySelfHealingDriver::new(boundary.clone()).with_evidence_emitter(emitter);
+
+    driver.set_policy(minix_policy()).await.expect("valid policy");
+
+    // Activate only Compute sub-boundary
+    boundary
+        .enter_sub_boundary(aios_recovery::RecoverySubBoundary::Compute)
+        .await
+        .expect("enter compute");
+
+    // aios-dns-resolver has allowed_scopes: [ProcessLifecycle] → maps to Compute
+    driver
+        .observe_health("aios-dns-resolver", ComponentHealthState::Degraded)
+        .await
+        .expect("observe dns");
+
+    let actions = driver.evaluate().await.expect("evaluate");
+    assert_eq!(actions.len(), 1, "dns component with ProcessLifecycle → Compute must be evaluated");
+
+    let action = &actions[0];
+    let result = driver
+        .execute_heal(action)
+        .await
+        .expect("execute heal");
+    assert!(
+        result.success,
+        "Compute sub-boundary must allow ProcessLifecycle healing: {}",
+        result.detail
+    );
+}
+
+#[tokio::test]
+async fn healing_in_full_recovery_still_works_with_sub_boundary_impl() {
+    // Full recovery (enter_recovery) adds SystemFull, which implies all
+    // sub-boundaries are active.  This test ensures backward compatibility.
+    let boundary = Arc::new(InMemoryRecoveryBoundary::new());
+    let log = Arc::new(aios_recovery::InMemoryRecoveryEvidenceLog::new());
+    let emitter = Arc::new(make_emitter(log.clone()));
+    let driver = InMemorySelfHealingDriver::new(boundary.clone()).with_evidence_emitter(emitter);
+
+    driver.set_policy(minix_policy()).await.expect("valid policy");
+
+    boundary
+        .enter_recovery(aios_recovery::EnterRecoveryRequest {
+            reason: "BOOT_FAILURE_AUTO".to_owned(),
+            operator_grant: Some("self-healing-bootstrap".to_owned()),
+            expected_phases: vec![aios_recovery::BootPhase::Recovery],
+            bundle: None,
+        })
+        .await
+        .expect("enter recovery");
+
+    driver
+        .observe_health("aios-network-manager", ComponentHealthState::Failed)
+        .await
+        .expect("observe nm");
+    driver
+        .observe_health("aios-dns-resolver", ComponentHealthState::Degraded)
+        .await
+        .expect("observe dns");
+
+    let actions = driver.evaluate().await.expect("evaluate");
+    assert_eq!(actions.len(), 2, "both components still evaluated under SystemFull");
+
+    for action in &actions {
+        let result = driver.execute_heal(action).await.expect("execute heal");
+        assert!(result.success, "{} must succeed: {}", action.component_id, result.detail);
+    }
+}
+
+#[tokio::test]
+async fn exit_system_full_exit_token_clears_active_sub_boundaries() {
+    let boundary = Arc::new(InMemoryRecoveryBoundary::new());
+
+    boundary
+        .enter_recovery(aios_recovery::EnterRecoveryRequest {
+            reason: "BOOT_FAILURE_AUTO".to_owned(),
+            operator_grant: Some("self-healing-bootstrap".to_owned()),
+            expected_phases: vec![aios_recovery::BootPhase::Recovery],
+            bundle: None,
+        })
+        .await
+        .expect("enter recovery");
+
+    let token = boundary
+        .current_exit_token()
+        .await
+        .expect("must have exit token");
+
+    boundary
+        .exit_recovery(&token)
+        .await
+        .expect("exit recovery");
+
+    let state = boundary.current_state().await;
+    assert!(state.active_sub_boundaries.is_empty(), "exit recovery clears sub-boundaries");
+    assert_eq!(state.mode, aios_recovery::RecoveryMode::Normal);
+}

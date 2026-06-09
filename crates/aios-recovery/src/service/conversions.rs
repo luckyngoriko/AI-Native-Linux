@@ -368,6 +368,7 @@ pub fn recovery_state_from_proto(
         exit_planned_at: proto.exit_planned_at.map(datetime_from_proto),
         reason: proto.reason,
         operator_grant: proto.operator_grant,
+        active_sub_boundaries: Vec::new(),
     })
 }
 

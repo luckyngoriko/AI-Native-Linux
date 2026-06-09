@@ -2,7 +2,7 @@
 
 use async_trait::async_trait;
 
-use crate::{BootPhase, RecoveryBundle, RecoveryError, RecoveryState};
+use crate::{BootPhase, RecoveryBundle, RecoveryError, RecoveryState, RecoverySubBoundary};
 
 /// Request to enter S9.1 recovery mode.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -46,4 +46,37 @@ pub trait RecoveryBoundary: Send + Sync {
 
     /// Return `true` only when the current mode is `RECOVERY`.
     async fn is_recovery_active(&self) -> bool;
+
+    /// Activate a single recovery sub-boundary.
+    ///
+    /// Adds `sub` to the active sub-boundary set without requiring full system
+    /// recovery mode.  A component whose required scope maps to this
+    /// sub-boundary can now be healed.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`RecoveryError`] when the sub-boundary is already active or
+    /// the boundary implementation refuses activation.
+    async fn enter_sub_boundary(
+        &self,
+        sub: RecoverySubBoundary,
+    ) -> Result<RecoveryState, RecoveryError>;
+
+    /// Deactivate a single recovery sub-boundary.
+    ///
+    /// Removes `sub` from the active sub-boundary set.  Healing actions that
+    /// require this sub-boundary will be denied until it is re-activated.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`RecoveryError`] when the sub-boundary is not active.
+    async fn exit_sub_boundary(
+        &self,
+        sub: RecoverySubBoundary,
+    ) -> Result<RecoveryState, RecoveryError>;
+
+    /// Return `true` when `sub` is currently active — either directly or
+    /// because [`RecoverySubBoundary::SystemFull`] is active (full recovery
+    /// mode subsumes all sub-boundaries).
+    async fn is_sub_recovery_active(&self, sub: RecoverySubBoundary) -> Result<bool, RecoveryError>;
 }

@@ -35,7 +35,7 @@ use std::collections::HashMap;
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
-use crate::mode::RecoveryMode;
+use crate::mode::{HealingCapability, RecoveryMode};
 use crate::{RecoveryError, RecoveryMutableScope};
 
 // ---------------------------------------------------------------------------
@@ -327,6 +327,15 @@ pub struct ComponentHealingConfig {
     /// Must be a subset of the subject's pre-authorised grant set; the runtime
     /// adapter will reject out-of-scope actions.
     pub allowed_scopes: Vec<RecoveryMutableScope>,
+    /// Fine-grained capability grants for this component.
+    ///
+    /// Each entry is a specific healing capability (e.g. [`HealingCapability::CanRestartProcess`])
+    /// that the self-healing subject is authorized to perform on this component.
+    /// Unlike [`RecoveryMutableScope`], capabilities grant exactly what each action
+    /// needs — nothing more.  When empty, the runtime falls back to
+    /// [`Self::allowed_scopes`] for backward compatibility.
+    #[serde(default)]
+    pub allowed_capabilities: Vec<HealingCapability>,
     /// Isolation level for this component (Critical / Important / Replaceable).
     ///
     /// When the driver decides an action for this component, the isolation
@@ -345,6 +354,23 @@ pub struct ComponentHealingConfig {
     /// Optional component type tag used for grouping and routing.
     #[serde(default)]
     pub component_type: Option<String>,
+}
+
+impl ComponentHealingConfig {
+    /// Returns the required [`HealingCapability`] set for each [`HealActionKind`].
+    ///
+    /// This provides a static, action-to-capability mapping that the self-healing
+    /// driver uses to verify the subject holds the necessary grant before execution.
+    #[must_use]
+    pub fn capabilities_for_action(action_kind: HealActionKind) -> Vec<HealingCapability> {
+        match action_kind {
+            HealActionKind::Restart | HealActionKind::Failover => {
+                vec![HealingCapability::CanRestartProcess]
+            }
+            HealActionKind::Isolate => vec![HealingCapability::CanIsolateMeshNode],
+            HealActionKind::Escalate => vec![HealingCapability::CanEscalateToOperator],
+        }
+    }
 }
 
 impl Default for SelfHealingPolicy {

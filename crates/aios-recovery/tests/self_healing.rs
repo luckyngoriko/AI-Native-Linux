@@ -14,7 +14,8 @@ use std::sync::Arc;
 use aios_recovery::{
     ComponentHealingConfig, ComponentHealthState, ComponentIsolationLevel, ComponentRegistry,
     ComponentSnapshot, HealAction, HealActionKind, HealCommand, HealCommandChannel,
-    HealCommandResponse, InMemoryRecoveryBoundary, InMemorySelfHealingDriver, PanicSeverity,
+    HealCommandResponse, HealingCapability, InMemoryRecoveryBoundary,
+    InMemorySelfHealingDriver, PanicSeverity,
     RecoveryBoundary, RecoveryEvidenceEmitter, RecoveryMode, RecoveryMutableScope,
     RecoverySubjectRef, RegistryEntry, RestartBoundary, RestartPolicy, SelfHealingDriver,
     SelfHealingPolicy, WatchdogPolicy,
@@ -49,6 +50,7 @@ fn minix_policy() -> SelfHealingPolicy {
                 RecoveryMutableScope::ProcessLifecycle,
                 RecoveryMutableScope::NetworkReconfig,
             ],
+            allowed_capabilities: vec![],
             isolation_level: ComponentIsolationLevel::Replaceable,
             restart_boundary: RestartBoundary::ProcessLocal,
             component_type: Some("infrastructure".to_owned()),
@@ -60,6 +62,7 @@ fn minix_policy() -> SelfHealingPolicy {
             display_name: "DNS Resolver".to_owned(),
             restart_policy: RestartPolicy::conservative(5),
             allowed_scopes: vec![RecoveryMutableScope::ProcessLifecycle],
+            allowed_capabilities: vec![],
             isolation_level: ComponentIsolationLevel::Replaceable,
             restart_boundary: RestartBoundary::ProcessLocal,
             component_type: Some("infrastructure".to_owned()),
@@ -93,6 +96,7 @@ async fn policy_normal_mode_with_components_is_invalid() {
             display_name: "Test".to_owned(),
             restart_policy: RestartPolicy::default(),
             allowed_scopes: vec![],
+            allowed_capabilities: vec![],
             isolation_level: ComponentIsolationLevel::Replaceable,
             restart_boundary: RestartBoundary::ProcessLocal,
             component_type: None,
@@ -1230,6 +1234,7 @@ async fn critical_component_forces_escalation_not_restart() {
             display_name: "Kernel".to_owned(),
             restart_policy: RestartPolicy::minix_style(5),
             allowed_scopes: vec![RecoveryMutableScope::ProcessLifecycle],
+            allowed_capabilities: vec![],
             isolation_level: ComponentIsolationLevel::Critical,
             restart_boundary: RestartBoundary::SystemWide,
             component_type: Some("infrastructure".to_owned()),
@@ -1749,6 +1754,7 @@ async fn important_component_can_be_restarted() {
             display_name: "DNS Resolver".to_owned(),
             restart_policy: RestartPolicy::minix_style(3),
             allowed_scopes: vec![RecoveryMutableScope::ProcessLifecycle],
+            allowed_capabilities: vec![],
             isolation_level: ComponentIsolationLevel::Important,
             restart_boundary: RestartBoundary::ProcessLocal,
             component_type: Some("infrastructure".to_owned()),
@@ -1826,6 +1832,7 @@ async fn escalate_after_important_escalates_important_and_critical() {
             display_name: "DNS Resolver".to_owned(),
             restart_policy: escalate_policy,
             allowed_scopes: vec![RecoveryMutableScope::ProcessLifecycle],
+            allowed_capabilities: vec![],
             isolation_level: ComponentIsolationLevel::Important,
             restart_boundary: RestartBoundary::ProcessLocal,
             component_type: Some("infrastructure".to_owned()),
@@ -1890,6 +1897,7 @@ async fn escalate_after_not_triggered_for_lower_isolation() {
             display_name: "Log Collector".to_owned(),
             restart_policy: escalate_policy,
             allowed_scopes: vec![RecoveryMutableScope::ProcessLifecycle],
+            allowed_capabilities: vec![],
             isolation_level: ComponentIsolationLevel::Replaceable,
             restart_boundary: RestartBoundary::ProcessLocal,
             component_type: Some("utility".to_owned()),
@@ -1942,4 +1950,224 @@ fn isolation_level_ordering() {
     assert!(ComponentIsolationLevel::Important >= ComponentIsolationLevel::Important);
     assert!(ComponentIsolationLevel::Replaceable >= ComponentIsolationLevel::Replaceable);
     assert!(!(ComponentIsolationLevel::Replaceable >= ComponentIsolationLevel::Important));
+}
+
+// ---------------------------------------------------------------------------
+// HealingCapability tests — MINIX-inspired fine-grained capability grants
+// ---------------------------------------------------------------------------
+
+#[test]
+fn healing_capability_maps_to_correct_scope() {
+    assert_eq!(
+        HealingCapability::CanRestartProcess.required_scope(),
+        RecoveryMutableScope::ProcessLifecycle,
+    );
+    assert_eq!(
+        HealingCapability::CanRestartNetwork.required_scope(),
+        RecoveryMutableScope::NetworkReconfig,
+    );
+    assert_eq!(
+        HealingCapability::CanReconfigureDNS.required_scope(),
+        RecoveryMutableScope::NetworkReconfig,
+    );
+    assert_eq!(
+        HealingCapability::CanIsolateMeshNode.required_scope(),
+        RecoveryMutableScope::MeshRouting,
+    );
+    assert_eq!(
+        HealingCapability::CanSnapshotState.required_scope(),
+        RecoveryMutableScope::FilesystemMutation,
+    );
+    assert_eq!(
+        HealingCapability::CanEscalateToOperator.required_scope(),
+        RecoveryMutableScope::ProcessLifecycle,
+    );
+}
+
+#[test]
+fn can_restart_process_is_subset_of_process_lifecycle() {
+    assert!(HealingCapability::CanRestartProcess.is_subset_of(
+        RecoveryMutableScope::ProcessLifecycle,
+    ));
+    assert!(!HealingCapability::CanRestartProcess.is_subset_of(
+        RecoveryMutableScope::NetworkReconfig,
+    ));
+    assert!(!HealingCapability::CanRestartProcess.is_subset_of(
+        RecoveryMutableScope::FilesystemMutation,
+    ));
+}
+
+#[test]
+fn restart_action_requires_can_restart_process_capability() {
+    let caps = ComponentHealingConfig::capabilities_for_action(HealActionKind::Restart);
+    assert_eq!(caps.len(), 1);
+    assert_eq!(caps[0], HealingCapability::CanRestartProcess);
+}
+
+#[test]
+fn failover_action_requires_can_restart_process_capability() {
+    let caps = ComponentHealingConfig::capabilities_for_action(HealActionKind::Failover);
+    assert_eq!(caps.len(), 1);
+    assert_eq!(caps[0], HealingCapability::CanRestartProcess);
+}
+
+#[test]
+fn isolate_action_requires_can_isolate_mesh_node_capability() {
+    let caps = ComponentHealingConfig::capabilities_for_action(HealActionKind::Isolate);
+    assert_eq!(caps.len(), 1);
+    assert_eq!(caps[0], HealingCapability::CanIsolateMeshNode);
+}
+
+#[test]
+fn escalate_action_requires_can_escalate_to_operator_capability() {
+    let caps = ComponentHealingConfig::capabilities_for_action(HealActionKind::Escalate);
+    assert_eq!(caps.len(), 1);
+    assert_eq!(caps[0], HealingCapability::CanEscalateToOperator);
+}
+
+#[test]
+fn healing_capability_serde_round_trip() {
+    let capabilities = vec![
+        HealingCapability::CanRestartProcess,
+        HealingCapability::CanRestartNetwork,
+        HealingCapability::CanReconfigureDNS,
+        HealingCapability::CanIsolateMeshNode,
+        HealingCapability::CanSnapshotState,
+        HealingCapability::CanEscalateToOperator,
+    ];
+
+    for cap in &capabilities {
+        let json = serde_json::to_value(cap).expect("serialize");
+        let rt: HealingCapability = serde_json::from_value(json).expect("deserialize");
+        assert_eq!(&rt, cap, "HealingCapability {cap:?} must round-trip");
+    }
+}
+
+#[test]
+fn healing_capability_serde_is_screaming_snake_case() {
+    let json =
+        serde_json::to_value(HealingCapability::CanRestartProcess).expect("serialize");
+    assert_eq!(
+        json,
+        serde_json::Value::String("CAN_RESTART_PROCESS".to_owned()),
+    );
+
+    let json = serde_json::to_value(HealingCapability::CanReconfigureDNS).expect("serialize");
+    assert_eq!(
+        json,
+        serde_json::Value::String("CAN_RECONFIGURE_DNS".to_owned()),
+    );
+
+    let json =
+        serde_json::to_value(HealingCapability::CanIsolateMeshNode).expect("serialize");
+    assert_eq!(
+        json,
+        serde_json::Value::String("CAN_ISOLATE_MESH_NODE".to_owned()),
+    );
+
+    let json =
+        serde_json::to_value(HealingCapability::CanEscalateToOperator).expect("serialize");
+    assert_eq!(
+        json,
+        serde_json::Value::String("CAN_ESCALATE_TO_OPERATOR".to_owned()),
+    );
+}
+
+#[test]
+fn all_healing_capability_variants_are_accessible() {
+    // Compile-time check that all variants are accessible
+    let _ = HealingCapability::CanRestartProcess;
+    let _ = HealingCapability::CanRestartNetwork;
+    let _ = HealingCapability::CanReconfigureDNS;
+    let _ = HealingCapability::CanIsolateMeshNode;
+    let _ = HealingCapability::CanSnapshotState;
+    let _ = HealingCapability::CanEscalateToOperator;
+}
+
+#[test]
+fn healing_capability_default_is_can_restart_process() {
+    assert_eq!(
+        HealingCapability::default(),
+        HealingCapability::CanRestartProcess,
+    );
+}
+
+#[test]
+fn healing_capability_is_subset_of_matches_required_scope() {
+    let all_caps = [
+        HealingCapability::CanRestartProcess,
+        HealingCapability::CanRestartNetwork,
+        HealingCapability::CanReconfigureDNS,
+        HealingCapability::CanIsolateMeshNode,
+        HealingCapability::CanSnapshotState,
+        HealingCapability::CanEscalateToOperator,
+    ];
+
+    for cap in &all_caps {
+        let scope = cap.required_scope();
+        assert!(
+            cap.is_subset_of(scope),
+            "{cap:?} must be subset of its own scope {scope:?}"
+        );
+    }
+}
+
+#[test]
+fn crosstalk_dns_capability_not_subset_of_process_lifecycle() {
+    assert!(!HealingCapability::CanReconfigureDNS.is_subset_of(
+        RecoveryMutableScope::ProcessLifecycle,
+    ));
+}
+
+#[test]
+fn crosstalk_isolate_not_subset_of_network_reconfig() {
+    assert!(!HealingCapability::CanIsolateMeshNode.is_subset_of(
+        RecoveryMutableScope::NetworkReconfig,
+    ));
+}
+
+#[test]
+fn component_config_with_capabilities_deserializes_from_json() {
+    let json = serde_json::json!({
+        "display_name": "DNS Resolver",
+        "restart_policy": {
+            "max_retries": 3,
+            "backoff_seconds_base": 1.0,
+            "backoff_cap_seconds": 30.0,
+            "reset_on_healthy": true
+        },
+        "allowed_scopes": ["PROCESS_LIFECYCLE"],
+        "allowed_capabilities": ["CAN_RESTART_PROCESS", "CAN_RECONFIGURE_DNS"],
+        "isolation_level": "REPLACEABLE",
+        "restart_boundary": "PROCESS_LOCAL"
+    });
+
+    let config: ComponentHealingConfig =
+        serde_json::from_value(json).expect("deserialize with capabilities");
+
+    assert_eq!(config.display_name, "DNS Resolver");
+    assert_eq!(config.allowed_capabilities.len(), 2);
+    assert_eq!(config.allowed_capabilities[0], HealingCapability::CanRestartProcess);
+    assert_eq!(config.allowed_capabilities[1], HealingCapability::CanReconfigureDNS);
+}
+
+#[test]
+fn component_config_without_capabilities_field_defaults_to_empty() {
+    let json = serde_json::json!({
+        "display_name": "DNS Resolver",
+        "restart_policy": {
+            "max_retries": 3,
+            "backoff_seconds_base": 1.0,
+            "backoff_cap_seconds": 30.0,
+            "reset_on_healthy": true
+        },
+        "allowed_scopes": ["PROCESS_LIFECYCLE"],
+        "isolation_level": "REPLACEABLE",
+        "restart_boundary": "PROCESS_LOCAL"
+    });
+
+    let config: ComponentHealingConfig =
+        serde_json::from_value(json).expect("deserialize without capabilities field");
+
+    assert!(config.allowed_capabilities.is_empty());
 }

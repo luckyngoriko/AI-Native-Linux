@@ -40,6 +40,67 @@ pub enum RecoveryMutableScope {
     MeshRouting,
 }
 
+/// MINIX-inspired fine-grained capability grants for the self-healing subject.
+///
+/// Each capability maps to a [`RecoveryMutableScope`] and represents a specific
+/// healing action the subject is authorized to perform. Unlike the coarse
+/// [`RecoveryMutableScope`] model, capabilities grant exactly what each action
+/// needs — nothing more.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, Default)]
+#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
+pub enum HealingCapability {
+    /// Restart a component process (start / stop / restart lifecycle).
+    #[default]
+    CanRestartProcess,
+    /// Restart network interfaces or services wholesale.
+    CanRestartNetwork,
+    /// Reconfigure DNS resolution settings.
+    #[serde(rename = "CAN_RECONFIGURE_DNS")]
+    CanReconfigureDNS,
+    /// Isolate a node from the service mesh (drain traffic, remove routes).
+    CanIsolateMeshNode,
+    /// Capture and persist component state snapshots.
+    CanSnapshotState,
+    /// Escalate an incident to the operator (no autonomous action possible).
+    CanEscalateToOperator,
+}
+
+impl HealingCapability {
+    /// Returns the [`RecoveryMutableScope`] required by this capability.
+    #[must_use]
+    pub const fn required_scope(self) -> RecoveryMutableScope {
+        match self {
+            Self::CanRestartProcess | Self::CanEscalateToOperator => {
+                RecoveryMutableScope::ProcessLifecycle
+            }
+            Self::CanRestartNetwork | Self::CanReconfigureDNS => {
+                RecoveryMutableScope::NetworkReconfig
+            }
+            Self::CanIsolateMeshNode => RecoveryMutableScope::MeshRouting,
+            Self::CanSnapshotState => RecoveryMutableScope::FilesystemMutation,
+        }
+    }
+
+    /// Returns `true` when this capability is a subset of the given scope.
+    ///
+    /// A capability is a subset of a scope when the scope covers at least
+    /// the operations required by the capability.
+    #[must_use]
+    pub const fn is_subset_of(self, scope: RecoveryMutableScope) -> bool {
+        matches!(
+            (self, scope),
+            (
+                Self::CanRestartProcess | Self::CanEscalateToOperator,
+                RecoveryMutableScope::ProcessLifecycle,
+            ) | (
+                Self::CanRestartNetwork | Self::CanReconfigureDNS,
+                RecoveryMutableScope::NetworkReconfig,
+            ) | (Self::CanIsolateMeshNode, RecoveryMutableScope::MeshRouting)
+                | (Self::CanSnapshotState, RecoveryMutableScope::FilesystemMutation)
+        )
+    }
+}
+
 /// Current recovery-related state observed by the boot/recovery layer.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct RecoveryState {

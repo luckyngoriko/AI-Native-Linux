@@ -46,7 +46,7 @@ pub use in_memory_boundary::InMemoryRecoveryBoundary;
 pub use ipc::{HealCommand, HealCommandChannel, HealCommandResponse};
 pub use kernel::{CandidateId, CandidateState, KernelCandidate, KernelManifest};
 pub use kernel_pipeline::KernelPipelineDriver;
-pub use mode::{RecoveryMode, RecoveryMutableScope, RecoveryState};
+pub use mode::{HealingCapability, RecoveryMode, RecoveryMutableScope, RecoveryState};
 pub use policy_adapter::RecoveryPolicyHydratorEnhancer;
 pub use recovery_guard::RecoveryGuard;
 pub use registry::{ComponentIsolationLevel, ComponentRegistry, RegistryEntry};

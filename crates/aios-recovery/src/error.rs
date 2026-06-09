@@ -70,4 +70,21 @@ pub enum RecoveryError {
     /// Internal recovery invariant failed.
     #[error("recovery internal error: {0}")]
     Internal(String),
+    /// Self-healing policy validation failure.
+    #[error("self-healing policy invalid: {0}")]
+    SelfHealingPolicyInvalid(String),
+    /// Self-healing action denied because recovery mode is not active.
+    #[error("self-healing action denied — recovery not active for component: {0}")]
+    SelfHealingRecoveryNotActive(String),
+    /// Self-healing component not found in the policy registry.
+    #[error("self-healing component unknown: {0}")]
+    SelfHealingComponentUnknown(String),
+    /// Self-healing retry limit exceeded, escalation required.
+    #[error("self-healing escalation required for component {component}: {reason}")]
+    SelfHealingEscalationRequired {
+        /// Component id that needs escalation.
+        component: String,
+        /// Human-readable reason.
+        reason: String,
+    },
 }

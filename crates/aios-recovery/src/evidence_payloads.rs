@@ -8,7 +8,8 @@
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
-use crate::{BootId, CandidateId, FirstBootPhase, RecoveryMode};
+use crate::{BootId, CandidateId, FirstBootPhase, RecoveryMode, RecoveryMutableScope};
+use crate::self_healing::{ComponentHealthState, HealActionKind};
 
 /// Payload for recovery entry evidence.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -146,4 +147,28 @@ pub struct KernelGateResultPayload {
     pub result: String,
     /// UTC timestamp when the gate result completed.
     pub completed_at: DateTime<Utc>,
+}
+
+/// Payload for an autonomous self-healing action attempt.
+///
+/// Emitted by the self-healing driver every time it decides and executes a
+/// healing operation on a component.  Retention class: **Forever**
+/// (autonomous system actions are never purged).
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case", deny_unknown_fields)]
+pub struct HealingAttemptedPayload {
+    /// Target component id.
+    pub component_id: String,
+    /// Observed health state that triggered this action.
+    pub observed_state: ComponentHealthState,
+    /// Healing action kind decided by the driver.
+    pub action_kind: HealActionKind,
+    /// Recovery-mutable scope used for authorisation.
+    pub required_scope: RecoveryMutableScope,
+    /// Human-readable decision rationale.
+    pub reason: String,
+    /// UTC timestamp when the driver produced this decision.
+    pub decided_at: DateTime<Utc>,
+    /// Monotonic sequence number within the current boot session.
+    pub sequence: u64,
 }

@@ -73,8 +73,15 @@ pub fn recovery_error_to_status(err: &RecoveryError) -> Status {
         }
         RecoveryError::CandidateNotFound(_) => Status::not_found(err.to_string()),
         RecoveryError::FirstBootAlreadyCompleted => Status::already_exists(err.to_string()),
-        RecoveryError::EvidenceEmitFailed(_) | RecoveryError::Internal(_) => {
+        RecoveryError::EvidenceEmitFailed(_)
+        | RecoveryError::Internal(_)
+        | RecoveryError::SelfHealingPolicyInvalid(_)
+        | RecoveryError::SelfHealingRecoveryNotActive(_)
+        | RecoveryError::SelfHealingComponentUnknown(_) => {
             Status::internal(err.to_string())
+        }
+        RecoveryError::SelfHealingEscalationRequired { .. } => {
+            Status::unavailable(err.to_string())
         }
     }
 }

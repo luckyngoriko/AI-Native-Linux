@@ -18,6 +18,28 @@ pub enum RecoveryMode {
     FirstBoot,
 }
 
+/// Scoped mutation grants available only inside an active recovery session.
+///
+/// Each variant represents a class of state mutation that requires explicit
+/// recovery-mode authority.  The self-healing subject holds pre-authorised
+/// grants for a subset of these scopes; the runtime adapter enforces scope
+/// boundaries at execution time.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, Default)]
+#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
+pub enum RecoveryMutableScope {
+    /// Restart / stop / start of L1–L4 infrastructure processes.
+    #[default]
+    ProcessLifecycle,
+    /// Reconfiguration of networking (DNS, routes, interfaces).
+    NetworkReconfig,
+    /// Mount / unmount / remount of filesystem paths (non-L5).
+    FilesystemMutation,
+    /// Kernel parameter tuning via `/proc/sys`.
+    SysctlTuning,
+    /// Service-mesh routing rule updates.
+    MeshRouting,
+}
+
 /// Current recovery-related state observed by the boot/recovery layer.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct RecoveryState {

@@ -20,6 +20,8 @@ pub mod mode;
 pub mod policy_adapter;
 pub mod recovery_guard;
 pub mod runtime_adapter;
+pub mod self_healing;
+pub mod self_healing_driver;
 pub mod service;
 
 pub use boot::{BootId, BootPhase, FirstBootContext, FirstBootPhase, FirstBootStatus};
@@ -32,17 +34,24 @@ pub use evidence_emit::{
 };
 pub use evidence_payloads::{
     FirstBootCompletedPayload, FirstBootPhaseCompletedPayload, FirstBootStartedPayload,
-    KernelActivatedPayload, KernelCandidateRegisteredPayload, KernelGateResultPayload,
-    KernelRolledBackPayload, RecoveryEnteredPayload, RecoveryExitedPayload,
+    HealingAttemptedPayload, KernelActivatedPayload, KernelCandidateRegisteredPayload,
+    KernelGateResultPayload, KernelRolledBackPayload, RecoveryEnteredPayload, RecoveryExitedPayload,
 };
 pub use first_boot::FirstBootDriver;
 pub use in_memory_boundary::InMemoryRecoveryBoundary;
 pub use kernel::{CandidateId, CandidateState, KernelCandidate, KernelManifest};
 pub use kernel_pipeline::KernelPipelineDriver;
-pub use mode::{RecoveryMode, RecoveryState};
+pub use mode::{RecoveryMode, RecoveryMutableScope, RecoveryState};
 pub use policy_adapter::RecoveryPolicyHydratorEnhancer;
 pub use recovery_guard::RecoveryGuard;
 pub use runtime_adapter::RecoveryRuntimeAdapter;
+pub use self_healing::{
+    ComponentHealingConfig, ComponentHealingTracker, ComponentHealthState, HealAction,
+    HealActionKind, RestartPolicy, SelfHealingPolicy, SELF_HEALING_SUBJECT,
+};
+pub use self_healing_driver::{
+    HealCycleResult, HealExecutionResult, InMemorySelfHealingDriver, SelfHealingDriver,
+};
 pub use service::{RecoveryServiceClient, RecoveryServiceGrpcServer, RecoveryServiceImpl};
 
 /// Default code version reported by future recovery service metadata surfaces.

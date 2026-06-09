@@ -184,7 +184,7 @@ impl RecoveryEvidenceEmitter {
         self.signing_key.verifying_key()
     }
 
-    async fn emit<P>(
+    pub(crate) async fn emit<P>(
         &self,
         record_type: RecordType,
         payload: &P,

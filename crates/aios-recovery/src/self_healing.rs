@@ -324,4 +324,108 @@ impl ComponentHealingTracker {
         self.last_action_at = Some(Utc::now());
         // Note: we don't reset consecutive_failures here — only healthy obs resets them
     }
+
+    /// Record that a panic was observed for this component.
+    ///
+    /// Unlike normal failure observation, a panic always bumps the consecutive count
+    /// regardless of current state — panics are treated as more severe signals.
+    pub fn record_panic(&mut self) {
+        self.consecutive_failures = self.consecutive_failures.saturating_add(1);
+        self.last_observed_state = ComponentHealthState::Failed;
+        self.total_actions = self.total_actions.saturating_add(1);
+        self.last_action_at = Some(Utc::now());
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Panic handler pattern (MINIX-inspired structured crash reporting)
+// ---------------------------------------------------------------------------
+
+/// Severity classification for a component panic event.
+///
+/// Mirrors MINIX's distinction between signal-based termination causes:
+/// some are recoverable (SIGSEGV handler → restart), others indicate corruption
+/// (SIGABRT from assertion → escalate).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, Default)]
+#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
+pub enum PanicSeverity {
+    /// Graceful unwind / caught panic (Rust `panic = "unwind"`).
+    ///
+    /// Component caught an unrecoverable error but unwound cleanly.
+    /// Recovery strategy: restart with state preservation if possible.
+    Unwind,
+
+    /// Process abort (SIGABRT / assertion failure / intentional terminate).
+    ///
+    /// Indicates a logic invariant violation inside the component.
+    /// Recovery strategy: restart BUT flag for post-mortem analysis.
+    Abort,
+
+    /// Out-of-memory kill (OOM killer).
+    ///
+    /// System-level resource exhaustion; restarting immediately may loop.
+    /// Recovery strategy: isolate + escalate before attempting restart.
+    Oom,
+
+    /// Segfault / bus error / illegal instruction (hardware-level fault).
+    ///
+    /// Indicates memory corruption or binary incompatibility.
+    /// Recovery strategy: isolate + do NOT restart automatically (escalate).
+    SigFault,
+
+    /// Unknown or unclassified panic cause.
+    ///
+    /// Fallback when no structured information is available.
+    #[default]
+    Unknown,
+}
+
+impl PanicSeverity {
+    /// Returns `true` if this panic is safe to auto-restart through.
+    ///
+    /// `Unwind` and `Abort` are considered recoverable; `Oom` and `SigFault`
+    /// require escalation because immediate restart would likely re-panic.
+    #[must_use]
+    pub const fn is_recoverable_by_restart(self) -> bool {
+        matches!(self, Self::Unwind | Self::Abort)
+    }
+
+    /// Returns `true` if this panic requires escalation without restart attempt.
+    #[must_use]
+    pub const fn requires_escalation(self) -> bool {
+        matches!(self, Self::Oom | Self::SigFault)
+    }
+}
+
+/// Structured context for a component panic event.
+///
+/// Captures everything needed for a MINIX-style post-mortem analysis:
+/// what happened, where, how severe, and where to find the artefacts.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case", deny_unknown_fields)]
+pub struct PanicContext {
+    /// Component id that panicked.
+    pub component_id: String,
+    /// Classified severity of the panic.
+    pub severity: PanicSeverity,
+    /// Human-readable panic message or assertion string.
+    pub message: String,
+    /// Source file where the panic originated (if available).
+    pub file: Option<String>,
+    /// Line number inside the source file.
+    pub line: Option<u32>,
+    /// Backtrace hash (BLAKE3 of the symbolised backtrace, not raw addresses).
+    ///
+    /// Used to deduplicate identical crashes and link to persisted backtrace
+    /// storage without embedding megabytes of frame data in evidence JSON.
+    pub backtrace_hash: Option<String>,
+    /// Reference path to a core dump file (if one was captured).
+    ///
+    /// Format is intentionally opaque: the runtime adapter decides where dumps
+    /// live and how they're named.
+    pub core_dump_ref: Option<String>,
+    /// UTC timestamp when the panic was observed by the healing driver.
+    pub observed_at: DateTime<Utc>,
+    /// Number of times this component has panicked consecutively (including this one).
+    pub consecutive_panics: u32,
 }

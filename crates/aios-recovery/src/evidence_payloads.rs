@@ -9,7 +9,9 @@ use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
 use crate::{BootId, CandidateId, FirstBootPhase, RecoveryMode, RecoveryMutableScope};
-use crate::self_healing::{ComponentHealthState, HealActionKind};
+use crate::self_healing::{
+    ComponentHealthState, HealActionKind, PanicSeverity,
+};
 
 /// Payload for recovery entry evidence.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -171,4 +173,39 @@ pub struct HealingAttemptedPayload {
     pub decided_at: DateTime<Utc>,
     /// Monotonic sequence number within the current boot session.
     pub sequence: u64,
+}
+
+/// Payload for a structured component panic event (MINIX-inspired post-mortem).
+///
+/// Unlike [`HealingAttemptedPayload`] which captures *healing decisions*,
+/// this payload captures the *crash itself* — what happened, where, how severe,
+/// and where to find the artefacts for post-mortem analysis.
+///
+/// Emitted by the self-healing driver whenever `observe_panic()` is called.
+/// Retention class: **Forever** (panic evidence is never purged).
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case", deny_unknown_fields)]
+pub struct ComponentPanicPayload {
+    /// Component id that panicked.
+    pub component_id: String,
+    /// Classified severity of the panic.
+    pub severity: PanicSeverity,
+    /// Human-readable panic message or assertion string.
+    pub message: String,
+    /// Source file where the panic originated.
+    pub file: Option<String>,
+    /// Line number inside the source file.
+    pub line: Option<u32>,
+    /// BLAKE3 hash of the symbolised backtrace (for deduplication).
+    pub backtrace_hash: Option<String>,
+    /// Reference path to a core dump file.
+    pub core_dump_ref: Option<String>,
+    /// UTC timestamp when the panic was observed.
+    pub observed_at: DateTime<Utc>,
+    /// Consecutive panic count including this one.
+    pub consecutive_panics: u32,
+    /// Whether the panic was classified as auto-recoverable by restart.
+    pub recoverable_by_restart: bool,
+    /// Whether escalation was required instead of restart.
+    pub requires_escalation: bool,
 }

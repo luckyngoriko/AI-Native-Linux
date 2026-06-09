@@ -33,9 +33,10 @@ pub use evidence_emit::{
     AIOS_RECOVERY_SUBJECT,
 };
 pub use evidence_payloads::{
-    FirstBootCompletedPayload, FirstBootPhaseCompletedPayload, FirstBootStartedPayload,
-    HealingAttemptedPayload, KernelActivatedPayload, KernelCandidateRegisteredPayload,
-    KernelGateResultPayload, KernelRolledBackPayload, RecoveryEnteredPayload, RecoveryExitedPayload,
+    ComponentPanicPayload, FirstBootCompletedPayload, FirstBootPhaseCompletedPayload,
+    FirstBootStartedPayload, HealingAttemptedPayload, KernelActivatedPayload,
+    KernelCandidateRegisteredPayload, KernelGateResultPayload, KernelRolledBackPayload,
+    RecoveryEnteredPayload, RecoveryExitedPayload,
 };
 pub use first_boot::FirstBootDriver;
 pub use in_memory_boundary::InMemoryRecoveryBoundary;
@@ -47,7 +48,7 @@ pub use recovery_guard::RecoveryGuard;
 pub use runtime_adapter::RecoveryRuntimeAdapter;
 pub use self_healing::{
     ComponentHealingConfig, ComponentHealingTracker, ComponentHealthState, HealAction,
-    HealActionKind, RestartPolicy, SelfHealingPolicy, SELF_HEALING_SUBJECT,
+    HealActionKind, PanicContext, PanicSeverity, RestartPolicy, SelfHealingPolicy, SELF_HEALING_SUBJECT,
 };
 pub use self_healing_driver::{
     HealCycleResult, HealExecutionResult, InMemorySelfHealingDriver, SelfHealingDriver,

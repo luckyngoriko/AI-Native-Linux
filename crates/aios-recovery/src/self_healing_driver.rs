@@ -21,7 +21,7 @@ use crate::evidence_emit::RecoveryEvidenceEmitter;
 use crate::mode::RecoveryMode;
 use crate::self_healing::{
     ComponentHealingTracker, ComponentHealthState, HealAction,
-    HealActionKind, SelfHealingPolicy,
+    HealActionKind, PanicContext, SelfHealingPolicy,
 };
 use crate::{RecoveryError, RecoveryMutableScope};
 
@@ -42,6 +42,19 @@ pub trait SelfHealingDriver: Send + Sync {
         component_id: &str,
         state: ComponentHealthState,
     ) -> Result<(), RecoveryError>;
+
+    /// Register a structured panic event for a component.
+    ///
+    /// Unlike [`SelfHealingDriver::observe_health`] which records state only,
+    /// this method captures full panic context (severity, backtrace hash, core dump
+    /// reference) and classifies the crash to decide whether auto-restart is safe
+    /// or escalation is required.
+    ///
+    /// The panic is always recorded in the tracker (bumps consecutive failures)
+    /// and evidence is emitted immediately when an emitter is attached — even before
+    /// `evaluate()` / `heal_cycle()` runs.  This matches MINIX's behaviour where the
+    /// process manager logs crashes at detection time, not at decision time.
+    async fn observe_panic(&self, ctx: PanicContext) -> Result<String, RecoveryError>;
 
     /// Evaluate all observed components and produce a list of healing actions.
     ///
@@ -260,6 +273,37 @@ impl SelfHealingDriver for InMemorySelfHealingDriver {
         Ok(())
     }
 
+    async fn observe_panic(&self, ctx: PanicContext) -> Result<String, RecoveryError> {
+        let component_id = &ctx.component_id;
+
+        // 1. Update health registry to Failed (panic = failed state)
+        {
+            let mut reg = self.health_registry.write().await;
+            reg.insert(component_id.to_owned(), ComponentHealthState::Failed);
+        }
+
+        // 2. Record in tracker using panic-specific logic
+        {
+            let mut trackers = self.trackers.write().await;
+            trackers
+                .entry(component_id.to_owned())
+                .or_default()
+                .record_panic();
+        }
+
+        // 3. Emit structured panic evidence immediately (MINIX-style:
+        //    log at detection time, not decision time)
+        if let Some(emitter) = &self.evidence_emitter {
+            emit_panic_evidence(emitter, &ctx).await
+        } else {
+            Ok(format!(
+                "panic-{}-{}",
+                ctx.component_id,
+                ctx.consecutive_panics
+            ))
+        }
+    }
+
     async fn evaluate(&self) -> Result<Vec<HealAction>, RecoveryError> {
         // Clone policy data to minimise lock hold time
         let (enabled, minimum_mode) = {
@@ -429,4 +473,35 @@ async fn emit_healing_action(
     // Use RECOVERY_OPERATION_PERFORMED as the closest S3.1 record type for
     // autonomous healing actions.  A future vocabulary may add HEALING_ATTEMPTED.
     emitter.emit(RecordType::RecoveryOperationPerformed, &payload, None).await
+    }
+
+/// Emit a structured panic evidence record.
+///
+/// Uses `RECOVERYOperationPerformed` (same as healing actions) because panic
+/// is an autonomous recovery operation. The severity and classification are
+/// captured inside the payload for post-mortem filtering.
+async fn emit_panic_evidence(
+    emitter: &RecoveryEvidenceEmitter,
+    ctx: &PanicContext,
+) -> Result<String, RecoveryError> {
+    use crate::evidence_payloads::ComponentPanicPayload;
+    use aios_evidence::RecordType;
+
+    let payload = ComponentPanicPayload {
+        component_id: ctx.component_id.clone(),
+        severity: ctx.severity,
+        message: ctx.message.clone(),
+        file: ctx.file.clone(),
+        line: ctx.line,
+        backtrace_hash: ctx.backtrace_hash.clone(),
+        core_dump_ref: ctx.core_dump_ref.clone(),
+        observed_at: ctx.observed_at,
+        consecutive_panics: ctx.consecutive_panics,
+        recoverable_by_restart: ctx.severity.is_recoverable_by_restart(),
+        requires_escalation: ctx.severity.requires_escalation(),
+    };
+
+    emitter
+        .emit(RecordType::RecoveryOperationPerformed, &payload, None)
+        .await
 }

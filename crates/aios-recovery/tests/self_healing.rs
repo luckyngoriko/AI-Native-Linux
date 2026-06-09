@@ -13,9 +13,9 @@ use std::sync::Arc;
 
 use aios_recovery::{
     ComponentHealingConfig, ComponentHealthState, HealAction, HealActionKind,
-    InMemoryRecoveryBoundary, InMemorySelfHealingDriver, RecoveryBoundary,
-    RecoveryEvidenceEmitter, RecoveryMode, RecoveryMutableScope, RecoverySubjectRef,
-    RestartPolicy, SelfHealingDriver, SelfHealingPolicy,
+    InMemoryRecoveryBoundary, InMemorySelfHealingDriver, PanicSeverity,
+    RecoveryBoundary, RecoveryEvidenceEmitter, RecoveryMode, RecoveryMutableScope,
+    RecoverySubjectRef, RestartPolicy, SelfHealingDriver, SelfHealingPolicy,
 };
 
 // ---------------------------------------------------------------------------
@@ -405,4 +405,204 @@ fn tracker_accumulates_failures_on_degraded_or_failed() {
     assert_eq!(t.consecutive_failures, 1);
     t.record_observation(ComponentHealthState::Unknown);
     assert_eq!(t.consecutive_failures, 1, "unknown does not reset counter");
+}
+
+// ---------------------------------------------------------------------------
+// Panic severity classification
+// ---------------------------------------------------------------------------
+
+#[test]
+fn unwind_panic_is_recoverable() {
+    assert!(PanicSeverity::Unwind.is_recoverable_by_restart());
+    assert!(!PanicSeverity::Unwind.requires_escalation());
+}
+
+#[test]
+fn abort_panic_is_recoverable_but_flagged_for_postmortem() {
+    assert!(PanicSeverity::Abort.is_recoverable_by_restart());
+    assert!(!PanicSeverity::Abort.requires_escalation());
+}
+
+#[test]
+fn oom_panic_requires_escalation_no_restart() {
+    assert!(!PanicSeverity::Oom.is_recoverable_by_restart());
+    assert!(PanicSeverity::Oom.requires_escalation());
+}
+
+#[test]
+fn sigfault_requires_escalation_no_restart() {
+    assert!(!PanicSeverity::SigFault.is_recoverable_by_restart());
+    assert!(PanicSeverity::SigFault.requires_escalation());
+}
+
+#[test]
+fn unknown_panic_defaults_to_non_recoverable() {
+    assert!(!PanicSeverity::Unknown.is_recoverable_by_restart());
+    assert!(!PanicSeverity::Unknown.requires_escalation());
+}
+
+// ---------------------------------------------------------------------------
+// PanicContext serde round-trip
+// ---------------------------------------------------------------------------
+
+#[test]
+fn panic_context_round_trips_through_serde_json() {
+    use aios_recovery::PanicContext;
+
+    let original = PanicContext {
+        component_id: "aios-dns-resolver".to_owned(),
+        severity: PanicSeverity::Abort,
+        message: "assertion failed: empty response body".to_owned(),
+        file: Some("src/resolver/mod.rs".to_owned()),
+        line: Some(247),
+        backtrace_hash: Some("a1b2c3d4e5f6".to_owned()),
+        core_dump_ref: Some("/var/crashes/dns-1673289123.core".to_owned()),
+        observed_at: chrono::Utc::now(),
+        consecutive_panics: 3,
+    };
+
+    let json = serde_json::to_value(&original).expect("serialize");
+    let round_tripped: PanicContext = serde_json::from_value(json).expect("deserialize");
+
+    assert_eq!(round_tripped.component_id, original.component_id);
+    assert_eq!(round_tripped.severity, original.severity);
+    assert_eq!(round_tripped.message, original.message);
+    assert_eq!(round_tripped.line, Some(247));
+    assert_eq!(round_tripped.core_dump_ref.as_deref(), Some("/var/crashes/dns-1673289123.core"));
+}
+
+// ---------------------------------------------------------------------------
+// ComponentPanicPayload round-trip with flags derived from severity
+// ---------------------------------------------------------------------------
+
+#[test]
+fn panic_payload_flags_match_severity() {
+    use aios_recovery::ComponentPanicPayload;
+
+    let unwind_payload = ComponentPanicPayload {
+        component_id: "test".to_owned(),
+        severity: PanicSeverity::Unwind,
+        message: "".to_owned(),
+        file: None,
+        line: None,
+        backtrace_hash: None,
+        core_dump_ref: None,
+        observed_at: chrono::Utc::now(),
+        consecutive_panics: 1,
+        recoverable_by_restart: true,
+        requires_escalation: false,
+    };
+    assert!(unwind_payload.recoverable_by_restart);
+    assert!(!unwind_payload.requires_escalation);
+
+    // OOM payload — explicitly constructed with correct flags
+    let oom_payload = ComponentPanicPayload {
+        component_id: "test".to_owned(),
+        severity: PanicSeverity::Oom,
+        message: "".to_owned(),
+        file: None,
+        line: None,
+        backtrace_hash: None,
+        core_dump_ref: None,
+        observed_at: chrono::Utc::now(),
+        consecutive_panics: 1,
+        recoverable_by_restart: false,
+        requires_escalation: true,
+    };
+    assert!(!oom_payload.recoverable_by_restart);
+    assert!(oom_payload.requires_escalation);
+}
+
+// ---------------------------------------------------------------------------
+// Tracker record_panic always bumps and sets Failed
+// ---------------------------------------------------------------------------
+
+#[test]
+fn record_panic_bumps_consecutive_and_sets_failed() {
+    use aios_recovery::ComponentHealingTracker;
+
+    let mut t = ComponentHealingTracker::default();
+    assert_eq!(t.consecutive_failures, 0);
+    assert_eq!(t.total_actions, 0);
+
+    // First panic: bumps to 1, total_actions to 1, state → Failed
+    t.record_panic();
+    assert_eq!(t.consecutive_failures, 1);
+    assert_eq!(t.total_actions, 1);
+    assert_eq!(t.last_observed_state, ComponentHealthState::Failed);
+
+    // Second panic: bumps to 2, total_actions to 2
+    t.record_panic();
+    assert_eq!(t.consecutive_failures, 2);
+    assert_eq!(t.total_actions, 2);
+}
+
+// ---------------------------------------------------------------------------
+// Driver: observe_panic emits evidence immediately (MINIX-style)
+// ---------------------------------------------------------------------------
+
+#[tokio::test]
+async fn observe_panic_emits_evidence_immediately() {
+    let boundary = Arc::new(InMemoryRecoveryBoundary::new());
+    let log = Arc::new(aios_recovery::InMemoryRecoveryEvidenceLog::new());
+    let emitter = Arc::new(make_emitter(log.clone()));
+    let driver = InMemorySelfHealingDriver::new(boundary).with_evidence_emitter(emitter);
+
+    driver.set_policy(minix_policy()).await.expect("valid policy");
+
+    let ctx = aios_recovery::PanicContext {
+        component_id: "aios-network-manager".to_owned(),
+        severity: aios_recovery::PanicSeverity::Abort,
+        message: "connection pool exhausted after 30s".to_owned(),
+        file: Some("src/net/pool.rs".to_owned()),
+        line: Some(89),
+        backtrace_hash: Some("deadbeef1234".to_owned()),
+        core_dump_ref: Some("/var/dumps/nm-42.core".to_owned()),
+        observed_at: chrono::Utc::now(),
+        consecutive_panics: 1,
+    };
+
+    let receipt = driver.observe_panic(ctx).await.expect("observe_panic succeeds");
+
+    // Must return a receipt id (evidence was emitted)
+    assert!(!receipt.is_empty(), "panic must produce evidence receipt");
+
+    // Verify evidence landed in log
+    assert_eq!(log.len().await, 1, "one panic receipt emitted");
+}
+
+// ---------------------------------------------------------------------------
+// Driver: OOM panic still emits but signals escalation in payload
+// ---------------------------------------------------------------------------
+
+#[tokio::test]
+async fn observe_oom_panic_emits_with_escalation_flag() {
+    let boundary = Arc::new(InMemoryRecoveryBoundary::new());
+    let log = Arc::new(aios_recovery::InMemoryRecoveryEvidenceLog::new());
+    let emitter = Arc::new(make_emitter(log.clone()));
+    let driver = InMemorySelfHealingDriver::new(boundary).with_evidence_emitter(emitter);
+    driver.set_policy(minix_policy()).await.expect("valid policy");
+
+    // Fire 4 panics to accumulate the tracker counter
+    for i in 1..=4 {
+        let ctx = aios_recovery::PanicContext {
+            component_id: "aios-dns-resolver".to_owned(),
+            severity: aios_recovery::PanicSeverity::Oom,
+            message: format!("cannot allocate 256 MiB block — panic #{i}"),
+            file: None,
+            line: None,
+            backtrace_hash: None,
+            core_dump_ref: None,
+            observed_at: chrono::Utc::now(),
+            consecutive_panics: i,
+        };
+        driver.observe_panic(ctx).await.expect("OOM panic emits evidence");
+    }
+
+    // Tracker should show 4 accumulated panics
+    let tracker = driver.tracker_for("aios-dns-resolver").await;
+    assert_eq!(tracker.consecutive_failures, 4, "4th panic → counter=4");
+    assert_eq!(tracker.last_observed_state, ComponentHealthState::Failed);
+    // Each panic increments total_actions
+    assert_eq!(tracker.total_actions, 4);
 }

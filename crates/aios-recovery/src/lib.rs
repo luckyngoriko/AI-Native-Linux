@@ -19,6 +19,7 @@ pub mod kernel_pipeline;
 pub mod mode;
 pub mod policy_adapter;
 pub mod recovery_guard;
+pub mod registry;
 pub mod runtime_adapter;
 pub mod self_healing;
 pub mod self_healing_driver;
@@ -46,6 +47,7 @@ pub use kernel_pipeline::KernelPipelineDriver;
 pub use mode::{RecoveryMode, RecoveryMutableScope, RecoveryState};
 pub use policy_adapter::RecoveryPolicyHydratorEnhancer;
 pub use recovery_guard::RecoveryGuard;
+pub use registry::{ComponentIsolationLevel, ComponentRegistry, RegistryEntry};
 pub use runtime_adapter::RecoveryRuntimeAdapter;
 pub use self_healing::{
     ComponentHealingConfig, ComponentHealingTracker, ComponentHealthState,

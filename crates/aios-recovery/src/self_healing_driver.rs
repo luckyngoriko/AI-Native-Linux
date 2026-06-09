@@ -19,6 +19,7 @@ use tokio::sync::RwLock;
 use crate::boundary::RecoveryBoundary;
 use crate::evidence_emit::RecoveryEvidenceEmitter;
 use crate::mode::RecoveryMode;
+use crate::registry::ComponentRegistry;
 use crate::self_healing::{
     ComponentHealingTracker, ComponentHealthState, ComponentSnapshot, HealAction,
     HealActionKind, PanicContext, SelfHealingPolicy,
@@ -118,6 +119,7 @@ pub struct InMemorySelfHealingDriver {
     policy: RwLock<SelfHealingPolicy>,
     health_registry: RwLock<HashMap<String, ComponentHealthState>>,
     trackers: RwLock<HashMap<String, ComponentHealingTracker>>,
+    registry: Option<Arc<ComponentRegistry>>,
     watchdog: WatchdogTimer,
     boundary: Arc<dyn RecoveryBoundary>,
     evidence_emitter: Option<Arc<RecoveryEvidenceEmitter>>,
@@ -130,6 +132,7 @@ impl Default for InMemorySelfHealingDriver {
             policy: RwLock::new(SelfHealingPolicy::default()),
             health_registry: RwLock::new(HashMap::new()),
             trackers: RwLock::new(HashMap::new()),
+            registry: None,
             watchdog: WatchdogTimer::default(),
             boundary: Arc::new(crate::InMemoryRecoveryBoundary::new()),
             evidence_emitter: None,
@@ -167,6 +170,14 @@ impl InMemorySelfHealingDriver {
     #[must_use]
     pub async fn policy(&self) -> SelfHealingPolicy {
         self.policy.read().await.clone()
+    }
+
+    /// Attach a component registry so the driver can consult isolation levels
+    /// and dependency chains when deciding healing actions.
+    #[must_use]
+    pub fn with_registry(mut self, registry: Arc<ComponentRegistry>) -> Self {
+        self.registry = Some(registry);
+        self
     }
 
     /// Attach an evidence emitter so every heal action produces a receipt.
@@ -314,6 +325,30 @@ impl InMemorySelfHealingDriver {
 
         let restart_policy = policy.policy_for_component(component_id);
         let allowed_scopes = policy.scopes_for_component(component_id);
+
+        // Consult the registry: Critical components MUST escalate immediately —
+        // the driver is never allowed to restart or kill them.
+        if let Some(registry) = &self.registry {
+            let isolation = registry.isolation_level_of(component_id);
+            if isolation.requires_escalation() {
+                let sequence = {
+                    let mut seq = self.global_sequence.write().await;
+                    *seq += 1;
+                    *seq
+                };
+                return Some(HealAction {
+                    component_id: component_id.to_owned(),
+                    observed_state: state,
+                    action_kind: HealActionKind::Escalate,
+                    required_scope: RecoveryMutableScope::ProcessLifecycle,
+                    reason: format!(
+                        "component={component_id} isolation_level=Critical — escalation required"
+                    ),
+                    decided_at: Utc::now(),
+                    sequence,
+                });
+            }
+        }
 
         // Pick the best available scope for this action
         let required_scope = allowed_scopes

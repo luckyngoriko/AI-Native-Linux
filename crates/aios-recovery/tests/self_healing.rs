@@ -12,11 +12,11 @@
 use std::sync::Arc;
 
 use aios_recovery::{
-    ComponentHealingConfig, ComponentHealthState, ComponentSnapshot, HealAction,
-    HealActionKind, InMemoryRecoveryBoundary, InMemorySelfHealingDriver, PanicSeverity,
-    RecoveryBoundary, RecoveryEvidenceEmitter, RecoveryMode, RecoveryMutableScope,
-    RecoverySubjectRef, RestartPolicy, SelfHealingDriver, SelfHealingPolicy,
-    WatchdogPolicy,
+    ComponentHealingConfig, ComponentHealthState, ComponentIsolationLevel, ComponentRegistry,
+    ComponentSnapshot, HealAction, HealActionKind, InMemoryRecoveryBoundary,
+    InMemorySelfHealingDriver, PanicSeverity, RecoveryBoundary, RecoveryEvidenceEmitter,
+    RecoveryMode, RecoveryMutableScope, RecoverySubjectRef, RegistryEntry, RestartPolicy,
+    SelfHealingDriver, SelfHealingPolicy, WatchdogPolicy,
 };
 
 // ---------------------------------------------------------------------------
@@ -1002,5 +1002,317 @@ async fn restore_snapshot_creates_tracker_if_missing() {
         tracker.last_observed_state,
         ComponentHealthState::Unknown,
         "new tracker has unknown health"
+    );
+}
+
+// ---------------------------------------------------------------------------
+// Registry: register + resolve round-trip
+// ---------------------------------------------------------------------------
+
+#[test]
+fn registry_register_and_resolve_round_trip() {
+    let mut registry = ComponentRegistry::new();
+    let entry = RegistryEntry::new("aios-dns-resolver", "DNS Resolver")
+        .with_type("infrastructure")
+        .with_dependencies(vec!["aios-kernel".to_owned()])
+        .with_expected_initial_state(ComponentHealthState::Healthy)
+        .with_isolation_level(ComponentIsolationLevel::Important);
+
+    registry.register(entry.clone());
+    assert_eq!(registry.len(), 1);
+    assert!(!registry.is_empty());
+
+    let resolved = registry.resolve("aios-dns-resolver").expect("resolve must succeed");
+    assert_eq!(resolved.component_id, entry.component_id);
+    assert_eq!(resolved.display_name, entry.display_name);
+    assert_eq!(resolved.component_type.as_deref(), Some("infrastructure"));
+    assert_eq!(resolved.dependencies, vec!["aios-kernel"]);
+    assert_eq!(resolved.isolation_level, ComponentIsolationLevel::Important);
+}
+
+#[test]
+fn registry_resolve_missing_returns_none() {
+    let registry = ComponentRegistry::new();
+    assert!(registry.resolve("nonexistent").is_none());
+}
+
+#[test]
+fn registry_deregister_removes_entry() {
+    let mut registry = ComponentRegistry::new();
+    registry.register(RegistryEntry::new("comp-a", "Component A"));
+    assert_eq!(registry.len(), 1);
+
+    let removed = registry.deregister("comp-a");
+    assert!(removed.is_some());
+    assert_eq!(registry.len(), 0);
+    assert!(registry.resolve("comp-a").is_none());
+}
+
+#[test]
+fn registry_deregister_unknown_returns_none() {
+    let mut registry = ComponentRegistry::new();
+    assert!(registry.deregister("ghost").is_none());
+}
+
+// ---------------------------------------------------------------------------
+// Registry: dependency chain resolution
+// ---------------------------------------------------------------------------
+
+#[test]
+fn registry_dependencies_of_returns_declared_deps() {
+    let mut registry = ComponentRegistry::new();
+    registry.register(
+        RegistryEntry::new("aios-api-gateway", "API Gateway")
+            .with_dependencies(vec![
+                "aios-network-manager".to_owned(),
+                "aios-dns-resolver".to_owned(),
+            ]),
+    );
+
+    let deps = registry.dependencies_of("aios-api-gateway");
+    assert_eq!(deps.len(), 2);
+    assert!(deps.contains(&"aios-network-manager".to_owned()));
+    assert!(deps.contains(&"aios-dns-resolver".to_owned()));
+}
+
+#[test]
+fn registry_dependencies_of_unknown_returns_empty() {
+    let registry = ComponentRegistry::new();
+    assert!(registry.dependencies_of("ghost").is_empty());
+}
+
+#[test]
+fn registry_dependents_of_resolves_reverse_deps() {
+    let mut registry = ComponentRegistry::new();
+    registry.register(
+        RegistryEntry::new("aios-kernel", "Kernel"),
+    );
+    registry.register(
+        RegistryEntry::new("aios-dns-resolver", "DNS Resolver")
+            .with_dependencies(vec!["aios-kernel".to_owned()]),
+    );
+    registry.register(
+        RegistryEntry::new("aios-api-gateway", "API Gateway")
+            .with_dependencies(vec!["aios-kernel".to_owned(), "aios-dns-resolver".to_owned()]),
+    );
+
+    let dependents = registry.dependents_of("aios-kernel");
+    assert_eq!(dependents.len(), 2);
+    assert!(dependents.contains(&"aios-dns-resolver".to_owned()));
+    assert!(dependents.contains(&"aios-api-gateway".to_owned()));
+}
+
+#[test]
+fn registry_dependents_of_leaf_returns_empty() {
+    let mut registry = ComponentRegistry::new();
+    registry.register(
+        RegistryEntry::new("aios-kernel", "Kernel")
+            .with_dependencies(vec!["aios-dns-resolver".to_owned()]),
+    );
+
+    let dependents = registry.dependents_of("aios-dns-resolver");
+    assert!(dependents.contains(&"aios-kernel".to_owned()));
+}
+
+// ---------------------------------------------------------------------------
+// Registry: all_entries / from_entries
+// ---------------------------------------------------------------------------
+
+#[test]
+fn registry_all_entries_returns_all_registered() {
+    let entries = vec![
+        RegistryEntry::new("comp-a", "A"),
+        RegistryEntry::new("comp-b", "B"),
+        RegistryEntry::new("comp-c", "C"),
+    ];
+    let registry = ComponentRegistry::from_entries(entries);
+    let all = registry.all_entries();
+    assert_eq!(all.len(), 3);
+}
+
+#[test]
+fn registry_default_is_empty() {
+    let registry = ComponentRegistry::default();
+    assert!(registry.is_empty());
+    assert_eq!(registry.len(), 0);
+}
+
+// ---------------------------------------------------------------------------
+// Registry: isolation_level_of
+// ---------------------------------------------------------------------------
+
+#[test]
+fn registry_isolation_level_of_returns_stored_level() {
+    let mut registry = ComponentRegistry::new();
+    registry.register(
+        RegistryEntry::new("aios-kernel", "Kernel")
+            .with_isolation_level(ComponentIsolationLevel::Critical),
+    );
+    registry.register(
+        RegistryEntry::new("aios-dns-resolver", "DNS Resolver")
+            .with_isolation_level(ComponentIsolationLevel::Important),
+    );
+
+    assert_eq!(
+        registry.isolation_level_of("aios-kernel"),
+        ComponentIsolationLevel::Critical,
+    );
+    assert_eq!(
+        registry.isolation_level_of("aios-dns-resolver"),
+        ComponentIsolationLevel::Important,
+    );
+}
+
+#[test]
+fn registry_isolation_level_of_unknown_falls_back_to_default() {
+    let registry = ComponentRegistry::new();
+    assert_eq!(
+        registry.isolation_level_of("ghost"),
+        ComponentIsolationLevel::default(),
+    );
+}
+
+// ---------------------------------------------------------------------------
+// Registry: ComponentIsolationLevel predicates
+// ---------------------------------------------------------------------------
+
+#[test]
+fn critical_may_not_restart() {
+    assert!(!ComponentIsolationLevel::Critical.may_restart());
+    assert!(!ComponentIsolationLevel::Critical.may_kill_and_replace());
+    assert!(ComponentIsolationLevel::Critical.requires_escalation());
+}
+
+#[test]
+fn important_may_restart_but_not_kill_and_replace() {
+    assert!(ComponentIsolationLevel::Important.may_restart());
+    assert!(!ComponentIsolationLevel::Important.may_kill_and_replace());
+    assert!(!ComponentIsolationLevel::Important.requires_escalation());
+}
+
+#[test]
+fn replaceable_may_restart_and_may_kill_and_replace() {
+    assert!(ComponentIsolationLevel::Replaceable.may_restart());
+    assert!(ComponentIsolationLevel::Replaceable.may_kill_and_replace());
+    assert!(!ComponentIsolationLevel::Replaceable.requires_escalation());
+}
+
+// ---------------------------------------------------------------------------
+// Driver: Critical isolation prevents restart decision
+// ---------------------------------------------------------------------------
+
+#[tokio::test]
+async fn critical_component_forces_escalation_not_restart() {
+    let mut registry = ComponentRegistry::new();
+    registry.register(
+        RegistryEntry::new("aios-kernel", "Kernel")
+            .with_isolation_level(ComponentIsolationLevel::Critical),
+    );
+
+    let boundary = Arc::new(InMemoryRecoveryBoundary::new());
+    let log = Arc::new(aios_recovery::InMemoryRecoveryEvidenceLog::new());
+    let emitter = Arc::new(make_emitter(log.clone()));
+    let driver = InMemorySelfHealingDriver::new(boundary.clone())
+        .with_registry(Arc::new(registry))
+        .with_evidence_emitter(emitter);
+
+    let mut policy = minix_policy();
+    policy.component_policies.insert(
+        "aios-kernel".to_owned(),
+        ComponentHealingConfig {
+            display_name: "Kernel".to_owned(),
+            restart_policy: RestartPolicy::minix_style(5),
+            allowed_scopes: vec![RecoveryMutableScope::ProcessLifecycle],
+            component_type: Some("infrastructure".to_owned()),
+        },
+    );
+    driver.set_policy(policy).await.expect("valid policy");
+
+    boundary
+        .enter_recovery(aios_recovery::EnterRecoveryRequest {
+            reason: "BOOT_FAILURE_AUTO".to_owned(),
+            operator_grant: Some("self-healing-bootstrap".to_owned()),
+            expected_phases: vec![aios_recovery::BootPhase::Recovery],
+            bundle: None,
+        })
+        .await
+        .expect("enter recovery");
+
+    // Observe kernel as Failed — even with first failure, registry says Critical → escalate
+    driver
+        .observe_health("aios-kernel", ComponentHealthState::Failed)
+        .await
+        .expect("observe kernel");
+
+    let actions = driver.evaluate().await.expect("evaluate");
+    assert_eq!(actions.len(), 1, "one action for Critical kernel");
+
+    let action = &actions[0];
+    assert_eq!(
+        action.action_kind,
+        HealActionKind::Escalate,
+        "Critical component must escalate, not restart"
+    );
+    assert!(
+        action.reason.contains("isolation_level=Critical"),
+        "reason must mention isolation_level=Critical"
+    );
+}
+
+// ---------------------------------------------------------------------------
+// Registry serde round-trip
+// ---------------------------------------------------------------------------
+
+#[test]
+fn registry_entry_round_trips_through_serde_json() {
+    let original = RegistryEntry::new("aios-dns-resolver", "DNS Resolver")
+        .with_type("infrastructure")
+        .with_dependencies(vec!["aios-kernel".to_owned()])
+        .with_expected_initial_state(ComponentHealthState::Healthy)
+        .with_isolation_level(ComponentIsolationLevel::Important);
+
+    let json = serde_json::to_value(&original).expect("serialize");
+    let round_tripped: RegistryEntry = serde_json::from_value(json).expect("deserialize");
+
+    assert_eq!(round_tripped.component_id, original.component_id);
+    assert_eq!(round_tripped.display_name, original.display_name);
+    assert_eq!(round_tripped.component_type, original.component_type);
+    assert_eq!(round_tripped.dependencies, original.dependencies);
+    assert_eq!(
+        round_tripped.expected_initial_state,
+        original.expected_initial_state,
+    );
+    assert_eq!(round_tripped.isolation_level, original.isolation_level);
+}
+
+#[test]
+fn component_isolation_level_serde_is_screaming_snake_case() {
+    let crit = serde_json::to_value(ComponentIsolationLevel::Critical).expect("serialize");
+    assert_eq!(
+        crit,
+        serde_json::Value::String("CRITICAL".to_owned()),
+        "Critical → CRITICAL"
+    );
+
+    let imp = serde_json::to_value(ComponentIsolationLevel::Important).expect("serialize");
+    assert_eq!(
+        imp,
+        serde_json::Value::String("IMPORTANT".to_owned()),
+        "Important → IMPORTANT"
+    );
+
+    let repl = serde_json::to_value(ComponentIsolationLevel::Replaceable).expect("serialize");
+    assert_eq!(
+        repl,
+        serde_json::Value::String("REPLACEABLE".to_owned()),
+        "Replaceable → REPLACEABLE"
+    );
+}
+
+#[test]
+fn component_isolation_level_default_is_replaceable() {
+    assert_eq!(
+        ComponentIsolationLevel::default(),
+        ComponentIsolationLevel::Replaceable,
     );
 }

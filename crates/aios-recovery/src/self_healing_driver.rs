@@ -20,7 +20,7 @@ use crate::boundary::RecoveryBoundary;
 use crate::evidence_emit::RecoveryEvidenceEmitter;
 use crate::mode::RecoveryMode;
 use crate::self_healing::{
-    ComponentHealingTracker, ComponentHealthState, HealAction,
+    ComponentHealingTracker, ComponentHealthState, ComponentSnapshot, HealAction,
     HealActionKind, PanicContext, SelfHealingPolicy,
 };
 use crate::watchdog::{WatchdogPolicy, WatchdogTimer};
@@ -235,6 +235,67 @@ impl InMemorySelfHealingDriver {
     pub fn with_watchdog_policy(mut self, policy: WatchdogPolicy) -> Self {
         self.watchdog = WatchdogTimer::new(policy);
         self
+    }
+
+    /// Capture a last-known-good snapshot of a component's current config before restart.
+    ///
+    /// Serializes the current tracker state into a hex-encoded blob, computes its
+    /// BLAKE3 hash, calls [`ComponentHealingTracker::checkpoint`] to persist the
+    /// hash and timestamp, and returns an immutable [`ComponentSnapshot`].
+    ///
+    /// Call this **before** executing a [`HealActionKind::Restart`] action so
+    /// the driver can detect crash-loops during reincarnation.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`RecoveryError`] when the config blob cannot be serialized.
+    pub async fn take_snapshot(
+        &self,
+        component_id: &str,
+        config_blob: &[u8],
+    ) -> Result<ComponentSnapshot, RecoveryError> {
+        let hash = blake3::hash(config_blob).to_hex().to_string();
+        let config_blob_hex = hex::encode(config_blob);
+        let captured_at = Utc::now();
+
+        {
+            let mut trackers = self.trackers.write().await;
+            let tracker = trackers.entry(component_id.to_owned()).or_default();
+            tracker.checkpoint(&hash);
+            drop(trackers);
+        }
+
+        Ok(ComponentSnapshot {
+            component_id: component_id.to_owned(),
+            checkpoint_hash: hash,
+            config_blob_hex,
+            captured_at,
+        })
+    }
+
+    /// Restore a previously captured [`ComponentSnapshot`] into the tracker.
+    ///
+    /// Sets the `checkpoint_hash` and `checkpoint_timestamp` on the component's
+    /// tracker from the snapshot data.  This is called during reincarnation to
+    /// carry forward the last-known-good state so crash-loop detection can run.
+    ///
+    /// Returns `true` if the tracker was updated (component existed), `false`
+    /// if the component was not tracked (snapshot stored but no prior state).
+    pub async fn restore_snapshot(&self, snapshot: &ComponentSnapshot) -> bool {
+        let mut trackers = self.trackers.write().await;
+        if let Some(tracker) = trackers.get_mut(&snapshot.component_id) {
+            tracker.checkpoint_hash = Some(snapshot.checkpoint_hash.clone());
+            tracker.checkpoint_timestamp = Some(snapshot.captured_at);
+            true
+        } else {
+            let tracker = ComponentHealingTracker {
+                checkpoint_hash: Some(snapshot.checkpoint_hash.clone()),
+                checkpoint_timestamp: Some(snapshot.captured_at),
+                ..Default::default()
+            };
+            trackers.insert(snapshot.component_id.clone(), tracker);
+            false
+        }
     }
 
     // --- internal decision logic ---

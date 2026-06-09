@@ -59,6 +59,7 @@ anyhow      = "1"
 clap        = { version = "4", features = ["derive", "env"] }
 ulid        = { version = "1.1", features = ["serde"] }
 blake3      = "1.5"
+hex         = "0.4"
 tracing     = "0.1"
 chrono      = { version = "0.4", default-features = false, features = ["std", "clock", "serde"] }
 # RFC 8785 JSON Canonicalization Scheme (Governor-approved T-006):

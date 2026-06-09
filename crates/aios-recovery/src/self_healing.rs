@@ -293,6 +293,15 @@ pub struct ComponentHealingTracker {
     pub last_action_at: Option<DateTime<Utc>>,
     /// Most recent health observation.
     pub last_observed_state: ComponentHealthState,
+    /// BLAKE3 hash of the last known good configuration state.
+    ///
+    /// Set by [`ComponentHealingTracker::checkpoint`] before a restart action
+    /// is attempted.  Used during reincarnation to detect and avoid crash-loops
+    /// with corrupted state — if the restored config hash matches a previously
+    /// crash-looped hash, the driver escalates instead of restarting again.
+    pub checkpoint_hash: Option<String>,
+    /// UTC timestamp when the last known good config was captured.
+    pub checkpoint_timestamp: Option<DateTime<Utc>>,
 }
 
 impl Default for ComponentHealingTracker {
@@ -302,6 +311,8 @@ impl Default for ComponentHealingTracker {
             total_actions: 0,
             last_action_at: None,
             last_observed_state: ComponentHealthState::Unknown,
+            checkpoint_hash: None,
+            checkpoint_timestamp: None,
         }
     }
 }
@@ -335,6 +346,43 @@ impl ComponentHealingTracker {
         self.total_actions = self.total_actions.saturating_add(1);
         self.last_action_at = Some(Utc::now());
     }
+
+    /// Capture a last-known-good checkpoint before a restart is attempted.
+    ///
+    /// Stores the config hash (BLAKE3) and the current UTC timestamp so
+    /// the driver can detect crash-loops on reincarnation: if a restored
+    /// snapshot carries the same hash as a previous crash, the driver
+    /// escalates instead of resetting into the same failure.
+    pub fn checkpoint(&mut self, state_hash: &str) {
+        self.checkpoint_hash = Some(state_hash.to_owned());
+        self.checkpoint_timestamp = Some(Utc::now());
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Component snapshot (MINIX-inspired state preservation)
+// ---------------------------------------------------------------------------
+
+/// Immutable snapshot of a component's last-known-good configuration state.
+///
+/// Captured by the self-healing driver before a restart action is executed.
+/// During reincarnation the driver compares the restored snapshot against the
+/// crash-loop history; if the same hash appears repeatedly, the driver
+/// escalates instead of blindly restarting into the same failure.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case", deny_unknown_fields)]
+pub struct ComponentSnapshot {
+    /// Component this snapshot belongs to.
+    pub component_id: String,
+    /// BLAKE3 hash of the serialized config blob at checkpoint time.
+    pub checkpoint_hash: String,
+    /// Hex-encoded serialized configuration blob that was hashed.
+    ///
+    /// The caller decides what constitutes "config" for a given component
+    /// type; this field stores the opaque blob that was fed into BLAKE3.
+    pub config_blob_hex: String,
+    /// UTC timestamp when this snapshot was captured.
+    pub captured_at: DateTime<Utc>,
 }
 
 // ---------------------------------------------------------------------------

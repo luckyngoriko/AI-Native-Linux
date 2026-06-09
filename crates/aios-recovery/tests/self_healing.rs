@@ -12,8 +12,8 @@
 use std::sync::Arc;
 
 use aios_recovery::{
-    ComponentHealingConfig, ComponentHealthState, HealAction, HealActionKind,
-    InMemoryRecoveryBoundary, InMemorySelfHealingDriver, PanicSeverity,
+    ComponentHealingConfig, ComponentHealthState, ComponentSnapshot, HealAction,
+    HealActionKind, InMemoryRecoveryBoundary, InMemorySelfHealingDriver, PanicSeverity,
     RecoveryBoundary, RecoveryEvidenceEmitter, RecoveryMode, RecoveryMutableScope,
     RecoverySubjectRef, RestartPolicy, SelfHealingDriver, SelfHealingPolicy,
     WatchdogPolicy,
@@ -748,5 +748,259 @@ async fn disabled_watchdog_does_not_auto_flag() {
     assert!(
         !health.contains_key("aios-network-manager"),
         "disabled watchdog must NOT auto-flag components"
+    );
+}
+
+// ---------------------------------------------------------------------------
+// Tracker checkpoint: sets hash + timestamp on checkpoint()
+// ---------------------------------------------------------------------------
+
+#[test]
+fn tracker_checkpoint_sets_hash_and_timestamp() {
+    use aios_recovery::ComponentHealingTracker;
+
+    let mut t = ComponentHealingTracker::default();
+    assert!(t.checkpoint_hash.is_none(), "no hash before checkpoint");
+    assert!(t.checkpoint_timestamp.is_none(), "no timestamp before checkpoint");
+
+    t.checkpoint("abc123def456");
+
+    assert_eq!(
+        t.checkpoint_hash.as_deref(),
+        Some("abc123def456"),
+        "hash must match argument"
+    );
+    assert!(
+        t.checkpoint_timestamp.is_some(),
+        "timestamp must be set"
+    );
+}
+
+#[test]
+fn tracker_checkpoint_overwrites_previous() {
+    use aios_recovery::ComponentHealingTracker;
+
+    let mut t = ComponentHealingTracker::default();
+    t.checkpoint("first");
+    let first_ts = t.checkpoint_timestamp;
+
+    // Small sleep to ensure distinct timestamps (within test resolution)
+    std::thread::sleep(std::time::Duration::from_millis(5));
+
+    t.checkpoint("second");
+
+    assert_eq!(t.checkpoint_hash.as_deref(), Some("second"));
+    assert!(t.checkpoint_timestamp.is_some());
+    assert_ne!(
+        t.checkpoint_timestamp, first_ts,
+        "subsequent checkpoint should update timestamp"
+    );
+}
+
+// ---------------------------------------------------------------------------
+// ComponentSnapshot serde round-trip
+// ---------------------------------------------------------------------------
+
+#[test]
+fn component_snapshot_round_trips_through_serde_json() {
+    let now = chrono::Utc::now();
+    let original = ComponentSnapshot {
+        component_id: "aios-network-manager".to_owned(),
+        checkpoint_hash: "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+            .to_owned(),
+        config_blob_hex: "7b22686f7374223a226e6d31222c22706f7274223a383038307d".to_owned(),
+        captured_at: now,
+    };
+
+    let json = serde_json::to_value(&original).expect("serialize");
+    let round_tripped: ComponentSnapshot =
+        serde_json::from_value(json).expect("deserialize");
+
+    assert_eq!(round_tripped.component_id, original.component_id);
+    assert_eq!(round_tripped.checkpoint_hash, original.checkpoint_hash);
+    assert_eq!(round_tripped.config_blob_hex, original.config_blob_hex);
+    // DateTime comparison — within tolerance of serialization precision loss
+    let diff = (round_tripped.captured_at - original.captured_at)
+        .num_milliseconds()
+        .unsigned_abs();
+    assert!(diff < 1_000, "timestamp should round-trip within 1s");
+}
+
+// ---------------------------------------------------------------------------
+// Driver take_snapshot() returns valid snapshot
+// ---------------------------------------------------------------------------
+
+#[tokio::test]
+async fn driver_take_snapshot_returns_valid_snapshot() {
+    let boundary = Arc::new(InMemoryRecoveryBoundary::new());
+    let log = Arc::new(aios_recovery::InMemoryRecoveryEvidenceLog::new());
+    let emitter = Arc::new(make_emitter(log.clone()));
+    let driver = InMemorySelfHealingDriver::new(boundary).with_evidence_emitter(emitter);
+
+    driver.set_policy(minix_policy()).await.expect("valid policy");
+
+    let config_blob = b"{\"host\":\"nm1\",\"port\":8080}";
+    let snapshot = driver
+        .take_snapshot("aios-network-manager", config_blob)
+        .await
+        .expect("take_snapshot should succeed");
+
+    assert_eq!(snapshot.component_id, "aios-network-manager");
+    assert!(!snapshot.checkpoint_hash.is_empty(), "hash must be non-empty");
+    assert!(
+        !snapshot.config_blob_hex.is_empty(),
+        "config_blob_hex must be non-empty"
+    );
+
+    // The hash should be a BLAKE3 hex (64 chars, characters [0-9a-f])
+    assert_eq!(
+        snapshot.checkpoint_hash.len(),
+        64,
+        "BLAKE3 hex hash is always 64 characters"
+    );
+    assert!(
+        snapshot.checkpoint_hash.chars().all(|c| c.is_ascii_hexdigit()),
+        "hash must be hex chars only"
+    );
+
+    // config_blob_hex must decode back to the original bytes
+    let decoded = hex::decode(&snapshot.config_blob_hex).expect("valid hex");
+    assert_eq!(decoded, config_blob, "round-trip through hex encoding");
+
+    // Verify the tracker was updated
+    let tracker = driver.tracker_for("aios-network-manager").await;
+    assert_eq!(
+        tracker.checkpoint_hash.as_deref(),
+        Some(snapshot.checkpoint_hash.as_str()),
+        "tracker checkpoint_hash must match snapshot"
+    );
+    assert!(
+        tracker.checkpoint_timestamp.is_some(),
+        "tracker must have checkpoint timestamp"
+    );
+}
+
+#[tokio::test]
+async fn driver_take_snapshot_different_blobs_produce_different_hashes() {
+    let boundary = Arc::new(InMemoryRecoveryBoundary::new());
+    let log = Arc::new(aios_recovery::InMemoryRecoveryEvidenceLog::new());
+    let emitter = Arc::new(make_emitter(log.clone()));
+    let driver = InMemorySelfHealingDriver::new(boundary).with_evidence_emitter(emitter);
+
+    driver.set_policy(minix_policy()).await.expect("valid policy");
+
+    let snap1 = driver
+        .take_snapshot("aios-dns-resolver", b"config-a")
+        .await
+        .expect("snapshot 1");
+    let snap2 = driver
+        .take_snapshot("aios-dns-resolver", b"config-b")
+        .await
+        .expect("snapshot 2");
+
+    assert_ne!(
+        snap1.checkpoint_hash, snap2.checkpoint_hash,
+        "different configs must produce different hashes"
+    );
+    assert_ne!(
+        snap1.config_blob_hex, snap2.config_blob_hex,
+        "different configs produce different hex blobs"
+    );
+}
+
+// ---------------------------------------------------------------------------
+// Restore snapshot restores tracker state
+// ---------------------------------------------------------------------------
+
+#[tokio::test]
+async fn restore_snapshot_updates_existing_tracker() {
+    let boundary = Arc::new(InMemoryRecoveryBoundary::new());
+    let log = Arc::new(aios_recovery::InMemoryRecoveryEvidenceLog::new());
+    let emitter = Arc::new(make_emitter(log.clone()));
+    let driver = InMemorySelfHealingDriver::new(boundary).with_evidence_emitter(emitter);
+
+    driver.set_policy(minix_policy()).await.expect("valid policy");
+
+    // First, observe a component so it exists in the tracker
+    driver
+        .observe_health("aios-network-manager", ComponentHealthState::Failed)
+        .await
+        .expect("observe failed");
+
+    // Create a snapshot with known data
+    let now = chrono::Utc::now();
+    let snapshot = ComponentSnapshot {
+        component_id: "aios-network-manager".to_owned(),
+        checkpoint_hash: "deadbeef00000000000000000000000000000000000000000000000000000000"
+            .to_owned(),
+        config_blob_hex: "ffeeddcc".to_owned(),
+        captured_at: now,
+    };
+
+    let updated = driver.restore_snapshot(&snapshot).await;
+    assert!(updated, "restore on existing component returns true");
+
+    let tracker = driver.tracker_for("aios-network-manager").await;
+    assert_eq!(
+        tracker.checkpoint_hash.unwrap(),
+        snapshot.checkpoint_hash,
+        "restored hash must match"
+    );
+    assert_eq!(
+        tracker.checkpoint_timestamp.unwrap(),
+        snapshot.captured_at,
+        "restored timestamp must match"
+    );
+    // restore_snapshot does NOT reset other tracker fields
+    assert_eq!(
+        tracker.last_observed_state,
+        ComponentHealthState::Failed,
+        "restore does not overwrite health observations"
+    );
+}
+
+#[tokio::test]
+async fn restore_snapshot_creates_tracker_if_missing() {
+    let boundary = Arc::new(InMemoryRecoveryBoundary::new());
+    let log = Arc::new(aios_recovery::InMemoryRecoveryEvidenceLog::new());
+    let emitter = Arc::new(make_emitter(log.clone()));
+    let driver = InMemorySelfHealingDriver::new(boundary).with_evidence_emitter(emitter);
+
+    driver.set_policy(minix_policy()).await.expect("valid policy");
+
+    let snapshot = ComponentSnapshot {
+        component_id: "aios-new-component".to_owned(),
+        checkpoint_hash: "cafe000000000000000000000000000000000000000000000000000000000000"
+            .to_owned(),
+        config_blob_hex: "aabb".to_owned(),
+        captured_at: chrono::Utc::now(),
+    };
+
+    let updated = driver.restore_snapshot(&snapshot).await;
+    assert!(
+        !updated,
+        "restore on unknown component returns false (creates new)"
+    );
+
+    let tracker = driver.tracker_for("aios-new-component").await;
+    assert_eq!(
+        tracker.checkpoint_hash.unwrap(),
+        snapshot.checkpoint_hash,
+        "tracker created with correct hash"
+    );
+    assert_eq!(
+        tracker.checkpoint_timestamp.unwrap(),
+        snapshot.captured_at,
+        "tracker created with correct timestamp"
+    );
+    // Newly created tracker should have defaults for non-snapshot fields
+    assert_eq!(
+        tracker.consecutive_failures, 0,
+        "new tracker has zero failures"
+    );
+    assert_eq!(
+        tracker.last_observed_state,
+        ComponentHealthState::Unknown,
+        "new tracker has unknown health"
     );
 }

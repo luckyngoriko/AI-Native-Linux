@@ -25,6 +25,7 @@ thiserror    = { workspace = true }
 tokio        = { workspace = true, features = ["macros", "rt"] }
 ulid         = { workspace = true }
 blake3       = { workspace = true }
+hex          = { workspace = true }
 tonic        = { workspace = true }
 prost        = { workspace = true }
 prost-types  = { workspace = true }

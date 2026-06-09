@@ -48,8 +48,9 @@ pub use policy_adapter::RecoveryPolicyHydratorEnhancer;
 pub use recovery_guard::RecoveryGuard;
 pub use runtime_adapter::RecoveryRuntimeAdapter;
 pub use self_healing::{
-    ComponentHealingConfig, ComponentHealingTracker, ComponentHealthState, HealAction,
-    HealActionKind, PanicContext, PanicSeverity, RestartPolicy, SelfHealingPolicy, SELF_HEALING_SUBJECT,
+    ComponentHealingConfig, ComponentHealingTracker, ComponentHealthState,
+    ComponentSnapshot, HealAction, HealActionKind, PanicContext, PanicSeverity,
+    RestartPolicy, SelfHealingPolicy, SELF_HEALING_SUBJECT,
 };
 pub use self_healing_driver::{
     HealCycleResult, HealExecutionResult, InMemorySelfHealingDriver, SelfHealingDriver,

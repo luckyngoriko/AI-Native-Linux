@@ -23,6 +23,7 @@ use crate::self_healing::{
     ComponentHealingTracker, ComponentHealthState, HealAction,
     HealActionKind, PanicContext, SelfHealingPolicy,
 };
+use crate::watchdog::{WatchdogPolicy, WatchdogTimer};
 use crate::{RecoveryError, RecoveryMutableScope};
 
 // ---------------------------------------------------------------------------
@@ -117,6 +118,7 @@ pub struct InMemorySelfHealingDriver {
     policy: RwLock<SelfHealingPolicy>,
     health_registry: RwLock<HashMap<String, ComponentHealthState>>,
     trackers: RwLock<HashMap<String, ComponentHealingTracker>>,
+    watchdog: WatchdogTimer,
     boundary: Arc<dyn RecoveryBoundary>,
     evidence_emitter: Option<Arc<RecoveryEvidenceEmitter>>,
     global_sequence: RwLock<u64>,
@@ -128,6 +130,7 @@ impl Default for InMemorySelfHealingDriver {
             policy: RwLock::new(SelfHealingPolicy::default()),
             health_registry: RwLock::new(HashMap::new()),
             trackers: RwLock::new(HashMap::new()),
+            watchdog: WatchdogTimer::default(),
             boundary: Arc::new(crate::InMemoryRecoveryBoundary::new()),
             evidence_emitter: None,
             global_sequence: RwLock::new(0),
@@ -188,6 +191,50 @@ impl InMemorySelfHealingDriver {
             .get(component_id)
             .cloned()
             .unwrap_or_default()
+    }
+
+    /// Set the watchdog policy and optionally replace the timer state.
+    pub async fn set_watchdog_policy(&self, policy: WatchdogPolicy) {
+        self.watchdog.set_policy(policy).await;
+    }
+
+    /// Return a snapshot of the current watchdog policy.
+    #[must_use]
+    pub async fn watchdog_policy(&self) -> WatchdogPolicy {
+        self.watchdog.policy().await
+    }
+
+    /// Register a component for watchdog liveness monitoring.
+    pub async fn register_watchdog(&self, component_id: &str) {
+        self.watchdog.register(component_id).await;
+    }
+
+    /// Signal a liveness ping from a component, resetting its watchdog deadline.
+    pub async fn ping_watchdog(&self, component_id: &str) {
+        self.watchdog.ping(component_id).await;
+    }
+
+    /// Check all watchdog deadlines and auto-flag expired components as
+    /// Degraded via [`SelfHealingDriver::observe_health`].
+    ///
+    /// # Errors
+    ///
+    /// Returns [`RecoveryError`] when `observe_health` fails on an expired
+    /// component.
+    pub async fn watchdog_check(&self) -> Result<(), RecoveryError> {
+        let expired = self.watchdog.check_deadlines().await;
+        for component_id in &expired {
+            self.observe_health(component_id, ComponentHealthState::Degraded)
+                .await?;
+        }
+        Ok(())
+    }
+
+    /// Builder: attach a pre-configured watchdog timer.
+    #[must_use]
+    pub fn with_watchdog_policy(mut self, policy: WatchdogPolicy) -> Self {
+        self.watchdog = WatchdogTimer::new(policy);
+        self
     }
 
     // --- internal decision logic ---
@@ -415,6 +462,8 @@ impl SelfHealingDriver for InMemorySelfHealingDriver {
 
     async fn heal_cycle(&self) -> Result<HealCycleResult, RecoveryError> {
         let started_at = Utc::now();
+
+        self.watchdog_check().await?;
 
         let actions = self.evaluate().await?;
         let actions_decided = actions.len();

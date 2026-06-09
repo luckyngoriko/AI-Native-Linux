@@ -23,6 +23,7 @@ pub mod runtime_adapter;
 pub mod self_healing;
 pub mod self_healing_driver;
 pub mod service;
+pub mod watchdog;
 
 pub use boot::{BootId, BootPhase, FirstBootContext, FirstBootPhase, FirstBootStatus};
 pub use boundary::{EnterRecoveryRequest, RecoveryBoundary};
@@ -54,6 +55,7 @@ pub use self_healing_driver::{
     HealCycleResult, HealExecutionResult, InMemorySelfHealingDriver, SelfHealingDriver,
 };
 pub use service::{RecoveryServiceClient, RecoveryServiceGrpcServer, RecoveryServiceImpl};
+pub use watchdog::{WatchdogPolicy, WatchdogTimer};
 
 /// Default code version reported by future recovery service metadata surfaces.
 pub const DEFAULT_CODE_VERSION: &str = "0.1.0-T083";

@@ -16,6 +16,7 @@ use aios_recovery::{
     InMemoryRecoveryBoundary, InMemorySelfHealingDriver, PanicSeverity,
     RecoveryBoundary, RecoveryEvidenceEmitter, RecoveryMode, RecoveryMutableScope,
     RecoverySubjectRef, RestartPolicy, SelfHealingDriver, SelfHealingPolicy,
+    WatchdogPolicy,
 };
 
 // ---------------------------------------------------------------------------
@@ -605,4 +606,147 @@ async fn observe_oom_panic_emits_with_escalation_flag() {
     assert_eq!(tracker.last_observed_state, ComponentHealthState::Failed);
     // Each panic increments total_actions
     assert_eq!(tracker.total_actions, 4);
+}
+
+// ---------------------------------------------------------------------------
+// Watchdog: registration, ping, timeout, disabled
+// ---------------------------------------------------------------------------
+
+fn enabled_watchdog_policy() -> WatchdogPolicy {
+    WatchdogPolicy {
+        enabled: true,
+        default_timeout_secs: 1,
+        component_timeouts: std::collections::HashMap::new(),
+    }
+}
+
+fn disabled_watchdog_policy() -> WatchdogPolicy {
+    WatchdogPolicy::default()
+}
+
+#[tokio::test]
+async fn watchdog_register_adds_component_to_timer() {
+    let boundary = Arc::new(InMemoryRecoveryBoundary::new());
+    let log = Arc::new(aios_recovery::InMemoryRecoveryEvidenceLog::new());
+    let emitter = Arc::new(make_emitter(log.clone()));
+    let driver = InMemorySelfHealingDriver::new(boundary)
+        .with_evidence_emitter(emitter)
+        .with_watchdog_policy(enabled_watchdog_policy());
+
+    driver.set_policy(minix_policy()).await.expect("valid policy");
+
+    // Register a component — deadline should be set
+    driver.register_watchdog("aios-network-manager").await;
+
+    // Immediately check — deadline should NOT be expired yet (1s timeout)
+    driver
+        .watchdog_check()
+        .await
+        .expect("watchdog_check succeeds on clean state");
+
+    let health = driver.health_snapshot().await;
+    assert!(
+        !health.contains_key("aios-network-manager"),
+        "no health entry before timeout expiry"
+    );
+}
+
+#[tokio::test]
+async fn ping_resets_watchdog_timer() {
+    let boundary = Arc::new(InMemoryRecoveryBoundary::new());
+    let log = Arc::new(aios_recovery::InMemoryRecoveryEvidenceLog::new());
+    let emitter = Arc::new(make_emitter(log.clone()));
+    let driver = InMemorySelfHealingDriver::new(boundary)
+        .with_evidence_emitter(emitter)
+        .with_watchdog_policy(enabled_watchdog_policy());
+
+    driver.set_policy(minix_policy()).await.expect("valid policy");
+
+    // Register and immediately ping to set initial deadline
+    driver.register_watchdog("aios-network-manager").await;
+    driver.ping_watchdog("aios-network-manager").await;
+
+    // Sleep longer than the 1-second timeout
+    tokio::time::sleep(std::time::Duration::from_secs(2)).await;
+
+    // Ping just before checking — reset the timer
+    driver.ping_watchdog("aios-network-manager").await;
+
+    // Deadline was just reset; component should not be flagged
+    driver
+        .watchdog_check()
+        .await
+        .expect("watchdog_check succeeds");
+
+    let health = driver.health_snapshot().await;
+    assert!(
+        !health.contains_key("aios-network-manager"),
+        "ping reset deadline — component still within window"
+    );
+}
+
+#[tokio::test]
+async fn watchdog_timeout_triggers_degraded_observation() {
+    let boundary = Arc::new(InMemoryRecoveryBoundary::new());
+    let log = Arc::new(aios_recovery::InMemoryRecoveryEvidenceLog::new());
+    let emitter = Arc::new(make_emitter(log.clone()));
+    let driver = InMemorySelfHealingDriver::new(boundary)
+        .with_evidence_emitter(emitter)
+        .with_watchdog_policy(enabled_watchdog_policy());
+
+    driver.set_policy(minix_policy()).await.expect("valid policy");
+
+    // Register and set deadline
+    driver.register_watchdog("aios-network-manager").await;
+    driver.ping_watchdog("aios-network-manager").await;
+
+    // Sleep past the 1-second timeout
+    tokio::time::sleep(std::time::Duration::from_secs(2)).await;
+
+    // Watchdog check should auto-flag the expired component as Degraded
+    driver
+        .watchdog_check()
+        .await
+        .expect("watchdog_check should succeed");
+
+    let health = driver.health_snapshot().await;
+    assert!(
+        health.contains_key("aios-network-manager"),
+        "expired component must appear in health registry"
+    );
+    assert_eq!(
+        health["aios-network-manager"],
+        ComponentHealthState::Degraded,
+        "expired component must be Degraded"
+    );
+}
+
+#[tokio::test]
+async fn disabled_watchdog_does_not_auto_flag() {
+    let boundary = Arc::new(InMemoryRecoveryBoundary::new());
+    let log = Arc::new(aios_recovery::InMemoryRecoveryEvidenceLog::new());
+    let emitter = Arc::new(make_emitter(log.clone()));
+    let driver = InMemorySelfHealingDriver::new(boundary)
+        .with_evidence_emitter(emitter)
+        .with_watchdog_policy(disabled_watchdog_policy());
+
+    driver.set_policy(minix_policy()).await.expect("valid policy");
+
+    // Register component even though watchdog is disabled
+    driver.register_watchdog("aios-network-manager").await;
+
+    // Sleep past any possible timeout
+    tokio::time::sleep(std::time::Duration::from_secs(2)).await;
+
+    // Watchdog check should return empty — policy is disabled
+    driver
+        .watchdog_check()
+        .await
+        .expect("watchdog_check should succeed");
+
+    let health = driver.health_snapshot().await;
+    assert!(
+        !health.contains_key("aios-network-manager"),
+        "disabled watchdog must NOT auto-flag components"
+    );
 }

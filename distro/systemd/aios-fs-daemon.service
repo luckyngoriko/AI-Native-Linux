@@ -1,0 +1,21 @@
+[Unit]
+Description=AI-OS.NET Filesystem Daemon
+Documentation=https://ai-os.net/docs/fs-daemon
+Before=aios-capability-runtime.service
+Requires=aios-policy-kernel.service aios-evidence-log.service
+After=aios-policy-kernel.service aios-evidence-log.service
+
+[Service]
+Type=notify
+ExecStart=/usr/lib/aios/aios-fs-daemon --config /etc/aios/config.toml --data-dir /var/lib/aios/fs
+Restart=always
+RestartSec=3
+LimitNOFILE=65536
+PrivateTmp=yes
+ProtectSystem=strict
+ReadWritePaths=/var/lib/aios/fs /run/aios
+NoNewPrivileges=yes
+SELinuxContext=system_u:system_r:aios_fs_daemon_t:s0
+
+[Install]
+WantedBy=multi-user.target

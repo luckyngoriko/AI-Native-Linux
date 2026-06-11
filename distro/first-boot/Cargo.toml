@@ -1,0 +1,28 @@
+[workspace]
+
+[package]
+name = "aios-first-boot"
+version = "0.2.0"
+edition = "2021"
+rust-version = "1.94"
+license = "Apache-2.0"
+repository = "https://github.com/luckyngoriko/055.AI-OS.NET--LINUX-AI"
+description = "AI-OS.NET first-boot wizard — creates host identity, configures security, and bootstraps the constitutional layer"
+
+[[bin]]
+name = "aios-first-boot"
+path = "aios-first-boot.rs"
+
+[dependencies]
+aios-action = { path = "../../crates/aios-action" }
+aios-policy = { path = "../../crates/aios-policy" }
+aios-evidence = { path = "../../crates/aios-evidence" }
+aios-vault = { path = "../../crates/aios-vault" }
+aios-fs = { path = "../../crates/aios-fs" }
+aios-backup = { path = "../../crates/aios-backup" }
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+chrono = { version = "0.4", default-features = false, features = ["std", "clock", "serde"] }
+clap = { version = "4", features = ["derive"] }
+blake3 = "1.5"
+hex = "0.4"

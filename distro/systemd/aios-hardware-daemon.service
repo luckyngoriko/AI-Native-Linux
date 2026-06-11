@@ -1,0 +1,21 @@
+[Unit]
+Description=AI-OS.NET Hardware Daemon
+Documentation=https://ai-os.net/docs/hardware-daemon
+After=aios-capability-runtime.service aios-evidence-log.service
+Requires=aios-capability-runtime.service
+
+[Service]
+Type=notify
+ExecStart=/usr/lib/aios/aios-hardware-daemon --config /etc/aios/config.toml --driver-dir /var/lib/aios/hardware
+Restart=always
+RestartSec=5
+LimitNOFILE=65536
+PrivateTmp=yes
+ProtectSystem=strict
+ReadWritePaths=/var/lib/aios/hardware /run/aios
+NoNewPrivileges=yes
+CapabilityBoundingSet=CAP_SYS_ADMIN CAP_SYS_RAWIO
+SELinuxContext=system_u:system_r:aios_hardware_daemon_t:s0
+
+[Install]
+WantedBy=multi-user.target

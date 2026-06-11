@@ -1,0 +1,21 @@
+[Unit]
+Description=AI-OS.NET Sandbox Composer
+Documentation=https://ai-os.net/docs/sandbox-composer
+Before=aios-capability-runtime.service
+Requires=aios-evidence-log.service
+After=aios-evidence-log.service
+
+[Service]
+Type=notify
+ExecStart=/usr/lib/aios/aios-sandbox-composer --config /etc/aios/config.toml --profile-dir /var/lib/aios/sandbox
+Restart=always
+RestartSec=3
+LimitNOFILE=65536
+PrivateTmp=yes
+ProtectSystem=strict
+ReadWritePaths=/var/lib/aios/sandbox /run/aios
+NoNewPrivileges=yes
+SELinuxContext=system_u:system_r:aios_sandbox_composer_t:s0
+
+[Install]
+WantedBy=multi-user.target

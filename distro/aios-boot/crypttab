@@ -1,0 +1,13 @@
+# =============================================================================
+# AI-OS.NET /etc/crypttab
+# =============================================================================
+# LUKS2 encrypted root container.
+# The TPM2 token is embedded in the LUKS2 header so the kernel/initramfs can
+# automatically unseal the key during boot when the measured boot state is valid.
+#
+# If TPM2 unseal fails (hardware change, firmware update), the initramfs falls
+# back to a recovery passphrase prompt on the console.
+# =============================================================================
+
+# name        device                    key-file    options
+aios-root     UUID=__ROOT_UUID__        none        luks,discard,tpm2-device=auto,tpm2-pcr-bank=sha256

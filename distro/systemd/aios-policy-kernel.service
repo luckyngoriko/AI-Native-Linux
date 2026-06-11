@@ -1,0 +1,19 @@
+[Unit]
+Description=AI-OS.NET Policy Kernel
+Documentation=https://ai-os.net/docs/policy-kernel
+Before=aios-capability-runtime.service
+
+[Service]
+Type=notify
+ExecStart=/usr/lib/aios/aios-policy-kernel --config /etc/aios/config.toml --bundle-dir /var/lib/aios/policy
+Restart=always
+RestartSec=3
+LimitNOFILE=65536
+PrivateTmp=yes
+ProtectSystem=strict
+ReadWritePaths=/var/lib/aios/policy /run/aios
+NoNewPrivileges=yes
+SELinuxContext=system_u:system_r:aios_policy_kernel_t:s0
+
+[Install]
+WantedBy=multi-user.target

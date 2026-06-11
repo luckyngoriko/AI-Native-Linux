@@ -1,30 +1,24 @@
 {
-  "backlog": [],
+  "backlog": [
+    {"id": "TSK-REV4-001", "title": "Rev.4 Boot ISO — live bootable AIOS distribution", "status": "pending", "priority": "high"},
+    {"id": "TSK-REV5", "title": "Rev.5 Live cognition — Ollama/vLLM on live machine", "status": "pending", "priority": "medium"},
+    {"id": "TSK-REV6", "title": "Rev.6 Daily-driver desktop — KDE Plasma integration", "status": "pending", "priority": "medium"},
+    {"id": "TSK-REV7", "title": "Rev.7 Fleet, cluster & cloud — K8s as governed capsules", "status": "pending", "priority": "medium"},
+    {"id": "TSK-REV8", "title": "Rev.8 Certified hardening — SELinux/STIG/NIST/CIS, FIPS, EU AI Act", "status": "pending", "priority": "medium"},
+    {"id": "TSK-REV9", "title": "Rev.9 Ecosystem & marketplace — signed repos, SDK", "status": "pending", "priority": "medium"},
+    {"id": "TSK-REV10", "title": "Rev.10 Autonomous AI-OS — self-healing, fleet autonomy", "status": "pending", "priority": "medium"}
+  ],
   "current": {
-    "id": "TSK-S28-001",
-    "title": "Create crate aios-time",
-    "status": "completed"
+    "id": "TSK-REV4-001",
+    "title": "Rev.4 Boot ISO — live bootable AIOS distribution",
+    "status": "in_progress"
   },
   "completed": [
-    {
-      "id": "TSK-S28-001",
-      "title": "Create crate aios-time",
-      "status": "completed",
-      "acceptance": [
-        "Cargo.toml with workspace fields, lints, path deps, build-deps",
-        "src/lib.rs with forbid(unsafe_code) + re-exports",
-        "4 enums with SCREAMING_SNAKE_CASE serde + EnumIter + EnumCount",
-        "TimePosture with FSM transitions",
-        "SkewBudget with profile factory",
-        "ClockSkewDetector with classify_skew",
-        "TimeAttestation with grade_from_sources",
-        "TimeGradeBinding with immutable bind + INV-034",
-        "Consequential gate function",
-        ">=2-3 tests per module with edge cases",
-        "cargo check passes",
-        "cargo test — 36 tests pass"
-      ]
-    }
+    {"id": "REV3-COMPLETE", "title": "Rev.3 — All hardening + S23-S28 crates. 578 capability-runtime tests + 250 new crate tests. 48+ modules + 6 crates.", "status": "completed"},
+    {"id": "REV2-COMPLETE", "title": "Rev.2 — 19 crates, 4475 tests, all closed enum types with wire forms", "status": "completed"},
+    {"id": "REV1-COMPLETE", "title": "Rev.1 — Vision + Constitutional core", "status": "completed"}
   ],
-  "blocked": []
+  "blocked": [],
+  "roadmap_version": "2026-06-11-Rev.3-COMPLETE-25-crates-829-tests",
+  "roadmap_next": "Rev.4 Boot ISO → Rev.5 Live cognition → Rev.6 Desktop → Rev.7 Fleet → Rev.8 Hardening → Rev.9 Ecosystem → Rev.10 Autonomous"
 }

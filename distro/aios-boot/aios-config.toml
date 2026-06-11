@@ -1,0 +1,189 @@
+# =============================================================================
+# AI-OS.NET Runtime Configuration
+# Revision 4 — Bootable Distribution
+# =============================================================================
+# This file is read by the AIOS capability runtime at boot and on SIGHUP.
+# All paths are relative to the rootfs. Sockets use abstract namespace
+# when available, falling back to filesystem paths under /run/aios/.
+# =============================================================================
+
+[security]
+# Operating profile — determines the default security posture.
+#   DEV_RELAXED   = Permissive SELinux, no IMA, debug logging (development VMs)
+#   SECURE_DEFAULT = Enforcing SELinux, IMA appraisal, TPM attestation
+#   STIG_ALIGNED  = Full STIG compliance, FIPS mode, hardened kernel params
+#   AIRGAP_HIGH   = No network, physical token required, paranoid logging
+profile = "SECURE_DEFAULT"
+
+# SELinux enforcement mode: enforcing | permissive | disabled
+selinux = "enforcing"
+
+# Require TPM2-based remote attestation before capability grants are honored.
+# When false, the runtime falls back to software-backed attestation (dev only).
+tpm_attestation = true
+
+# Integrity Measurement Architecture appraisal mode.
+#   enforce  = Block execution of files with invalid hashes
+#   log      = Log violations but allow execution
+#   off      = IMA disabled
+ima_appraise = "enforce"
+
+[runtime]
+# Unix domain socket for the capability runtime gRPC endpoint.
+# The aios CLI and all capsule runtimes connect here to request capability grants.
+capability_runtime_socket = "/run/aios/capability-runtime.sock"
+
+# Unix domain socket for the policy kernel gRPC endpoint.
+# The capability runtime forwards capability requests here for policy evaluation.
+policy_kernel_socket = "/run/aios/policy-kernel.sock"
+
+# Unix domain socket for the sandbox service gRPC endpoint.
+sandbox_socket = "/run/aios/sandbox.sock"
+
+# Directory for the cryptographically chained evidence log (WAL-backed).
+evidence_log_path = "/var/lib/aios/evidence"
+
+# Directory for capsule persistent state (bind-mounted into capsule roots).
+capsule_state_path = "/var/lib/aios/capsules"
+
+# Directory for local backup staging before offload to remote store.
+backup_staging_path = "/var/lib/aios/backup"
+
+# Directory for encrypted vault storage.
+vault_path = "/var/lib/aios/vault"
+
+[network]
+# Default outbound network posture for capsules.
+#   deny-unknown = All outbound blocked unless explicitly granted
+#   allow-all    = All outbound allowed (dev only)
+#   allow-list   = Only hosts in allowed_outbound set are reachable
+outbound_grants = "deny-unknown"
+
+# WireGuard interface port for fleet mesh communication.
+# Set to 0 to disable WireGuard mesh.
+wireguard_port = 51820
+
+# WireGuard private key path (generated on first boot, sealed to TPM).
+wireguard_key_path = "/etc/aios/wireguard.key"
+
+# Optional: pre-approved outbound hosts when outbound_grants = "allow-list"
+# allowed_outbound = [
+#     "registry.aios.net:443",
+#     "updates.aios.net:443",
+# ]
+
+[evidence]
+# Retention class for evidence log entries.
+#   STANDARD_24M = 24 months online, then archive
+#   EXTENDED_60M  = 60 months online
+#   COMPLIANCE_84M = 84 months online (FedRAMP/DoD aligned)
+#   EPHEMERAL_30D  = 30 days, then purge
+retention_class = "STANDARD_24M"
+
+# Compaction policy — how the WAL is compacted into sealed segments.
+#   operator_approval = Compaction requires explicit operator action
+#   auto_scheduled     = Compaction runs on a cron schedule
+#   size_triggered     = Compaction when segment exceeds threshold
+#   disabled           = No compaction (append-only forever)
+compaction_policy = "operator_approval"
+
+# Redaction profile for evidence export/sharding.
+#   default   = Full evidence, no redaction
+#   anonymize = Strip PII, keep operational data
+#   minimal   = Only cryptographic hashes, no content
+#   custom    = Apply rules from evidence_redaction_rules.toml
+redaction_profile = "default"
+
+# Optional: path to custom redaction rule set
+# redaction_rules_path = "/etc/aios/evidence-redaction-rules.toml"
+
+[time]
+# Minimum clock quality required before capability grants are issued.
+#   ATTESTED_SINGLE = At least one attested NTP source
+#   ATTESTED_DUAL   = At least two attested NTP sources
+#   GRADE_A_SINGLE  = Single Grade-A traceable source
+#   GRADE_A_DUAL    = Dual Grade-A traceable sources (high assurance)
+require_grade_floor = "ATTESTED_SINGLE"
+
+# NTP servers used for time attestation.
+# These are polled via NTS (Network Time Security) where supported.
+ntp_servers = [
+    "time.cloudflare.com",
+    "time.google.com",
+]
+
+# Maximum clock drift tolerated before attestation is invalidated (seconds).
+max_drift_seconds = 5
+
+[cognitive]
+# Model inference backend.
+#   ollama  = Local Ollama server (default for edge deployments)
+#   vllm    = Local vLLM server (higher throughput)
+#   remote  = Remote API endpoint (cloud-offloaded inference)
+model_backend = "ollama"
+
+# Ollama endpoint (ignored if model_backend != "ollama").
+ollama_endpoint = "http://localhost:11434"
+
+# Default model pulled on first boot.
+# llama3.2 runs on modest hardware (8 GB RAM). Change for larger deployments.
+default_model = "llama3.2"
+
+# Latency tier — determines model selection based on response time budget.
+#   T0 = < 100 ms (tiny models, simple queries)
+#   T1 = < 500 ms (balanced)
+#   T2 = < 2000 ms (default, quality preferred)
+#   T3 = < 10000 ms (large models, complex reasoning)
+latency_tier = "T2"
+
+# Maximum concurrent inference requests.
+max_concurrent_requests = 4
+
+# GPU layer offload count (0 = CPU-only).
+gpu_layers = 0
+
+[capsules]
+# Default isolation level for new capsules.
+#   ROOTLESS = Podman rootless (user namespace, no CAP_SYS_ADMIN) — DEFAULT
+#   FULL_ROOT = Podman rootful (system-wide, requires explicit grant)
+#   WASM     = WasmEdge micro-VM (minimal attack surface)
+#   BUBBLEWRAP = Bubblewrap-based (no container runtime dependency)
+isolation_level = "ROOTLESS"
+
+# Default container engine.
+#   PODMAN_ROOTLESS = Podman in rootless mode
+#   PODMAN_ROOTFUL  = Podman with root privileges
+#   WASMEDGE        = WasmEdge runtime
+#   CONTAINERD      = containerd (advanced)
+default_engine = "PODMAN_ROOTLESS"
+
+# Capsule resource limits (per-capsule defaults).
+[capsules.limits]
+cpu_shares = 1024               # cgroup cpu.shares (1024 = 1 vCPU equivalent)
+memory_limit_mb = 2048          # Hard memory limit
+memory_swap_mb = 0              # No swap for capsules
+pid_limit = 512                 # Max PIDs per capsule
+disk_quota_gb = 10              # Per-capsule disk quota
+
+[updates]
+# Update channel.
+#   stable  = Production releases, full verification
+#   preview = Release candidates, full verification
+#   edge    = Nightly builds, basic verification only
+channel = "stable"
+
+# Auto-update policy.
+#   disabled        = Manual updates only
+#   notify          = Check and notify, no automatic download
+#   download        = Download but wait for approval to apply
+#   auto_approve    = Download and apply after operator approval window
+auto_update = "notify"
+
+# Update server URL.
+update_server = "https://updates.aios.net/v1"
+
+# Update verification — require N-of-M operator signatures.
+required_signatures = 1
+trusted_signers = [
+    "aios-release-key-2026",
+]

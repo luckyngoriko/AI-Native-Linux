@@ -1,0 +1,28 @@
+# AI-OS.NET Pre-Init Configuration
+# Sourced by init script in early userspace
+# Revision 4
+
+# Root filesystem location (dm-verity mapper device or partition)
+AIOS_ROOT=/dev/mapper/aios-root
+AIOS_ROOT_FALLBACK=/dev/sda2
+
+# Boot partition (for kernel/initramfs updates)
+AIOS_BOOT=/dev/disk/by-partlabel/AIOS_BOOT
+
+# TPM2 sealed LUKS key blob
+AIOS_TPM_SEALED_KEY=/etc/aios/sealed-key.blob
+
+# SELinux policy file (binary policy.XX format)
+AIOS_SELINUX_POLICY=/etc/selinux/aios/policy/policy.33
+
+# dm-verity root hash signature (for veritysetup)
+AIOS_VERITY_HASH=/etc/aios/verity/roothash.sig
+
+# LUKS device (if root is inside LUKS, unsealed by TPM)
+AIOS_LUKS_DEVICE=/dev/disk/by-partlabel/AIOS_LUKS
+AIOS_LUKS_NAME=aios-cryptroot
+
+# Timeout (seconds) before auto-rescue shell
+AIOS_INIT_TIMEOUT=30
+
+# Kernel command line overrides: root=, rw, ro, init=, rescue, selinux=, enforcing=

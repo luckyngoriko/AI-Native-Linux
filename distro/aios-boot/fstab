@@ -1,0 +1,20 @@
+# =============================================================================
+# AI-OS.NET /etc/fstab
+# =============================================================================
+# Root filesystem is dm-verity verified and mounted read-only.
+# A writable overlay (tmpfs upper + dm-verity lower) is stacked by aios-fs-mount.service
+# for /var, /etc, and /home if no persistent writable layer is present.
+# =============================================================================
+
+# Root — dm-verity verified ext4, ro at kernel level
+UUID=__ROOT_UUID__   /         ext4    ro,noatime,discard,errors=remount-ro   0 1
+
+# Boot — EFI System Partition (vfat), must be writable for loader updates
+UUID=__BOOT_UUID__   /boot     vfat    defaults,noatime,umask=0077            0 2
+
+# tmpfs mounts — ephemeral, not persisted across reboots
+tmpfs                /tmp      tmpfs   defaults,noexec,nosuid,nodev,size=2G   0 0
+tmpfs                /run      tmpfs   defaults,nosuid,nodev,size=512M        0 0
+
+# Optional: persistent writable overlay backed by LVM thin pool
+# UUID=__DATA_UUID__  /data  ext4  defaults,noatime,discard  0 2

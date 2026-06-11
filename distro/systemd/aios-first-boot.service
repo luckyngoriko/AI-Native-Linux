@@ -1,0 +1,14 @@
+[Unit]
+Description=AI-OS.NET First Boot Wizard
+Documentation=https://ai-os.net/docs/first-boot
+After=aios-capability-runtime.service
+ConditionPathExists=/etc/aios/first-boot
+
+[Service]
+Type=oneshot
+ExecStart=/usr/lib/aios/aios-first-boot --config /etc/aios/config.toml
+RemainAfterExit=no
+SELinuxContext=system_u:system_r:aios_first_boot_t:s0
+
+[Install]
+WantedBy=multi-user.target

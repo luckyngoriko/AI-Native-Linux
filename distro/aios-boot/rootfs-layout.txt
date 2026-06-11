@@ -1,0 +1,181 @@
+# =============================================================================
+# AI-OS.NET Root Filesystem Layout — Revision 4
+# =============================================================================
+# Conforms to Linux FHS 3.0 with AIOS-specific additions.
+# SELinux context hints in comments (system_u:object_r:<type>).
+# All directories marked [D], files marked [F], symlinks marked [L].
+# =============================================================================
+# Generated: 2026-06-11
+# Target:     AI-OS.NET REV4 Bootable Distribution
+# =============================================================================
+
+/                                          [D]  system_u:object_r:root_t
+├── .autorelabel                            [F]  system_u:object_r:etc_t       # Touch file: force SELinux relabel on first boot
+├── bin -> usr/bin                          [L]  system_u:object_r:bin_t
+├── sbin -> usr/sbin                        [L]  system_u:object_r:bin_t
+├── lib -> usr/lib                          [L]  system_u:object_r:lib_t
+│
+├── boot/                                   [D]  system_u:object_r:boot_t
+│   ├── vmlinuz-aios                        [F]  system_u:object_r:boot_t      # Kernel image (bzImage)
+│   ├── initramfs-aios.img                  [F]  system_u:object_r:boot_t      # Custom initramfs (cpio.gz)
+│   ├── loader/                             [D]  system_u:object_r:boot_t
+│   │   └── entries/                        [D]  system_u:object_r:boot_t
+│   │       └── aios.conf                   [F]  system_u:object_r:boot_t      # systemd-boot loader entry
+│   └── EFI/                                [D]  system_u:object_r:boot_t
+│       └── BOOT/                           [D]  system_u:object_r:boot_t
+│           └── BOOTX64.EFI                 [F]  system_u:object_r:boot_t      # systemd-boot EFI stub
+│
+├── etc/                                    [D]  system_u:object_r:etc_t
+│   ├── fstab                               [F]  system_u:object_r:etc_t       # Mount table
+│   ├── crypttab                            [F]  system_u:object_r:etc_t       # LUKS configuration
+│   ├── hostname                            [F]  system_u:object_r:etc_t       # System hostname
+│   ├── machine-id                          [F]  system_u:object_r:etc_t       # Unique machine ID (dbus/systemd)
+│   ├── locale.conf                         [F]  system_u:object_r:etc_t       # LANG=en_US.UTF-8
+│   ├── vconsole.conf                       [F]  system_u:object_r:etc_t       # KEYMAP=us, FONT=ter-v32n
+│   ├── os-release                          [F]  system_u:object_r:etc_t       # OS identification
+│   │
+│   ├── aios/                               [D]  system_u:object_r:aios_etc_t
+│   │   ├── config.toml                     [F]  system_u:object_r:aios_etc_t  # AIOS runtime configuration
+│   │   ├── sealed-key.blob                 [F]  system_u:object_r:aios_etc_t  # TPM2-sealed LUKS key (0o400)
+│   │   ├── verity/                         [D]  system_u:object_r:aios_etc_t
+│   │   │   └── roothash.sig               [F]  system_u:object_r:aios_etc_t  # dm-verity root hash signature
+│   │   └── capsules/                       [D]  system_u:object_r:aios_etc_t
+│   │       └── .gitkeep                    [F]  system_u:object_r:aios_etc_t
+│   │
+│   ├── selinux/                            [D]  system_u:object_r:selinux_config_t
+│   │   ├── config                          [F]  system_u:object_r:selinux_config_t  # SELINUX=enforcing, SELINUXTYPE=aios
+│   │   └── aios/                           [D]  system_u:object_r:selinux_config_t
+│   │       └── policy/                     [D]  system_u:object_r:selinux_config_t
+│   │           └── policy.33               [F]  system_u:object_r:selinux_config_t  # Compiled SELinux binary policy
+│   │
+│   ├── systemd/                            [D]  system_u:object_r:systemd_unit_t
+│   │   ├── system.conf                     [F]  system_u:object_r:systemd_unit_t  # systemd system configuration
+│   │   └── system/                         [D]  system_u:object_r:systemd_unit_t
+│   │       ├── aios-capability-runtime.service  [F]  system_u:object_r:systemd_unit_t
+│   │       ├── aios-policy-kernel.service       [F]  system_u:object_r:systemd_unit_t
+│   │       ├── aios-evidence-log.service        [F]  system_u:object_r:systemd_unit_t
+│   │       ├── aios-sandbox.service             [F]  system_u:object_r:systemd_unit_t
+│   │       ├── aios-fs-mount.service            [F]  system_u:object_r:systemd_unit_t
+│   │       ├── aios-first-boot.service          [F]  system_u:object_r:systemd_unit_t
+│   │       └── aios-capsule-engram.service      [F]  system_u:object_r:systemd_unit_t
+│   │
+│   └── tmpfiles.d/                         [D]  system_u:object_r:etc_t
+│       └── aios.conf                       [F]  system_u:object_r:etc_t       # tmpfiles.d rules for /run/aios
+│
+├── usr/                                    [D]  system_u:object_r:usr_t
+│   ├── bin/                                [D]  system_u:object_r:bin_t
+│   │   ├── aios                            [F]  system_u:object_r:bin_t       # CLI binary (aios-renderer-cli)
+│   │   └── aios-capability-runtime         [F]  system_u:object_r:bin_t       # Capability runtime daemon
+│   │
+│   ├── sbin/                               [D]  system_u:object_r:bin_t
+│   │   └── aios-init                       [F]  system_u:object_r:bin_t       # Initramfs pre-boot helper
+│   │
+│   ├── lib/                                [D]  system_u:object_r:lib_t
+│   │   ├── aios/                           [D]  system_u:object_r:lib_t
+│   │   │   ├── libaios_action.so           [F]  system_u:object_r:lib_t       # Action execution engine
+│   │   │   ├── libaios_policy.so           [F]  system_u:object_r:lib_t       # Policy kernel & evaluation
+│   │   │   ├── libaios_evidence.so         [F]  system_u:object_r:lib_t       # Cryptographic evidence log
+│   │   │   ├── libaios_fs.so               [F]  system_u:object_r:lib_t       # AIOS filesystem operations
+│   │   │   ├── libaios_vault.so            [F]  system_u:object_r:lib_t       # Encrypted vault management
+│   │   │   ├── libaios_sandbox.so          [F]  system_u:object_r:lib_t       # Capsule sandboxing
+│   │   │   ├── libaios_cognitive.so        [F]  system_u:object_r:lib_t       # Cognitive model backend
+│   │   │   ├── libaios_network.so          [F]  system_u:object_r:lib_t       # Network policy enforcement
+│   │   │   ├── libaios_time.so             [F]  system_u:object_r:lib_t       # Grade-A time attestation
+│   │   │   ├── libaios_hardware.so         [F]  system_u:object_r:lib_t       # Hardware attestation interface
+│   │   │   ├── libaios_capability_runtime.so  [F]  system_u:object_r:lib_t    # Capability runtime core
+│   │   │   ├── libaios_apps.so             [F]  system_u:object_r:lib_t       # Application lifecycle management
+│   │   │   ├── libaios_backup.so           [F]  system_u:object_r:lib_t       # Backup subsystem
+│   │   │   ├── libaios_container.so        [F]  system_u:object_r:lib_t       # Container engine abstraction
+│   │   │   ├── libaios_distribution.so     [F]  system_u:object_r:lib_t       # Distribution & update logic
+│   │   │   ├── libaios_eval.so             [F]  system_u:object_r:lib_t       # Policy evaluation helpers
+│   │   │   ├── libaios_fleet.so            [F]  system_u:object_r:lib_t       # Fleet coordination
+│   │   │   ├── libaios_integration.so      [F]  system_u:object_r:lib_t       # Integration test harness
+│   │   │   ├── libaios_mobile.so           [F]  system_u:object_r:lib_t       # Mobile companion interface
+│   │   │   ├── libaios_recovery.so         [F]  system_u:object_r:lib_t       # Disaster recovery
+│   │   │   ├── libaios_renderer_cli.so     [F]  system_u:object_r:lib_t       # CLI renderer bindings
+│   │   │   ├── libaios_renderer_kde.so     [F]  system_u:object_r:lib_t       # KDE renderer bindings
+│   │   │   ├── libaios_renderer_web.so     [F]  system_u:object_r:lib_t       # Web renderer bindings
+│   │   │   ├── libaios_sgr.so              [F]  system_u:object_r:lib_t       # Self-Governing Runtime
+│   │   │   └── libaios_verification.so     [F]  system_u:object_r:lib_t       # Constitutional verification
+│   │   │
+│   │   └── systemd/                        [D]  system_u:object_r:lib_t
+│   │       └── system/                     [D]  system_u:object_r:lib_t
+│   │           ├── aios-capability-runtime  [F]  system_u:object_r:lib_t      # systemd service helper
+│   │           └── aios-policy-kernel       [F]  system_u:object_r:lib_t      # systemd service helper
+│   │
+│   └── share/                              [D]  system_u:object_r:usr_t
+│       ├── aios/                           [D]  system_u:object_r:usr_t
+│       │   ├── selinux/                    [D]  system_u:object_r:usr_t       # SELinux policy source (.te, .fc, .if)
+│       │   ├── caps/                       [D]  system_u:object_r:usr_t       # Default capability grant bundles
+│       │   │   └── default.json            [F]  system_u:object_r:usr_t       # Default capability grants
+│       │   ├── evidence/                   [D]  system_u:object_r:usr_t       # Evidence templates & schemas
+│       │   ├── policy/                     [D]  system_u:object_r:usr_t       # Reference policy bundles
+│       │   │   └── constitutional.json     [F]  system_u:object_r:usr_t       # Constitutional policy definition
+│       │   └── docs/                       [D]  system_u:object_r:usr_t       # Distribution documentation
+│       │
+│       └── licenses/                       [D]  system_u:object_r:usr_t
+│           └── aios/                       [D]  system_u:object_r:usr_t
+│               └── LICENSE                 [F]  system_u:object_r:usr_t       # AI-OS.NET license
+│
+├── var/                                    [D]  system_u:object_r:var_t
+│   ├── lib/                                [D]  system_u:object_r:var_lib_t
+│   │   └── aios/                           [D]  system_u:object_r:var_lib_t
+│   │       ├── evidence/                   [D]  system_u:object_r:var_lib_t   # Persistent evidence log (WAL)
+│   │       ├── policy/                     [D]  system_u:object_r:var_lib_t   # Active policy bundles
+│   │       ├── capsules/                   [D]  system_u:object_r:var_lib_t   # Capsule persistent state
+│   │       ├── backup/                     [D]  system_u:object_r:var_lib_t   # Local backup staging area
+│   │       └── vault/                      [D]  system_u:object_r:var_lib_t   # Encrypted vault storage
+│   │
+│   ├── log/                                [D]  system_u:object_r:var_log_t
+│   │   └── aios/                           [D]  system_u:object_r:var_log_t   # AIOS structured logs
+│   │
+│   └── cache/                              [D]  system_u:object_r:var_t
+│       └── aios/                           [D]  system_u:object_r:var_t       # AIOS cache (models, packages)
+│
+├── run/                                    [D]  system_u:object_r:var_run_t   # tmpfs at runtime
+│   └── aios/                               [D]  system_u:object_r:var_run_t
+│       ├── capability-runtime.sock         [F]  system_u:object_r:var_run_t   # Unix domain socket
+│       ├── policy-kernel.sock              [F]  system_u:object_r:var_run_t   # Unix domain socket
+│       ├── sandbox.sock                    [F]  system_u:object_r:var_run_t   # Unix domain socket
+│       └── lock/                           [D]  system_u:object_r:var_run_t   # Runtime lock files
+│
+├── dev/                                    [D]  system_u:object_r:device_t    # Populated by devtmpfs
+├── proc/                                   [D]  system_u:object_r:proc_t      # procfs mount point
+├── sys/                                    [D]  system_u:object_r:sysfs_t     # sysfs mount point
+├── tmp/                                    [D]  system_u:object_r:tmp_t       # tmpfs, noexec
+│
+├── opt/                                    [D]  system_u:object_r:usr_t
+│   └── aios/                               [D]  system_u:object_r:usr_t
+│       └── cognitive/                      [D]  system_u:object_r:usr_t       # Cognitive model storage (optional)
+│
+├── mnt/                                    [D]  system_u:object_r:mnt_t
+├── media/                                  [D]  system_u:object_r:mnt_t
+└── home/                                   [D]  system_u:object_r:home_root_t # Per-user capsule home dirs
+
+# =============================================================================
+# Additional First-Boot Files (created by aios-first-boot.service)
+# =============================================================================
+#
+# /etc/machine-id                         — generated by systemd-firstboot or dbus-uuidgen
+# /var/lib/aios/evidence/.gitkeep         — persistent evidence log genesis marker
+# /var/lib/aios/capsules/.gitkeep         — capsule state genesis marker
+# /var/lib/aios/backup/.gitkeep           — backup staging genesis marker
+# /run/aios/.mounted                      — touch file signaling runtime tmpfs is mounted
+#
+# =============================================================================
+# dm-verity Notes
+# =============================================================================
+#
+# Root partition is ext4 formatted, then dm-verity hash tree is generated:
+#   veritysetup format /dev/sdX2 /dev/sdX3 --root-hash-file=/tmp/roothash
+# Root hash is signed with AIOS signing key:
+#   openssl dgst -sha256 -sign aios-signing.key -out /etc/aios/verity/roothash.sig /tmp/roothash
+# Kernel cmdline references: root=/dev/mapper/aios-root dm_verity.roothash=<hex>
+#
+# =============================================================================
+# Directory Count Summary
+# =============================================================================
+# Total directories (excluding symlink targets): 61
+# Total regular files (placeholder/required):    14 + 25 .so files + service files
+# Symlinks:                                       3 (bin, sbin, lib -> usr variants)
+# =============================================================================

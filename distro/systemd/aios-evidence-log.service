@@ -1,0 +1,19 @@
+[Unit]
+Description=AI-OS.NET Evidence Log
+Documentation=https://ai-os.net/docs/evidence-log
+Before=aios-capability-runtime.service
+
+[Service]
+Type=notify
+ExecStart=/usr/lib/aios/aios-evidence-log --config /etc/aios/config.toml --data-dir /var/lib/aios/evidence
+Restart=always
+RestartSec=3
+LimitNOFILE=65536
+PrivateTmp=yes
+ProtectSystem=strict
+ReadWritePaths=/var/lib/aios/evidence /run/aios
+NoNewPrivileges=yes
+SELinuxContext=system_u:system_r:aios_evidence_log_t:s0
+
+[Install]
+WantedBy=multi-user.target

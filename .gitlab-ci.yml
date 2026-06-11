@@ -1,0 +1,198 @@
+# AI-OS.NET GitLab CI/CD — Revision 4
+# Push target: gitlab remote (http://192.168.1.180)
+# Mirror: GitHub Actions at .github/workflows/ci.yml
+
+stages:
+  - check
+  - test
+  - lint
+  - build
+  - assemble
+
+variables:
+  CARGO_HOME: "${CI_PROJECT_DIR}/.cargo"
+  RUSTUP_HOME: "/usr/local/rustup"
+  RUST_VERSION: "1.94"
+  RUSTC_BOOTSTRAP: "0"
+  # ISO naming convention: aios-rev4-<short-sha>-x86_64.iso
+  ISO_NAME: "aios-rev4-${CI_COMMIT_SHORT_SHA}-x86_64"
+  ISO_OUTPUT: "${ISO_NAME}.iso"
+
+# Shared Rust cache — cargo registry, git checkouts, build artifacts
+.cargo_cache: &cargo_cache
+  cache:
+    key: "${CI_COMMIT_REF_SLUG}-cargo"
+    when: "always"
+    paths:
+      - .cargo/registry/
+      - .cargo/git/
+      - target/
+
+# Shared build-dependency bootstrap for Rust workspace jobs
+.bootstrap_deps: &bootstrap_deps
+  before_script:
+    - apt-get update -qq && apt-get install -y -qq
+      protobuf-compiler
+      libclang-dev
+      pkg-config
+      libssl-dev
+    # The workspace uses protoc-bin-vendored, but libclang-dev is needed
+    # for rocksdb-sys bindings (crates/aios-evidence, crates/aios-vault).
+
+# ==========================================================================
+# STAGE 1 — CHECK (fast gate: catches compilation errors early)
+# ==========================================================================
+cargo-check:
+  stage: check
+  image: rust:${RUST_VERSION}-slim
+  <<: *cargo_cache
+  <<: *bootstrap_deps
+  script:
+    - cargo check --workspace --locked
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "push" && $CI_COMMIT_BRANCH == "main"'
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+
+# ==========================================================================
+# STAGE 2 — TEST (depends on check)
+# ==========================================================================
+cargo-test:
+  stage: test
+  image: rust:${RUST_VERSION}-slim
+  <<: *cargo_cache
+  <<: *bootstrap_deps
+  needs:
+    - cargo-check
+  script:
+    - cargo test --workspace --no-fail-fast
+  artifacts:
+    when: always
+    reports:
+      junit: target/test-results.xml
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "push" && $CI_COMMIT_BRANCH == "main"'
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+
+# ==========================================================================
+# STAGE 3 — LINT (clippy + rustfmt, parallel)
+# ==========================================================================
+cargo-clippy:
+  stage: lint
+  image: rust:${RUST_VERSION}-slim
+  <<: *cargo_cache
+  <<: *bootstrap_deps
+  needs:
+    - cargo-check
+  before_script:
+    - apt-get update -qq && apt-get install -y -qq
+      protobuf-compiler
+      libclang-dev
+      pkg-config
+      libssl-dev
+    - rustup component add clippy
+  script:
+    # Workspace [workspace.lints.clippy] already sets `all = "deny"`.
+    # -D warnings here acts as an explicit safety net.
+    - cargo clippy --workspace --all-targets -- -D warnings
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "push" && $CI_COMMIT_BRANCH == "main"'
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+
+cargo-fmt:
+  stage: lint
+  image: rust:${RUST_VERSION}-slim
+  before_script:
+    - rustup component add rustfmt
+  script:
+    - cargo fmt --all -- --check
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "push" && $CI_COMMIT_BRANCH == "main"'
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+
+# ==========================================================================
+# STAGE 4 — BUILD (release binaries, depends on test + lint)
+# ==========================================================================
+cargo-release:
+  stage: build
+  image: rust:${RUST_VERSION}-slim
+  <<: *cargo_cache
+  <<: *bootstrap_deps
+  needs:
+    - cargo-test
+    - cargo-clippy
+    - cargo-fmt
+  script:
+    - cargo build --release --workspace --locked
+  artifacts:
+    name: "binaries-${CI_COMMIT_SHORT_SHA}"
+    paths:
+      - target/release/
+    exclude:
+      - target/release/deps/
+      - target/release/.fingerprint/
+      - target/release/build/
+      - target/release/examples/
+      - target/release/incremental/
+    expire_in: 1 day
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "push" && $CI_COMMIT_BRANCH == "main"'
+
+# ==========================================================================
+# STAGE 5 — ASSEMBLE ISO (main push only)
+# ==========================================================================
+assemble-iso:
+  stage: assemble
+  image: debian:bookworm
+  needs:
+    - cargo-release
+  before_script:
+    - apt-get update -qq && apt-get install -y -qq
+      xorriso
+      squashfs-tools
+      cpio
+      xz-utils
+      mtools
+      systemd-boot
+      cryptsetup-bin
+      tpm2-tools
+      busybox-static
+  script:
+    - chmod +x distro/build/build-aios-iso.sh
+    - CHROOT_WORKDIR="${CI_PROJECT_DIR}/target/release"
+      ./distro/build/build-aios-iso.sh --release --output "${ISO_OUTPUT}"
+    - ls -lh "distro/build/${ISO_OUTPUT}"
+  artifacts:
+    name: "${ISO_NAME}"
+    paths:
+      - "distro/build/${ISO_OUTPUT}"
+    expire_in: 7 days
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "push" && $CI_COMMIT_BRANCH == "main"'
+
+# ==========================================================================
+# WEEKLY FULL BUILD (scheduled pipeline only)
+# ==========================================================================
+weekly-full-build:
+  stage: assemble
+  image: debian:bookworm
+  needs: []
+  before_script:
+    - apt-get update -qq && apt-get install -y -qq
+      curl build-essential
+      protobuf-compiler libclang-dev pkg-config libssl-dev
+      xorriso squashfs-tools cpio xz-utils mtools
+      systemd-boot cryptsetup-bin tpm2-tools busybox-static
+    - curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --default-toolchain ${RUST_VERSION}
+    - source "$HOME/.cargo/env"
+  script:
+    - chmod +x distro/build/build-aios-iso.sh
+    - cargo build --release --workspace --locked
+    - cargo test --workspace --no-fail-fast
+    - ./distro/build/build-aios-iso.sh --release
+  artifacts:
+    name: "aios-rev4-weekly-${CI_PIPELINE_ID}"
+    paths:
+      - "distro/build/aios-rev4-*.iso"
+    expire_in: 30 days
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "schedule"'

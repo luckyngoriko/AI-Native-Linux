@@ -1,0 +1,21 @@
+[Unit]
+Description=AI-OS.NET Cognitive Core
+Documentation=https://ai-os.net/docs/cognitive-core
+After=network.target aios-capability-runtime.service
+Wants=aios-capability-runtime.service
+
+[Service]
+Type=notify
+ExecStart=/usr/lib/aios/aios-cognitive-core --config /etc/aios/config.toml --model-dir /var/lib/aios/models
+Restart=always
+RestartSec=5
+LimitNOFILE=65536
+LimitMEMLOCK=infinity
+PrivateTmp=yes
+ProtectSystem=strict
+ReadWritePaths=/var/lib/aios/models /run/aios
+NoNewPrivileges=yes
+SELinuxContext=system_u:system_r:aios_cognitive_core_t:s0
+
+[Install]
+WantedBy=multi-user.target

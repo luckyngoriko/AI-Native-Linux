@@ -1,0 +1,21 @@
+[Unit]
+Description=AI-OS.NET Recovery Watchdog
+Documentation=https://ai-os.net/docs/recovery-watchdog
+After=aios-capability-runtime.service aios-evidence-log.service
+Requires=aios-capability-runtime.service aios-evidence-log.service
+
+[Service]
+Type=notify
+ExecStart=/usr/lib/aios/aios-recovery-watchdog --config /etc/aios/config.toml --state-dir /var/lib/aios/recovery
+WatchdogSec=30
+Restart=always
+RestartSec=5
+LimitNOFILE=65536
+PrivateTmp=yes
+ProtectSystem=strict
+ReadWritePaths=/var/lib/aios/recovery /run/aios
+NoNewPrivileges=yes
+SELinuxContext=system_u:system_r:aios_recovery_watchdog_t:s0
+
+[Install]
+WantedBy=multi-user.target

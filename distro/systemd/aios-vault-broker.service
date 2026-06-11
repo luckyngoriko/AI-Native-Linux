@@ -1,0 +1,19 @@
+[Unit]
+Description=AI-OS.NET Vault Broker
+Documentation=https://ai-os.net/docs/vault-broker
+Before=aios-capability-runtime.service
+
+[Service]
+Type=notify
+ExecStart=/usr/lib/aios/aios-vault-broker --config /etc/aios/config.toml --vault-dir /var/lib/aios/vault
+Restart=always
+RestartSec=3
+LimitNOFILE=65536
+PrivateTmp=yes
+ProtectSystem=strict
+ReadWritePaths=/var/lib/aios/vault /run/aios
+NoNewPrivileges=yes
+SELinuxContext=system_u:system_r:aios_vault_broker_t:s0
+
+[Install]
+WantedBy=multi-user.target

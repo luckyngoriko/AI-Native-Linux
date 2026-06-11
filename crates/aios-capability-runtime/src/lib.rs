@@ -63,6 +63,10 @@ pub mod runtime;
 /// (`aios.runtime.v1alpha1`, S10.1 §5).
 pub mod service;
 pub mod status;
+/// OS-RESEARCH: Plan 9/Inferno-inspired per-capsule namespace model.
+pub mod capsule_namespace;
+/// OS-RESEARCH: seL4-inspired capability token model with formal invariants.
+pub mod sel4_cap_model;
 
 pub use adapter_handle::RealAdapterHandle;
 pub use adapter_manifest::AdapterManifest;
@@ -101,3 +105,9 @@ pub use runtime::{
     RuntimeRecoveryHook, RuntimeSandboxComposer, SandboxProfileSummary,
 };
 pub use status::ActionLifecycleState;
+// OS-RESEARCH re-exports
+pub use capsule_namespace::{
+    next_capsule_id, CapsuleId, CapsuleNamespace, MountFlag, NamespaceBinding,
+    NamespacePath, NamespaceRegistry,
+};
+pub use sel4_cap_model::{CapRight, CapRights, CapToken, CapTokenId, CapTokenTree};

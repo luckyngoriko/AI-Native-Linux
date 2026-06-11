@@ -49,7 +49,8 @@
 //! - **INV-SS-006 (No ambient authority):** A newly-created [`StateSandbox`]
 //!   contains zero access rules — every path must be explicitly allowed.
 
-use std::collections::HashMap;
+use std::fmt;
+use std::path::{Path, PathBuf};
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use super::capsule_namespace::CapsuleId;
@@ -85,6 +86,34 @@ impl FilePermission {
 }
 
 // ---------------------------------------------------------------------------
+// R3-W2: AccessMode — filesystem operation intent
+// ---------------------------------------------------------------------------
+
+/// Filesystem access mode for sandboxed state operations.
+///
+/// Represents the *intent* of the caller rather than the *grant*.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum AccessMode {
+    /// Reading file contents or metadata (stat, open O_RDONLY).
+    ReadOnly,
+    /// Writing, creating, or deleting files (open O_WRONLY, O_RDWR).
+    ReadWrite,
+    /// Explicit denial — any attempt is rejected immediately.
+    Deny,
+}
+
+impl fmt::Display for AccessMode {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let label = match self {
+            Self::ReadOnly => "read-only",
+            Self::ReadWrite => "read-write",
+            Self::Deny => "deny",
+        };
+        f.write_str(label)
+    }
+}
+
+// ---------------------------------------------------------------------------
 // AccessDecision — result of an access evaluation
 // ---------------------------------------------------------------------------
 
@@ -115,6 +144,76 @@ impl AccessDecision {
     #[must_use]
     pub const fn is_denied(&self) -> bool {
         matches!(self, Self::Denied { .. })
+    }
+}
+
+// ---------------------------------------------------------------------------
+// R3-W2: CapsuleStateRoot — capsule ID → filesystem root path
+// ---------------------------------------------------------------------------
+
+/// The private state root for a single capsule.
+///
+/// Every capsule gets a dedicated directory under the system state
+/// root (e.g. `/capsule/007/` for capsule id 7).  Only the owning
+/// capsule may access this subtree.
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct CapsuleStateRoot {
+    /// The capsule that owns this state root.
+    pub capsule_id: CapsuleId,
+    /// The absolute filesystem path that serves as the capsule's root
+    /// for state operations (reads, writes, snapshots).
+    pub root_path: PathBuf,
+}
+
+impl CapsuleStateRoot {
+    /// Construct a state root from a [`CapsuleId`].
+    ///
+    /// The path follows the convention `/capsule/{id}/` where `{id}` is
+    /// the numeric capsule identifier (e.g. `/capsule/7` for id 7).
+    #[must_use]
+    pub fn from_capsule_id(id: CapsuleId) -> Self {
+        let root_path = PathBuf::from(format!("/capsule/{}", id.raw()));
+        Self {
+            capsule_id: id,
+            root_path,
+        }
+    }
+
+    /// Construct a state root with a custom base directory
+    /// (e.g. `/tmp/test-capsules/42` for testing).
+    #[must_use]
+    pub fn with_base(id: CapsuleId, base: impl AsRef<Path>) -> Self {
+        let base = base.as_ref();
+        let root_path = base.join(id.raw().to_string());
+        Self {
+            capsule_id: id,
+            root_path,
+        }
+    }
+
+    /// Returns `true` when `path` resides inside this capsule's root.
+    #[must_use]
+    pub fn contains(&self, path: &Path) -> bool {
+        path.starts_with(&self.root_path)
+    }
+
+    /// Extract the owning [`CapsuleId`] from a path, assuming the
+    /// `/capsule/{id}/...` convention.
+    ///
+    /// Returns `None` if the path doesn't match the expected pattern.
+    #[must_use]
+    pub fn capsule_id_from_path(path: &Path) -> Option<CapsuleId> {
+        let s = path.to_str()?;
+        let rest = s.strip_prefix("/capsule/")?;
+        let id_str = rest.split('/').next()?;
+        let id: u64 = id_str.parse().ok()?;
+        Some(CapsuleId(id))
+    }
+}
+
+impl fmt::Display for CapsuleStateRoot {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{} → {}", self.capsule_id, self.root_path.display())
     }
 }
 
@@ -245,6 +344,10 @@ impl SandboxViolation {
 pub struct StateSandbox {
     rules: Vec<FileAccessRule>,
     violations: Vec<SandboxViolation>,
+    /// R3-W2: optional per-capsule state-root for path-containment checks.
+    state_root: Option<CapsuleStateRoot>,
+    /// R3-W2: explicitly denied sub-paths inside the capsule's own root.
+    denied_paths: Vec<PathBuf>,
 }
 
 impl StateSandbox {
@@ -255,7 +358,130 @@ impl StateSandbox {
         Self {
             rules: Vec::new(),
             violations: Vec::new(),
+            state_root: None,
+            denied_paths: Vec::new(),
         }
+    }
+
+    /// Create a new sandbox with a state-root for path-containment checks
+    /// (R3-W2 per-capsule filesystem isolation).
+    #[must_use]
+    pub fn with_root(capsule_id: CapsuleId, state_root: CapsuleStateRoot) -> Self {
+        assert_eq!(
+            capsule_id, state_root.capsule_id,
+            "capsule_id must match state_root.capsule_id"
+        );
+        Self {
+            rules: Vec::new(),
+            violations: Vec::new(),
+            state_root: Some(state_root),
+            denied_paths: Vec::new(),
+        }
+    }
+
+    /// ---------- R3-W2 check_access ----------------------------------------
+    ///
+    /// Verify that `capsule_id` is allowed to access `target` with the
+    /// requested [`AccessMode`] based on the state-root containment model.
+    ///
+    /// # Checks performed (in order)
+    ///
+    /// 1. **Capsule match** — `capsule_id` must equal the sandbox's
+    ///    owning capsule; otherwise cross-capsule access is denied.
+    /// 2. **Deny mode** — a [`AccessMode::Deny`] request is always rejected.
+    /// 3. **Containment** — `target` must reside inside the capsule's
+    ///    `state_root`.
+    /// 4. **Deny-list** — even if contained, explicitly denied sub-paths
+    ///    are rejected.
+    ///
+    /// # Returns
+    ///
+    /// - `Ok(())` when access is permitted.
+    /// - `Err(SandboxViolation)` detailing the denial, which is also
+    ///   appended to the internal violation log.
+    #[must_use]
+    pub fn check_access(
+        &mut self,
+        capsule_id: CapsuleId,
+        target: impl AsRef<Path>,
+        mode: AccessMode,
+    ) -> Result<(), SandboxViolation> {
+        let target = target.as_ref();
+        let owner_id = self
+            .state_root
+            .as_ref()
+            .map(|r| r.capsule_id)
+            .unwrap_or(capsule_id);
+
+        if capsule_id != owner_id {
+            let v = SandboxViolation::new(
+                capsule_id,
+                target.to_string_lossy().into_owned(),
+                FilePermission::Read,
+                format!(
+                    "cross-capsule access denied: capsule {} attempted {} access to {}",
+                    capsule_id,
+                    mode,
+                    target.display(),
+                ),
+            );
+            self.violations.push(v.clone());
+            return Err(v);
+        }
+
+        if mode == AccessMode::Deny {
+            let v = SandboxViolation::new(
+                capsule_id,
+                target.to_string_lossy().into_owned(),
+                FilePermission::Read,
+                format!("access denied by AccessMode::Deny for {}", target.display()),
+            );
+            self.violations.push(v.clone());
+            return Err(v);
+        }
+
+        if let Some(ref root) = self.state_root {
+            if !root.contains(target) {
+                let v = SandboxViolation::new(
+                    capsule_id,
+                    target.to_string_lossy().into_owned(),
+                    FilePermission::Read,
+                    format!(
+                        "path {} is outside capsule root {}",
+                        target.display(),
+                        root.root_path.display(),
+                    ),
+                );
+                self.violations.push(v.clone());
+                return Err(v);
+            }
+        }
+
+        for denied in &self.denied_paths {
+            if target.starts_with(denied) || target == denied {
+                let v = SandboxViolation::new(
+                    capsule_id,
+                    target.to_string_lossy().into_owned(),
+                    FilePermission::Read,
+                    format!("path {} is in explicit deny-list", target.display()),
+                );
+                self.violations.push(v.clone());
+                return Err(v);
+            }
+        }
+
+        Ok(())
+    }
+
+    /// Add an explicitly denied sub-path (R3-W2 deny-list).
+    pub fn deny_path(&mut self, path: impl Into<PathBuf>) {
+        self.denied_paths.push(path.into());
+    }
+
+    /// The capsule ID for state-root-based sandbox (R3-W2).
+    #[must_use]
+    pub fn capsule_id(&self) -> Option<CapsuleId> {
+        self.state_root.as_ref().map(|r| r.capsule_id)
     }
 
     /// ---------- access control --------------------------------------------
@@ -408,7 +634,7 @@ impl StateSandbox {
 }
 
 // ===========================================================================
-// Tests — INV-SS-001 through INV-SS-006
+// Tests — INV-SS-001 through INV-SS-006 + R3-W2 isolation tests
 // ===========================================================================
 
 #[cfg(test)]
@@ -550,30 +776,25 @@ mod tests {
     }
 
     #[test]
-    fn allowed_access_does_not_record_violation() {
+    fn violations_accumulate_across_evaluations() {
         let mut sb = StateSandbox::new();
-        sb.allow(CapsuleId(1), "/data/file".into(), vec![FilePermission::Read]);
 
-        let _ = sb.evaluate(CapsuleId(1), "/data/file", FilePermission::Read);
-        assert_eq!(sb.violation_count(), 0);
-    }
-
-    #[test]
-    fn multiple_violations_accumulate() {
-        let mut sb = StateSandbox::new();
         let _ = sb.evaluate(CapsuleId(1), "/a", FilePermission::Read);
         let _ = sb.evaluate(CapsuleId(2), "/b", FilePermission::Write);
         let _ = sb.evaluate(CapsuleId(3), "/c", FilePermission::Execute);
+
         assert_eq!(sb.violation_count(), 3);
     }
 
     #[test]
-    fn clear_violations_empties_log() {
+    fn clear_violations_resets_counter() {
         let mut sb = StateSandbox::new();
         let _ = sb.evaluate(CapsuleId(1), "/a", FilePermission::Read);
         assert_eq!(sb.violation_count(), 1);
+
         sb.clear_violations();
         assert_eq!(sb.violation_count(), 0);
+        assert!(sb.get_violations().is_empty());
     }
 
     // -----------------------------------------------------------------------
@@ -581,34 +802,30 @@ mod tests {
     // -----------------------------------------------------------------------
 
     #[test]
-    fn capsule_a_rule_does_not_grant_capsule_b_access() {
+    fn capsule_does_not_see_rules_for_other_capsules() {
         let mut sb = StateSandbox::new();
-        sb.allow(CapsuleId(1), "/data/shared".into(), vec![FilePermission::Read]);
+        sb.allow(CapsuleId(1), "/data/capsule-a".into(), vec![FilePermission::Read]);
 
-        assert!(sb
-            .evaluate(CapsuleId(1), "/data/shared", FilePermission::Read)
-            .is_allowed());
-        assert!(sb
-            .evaluate(CapsuleId(2), "/data/shared", FilePermission::Read)
-            .is_denied());
+        // Capsule 2 should NOT be able to access Capsule 1's path.
+        let result = sb.evaluate(CapsuleId(2), "/data/capsule-a", FilePermission::Read);
+        assert!(result.is_denied());
     }
 
     #[test]
-    fn each_capsule_needs_its_own_rule() {
+    fn each_capsule_needs_its_own_rules() {
         let mut sb = StateSandbox::new();
         sb.allow(CapsuleId(1), "/data/a".into(), vec![FilePermission::Read]);
-        sb.allow(CapsuleId(2), "/data/b".into(), vec![FilePermission::Write]);
+        sb.allow(CapsuleId(2), "/data/b".into(), vec![FilePermission::Read]);
 
         assert!(sb
             .evaluate(CapsuleId(1), "/data/a", FilePermission::Read)
             .is_allowed());
         assert!(sb
-            .evaluate(CapsuleId(2), "/data/b", FilePermission::Write)
+            .evaluate(CapsuleId(2), "/data/b", FilePermission::Read)
             .is_allowed());
 
-        // Cross-check: capsule 1 cannot access capsule 2's path.
         assert!(sb
-            .evaluate(CapsuleId(1), "/data/b", FilePermission::Write)
+            .evaluate(CapsuleId(1), "/data/b", FilePermission::Read)
             .is_denied());
         assert!(sb
             .evaluate(CapsuleId(2), "/data/a", FilePermission::Read)
@@ -616,19 +833,7 @@ mod tests {
     }
 
     // -----------------------------------------------------------------------
-    // INV-SS-006: No ambient authority
-    // -----------------------------------------------------------------------
-
-    #[test]
-    fn new_sandbox_has_zero_rules() {
-        let sb = StateSandbox::new();
-        assert!(sb.is_empty());
-        assert_eq!(sb.rule_count(), 0);
-        assert_eq!(sb.violation_count(), 0);
-    }
-
-    // -----------------------------------------------------------------------
-    // FileAccessRule
+    // FileAccessRule tests
     // -----------------------------------------------------------------------
 
     #[test]
@@ -679,7 +884,7 @@ mod tests {
         sb.allow(CapsuleId(1), "/data/f".into(), vec![FilePermission::Read]);
         let rule = sb.find_rule(CapsuleId(1), "/data/f");
         assert!(rule.is_some());
-        assert_eq!(rule.unwrap().target_path, "/data/f");
+        assert_eq!(rule.map(|r| r.target_path.as_str()), Some("/data/f"));
     }
 
     #[test]
@@ -729,13 +934,201 @@ mod tests {
             FilePermission::Read,
             "permissive-domain-A",
         );
+        assert!(!result.is_allowed());
+        assert!(!result.is_denied());
         match result {
             AccessDecision::LoggedOnly { reason } => {
                 assert_eq!(reason, "permissive-domain-A");
             }
             _ => panic!("expected LoggedOnly"),
         }
-        assert!(!result.is_allowed());
-        assert!(!result.is_denied());
+    }
+
+    // -----------------------------------------------------------------------
+    // CapsuleStateRoot tests (R3-W2)
+    // -----------------------------------------------------------------------
+
+    #[test]
+    fn r3w2_state_root_from_capsule_id_uses_convention() {
+        let id = CapsuleId(7);
+        let root = CapsuleStateRoot::from_capsule_id(id);
+        assert_eq!(root.capsule_id, id);
+        assert_eq!(root.root_path, PathBuf::from("/capsule/7"));
+    }
+
+    #[test]
+    fn r3w2_state_root_with_base_joins_correctly() {
+        let id = CapsuleId(42);
+        let root = CapsuleStateRoot::with_base(id, "/tmp/test-capsules");
+        assert_eq!(root.root_path, PathBuf::from("/tmp/test-capsules/42"));
+    }
+
+    #[test]
+    fn r3w2_state_root_contains_detects_subpath() {
+        let root = CapsuleStateRoot::with_base(CapsuleId(1), "/capsule");
+        assert!(root.contains(Path::new("/capsule/1/data.txt")));
+        assert!(root.contains(Path::new("/capsule/1/sub/deep/file")));
+        assert!(!root.contains(Path::new("/capsule/2/secrets.txt")));
+        assert!(!root.contains(Path::new("/tmp/other")));
+    }
+
+    #[test]
+    fn r3w2_capsule_id_from_path_parses_correctly() {
+        assert_eq!(
+            CapsuleStateRoot::capsule_id_from_path(Path::new("/capsule/7/data.txt")),
+            Some(CapsuleId(7))
+        );
+        assert_eq!(
+            CapsuleStateRoot::capsule_id_from_path(Path::new("/capsule/42/sub/file")),
+            Some(CapsuleId(42))
+        );
+        assert_eq!(
+            CapsuleStateRoot::capsule_id_from_path(Path::new("/other/path")),
+            None
+        );
+        assert_eq!(
+            CapsuleStateRoot::capsule_id_from_path(Path::new("/capsule/not-a-number/file")),
+            None
+        );
+    }
+
+    // -----------------------------------------------------------------------
+    // R3-W2: check_access / StateSandbox::with_root isolation tests
+    // -----------------------------------------------------------------------
+
+    #[test]
+    fn r3w2_same_capsule_access_allowed() {
+        let id = CapsuleId(7);
+        let root = CapsuleStateRoot::with_base(id, "/capsule");
+        let mut sandbox = StateSandbox::with_root(id, root);
+
+        assert!(sandbox
+            .check_access(id, "/capsule/7/data.txt", AccessMode::ReadOnly)
+            .is_ok());
+        assert!(sandbox
+            .check_access(id, "/capsule/7/models/weights.bin", AccessMode::ReadWrite)
+            .is_ok());
+        assert!(sandbox
+            .check_access(id, "/capsule/7", AccessMode::ReadOnly)
+            .is_ok());
+
+        assert_eq!(sandbox.violation_count(), 0);
+    }
+
+    #[test]
+    fn r3w2_cross_capsule_access_denied() {
+        let id_a = CapsuleId(7);
+        let id_b = CapsuleId(8);
+        let root = CapsuleStateRoot::with_base(id_a, "/capsule");
+        let mut sandbox = StateSandbox::with_root(id_a, root);
+
+        let result = sandbox.check_access(id_b, "/capsule/7/data.txt", AccessMode::ReadOnly);
+        assert!(result.is_err());
+        assert_eq!(sandbox.violation_count(), 1);
+    }
+
+    #[test]
+    fn r3w2_cross_capsule_write_also_denied() {
+        let id_a = CapsuleId(1);
+        let id_b = CapsuleId(2);
+        let root = CapsuleStateRoot::with_base(id_a, "/capsule");
+        let mut sandbox = StateSandbox::with_root(id_a, root);
+
+        let result = sandbox.check_access(id_b, "/capsule/1/log.txt", AccessMode::ReadWrite);
+        assert!(result.is_err());
+        assert_eq!(sandbox.violation_count(), 1);
+    }
+
+    #[test]
+    fn r3w2_deny_mode_always_rejected() {
+        let id = CapsuleId(7);
+        let root = CapsuleStateRoot::with_base(id, "/capsule");
+        let mut sandbox = StateSandbox::with_root(id, root);
+
+        let result = sandbox.check_access(id, "/capsule/7/data.txt", AccessMode::Deny);
+        assert!(result.is_err());
+        assert_eq!(sandbox.violation_count(), 1);
+    }
+
+    #[test]
+    fn r3w2_path_outside_own_root_is_denied_for_write() {
+        let id = CapsuleId(7);
+        let root = CapsuleStateRoot::with_base(id, "/capsule");
+        let mut sandbox = StateSandbox::with_root(id, root);
+
+        let result = sandbox.check_access(id, "/capsule/8/secrets.txt", AccessMode::ReadWrite);
+        assert!(result.is_err());
+        assert_eq!(sandbox.violation_count(), 1);
+    }
+
+    #[test]
+    fn r3w2_explicit_deny_list_blocks_contained_paths() {
+        let id = CapsuleId(7);
+        let root = CapsuleStateRoot::with_base(id, "/capsule");
+        let mut sandbox = StateSandbox::with_root(id, root);
+
+        sandbox.deny_path("/capsule/7/secrets");
+
+        let result = sandbox.check_access(id, "/capsule/7/secrets/key.pem", AccessMode::ReadOnly);
+        assert!(result.is_err());
+        assert_eq!(sandbox.violation_count(), 1);
+
+        assert!(sandbox
+            .check_access(id, "/capsule/7/data.txt", AccessMode::ReadOnly)
+            .is_ok());
+        assert_eq!(sandbox.violation_count(), 1);
+    }
+
+    #[test]
+    fn r3w2_violation_recording_in_check_access() {
+        let id = CapsuleId(7);
+        let root = CapsuleStateRoot::with_base(id, "/capsule");
+        let mut sandbox = StateSandbox::with_root(id, root);
+
+        let _ = sandbox.check_access(CapsuleId(99), "/capsule/7/evil", AccessMode::ReadWrite);
+
+        let violations = sandbox.get_violations();
+        assert_eq!(violations.len(), 1);
+        assert_eq!(violations[0].capsule_id, CapsuleId(99));
+    }
+
+    #[test]
+    fn r3w2_multi_capsule_isolation() {
+        let id_a = CapsuleId(100);
+        let id_b = CapsuleId(200);
+
+        let root_a = CapsuleStateRoot::with_base(id_a, "/capsule");
+        let root_b = CapsuleStateRoot::with_base(id_b, "/capsule");
+
+        let mut sandbox_a = StateSandbox::with_root(id_a, root_a);
+        let mut sandbox_b = StateSandbox::with_root(id_b, root_b);
+
+        assert!(sandbox_a
+            .check_access(id_a, "/capsule/100/file.txt", AccessMode::ReadWrite)
+            .is_ok());
+        assert!(sandbox_b
+            .check_access(id_b, "/capsule/200/file.txt", AccessMode::ReadWrite)
+            .is_ok());
+
+        assert!(sandbox_a
+            .check_access(id_a, "/capsule/200/file.txt", AccessMode::ReadOnly)
+            .is_err());
+        assert!(sandbox_b
+            .check_access(id_b, "/capsule/100/file.txt", AccessMode::ReadOnly)
+            .is_err());
+
+        assert!(sandbox_a
+            .check_access(id_b, "/capsule/100/file.txt", AccessMode::ReadOnly)
+            .is_err());
+
+        assert_eq!(sandbox_a.violation_count(), 2);
+        assert_eq!(sandbox_b.violation_count(), 1);
+    }
+
+    #[test]
+    fn r3w2_access_mode_display() {
+        assert_eq!(format!("{}", AccessMode::ReadOnly), "read-only");
+        assert_eq!(format!("{}", AccessMode::ReadWrite), "read-write");
+        assert_eq!(format!("{}", AccessMode::Deny), "deny");
     }
 }

@@ -234,11 +234,10 @@ impl DriverRegistry {
             None => return false,
         };
 
-        if capsule.rollback_snapshot_id.is_some() {
+        if let Some(snapshot_id) = capsule.rollback_snapshot_id.take() {
             capsule.canary_result = Some(CanaryBootResult::Rolledback {
-                snapshot_id: capsule.rollback_snapshot_id,
+                snapshot_id,
             });
-            capsule.rollback_snapshot_id = None;
             true
         } else {
             false
@@ -287,8 +286,8 @@ impl DriverRegistry {
     reason = "panic-on-failure is the idiomatic test signal"
 )]
 mod tests {
-    use super::*;
     use super::super::capsule_namespace::{next_capsule_id, CapsuleId};
+    use super::*;
 
     fn valid_signature() -> DriverSignature {
         DriverSignature::new(
@@ -433,8 +432,16 @@ mod tests {
     fn multiple_drivers_per_class() {
         let mut registry = DriverRegistry::new();
 
-        let k1 = DriverCapsule::new(next_capsule_id(), DriverClass::KernelModule, valid_signature());
-        let k2 = DriverCapsule::new(next_capsule_id(), DriverClass::KernelModule, valid_signature());
+        let k1 = DriverCapsule::new(
+            next_capsule_id(),
+            DriverClass::KernelModule,
+            valid_signature(),
+        );
+        let k2 = DriverCapsule::new(
+            next_capsule_id(),
+            DriverClass::KernelModule,
+            valid_signature(),
+        );
         let u1 = DriverCapsule::new(next_capsule_id(), DriverClass::UserSpace, valid_signature());
 
         registry.register(k1).expect("k1");

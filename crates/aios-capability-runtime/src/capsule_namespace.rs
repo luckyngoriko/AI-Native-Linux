@@ -57,6 +57,7 @@ use std::sync::atomic::{AtomicU64, Ordering};
 /// Re-use the capability-rights model from the seL4 module so that every
 /// namespace binding carries an access-rights mask.
 use super::sel4_cap_model::CapRights;
+use serde::{Deserialize, Serialize};
 
 // ---------------------------------------------------------------------------
 // CapsuleId — lightweight capsule identifier
@@ -64,7 +65,7 @@ use super::sel4_cap_model::CapRights;
 
 /// Opaque capsule identifier (analogous to a Plan 9 process id or Inferno
 /// `ref Sys->FD`).
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 pub struct CapsuleId(pub u64);
 
 impl CapsuleId {

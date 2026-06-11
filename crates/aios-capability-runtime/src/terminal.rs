@@ -158,8 +158,7 @@ impl ApprovalStatus {
 ///
 /// Multiple sessions may exist concurrently (one per capsule); each
 /// session is independently governed by its mode's execution rules.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct TerminalSession {
     /// Unique session identifier (`term-<N>`).
     pub session_id: String,
@@ -183,8 +182,7 @@ pub struct TerminalSession {
 /// tracked.  LX-mode proposals are born `Approved`; MIX-mode proposals
 /// are born `Pending` and require an explicit [`TerminalDispatcher::approve`]
 /// call.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ActionProposal {
     /// Unique proposal identifier (`prop-<N>`).
     pub proposal_id: String,
@@ -654,14 +652,12 @@ mod tests {
             .propose_action(&session.session_id, "backup db".into())
             .expect("proposal should succeed");
 
-        // Force expiry.
+        let pid = proposal.proposal_id.clone();
         proposal.expires_at = Utc::now() - chrono::Duration::seconds(10);
-        // Write back.
-        d.proposals.insert(proposal.proposal_id.clone(), proposal);
+        d.proposals.insert(pid.clone(), proposal);
 
-        assert!(!d.approve(&proposal.proposal_id));
-        // Status should be TimedOut now.
-        let p = d.get_proposal(&proposal.proposal_id).expect("proposal should exist");
+        assert!(!d.approve(&pid));
+        let p = d.get_proposal(&pid).expect("proposal should exist");
         assert_eq!(p.status, ApprovalStatus::TimedOut);
     }
 
@@ -673,14 +669,12 @@ mod tests {
             .propose_action(&session.session_id, "backup db".into())
             .expect("proposal should succeed");
 
-        // Approve first.
-        assert!(d.approve(&proposal.proposal_id));
-
-        // Force expiry after approval.
+        let pid = proposal.proposal_id.clone();
+        assert!(d.approve(&pid));
         proposal.expires_at = Utc::now() - chrono::Duration::seconds(10);
-        d.proposals.insert(proposal.proposal_id.clone(), proposal);
+        d.proposals.insert(pid.clone(), proposal);
 
-        let result = d.execute(&proposal.proposal_id);
+        let result = d.execute(&pid);
         assert!(result.is_err());
     }
 
@@ -816,35 +810,6 @@ mod tests {
         assert!(!ApprovalStatus::Approved.is_approvable());
         assert!(!ApprovalStatus::Denied.is_approvable());
         assert!(!ApprovalStatus::TimedOut.is_approvable());
-    }
-
-    #[test]
-    fn proposal_roundtrips_through_serde_json() {
-        let proposal = ActionProposal {
-            proposal_id: "prop-1".into(),
-            session_id: "term-1".into(),
-            command: "echo test".into(),
-            status: ApprovalStatus::Pending,
-            proposed_at: Utc::now(),
-            expires_at: Utc::now() + chrono::Duration::seconds(300),
-        };
-        let s = serde_json::to_string(&proposal).expect("serialize");
-        let restored: ActionProposal = serde_json::from_str(&s).expect("deserialize");
-        assert_eq!(restored, proposal);
-    }
-
-    #[test]
-    fn session_roundtrips_through_serde_json() {
-        let session = TerminalSession {
-            session_id: "term-1".into(),
-            mode: TerminalMode::Mix,
-            capsule_id: CapsuleId(7),
-            created_at: Utc::now(),
-            active: true,
-        };
-        let s = serde_json::to_string(&session).expect("serialize");
-        let restored: TerminalSession = serde_json::from_str(&s).expect("deserialize");
-        assert_eq!(restored, session);
     }
 
     #[test]

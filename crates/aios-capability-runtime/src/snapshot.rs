@@ -60,7 +60,7 @@ use super::sel4_cap_model::CapRights;
 
 /// Global unique identifier for a capsule snapshot.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub struct SnapshotId(u64);
+pub struct SnapshotId(pub u64);
 
 impl SnapshotId {
     /// Raw numeric value.

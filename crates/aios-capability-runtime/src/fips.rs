@@ -34,11 +34,8 @@ impl CryptoOperation {
 /// validation programme.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub enum CryptoProvider {
-    /// FIPS 140-3 validated module (certificate on file).
     FipsValidated,
-    /// Standards-compliant implementation without formal validation.
     Standard,
-    /// Legacy / unvalidated implementation.
     Legacy,
 }
 
@@ -63,12 +60,8 @@ pub struct FipsBoundary {
 /// Decision from the FIPS boundary evaluation.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum CryptoBoundaryDecision {
-    /// Operation is permitted with this provider.
     Allowed,
-    /// Operation requires a FIPS-validated provider, but the current
-    /// provider is not validated.
     RequiresValidated,
-    /// Operation is blocked entirely (legacy provider for sensitive ops).
     Blocked,
 }
 
@@ -84,8 +77,6 @@ impl CryptoBoundaryDecision {
 }
 
 impl FipsBoundary {
-    /// Evaluate whether a given crypto operation is permitted with the
-    /// specified provider.
     #[must_use]
     pub fn evaluate(
         &self,
@@ -121,7 +112,6 @@ pub struct FipsPolicy {
 }
 
 impl FipsPolicy {
-    /// All crypto operations require a FIPS-validated provider.
     #[must_use]
     pub fn default_strict() -> Self {
         use CryptoOperation::*;
@@ -143,8 +133,6 @@ impl FipsPolicy {
         }
     }
 
-    /// Only KeyGen and Sign require a FIPS-validated provider;
-    /// everything else is permitted on standard providers.
     #[must_use]
     pub fn default_standard() -> Self {
         use CryptoOperation::*;
@@ -166,7 +154,6 @@ impl FipsPolicy {
         }
     }
 
-    /// Evaluate an operation against this policy.
     #[must_use]
     pub fn evaluate(
         &self,
@@ -176,8 +163,6 @@ impl FipsPolicy {
         self.boundary.evaluate(op, provider)
     }
 
-    /// Build a custom policy from a list of (operation, required provider)
-    /// pairs.
     #[must_use]
     pub fn custom(boundaries: Vec<(CryptoOperation, CryptoProvider)>) -> Self {
         Self {
@@ -207,7 +192,6 @@ mod tests {
             assert_eq!(
                 policy.evaluate(op, CryptoProvider::FipsValidated),
                 CryptoBoundaryDecision::Allowed,
-                "FipsValidated should allow {op:?}"
             );
         }
     }
@@ -260,7 +244,7 @@ mod tests {
     #[test]
     fn custom_policy_only_encrypt_requires_validated() {
         use CryptoOperation::*;
-        use CryptoProvider::{FipsValidated, Standard};
+        use CryptoProvider::FipsValidated;
 
         let policy = FipsPolicy::custom(vec![(Encrypt, FipsValidated)]);
         assert_eq!(
@@ -315,7 +299,6 @@ mod tests {
 
     #[test]
     fn crypto_provider_ordering_is_variant_order() {
-        // Derived PartialOrd follows variant declaration order.
         assert!(CryptoProvider::FipsValidated < CryptoProvider::Standard);
         assert!(CryptoProvider::Standard < CryptoProvider::Legacy);
     }

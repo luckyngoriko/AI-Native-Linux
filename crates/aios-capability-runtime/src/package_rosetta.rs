@@ -127,8 +127,12 @@ impl PackagePassport {
     /// (including when the signature or key is malformed).
     #[must_use]
     pub fn verify_signature(&self, pubkey: &[u8]) -> bool {
-        let vk = match <[u8; 32]>::try_from(pubkey) {
-            Ok(bytes) => VerifyingKey::from_bytes(&bytes),
+        let key_bytes = match <[u8; 32]>::try_from(pubkey) {
+            Ok(bytes) => bytes,
+            Err(_) => return false,
+        };
+        let vk = match VerifyingKey::from_bytes(&key_bytes) {
+            Ok(key) => key,
             Err(_) => return false,
         };
         let sig_bytes = match <[u8; 64]>::try_from(self.signature.as_slice()) {

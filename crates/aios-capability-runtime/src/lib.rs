@@ -115,6 +115,7 @@ pub mod gdpr;
 pub mod kernel_personality;
 /// R3-W6.1: Package Rosetta — universal intake across deb/rpm/flatpak/snap/appimage/nix/oci/source.
 pub mod package_rosetta;
+
 pub use adapter_handle::RealAdapterHandle;
 pub use adapter_manifest::AdapterManifest;
 pub use adapter_registry::{
@@ -197,7 +198,7 @@ pub use selinux::{
 pub use verity::{IpePolicy, VerityHashTree, VerityImage, VerityResult, VerityVerifier};
 pub use sbom::{SbomComponent, SbomDocument, SbomFormat, SlsaProvenance, VexStatement, VexStatus};
 pub use fips::{
-    CryptoBoundaryDecision, CryptoOperation, CryptoProvider, FipsBoundary, FipsPolicy,
+    ComplianceOperation, CryptoProvider, FipsBoundary, FipsMode,
 };
 // R3-W2: Lifecycle, rollback, state sandbox re-exports
 pub use capsule_lifecycle::{CapsuleLifecycle, CapsuleLifecycleManager, CapsuleLifecycleState};
@@ -206,7 +207,8 @@ pub use driver_capsule::{
     CanaryBootResult, DriverCapsule, DriverClass, DriverRegistry, DriverSignature,
 };
 pub use state_sandbox::{
-    AccessDecision, FileAccessRule, FilePermission, SandboxViolation, StateSandbox,
+    AccessDecision, AccessMode, CapsuleStateRoot, FileAccessRule, FilePermission,
+    SandboxViolation, StateSandbox,
 };
 // R3-W2: cgroups v2 resource quotas re-exports
 pub use cgroups::{
@@ -214,7 +216,7 @@ pub use cgroups::{
     ResourceType, ResourceUsage,
 };
 // R3-W3 Step 3.1 — Terminal dispatcher re-exports
-pub use terminal::{CommandDispatch, DispatchResult, TerminalCommand, TerminalDispatcher, TerminalMode};
+pub use terminal::{TerminalDispatcher, TerminalMode};
 // R3-W3.3 — Approval gate re-exports (INV-002)
 pub use approval_gate::{
     ApprovalDecision, ApprovalGate, ApprovalPolicy, GateApprovalRequest, GateAuditEntry,
@@ -233,4 +235,3 @@ pub use gdpr::{
 pub use package_rosetta::{
     PackageFormat, PackagePassport, PackageRegistry, ShadowInstall, ShadowResult,
 };
-

@@ -65,7 +65,7 @@ use super::sel4_cap_model::CapRights;
 /// Opaque capsule identifier (analogous to a Plan 9 process id or Inferno
 /// `ref Sys->FD`).
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub struct CapsuleId(u64);
+pub struct CapsuleId(pub u64);
 
 impl CapsuleId {
     /// Raw numeric value.

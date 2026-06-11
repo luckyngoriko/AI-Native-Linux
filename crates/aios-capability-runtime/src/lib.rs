@@ -67,6 +67,8 @@ pub mod status;
 pub mod capsule_namespace;
 /// OS-RESEARCH: seL4-inspired capability token model with formal invariants.
 pub mod sel4_cap_model;
+/// OS-RESEARCH: QNX/Plan 9-inspired transparent distributed IPC model.
+pub mod transparent_ipc;
 
 pub use adapter_handle::RealAdapterHandle;
 pub use adapter_manifest::AdapterManifest;
@@ -111,3 +113,6 @@ pub use capsule_namespace::{
     NamespacePath, NamespaceRegistry,
 };
 pub use sel4_cap_model::{CapRight, CapRights, CapToken, CapTokenId, CapTokenTree};
+pub use transparent_ipc::{
+    next_msg_id, CapsuleAddr, CapsuleMessage, MessageRouter, MsgId, MsgType, PendingRequest,
+};

@@ -69,6 +69,8 @@ pub mod capsule_namespace;
 pub mod sel4_cap_model;
 /// OS-RESEARCH: QNX/Plan 9-inspired transparent distributed IPC model.
 pub mod transparent_ipc;
+/// OS-RESEARCH: BeOS/QNX-inspired adaptive partition scheduler.
+pub mod scheduler;
 
 pub use adapter_handle::RealAdapterHandle;
 pub use adapter_manifest::AdapterManifest;
@@ -115,4 +117,8 @@ pub use capsule_namespace::{
 pub use sel4_cap_model::{CapRight, CapRights, CapToken, CapTokenId, CapTokenTree};
 pub use transparent_ipc::{
     next_msg_id, CapsuleAddr, CapsuleMessage, MessageRouter, MsgId, MsgType, PendingRequest,
+};
+pub use scheduler::{
+    AdaptivePartition, CapsulePriority, CapsuleSchedulingEntity, DecisionReason, PartitionScheduler,
+    PriorityBand, SchedulingDecision,
 };

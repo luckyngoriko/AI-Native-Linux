@@ -216,7 +216,7 @@ pub use cgroups::{
     ResourceType, ResourceUsage,
 };
 // R3-W3 Step 3.1 — Terminal dispatcher re-exports
-pub use terminal::{TerminalDispatcher, TerminalMode};
+pub use terminal::{ActionProposal, ApprovalStatus, TerminalDispatcher, TerminalMode, TerminalSession};
 // R3-W3.3 — Approval gate re-exports (INV-002)
 pub use approval_gate::{
     ApprovalDecision, ApprovalGate, ApprovalPolicy, GateApprovalRequest, GateAuditEntry,

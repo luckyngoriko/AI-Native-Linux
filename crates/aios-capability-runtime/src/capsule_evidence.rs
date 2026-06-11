@@ -349,6 +349,7 @@ impl EvidenceChain {
 #[allow(
     clippy::expect_used,
     clippy::panic,
+    unused_must_use,
     reason = "panic-on-failure is the idiomatic test signal"
 )]
 mod tests {
@@ -485,7 +486,7 @@ mod tests {
         let summary = ev.summary();
         assert!(summary.contains("[capsule-7]"));
         assert!(summary.contains("Crashed"));
-        assert!(summary.contains("2026-06-11T12:00:00"));
+        assert!(summary.contains("2026-06-11 12:00:00"));
     }
 
     #[test]

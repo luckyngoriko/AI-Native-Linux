@@ -367,12 +367,12 @@ impl PackageRegistry {
     /// Extract a human-readable package name from a filesystem path.
     fn extract_name_from_path(path: &str) -> String {
         let filename = path.rsplit('/').next().unwrap_or(path);
+        // Strip only the file extension (last dot), preserving internal dots
         let name = filename
-            .rsplit('.')
-            .skip(1)
-            .collect::<Vec<_>>()
-            .join(".");
-        if name.is_empty() { filename.to_string() } else { name }
+            .rfind('.')
+            .map(|dot_idx| &filename[..dot_idx])
+            .unwrap_or(filename);
+        name.to_string()
     }
 }
 
@@ -425,7 +425,7 @@ fn default_capability_manifest(format: PackageFormat) -> Vec<String> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use ed25519_dalek::{SecretKey, Signer, SigningKey};
+    use ed25519_dalek::{Signer, SigningKey};
     use rand_core::OsRng;
 
     // ------------------------------------------------------------------
@@ -646,7 +646,7 @@ mod tests {
         assert!(body_str.contains("hash123"));
         assert!(body_str.contains("net_admin"));
         // The signature bytes 1,2,3 should NOT appear in the canonical body.
-        assert!(!body_str.contains(&String::from_utf8_lossy(&[1, 2, 3])));
+        assert!(!body_str.contains(&*String::from_utf8_lossy(&[1, 2, 3])));
     }
 
     // ------------------------------------------------------------------

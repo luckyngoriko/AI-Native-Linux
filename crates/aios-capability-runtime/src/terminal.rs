@@ -686,9 +686,9 @@ mod tests {
     fn closed_session_cannot_propose() {
         let mut d = new_dispatcher();
         let session = d.new_session(TerminalMode::Mix, CapsuleId(1));
-        assert!(d.close_session(&session.session_id));
-        assert!(!session.active); // but we use the stored copy above, re-fetch
-        let result = d.propose_action(&session.session_id, "cmd".into());
+        let sid = session.session_id.clone();
+        assert!(d.close_session(&sid));
+        let result = d.propose_action(&sid, "cmd".into());
         assert!(result.is_err());
         assert!(result.unwrap_err().contains("not active"));
     }

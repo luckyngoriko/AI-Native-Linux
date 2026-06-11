@@ -378,10 +378,9 @@ mod tests {
         let id = next_capsule_id();
         let snap_id = SnapshotId(42);
         let mut capsule = DriverCapsule::new(id, DriverClass::UserSpace, valid_signature());
-        capsule.rollback_snapshot_id = Some(snap_id.clone());
+        capsule.rollback_snapshot_id = Some(snap_id);
         registry.register(capsule).expect("register should succeed");
 
-        // First, set a successful canary result so we can observe the rollback.
         registry.canary_boot(id);
         assert!(registry.get(id).expect("exists").is_booted_safe());
 
@@ -389,9 +388,9 @@ mod tests {
         assert!(rolled);
 
         let capsule = registry.get(id).expect("capsule should still exist");
-        match capsule.canary_result {
+        match capsule.canary_result.as_ref() {
             Some(CanaryBootResult::Rolledback { snapshot_id }) => {
-                assert_eq!(snapshot_id, snap_id);
+                assert_eq!(*snapshot_id, snap_id);
             }
             other => panic!("expected Rolledback, got {:?}", other),
         }

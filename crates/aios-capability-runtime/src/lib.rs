@@ -57,6 +57,7 @@ pub mod evidence_payloads;
 pub mod failure;
 pub mod pipeline;
 pub mod rollback;
+pub mod rollback_engine;
 pub mod rollback_strategy;
 pub mod runtime;
 /// T-033 — gRPC `CapabilityRuntime` service surface
@@ -77,6 +78,20 @@ pub mod recursive_sandbox;
 pub mod snapshot;
 /// OS-RESEARCH: Singularity/Midori-inspired managed-code isolation boundary.
 pub mod managed_isolate;
+/// OS-RESEARCH: TCG TPM 2.0 dual-chain attestation root (S16.4).
+pub mod tpm;
+/// OS-RESEARCH: NSA SELinux/Flask-inspired mandatory access control policy plane (S16.2).
+pub mod selinux;
+/// Security Profile Matrix — Rev.3 S16.1 four-profile model with 14 dimensions.
+pub mod security_profile;
+/// OS-RESEARCH: Linux IMA/EVM integrity measurement and appraisal (S16.4).
+pub mod ima;
+/// R3-W1: dm-verity / IPE immutable root filesystem integrity.
+pub mod verity;
+/// R3-W1: SBOM provenance and SLSA supply-chain evidence.
+pub mod sbom;
+/// R3-W2: Capsule lifecycle manager integrating sandbox/isolation/namespace/snapshot.
+pub mod capsule_lifecycle;
 
 pub use adapter_handle::RealAdapterHandle;
 pub use adapter_manifest::AdapterManifest;
@@ -108,6 +123,9 @@ pub use pipeline::{
     DispatchKindInputs, PipelineState, TRANSITIONS,
 };
 pub use rollback::RollbackDriver;
+pub use rollback_engine::{
+    RollbackDecision, RollbackEngine, RollbackPolicy, RollbackResult,
+};
 pub use rollback_strategy::{RollbackFailureMode, RollbackStrategy};
 pub use runtime::{
     AdapterHandle, AdapterRegistry, CapabilityRuntime, InMemoryCapabilityRuntime,
@@ -134,3 +152,27 @@ pub use recursive_sandbox::{
 };
 pub use snapshot::{CapsuleSnapshot, SnapshotId, SnapshotPayload, SnapshotStore};
 pub use managed_isolate::{IsolationMechanism, IsolationRegistry, ManagedIsolate};
+pub use tpm::{
+    BootIntegrityVerifier, BootPosture, BootPostureReport, GoldenPcrValues,
+    PcrBank, PcrRegister, PcrValue, PcrVerificationDetail, RootIntegrityEvidence,
+    TpmAttestationKey, TpmQuote,
+};
+pub use security_profile::{
+    FipsOverlay, ProfileDimension, ProfileManifest, ProfileMatrix, ProfileRequirement,
+    ProfileTransition, SecurityProfile,
+};
+// IMA re-exports
+pub use ima::{
+    ImaAppraisalState, ImaMeasurement, ImaMeasurementList, ImaPolicy, ImaVerifier,
+    IntegrityViolation,
+};
+// SELinux re-exports
+pub use selinux::{
+    AvcDenial, SeLinuxContext, SeLinuxDomain, SeLinuxPermission, SeLinuxRule,
+    SePolicyBundle, SePolicyValidator, ValidationError, AIOS_DATA_DOMAIN, AIOS_SYSTEM_DOMAIN,
+};
+// R3-W1: verity, SBOM re-exports
+pub use verity::{IpePolicy, VerityHashTree, VerityImage, VerityResult, VerityVerifier};
+pub use sbom::{SbomComponent, SbomDocument, SbomFormat, SlsaProvenance, VexStatement, VexStatus};
+// R3-W2: Lifecycle, rollback re-exports
+pub use capsule_lifecycle::{CapsuleLifecycle, CapsuleLifecycleManager, CapsuleLifecycleState};

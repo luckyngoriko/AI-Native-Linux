@@ -1,0 +1,30 @@
+syntax = "proto3";
+
+package aios.mobile.v1alpha1;
+
+service MobileApprovalService {
+    rpc PushApproval(PushApprovalRequest) returns (PushApprovalResponse);
+    rpc GetApprovalStatus(GetApprovalStatusRequest) returns (GetApprovalStatusResponse);
+}
+
+message PushApprovalRequest {
+    string request_id = 1;
+    string surface_id = 2;
+    string bound_action_request_id = 3;
+    string bound_action_canonical_hash = 4;
+    int64 ttl_seconds = 5;
+}
+
+message PushApprovalResponse {
+    bool accepted = 1;
+    string push_id = 2;
+}
+
+message GetApprovalStatusRequest {
+    string request_id = 1;
+}
+
+message GetApprovalStatusResponse {
+    string state = 1;
+    string verdict = 2;
+}

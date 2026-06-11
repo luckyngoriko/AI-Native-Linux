@@ -1,0 +1,42 @@
+[package]
+name = "aios-backup"
+description = "AIOS S26 — Backup, Disaster Recovery, and Capsule Mobility."
+edition.workspace = true
+rust-version.workspace = true
+version = "0.1.0"
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+
+[dependencies]
+aios-action = { path = "../aios-action" }
+aios-policy = { path = "../aios-policy" }
+aios-evidence = { path = "../aios-evidence" }
+aios-fs = { path = "../aios-fs" }
+aios-vault = { path = "../aios-vault" }
+aios-recovery = { path = "../aios-recovery" }
+aios-apps = { path = "../aios-apps" }
+aios-sandbox = { path = "../aios-sandbox" }
+aios-distribution = { path = "../aios-distribution" }
+
+serde        = { workspace = true }
+serde_json   = { workspace = true }
+thiserror    = { workspace = true }
+ulid         = { workspace = true }
+blake3       = { workspace = true }
+chrono       = { workspace = true }
+strum        = { workspace = true }
+strum_macros = { workspace = true }
+sha2         = { workspace = true }
+aes-gcm      = { workspace = true }
+tonic        = { workspace = true }
+prost        = { workspace = true }
+prost-types  = { workspace = true }
+tokio        = { workspace = true }
+
+[build-dependencies]
+tonic-build = { workspace = true }
+protoc-bin-vendored = { workspace = true }
+
+[lints]
+workspace = true

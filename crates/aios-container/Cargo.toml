@@ -1,0 +1,39 @@
+[package]
+name = "aios-container"
+description = "AIOS S24 — Container and Kubernetes Native Plane"
+edition.workspace = true
+rust-version.workspace = true
+version = "0.1.0"
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+
+[dependencies]
+aios-action       = { path = "../aios-action" }
+aios-policy       = { path = "../aios-policy" }
+aios-evidence     = { path = "../aios-evidence" }
+aios-apps         = { path = "../aios-apps" }
+aios-sandbox      = { path = "../aios-sandbox" }
+aios-network      = { path = "../aios-network" }
+aios-distribution = { path = "../aios-distribution" }
+serde             = { workspace = true }
+serde_json        = { workspace = true }
+chrono            = { workspace = true }
+strum             = { workspace = true }
+strum_macros      = { workspace = true }
+thiserror         = { workspace = true }
+ulid              = { workspace = true }
+blake3            = { workspace = true }
+ed25519-dalek     = { workspace = true }
+tokio             = { workspace = true }
+async-trait       = { workspace = true }
+tonic             = { workspace = true }
+prost             = { workspace = true }
+prost-types       = { workspace = true }
+
+[build-dependencies]
+tonic-build         = { workspace = true }
+protoc-bin-vendored = { workspace = true }
+
+[lints]
+workspace = true

@@ -1,0 +1,37 @@
+syntax = "proto3";
+
+package aios.backup.v1alpha1;
+
+service BackupService {
+    rpc CreateBackupSet (CreateBackupSetRequest) returns (CreateBackupSetResponse);
+    rpc GetBackupSet (GetBackupSetRequest) returns (GetBackupSetResponse);
+    rpc ListBackupSets (ListBackupSetsRequest) returns (ListBackupSetsResponse);
+}
+
+message CreateBackupSetRequest {
+    string contract_id = 1;
+    string host_id = 2;
+}
+
+message CreateBackupSetResponse {
+    string set_id = 1;
+}
+
+message GetBackupSetRequest {
+    string set_id = 1;
+}
+
+message GetBackupSetResponse {
+    string set_id = 1;
+    string contract_id = 2;
+    string host_id = 3;
+    string state = 4;
+}
+
+message ListBackupSetsRequest {
+    string host_id = 1;
+}
+
+message ListBackupSetsResponse {
+    repeated GetBackupSetResponse sets = 1;
+}

@@ -20,6 +20,12 @@ members = [
     "crates/aios-integration",
     "crates/aios-network",
     "crates/aios-renderer-web",
+    "crates/aios-fleet",
+    "crates/aios-container",
+    "crates/aios-backup",
+    "crates/aios-time",
+    "crates/aios-mobile",
+    "crates/aios-eval",
 ]
 
 # Crates added later (per §22 MVP golden path order):

@@ -75,6 +75,8 @@ pub mod scheduler;
 pub mod recursive_sandbox;
 /// OS-RESEARCH: Plan 9 Fossil/Singularity-inspired capsule snapshot & restore.
 pub mod snapshot;
+/// OS-RESEARCH: Singularity/Midori-inspired managed-code isolation boundary.
+pub mod managed_isolate;
 
 pub use adapter_handle::RealAdapterHandle;
 pub use adapter_manifest::AdapterManifest;
@@ -131,3 +133,4 @@ pub use recursive_sandbox::{
     MAX_DEPTH,
 };
 pub use snapshot::{CapsuleSnapshot, SnapshotId, SnapshotPayload, SnapshotStore};
+pub use managed_isolate::{IsolationMechanism, IsolationRegistry, ManagedIsolate};

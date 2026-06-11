@@ -1,0 +1,30 @@
+[package]
+name = "aios-terminal"
+description = "AIOS S20 Native AI Control Plane Terminal — 3-mode terminal surface (LX/MIX/AI), typed-action fabric, EU AI Act compliance, prompt-injection safety."
+edition.workspace = true
+rust-version.workspace = true
+version = "0.1.0"
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+
+[dependencies]
+aios-action    = { path = "../aios-action" }
+aios-policy    = { path = "../aios-policy" }
+aios-cognitive = { path = "../aios-cognitive" }
+aios-evidence  = { path = "../aios-evidence" }
+aios-capability-runtime = { path = "../aios-capability-runtime" }
+serde          = { workspace = true }
+serde_json     = { workspace = true }
+chrono         = { workspace = true }
+strum          = { workspace = true }
+strum_macros   = { workspace = true }
+thiserror      = { workspace = true }
+ulid           = { workspace = true }
+tokio          = { workspace = true, features = ["macros", "sync"] }
+async-trait    = { workspace = true }
+ed25519-dalek  = { workspace = true }
+tracing        = { workspace = true }
+
+[lints]
+workspace = true

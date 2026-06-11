@@ -21,10 +21,10 @@ use aios_evidence::{EvidenceError, EvidenceReceipt, ReceiptBuilder, ReceiptChain
 
 use crate::circuit::CircuitState;
 use crate::evidence_payloads::{
-    AiDirectInternetDeniedPayload, CircuitBreakerTrippedPayload, ModelCallPayload,
-    RoutingDecisionPayload,
+    AiDirectInternetDeniedPayload, BackendHealthChangedPayload, CircuitBreakerTrippedPayload,
+    ModelCallPayload, RoutingDecisionPayload,
 };
-use crate::routing::{AICrossOriginPosture, ModelBackendKind};
+use crate::routing::{AICrossOriginPosture, BackendHealthState, ModelBackendKind, ProviderClass};
 use crate::CognitiveError;
 
 /// Constitutional default subject id for cognitive evidence emissions.
@@ -290,6 +290,34 @@ impl CognitiveEvidenceEmitter {
         };
         self.emit(RecordType::AiDirectInternetDenied, &payload)
             .await
+    }
+
+    /// Emit `STATUS_TRANSITION` when a backend health state changes.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`CognitiveError::EvidenceEmitFailed`] when evidence append fails.
+    pub async fn emit_backend_health_changed(
+        &self,
+        backend_kind: ModelBackendKind,
+        provider_class: ProviderClass,
+        from_state: BackendHealthState,
+        to_state: BackendHealthState,
+        last_latency_ms: u64,
+        consecutive_failures: u32,
+        last_error: Option<&str>,
+    ) -> Result<String, CognitiveError> {
+        let payload = BackendHealthChangedPayload {
+            backend_kind,
+            provider_class,
+            from_state,
+            to_state,
+            last_latency_ms,
+            consecutive_failures,
+            last_error: last_error.map(str::to_string),
+            transitioned_at: Utc::now(),
+        };
+        self.emit(RecordType::StatusTransition, &payload).await
     }
 }
 

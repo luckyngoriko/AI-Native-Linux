@@ -26,6 +26,9 @@ tonic          = { workspace = true }
 prost          = { workspace = true }
 prost-types    = { workspace = true }
 ed25519-dalek  = { workspace = true }
+reqwest        = { workspace = true }
+futures        = { workspace = true }
+tracing        = { workspace = true }
 
 [dev-dependencies]
 aios-policy = { path = "../aios-policy" }

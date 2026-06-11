@@ -1,0 +1,28 @@
+[ollama]
+enabled = true
+host = "127.0.0.1"
+port = 11434
+models_dir = "/var/lib/aios/models/ollama"
+keep_alive = "24h"
+num_parallel = 4
+max_loaded_models = 3
+
+[vllm]
+enabled = false  # requires GPU
+host = "127.0.0.1"
+port = 8000
+models_dir = "/var/lib/aios/models/vllm"
+tensor_parallel_size = "auto"
+max_model_len = 32768
+gpu_memory_utilization = 0.90
+
+[models]
+default_local = "llama3.2:3b"  # for Rev.5 MVP
+fallback_local = "phi3:mini"
+max_disk_gb = 50
+auto_gc_enabled = true
+auto_gc_retention_days = 30
+
+[gpu]
+enabled = false  # false for CPU-only laptops
+preferred_device = "auto"  # auto|cuda|rocm|metal

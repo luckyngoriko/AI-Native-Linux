@@ -18,6 +18,8 @@ pub mod error;
 pub mod evidence_emit;
 /// Typed cognitive evidence payloads.
 pub mod evidence_payloads;
+/// Live backend health monitoring loop.
+pub mod health_monitor;
 /// `InMemoryCognitiveCore` — test/prototype implementation of `CognitiveCore`.
 pub mod in_memory_core;
 /// `CognitiveIntent` + `IntentId` + `SubjectRef`.
@@ -44,8 +46,14 @@ pub mod router_state;
 pub mod routing;
 /// gRPC CognitiveCore service (T-101, S13.1 §19).
 pub mod service;
+/// Provider adapters — Ollama HTTP client, vLLM, etc.
+pub mod adapter;
+/// Production `CognitiveCore` — wires Ollama/vLLM adapters into the cognitive pipeline.
+pub mod production_core;
 /// `TranslationResult` + `TranslationProvenance`.
 pub mod translator;
+/// LLM-driven capability translator engine (Rev.5 Agent 5/8).
+pub mod translator_engine;
 
 // Re-exports — flattened public surface
 pub use breaker::{AdmissionTicket, CallOutcome, CircuitBreaker};
@@ -58,8 +66,8 @@ pub use evidence_emit::{
     InMemoryCognitiveEvidenceLog, AIOS_COGNITIVE_SUBJECT,
 };
 pub use evidence_payloads::{
-    AiDirectInternetDeniedPayload, CircuitBreakerTrippedPayload, ModelCallPayload,
-    RoutingDecisionPayload,
+    AiDirectInternetDeniedPayload, BackendHealthChangedPayload, CircuitBreakerTrippedPayload,
+    ModelCallPayload, RoutingDecisionPayload,
 };
 pub use in_memory_core::InMemoryCognitiveCore;
 pub use intent::{CognitiveIntent, IntentId, SubjectRef};
@@ -68,10 +76,12 @@ pub use latency_classifier::LatencyClassifier;
 pub use model::{CognitiveModel, ModelId};
 pub use model_binding::{ModelBinding, ModelBindingRegistry};
 pub use model_catalog::CognitiveModelCatalog;
+pub use production_core::ProductionCognitiveCore;
 pub use provenance_adapter::{CognitiveProvenanceAdapter, PROVENANCE_MARKER_KEY};
 pub use provider_dispatch::{
     DispatchOutcome, ProviderDispatcher, VaultClientAdapter, VaultRequest, VaultResponse,
 };
+pub use health_monitor::{BackendHealthSnapshot, HealthMonitor, HealthMonitorConfig, HealthReport};
 pub use router::{ModelRouter, RoutingRule};
 pub use router_state::RouterState;
 pub use routing::{
@@ -79,6 +89,7 @@ pub use routing::{
     RoutingDecision, RoutingInputs,
 };
 pub use translator::{TranslationProvenance, TranslationResult};
+pub use translator_engine::{TranslateResponse, TranslatorEngine};
 
 /// Crate version marker — bump on every semantic change.
 pub const DEFAULT_CODE_VERSION: &str = "aios-cognitive/0.1.0-T105";

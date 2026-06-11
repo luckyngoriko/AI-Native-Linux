@@ -1,0 +1,23 @@
+[Unit]
+Description=AI-OS.NET vLLM High-Performance Inference Server
+Documentation=https://ai-os.net/docs/vllm
+After=network.target aios-vault-broker.service aios-ollama.service
+Requires=aios-ollama.service
+ConditionPathExists=/dev/dri/renderD128
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/python3 -m vllm.entrypoints.openai.api_server --host 127.0.0.1 --port 8000 --model /var/lib/aios/models/vllm/default --tensor-parallel-size auto --max-model-len 32768 --gpu-memory-utilization 0.90
+Environment=CUDA_VISIBLE_DEVICES=0
+Environment=VLLM_MODEL_PATH=/var/lib/aios/models/vllm
+Restart=on-failure
+RestartSec=10
+LimitNOFILE=65536
+PrivateTmp=yes
+ProtectSystem=strict
+ReadWritePaths=/var/lib/aios/models/vllm
+NoNewPrivileges=yes
+MemoryMax=90%
+
+[Install]
+WantedBy=multi-user.target

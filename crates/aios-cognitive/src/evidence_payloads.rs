@@ -12,7 +12,7 @@ use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
 use crate::circuit::CircuitState;
-use crate::routing::{AICrossOriginPosture, ModelBackendKind};
+use crate::routing::{AICrossOriginPosture, BackendHealthState, ModelBackendKind, ProviderClass};
 
 /// Payload for `MODEL_CALL` (`RecordType` ID 13).
 ///
@@ -98,6 +98,33 @@ pub struct AiDirectInternetDeniedPayload {
     pub attempt_summary: String,
     /// UTC timestamp when the denial occurred.
     pub denied_at: DateTime<Utc>,
+}
+
+/// Payload for `STATUS_TRANSITION` (`RecordType` ID 388) — backend health state change.
+///
+/// # INV-015 / INV-018
+///
+/// Carries only the backend identification, state transition, latency, and error
+/// summary. No prompt, response, or key material.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case", deny_unknown_fields)]
+pub struct BackendHealthChangedPayload {
+    /// Which backend kind changed state.
+    pub backend_kind: ModelBackendKind,
+    /// Provider class of the backend.
+    pub provider_class: ProviderClass,
+    /// State before the transition.
+    pub from_state: BackendHealthState,
+    /// State after the transition.
+    pub to_state: BackendHealthState,
+    /// Last measured latency in milliseconds.
+    pub last_latency_ms: u64,
+    /// Consecutive failure count at transition time.
+    pub consecutive_failures: u32,
+    /// Error message from the last failed check, if any.
+    pub last_error: Option<String>,
+    /// UTC timestamp when the state transition occurred.
+    pub transitioned_at: DateTime<Utc>,
 }
 
 #[cfg(test)]

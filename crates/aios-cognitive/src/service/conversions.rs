@@ -189,6 +189,9 @@ pub fn cognitive_error_to_status(err: &CognitiveError) -> Status {
         CognitiveError::EvidenceEmitFailed(msg) => {
             Status::new(Code::Internal, format!("evidence emit failed: {msg}"))
         }
+        CognitiveError::TranslationFailed(msg) => {
+            Status::new(Code::Internal, format!("translation failed: {msg}"))
+        }
     }
 }
 
@@ -210,7 +213,8 @@ pub const fn cognitive_error_to_proto_code(err: &CognitiveError) -> i32 {
         CognitiveError::NoRouteAvailable(_)
         | CognitiveError::CircuitBreakerOpen(_)
         | CognitiveError::Internal(_)
-        | CognitiveError::EvidenceEmitFailed(_) => proto::CognitiveErrorCode::ModelUnavailable,
+        | CognitiveError::EvidenceEmitFailed(_)
+        | CognitiveError::TranslationFailed(_) => proto::CognitiveErrorCode::ModelUnavailable,
         CognitiveError::ExternalBackendBlocked { .. }
         | CognitiveError::VaultCredentialMissing(_) => {
             proto::CognitiveErrorCode::ExternalModelCallRejected

@@ -39,13 +39,22 @@ tonic-build         = { workspace = true }
 protoc-bin-vendored = { workspace = true }
 
 [dev-dependencies]
-tokio       = { workspace = true, features = ["rt-multi-thread", "macros", "test-util"] }
-tokio-stream = { workspace = true }
-chrono      = { workspace = true }
-rand_core   = { workspace = true }
-ed25519-dalek = { workspace = true }
-assert_cmd  = "2"
-predicates  = "3"
+tokio           = { workspace = true, features = ["rt-multi-thread", "macros", "test-util"] }
+tokio-stream    = { workspace = true }
+chrono          = { workspace = true }
+serde_json      = { workspace = true }
+ulid            = { workspace = true }
+rand_core       = { workspace = true }
+ed25519-dalek   = { workspace = true }
+assert_cmd      = "2"
+predicates      = "3"
+aios-cognitive   = { path = "../aios-cognitive" }
+aios-terminal    = { path = "../aios-terminal" }
+aios-action      = { path = "../aios-action" }
+aios-policy      = { path = "../aios-policy" }
+aios-evidence    = { path = "../aios-evidence" }
+aios-capability-runtime = { path = "../aios-capability-runtime" }
+aios-eval        = { path = "../aios-eval" }
 
 [lints]
 workspace = true

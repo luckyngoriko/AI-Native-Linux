@@ -68,4 +68,8 @@ pub enum CognitiveError {
     /// a signed receipt to the evidence log.
     #[error("evidence emission failed: {0}")]
     EvidenceEmitFailed(String),
+
+    /// The LLM translator failed to produce a usable structured response.
+    #[error("translation failed: {0}")]
+    TranslationFailed(String),
 }

@@ -71,6 +71,8 @@ pub mod sel4_cap_model;
 pub mod transparent_ipc;
 /// OS-RESEARCH: BeOS/QNX-inspired adaptive partition scheduler.
 pub mod scheduler;
+/// OS-RESEARCH: Genode/seL4-inspired recursive sandbox hierarchy.
+pub mod recursive_sandbox;
 
 pub use adapter_handle::RealAdapterHandle;
 pub use adapter_manifest::AdapterManifest;
@@ -121,4 +123,8 @@ pub use transparent_ipc::{
 pub use scheduler::{
     AdaptivePartition, CapsulePriority, CapsuleSchedulingEntity, DecisionReason, PartitionScheduler,
     PriorityBand, SchedulingDecision,
+};
+pub use recursive_sandbox::{
+    RecursiveSandbox, SandboxCapability, SandboxHierarchy, SandboxLevel, SandboxResource,
+    MAX_DEPTH,
 };

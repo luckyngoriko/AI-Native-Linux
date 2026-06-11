@@ -929,3 +929,60 @@ T-186: M18 closer + acceptance test + v0.1.0 version bump + S11.4 sub-spec final
   result: M20 CLOSED. Both Rev.2 deferred surfaces now REAL. No remaining deferred logic.
   status: SUCCESS. Rev.2 FULL-REAL + M20 = complete implemented surface.
   next: productization only (bootable ISO, CI pipeline, production StateProbe adapters to live L2/L4/L8/L9 state). Rev.3 still spec-only.
+[2026-06-09] TSK-RECOVERY-SUB-BOUNDARY — MINIX-inspired multi-level recovery boundaries for aios-recovery
+  Implementation:
+    - RecoverySubBoundary enum (Network/Storage/Compute/SystemFull) with from_mutable_scope() + contains()
+    - active_sub_boundaries field on RecoveryState with #[serde(default)]
+    - 3 new trait methods on RecoveryBoundary: enter_sub_boundary / exit_sub_boundary / is_sub_recovery_active
+    - InMemoryRecoveryBoundary implements all 3 with active_sub_boundaries tracking
+    - self_healing_driver evaluate() uses per-component sub-boundary gates (iterates all allowed scopes)
+    - self_healing_driver execute_heal() maps required_scope → sub-boundary for INV-012
+    - enter_recovery() adds SystemFull to active_sub_boundaries for backward compat
+  Files modified (9):
+    crates/aios-recovery/src/mode.rs               — RecoverySubBoundary enum + RecoveryState field
+    crates/aios-recovery/src/boundary.rs           — 3 new trait methods
+    crates/aios-recovery/src/in_memory_boundary.rs — implementations + enter/exit_recovery updates
+    crates/aios-recovery/src/self_healing_driver.rs — evaluate() + execute_heal() sub-boundary gates
+    crates/aios-recovery/src/lib.rs                — re-export RecoverySubBoundary
+    crates/aios-recovery/src/service/conversions.rs — active_sub_boundaries: Vec::new()
+    crates/aios-recovery/tests/self_healing.rs     — 19 new tests
+    crates/aios-recovery/tests/grpc_roundtrip.rs   — struct literal updated
+    crates/aios-recovery/tests/types_roundtrip.rs   — struct literal updated
+  Gates:
+    cargo check --workspace                           PASS
+    cargo clippy -p aios-recovery -- -D warnings       PASS (0 warnings)
+    cargo test -p aios-recovery                         PASS (228 tests, 0 failures)
+      - self_healing: 113 (94 original + 19 new)
+      - boundary: 14
+      - cross_crate_integration: 14
+      - evidence_emission: 17
+      - first_boot: 14
+      - grpc_roundtrip: 15
+      - kernel_pipeline: 15
+      - m9_closure: 11
+      - mvp_full_real_path: 1
+      - recovery_guard: 12
+      - types_roundtrip: 12
+      - unit tests: 11
+      - acceptance_fixtures: 12
+  Tests added (19 new):
+    - RecoverySubBoundary::from_mutable_scope maps correctly (1 test)
+    - RecoverySubBoundary::contains is reflexive + SystemFull contains all + no cross-contain (3 tests)
+    - RecoverySubBoundary default is SystemFull + serde round-trip + SCREAMING_SNAKE_CASE (3 tests)
+    - RecoveryState backward-compat deserialization without active_sub_boundaries (1 test)
+    - InMemoryBoundary enter/exit/duplicate/multiple/SystemFull tracking (6 tests)
+    - Driver: heal in Network sub-boundary without full recovery (1 test)
+    - Driver: heal denied when sub-boundary not active (1 test)
+    - Driver: Compute sub-boundary allows ProcessLifecycle healing (1 test)
+    - Driver: full recovery still works with sub-boundary impl (1 test)
+    - Driver: exit SystemFull via exit_token clears active_sub_boundaries (1 test)
+  Status: SUCCESS
+  Next: NONE — task complete per spec
+
+[2026-06-11 12:32] TSK-OS-RESEARCH-001 — OS Research Benchmark
+  Step: Authored comprehensive OS research document
+  Commands: write OS_RESEARCH_BENCHMARK.md (1346 lines, 68KB)
+  Result: SUCCESS — document covers 12 OSes with architecture diagrams, cross-cutting patterns, and AIOS applicability matrix
+  Status: Complete (v1)
+  Next: Compress context, commit to git
+

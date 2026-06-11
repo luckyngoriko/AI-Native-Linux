@@ -1,47 +1,41 @@
 {
-  "project_goal": "AIOS — AI-native Linux distribution. Implement the spec contracts from rev.2 (53 sub-specs CONTRACT-grade) into working Rust code, following §22 MVP golden path discipline.",
-  "current_milestone": "M20 (discharge deferred surfaces) — CLOSED. Both clusters REAL: cluster 1 = L5 cognitive 10 gRPC RPCs (T-199 b6223f6); cluster 2 = L9 22 Tier-3 verification primitives via StateProbe (T-200 1dae67c). M20 docs closed at b634509. Rev.2 FULL-REAL (19/19) + M20 = no remaining deferred logic; 4475 workspace tests, 0 failed.",
-  "current_task_id": "T-200",
-  "current_task_title": "T-200 COMMITTED — M20 cluster 2: aios-verification 22 Tier-3 primitives made real via injected StateProbe (single observe(primitive,key) method; StdStateProbe=probe_error default, MockStateProbe in tests; tier3::execute Comparison table). Wired state_probe through executor + InMemoryVerificationEngine::with_state_probe. Flipped primitives_tier3/acceptance_fixtures/m8_closure/executor tests from deferral to real. No version bump. Workspace 4475 passed/0 failed; clippy+fmt clean.",
-  "current_step": "M20 CLOSED at b634509 (T-199 cognitive + T-200 verification + closure docs). All Rev.2 deferred surfaces are now REAL. Pending: push remaining commits. Remaining productization (NOT deferred logic): bootable ISO, CI pipeline, production StateProbe adapters to live L2/L4/L8/L9 state. See [[aios-deferred-surfaces]].",
+  "project_goal": "AIOS recovery crate — MINIX-inspired multi-level recovery boundaries; complemented by OS kernel research for AI-OS.NET",
+  "current_milestone": "OS Architecture Research Benchmark (12 OSes surveyed)",
+  "current_task_id": "TSK-OS-RESEARCH-001",
+  "current_task_title": "Comprehensive OS research benchmark: 12 exotic-to-massive operating systems analyzed for AIOS kernel design patterns",
+  "current_step": "complete (v1 document written, 1346 lines, 68KB)",
+  "completed_steps": [
+    "Gathered Wikipedia research on 12 operating systems: BeOS, Haiku, L4, seL4, Plan 9, Inferno, Singularity, Midori, QNX, Exokernel, Fuchsia, Genode",
+    "Authored OS_RESEARCH_BENCHMARK.md (1346 lines, 68KB) in 003.AI-OS.NET--SPECREV.3/",
+    "Documented BeOS multimedia architecture (BMediaNode DAG, BBufferGroup, media_server, real-time scheduling)",
+    "Documented seL4 formal verification chain (abstract spec → C → binary → hardware, capability security)",
+    "Documented QNX commercial microkernel (MsgSend CPU transfer, userspace drivers, 275M+ vehicles)",
+    "Documented Plan 9 namespace architecture (per-process namespaces, 9P, factotum, plumber, Fossil/Venti)",
+    "Created cross-cutting architecture patterns section (capability curve, namespace security, IPC as universal mechanism, userspace drivers, formal methods at scale)",
+    "Created AIOS applicability matrix ranking 12 OSes from CRITICAL to MEDIUM priority",
+    "Updated memory files: memory.json, tasks.json, progress.log, global_memory.json"
+  ],
+  "remaining_steps": [],
   "files_touched": [
-    "crates/aios-distribution/Cargo.toml",
-    "crates/aios-distribution/tests/m19_closure.rs",
-    "crates/aios-distribution/tests/m19_acceptance.rs",
-    "MILESTONES.md",
-    "Cargo.lock"
+    "003.AI-OS.NET--SPECREV.3/OS_RESEARCH_BENCHMARK.md (new, 1346 lines, 68KB)",
+    ".ai/memory.json",
+    ".ai/tasks.json",
+    ".ai/progress.log",
+    ".ai/global_memory.json"
   ],
   "discovered_constraints": [
-    "ed25519-dalek 2.1 API: VerifyingKey::verify_strict() not verify()",
-    "Signature::from_slice() returns Result, not Option",
-    "tokio::sync::RwLock has NO lock poisoning — .read().await / .write().await return guard directly, NOT Result",
-    "std::sync::RwLockWriteGuard is NOT Send — must be dropped before .await points in tonic gRPC handlers. Scope guard in a block { let guard = ...; ...; drop(guard); (result) } so it drops before the await",
-    "Workspace lints: all=deny, pedantic=warn, nursery=warn, unwrap_used=deny, expect_used=deny, panic=deny, unsafe_code=deny, todo=deny, unimplemented=deny",
-    "tonic in-process test pattern: TcpListener bind 127.0.0.1:0 → drop → serve_with_shutdown with oneshot channel",
-    "dyn IntegrationEvidenceEmitter does NOT implement Debug — cannot derive Debug on structs containing it. Use manual Debug impl with .field(\"emitter\", &self.emitter.as_ref().map(|_| \"..\"))",
-    "INV-015: NO raw signatures, raw CVE feed payloads, or private keys in evidence payloads",
-    "IntegrationRecordType maps to aios_evidence::RecordType: StatusTransition, PolicyDecision, FailureObserved, ExternalBridgePackageAdmitted, ChainCheckpoint",
-    "Retention: VendorContractRevoked/ComplianceBaselineSnapshot/ControlMapDriftDetected = Forever; rest = Standard24M",
-    "Evidence emission is best-effort — errors from emitter are silently dropped (let _ = emitter.emit_...().await)",
-    "clippy::too_long_first_doc_paragraph (nursery) allowed at crate level in lib.rs — default 200-char limit too restrictive",
-    "CveId suffix must be all ASCII digits (>=4 chars) — is_valid_cve_id enforces CVE-YYYY-NNNN+ format",
-    "Arc::get_mut pattern for pre-clone mutation of authority registries",
-    "Orphan rule: test files cannot add inherent impl blocks for types defined in the crate",
-    "CveStatus enum: Open, UnderReview, Patched, Quarantined, NotApplicable — NO 'Active' variant",
-    "clippy::expect_used denied workspace-wide — MUST #[allow] on harness new() and register_vendor_authority()",
-    "clippy::missing_panics_doc (nursery) triggers on functions with expect() — must add # Panics section or #[allow]",
-    "clippy::items_after_statements: use statements inside function bodies must appear BEFORE any other statements; moving to top of fn body is the fix (NOT #[allow])",
-    "clippy::redundant_closure_for_method_calls: .map(|x| x.method()) can be .map(Type::method) when method takes &self"
+    "BeOS Media Kit node pipeline is the primary reference for AI inference streaming pipeline",
+    "seL4 capability model maps directly to capsule capability tokens",
+    "QNX MsgSend CPU transfer pattern applies to high-priority capsule IPC",
+    "Plan 9 per-process namespaces map to capsule capability namespaces",
+    "Genode recursive sandboxing matches capsule spawning model",
+    "Formal verification of AIOS recovery invariant should follow seL4 methodology"
   ],
   "discovered_dependencies": [
-    "IntegrationEvidenceEmitter trait is Option<Arc<dyn IntegrationEvidenceEmitter>> — when None, no emission occurs and no error is raised",
-    "WithIntegrationEmitter trait in evidence.rs for uniform builder pattern across 5 registries",
-    "ReceiptBuilder from aios_evidence crate requires subject, record_type, retention_class; seal(prev) produces chain-linked receipt",
-    "UnifiedRecordCatalogue is pre-populated via default_index_entries() which returns 64 CatalogueEntry values"
+    "AIOS capsule isolation model depends on seL4/Fuchsia capability model insights",
+    "AIOS real-time inference pipeline depends on BeOS Media Kit architecture",
+    "AIOS recovery subsystem depends on MINIX multi-level recovery (existing) + QNX driver restart model + seL4 integrity proofs"
   ],
-  "last_errors": [
-    "M19 parallel-factory race: a claude-ds T-196 worker (brief /tmp/t196-claudeds-brief.md) ran concurrently with the main session, both editing crates/aios-distribution. Factory committed its own T-196 (317f466) reverting my premature version bump to 0.0.1 and writing m19_closure.rs asserting 0.0.1. RESOLUTION: per user decision, let the factory finish T-196; then T-198 (the closer, my task) bumped 0.0.1->0.1.0 and reconciled m19_closure.rs to assert 0.1.0. History has duplicate T-196 (b72c224 mine + 317f466 factory) — harmless; 317f466 is the final state. LESSON: a milestone-closer task (version bump + version marker) must NOT run in parallel with a scope-limited evidence task on the same crate; the closer owns the version.",
-    "Version-marker authority: MILESTONES closure criterion #5 mandates 0.0.1->0.1.0 on the closing crate. A scoped worker that only adds evidence will leave version at 0.0.1 and may write a closure test asserting 0.0.1 — the closer must override both."
-  ],
-  "last_verification_result": "All 4 gates PASS. 4473 workspace tests / 0 failed. 480 aios-distribution crate tests. clippy -D warnings clean, fmt clean. M19 CLOSED. T-198 COMMITTED at 6259a26. REV.2 FULL-REAL — 19/19 milestones."
+  "last_errors": [],
+  "last_verification_result": "Document written successfully (1346 lines, 68KB), git status shows new untracked file ready for commit"
 }

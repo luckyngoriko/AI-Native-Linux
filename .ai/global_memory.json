@@ -99,3 +99,27 @@
     "milestone_closer_pattern_t114_sandbox_composition": "M12 closure (T-106..T-114, aios-sandbox 0.1.0) added the sandbox composition layer: 6-source merge with most-restrictive-wins semantics, GPU policy enforcement (dmabuf/IOMMU pairing, VkDevice requirement above PassiveDisplay, capability class PartialOrd), resource limit enforcement (CPU/memory/I/O/network/process/fd checking and remaining computation), syscall allowlisting with canonical per-IsolationKind allowlists (50+ ProcessContainer syscalls), gRPC SandboxService (9 RPCs), evidence emission (Ed25519 + BLAKE3), cross-crate runtime integration via SandboxRuntimeAdapter, CLI rendering via aios-renderer-cli, and §22 sandbox walk scenarios. Reusable lessons: (1) AI and recovery post-processing rules (AI→network≤LoopbackOnly+GPU≤Basic2d, recovery→isolation≥ProcessContainer) must be tested with concrete assertions, not just presence checks; (2) when an enum type (IsolationKind) lacks PartialOrd, use assert_ne! against specific variants instead of ordering comparisons; (3) resource enforcement order matters — CPU fires before memory in check_usage, so tests must ensure the target violation fires first; (4) fixture profile names must match exactly (e.g. 'recovery_only' not 'recovery_class'); (5) GpuCapabilityClass::COUNT requires EnumCount derive; (6) closure invariants should scan source for todo!/unimplemented!/Status::Unimplemented AND document deferred surfaces honestly (IOMMU status, signed GPU binding → M17); (7) SandboxError has exactly 10 variants — closure must construct all of them. Workspace 2345 tests across 12 crates. M12 CLOSED."
   }
 }
+{
+  "os_research_benchmark": {
+    "added": "2026-06-11",
+    "document": "003.AI-OS.NET--SPECREV.3/OS_RESEARCH_BENCHMARK.md",
+    "size": "1346 lines, 68KB",
+    "systems_analyzed": 12,
+    "critical_systems": ["BeOS (media pipeline)", "seL4 (formal verification, capabilities)", "QNX (commercial microkernel, IPC integration)"],
+    "cross_cutting_patterns": [
+      "Per-process/capsule namespace as security boundary (Plan 9, Fuchsia, seL4, Genode)",
+      "IPC as universal cross-domain mechanism (L4, QNX, seL4, Fuchsia)",
+      "Userspace drivers/filesystems (QNX, L4, seL4, Genode, Fuchsia)",
+      "Real-time scheduling with priority inheritance (BeOS 120 levels, QNX MsgSend CPU transfer)",
+      "Formal verification at production scale (seL4: $400/LOC, integrity + confidentiality proofs)"
+    ],
+    "aios_applications": {
+      "capsule_pipeline": "BeOS BMediaNode DAG → capsule inference pipeline",
+      "capability_security": "seL4 capability model → capsule capability tokens",
+      "capsule_isolation": "Genode recursive sandboxing → capsule spawning with capability subsets",
+      "capsule_namespace": "Plan 9 per-process namespace → per-capsule capability namespace",
+      "capsule_ipc": "QNX MsgSend CPU transfer → priority-inheriting capsule message passing",
+      "capsule_recovery": "QNX driver crash restart + seL4 integrity proof → capsule recovery boundaries"
+    }
+  }
+}

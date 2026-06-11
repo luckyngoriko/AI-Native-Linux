@@ -45,6 +45,8 @@ pub mod adapter_manifest;
 pub mod adapter_registry;
 /// T-034 — Approval orchestration types (S10.1 §6 ↔ S5.3).
 pub mod approval;
+/// R3-W3.3 — INV-002 mechanical enforcement gate ("AI proposes, never executes").
+pub mod approval_gate;
 /// T-034 — Approval binding sink (S10.1 ↔ S5.3 Approval Mechanics).
 pub mod approval_sink;
 pub mod context;
@@ -90,9 +92,29 @@ pub mod ima;
 pub mod verity;
 /// R3-W1: SBOM provenance and SLSA supply-chain evidence.
 pub mod sbom;
+/// R3-W1 Step 1.6: FIPS 140-3 crypto boundary — CMVP-validated provider routing
+/// and compliance-sensitive operation validation (S16.5).
+pub mod fips;
 /// R3-W2: Capsule lifecycle manager integrating sandbox/isolation/namespace/snapshot.
 pub mod capsule_lifecycle;
-
+/// R3-W2: Capsule evidence trail for every lifecycle event.
+pub mod capsule_evidence;
+/// R3-W2: cgroups v2 resource quotas (CPU / memory / I/O) per capsule.
+pub mod cgroups;
+/// R3-W2: Per-capsule filesystem isolation sandbox enforcing state-root boundaries.
+pub mod state_sandbox;
+/// R3-W4.1: Driver capsule template — signed, canary-booted, rollbackable driver sandbox.
+pub mod driver_capsule;
+/// R3-W3 Step 3.1 — Terminal mode dispatcher (Lx / Mix / Ai).
+pub mod terminal;
+/// R3-W3 Step 3.2 — Typed-action fabric: intent → translate → typed action → dispatch.
+pub mod action_fabric;
+/// R3-W1: GDPR crypto-shred module for personal data classification and RTBF erasure (S16.9).
+pub mod gdpr;
+/// R3-W5.1: Kernel personality and portability — Linux gold path, capability matrix, canary boot.
+pub mod kernel_personality;
+/// R3-W6.1: Package Rosetta — universal intake across deb/rpm/flatpak/snap/appimage/nix/oci/source.
+pub mod package_rosetta;
 pub use adapter_handle::RealAdapterHandle;
 pub use adapter_manifest::AdapterManifest;
 pub use adapter_registry::{
@@ -171,8 +193,44 @@ pub use selinux::{
     AvcDenial, SeLinuxContext, SeLinuxDomain, SeLinuxPermission, SeLinuxRule,
     SePolicyBundle, SePolicyValidator, ValidationError, AIOS_DATA_DOMAIN, AIOS_SYSTEM_DOMAIN,
 };
-// R3-W1: verity, SBOM re-exports
+// R3-W1: verity, SBOM, FIPS re-exports
 pub use verity::{IpePolicy, VerityHashTree, VerityImage, VerityResult, VerityVerifier};
 pub use sbom::{SbomComponent, SbomDocument, SbomFormat, SlsaProvenance, VexStatement, VexStatus};
-// R3-W2: Lifecycle, rollback re-exports
+pub use fips::{
+    CryptoBoundaryDecision, CryptoOperation, CryptoProvider, FipsBoundary, FipsPolicy,
+};
+// R3-W2: Lifecycle, rollback, state sandbox re-exports
 pub use capsule_lifecycle::{CapsuleLifecycle, CapsuleLifecycleManager, CapsuleLifecycleState};
+pub use capsule_evidence::{CapsuleEvent, CapsuleEvidence, EvidenceChain};
+pub use driver_capsule::{
+    CanaryBootResult, DriverCapsule, DriverClass, DriverRegistry, DriverSignature,
+};
+pub use state_sandbox::{
+    AccessDecision, FileAccessRule, FilePermission, SandboxViolation, StateSandbox,
+};
+// R3-W2: cgroups v2 resource quotas re-exports
+pub use cgroups::{
+    CgroupProfile, EnforcementAction, EnforcementMode, QuotaViolation, ResourceQuota,
+    ResourceType, ResourceUsage,
+};
+// R3-W3 Step 3.1 — Terminal dispatcher re-exports
+pub use terminal::{CommandDispatch, DispatchResult, TerminalCommand, TerminalDispatcher, TerminalMode};
+// R3-W3.3 — Approval gate re-exports (INV-002)
+pub use approval_gate::{
+    ApprovalDecision, ApprovalGate, ApprovalPolicy, GateApprovalRequest, GateAuditEntry,
+};
+// R3-W3 Step 3.2 — Action fabric re-exports
+pub use action_fabric::{
+    ActionFabric, ActionIntent, CapabilityCatalog, FabricResult, TypedAction,
+};
+// R3-W1: GDPR crypto-shred re-exports
+pub use gdpr::{
+    AuditEntry, AuditTrail, CryptoShredKey, DataCategory, DataClassification,
+    DataGovernanceRegistry, DataSubject, ExportBundle, RetentionPolicy,
+    ShredEvidence, ShredRequest, ShredResult,
+};
+// R3-W6.1: Package Rosetta re-exports
+pub use package_rosetta::{
+    PackageFormat, PackagePassport, PackageRegistry, ShadowInstall, ShadowResult,
+};
+

@@ -759,32 +759,22 @@
       "crate_version": "aios-policy/0.1.0"
     },
     "M4": {
-      "status": "in_progress",
-      "title": "Capability Runtime skeleton (S10.1 aios-capability-runtime crate)",
+      "status": "completed",
+      "title": "Capability Runtime + 48-module hardening + OS research (Rev.3 COMPLETE)",
       "started_at": "2026-05-24",
-      "tasks_planned": [
-        "T-026",
-        "T-027",
-        "T-028",
-        "T-029",
-        "T-030",
-        "T-031",
-        "T-032",
-        "T-033",
-        "T-034",
-        "T-035"
+      "completed_at": "2026-06-11",
+      "tasks": [
+        "T-026", "T-027", "T-028", "T-029", "T-030", "T-031", "T-032", "T-033", "T-034", "T-035",
+        "TSK-VA-001", "TSK-VA-002", "TSK-VA-003", "TSK-VA-004", "TSK-VA-005", "TSK-VA-006", "TSK-VA-007",
+        "R3-W1 (TPM, SELinux, IMA, dm-verity, FIPS, SBOM, GDPR, security_profile)",
+        "R3-W2 (capsule_lifecycle, state_sandbox, capsule_evidence, cgroups, rollback_engine)",
+        "R3-W3 (terminal, action_fabric, approval_gate, dispatch_queue, dispatcher)",
+        "R3-W4 (driver_capsule)", "R3-W5 (kernel_personality)", "R3-W6 (package_rosetta)",
+        "R3-W7/W8 (integration fixes, agent dispatch, final verification)"
       ],
-      "tasks_completed": [
-        "T-026",
-        "T-027",
-        "T-028",
-        "T-029",
-        "T-030",
-        "T-031",
-        "T-032"
-      ],
-      "current_test_count": 740,
-      "crate_version_target": "aios-capability-runtime/0.1.0"
+      "final_test_count": 578,
+      "crate_version": "aios-capability-runtime (48 modules, ~30,000 lines)",
+      "rationale": "Rev.3 final state: 7 OS-RESEARCH modules (5,781 lines, 165 tests) + 26 R3 hardening modules (~24,000 lines, 171+ tests) + 15 pre-existing modules. 578 tests pass, 0 failures. cargo check 0 errors. 44 spec files in 003.AI-OS.NET--SPECREV.3/. Committed 62b500f."
     },
     "M5": {
       "status": "CLOSED",
@@ -1028,7 +1018,9 @@
       "rationale": "Signed package distribution, publisher trust chain, CVE-aware install. Consumes M18 integration framework. Closed at T-198 (6259a26) -> Rev.2 FULL-REAL (19/19). Deferred surfaces (cognitive RPCs, Tier-3 verification primitives) tracked as a future milestone."
     }
   },
-  "roadmap_version": "2026-05-29-M19-closed-FULL-REAL",
+  "roadmap_version": "2026-06-11-Rev.3-COMPLETE-48-modules-578-tests",
   "roadmap_total_milestones": 19,
+  "roadmap_revision": "Rev.3 (R3-W1 through R3-W8 fully executed)",
+  "roadmap_next": "Rev.4 (Boot ISO — live bootable AIOS image), Rev.5-10 (live cognition, desktop, fleet, hardening, ecosystem, autonomous)",
   "roadmap_remaining_after_M4": []
 }

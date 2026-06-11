@@ -73,6 +73,8 @@ pub mod transparent_ipc;
 pub mod scheduler;
 /// OS-RESEARCH: Genode/seL4-inspired recursive sandbox hierarchy.
 pub mod recursive_sandbox;
+/// OS-RESEARCH: Plan 9 Fossil/Singularity-inspired capsule snapshot & restore.
+pub mod snapshot;
 
 pub use adapter_handle::RealAdapterHandle;
 pub use adapter_manifest::AdapterManifest;
@@ -128,3 +130,4 @@ pub use recursive_sandbox::{
     RecursiveSandbox, SandboxCapability, SandboxHierarchy, SandboxLevel, SandboxResource,
     MAX_DEPTH,
 };
+pub use snapshot::{CapsuleSnapshot, SnapshotId, SnapshotPayload, SnapshotStore};
